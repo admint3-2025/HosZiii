@@ -1,0 +1,4 @@
+- Mantén el alcance mínimo y alineado al diseño solicitado (login profesional, dashboard con KPIs, tickets con comentarios y auditoría).
+- No agregues páginas/funciones extra que no estén explícitamente pedidas.
+- Prioriza trazabilidad ITIL: estados, historial, auditoría y soft-delete.
+- En UI, usa Tailwind sin inventar una “nueva marca” (sin colores/typografías custom fuera de lo estándar).

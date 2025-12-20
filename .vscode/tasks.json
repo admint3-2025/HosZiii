@@ -1,0 +1,44 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Install dependencies (npm install)",
+			"type": "shell",
+			"command": "npm",
+			"args": ["install"],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Run dev server (npm run dev)",
+			"type": "shell",
+			"command": "npm",
+			"args": ["run", "dev"],
+			"isBackground": true,
+			"problemMatcher": [],
+			"group": "build"
+		},
+		{
+			"label": "Scaffold Next.js (create-next-app)",
+			"type": "shell",
+			"command": "npx",
+			"args": [
+				"create-next-app@latest",
+				".",
+				"--yes",
+				"--ts",
+				"--tailwind",
+				"--eslint",
+				"--app",
+				"--src-dir",
+				"--import-alias",
+				"@/*",
+				"--use-npm"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "build"
+		}
+	]
+}

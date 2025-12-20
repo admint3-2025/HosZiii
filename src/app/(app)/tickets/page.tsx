@@ -1,0 +1,199 @@
+import Link from 'next/link'
+import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getCategoryPathLabel } from '@/lib/categories/path'
+import { StatusBadge, PriorityBadge, LevelBadge } from '@/lib/ui/badges'
+
+export default async function TicketsPage() {
+  const supabase = await createSupabaseServerClient()
+  const [{ data: tickets, error }, { data: categories }] = await Promise.all([
+    supabase
+    .from('tickets')
+    .select('id,ticket_number,title,status,priority,support_level,created_at,category_id')
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+    .limit(50),
+    supabase.from('categories').select('id,name,parent_id'),
+  ])
+
+  return (
+    <main className="p-6 space-y-6">
+      {/* Header con gradiente y mejor diseño */}
+      <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-700 p-6 shadow-lg">
+        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32"></div>
+        <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-400/20 rounded-full blur-3xl -ml-32 -mb-32"></div>
+        
+        <div className="relative z-10 flex items-center justify-between gap-4">
+          <div>
+            <div className="flex items-center gap-3 mb-1">
+              <div className="p-2 bg-white/20 backdrop-blur-sm rounded-lg">
+                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+                </svg>
+              </div>
+              <h1 className="text-xl font-bold text-white">Tickets</h1>
+            </div>
+            <p className="text-blue-100 text-xs">Gestiona y da seguimiento a todas las solicitudes de soporte</p>
+          </div>
+          <Link
+            href="/tickets/new"
+            className="flex items-center gap-2 px-4 py-2 bg-white text-indigo-600 font-semibold rounded-lg shadow-md hover:shadow-lg hover:scale-105 transition-all duration-200 text-sm"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+            Crear ticket
+          </Link>
+        </div>
+      </div>
+
+      {error ? (
+        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 shadow-sm">
+          <div className="flex items-center gap-2">
+            <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+            </svg>
+            {error.message}
+          </div>
+        </div>
+      ) : null}
+
+      {/* Tabla mejorada con diseño moderno */}
+      <div className="card overflow-hidden shadow-lg border-0">
+        <div className="overflow-x-auto">
+        <table className="min-w-full text-sm">
+          <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b-2 border-gray-200">
+            <tr>
+              <th className="px-4 py-4 text-center font-semibold text-gray-700 uppercase tracking-wider text-xs">
+                <svg className="w-4 h-4 mx-auto" fill="currentColor" viewBox="0 0 20 20">
+                  <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
+                </svg>
+              </th>
+              <th className="px-6 py-4 text-left font-semibold text-gray-700 uppercase tracking-wider text-xs">#</th>
+              <th className="px-6 py-4 text-left font-semibold text-gray-700 uppercase tracking-wider text-xs">Título</th>
+              <th className="px-6 py-4 text-left font-semibold text-gray-700 uppercase tracking-wider text-xs">Categoría</th>
+              <th className="px-6 py-4 text-left font-semibold text-gray-700 uppercase tracking-wider text-xs">Estado</th>
+              <th className="px-6 py-4 text-left font-semibold text-gray-700 uppercase tracking-wider text-xs">Prioridad</th>
+              <th className="px-6 py-4 text-left font-semibold text-gray-700 uppercase tracking-wider text-xs">Nivel</th>
+              <th className="px-6 py-4 text-left font-semibold text-gray-700 uppercase tracking-wider text-xs">Creado</th>
+            </tr>
+          </thead>
+          <tbody className="divide-y divide-gray-100">
+            {(tickets ?? []).map((t) => {
+              // Configuración del semáforo según prioridad (P1=Crítica, P2=Alta, P3=Media, P4=Baja)
+              const priorityConfig: Record<number, { bg: string, border: string, glow: string, pulse: string }> = {
+                1: { bg: 'bg-red-500', border: 'border-red-600', glow: 'shadow-red-500/50', pulse: 'animate-pulse' }, // Crítica
+                2: { bg: 'bg-orange-500', border: 'border-orange-600', glow: 'shadow-orange-500/50', pulse: 'animate-pulse' }, // Alta
+                3: { bg: 'bg-blue-500', border: 'border-blue-600', glow: 'shadow-blue-500/50', pulse: '' }, // Media
+                4: { bg: 'bg-gray-400', border: 'border-gray-500', glow: 'shadow-gray-400/50', pulse: '' }, // Baja
+                5: { bg: 'bg-purple-500', border: 'border-purple-600', glow: 'shadow-purple-500/50', pulse: 'animate-pulse' }, // Urgente (adicional)
+              }
+              const config = priorityConfig[t.priority] || priorityConfig[3]
+              
+              const priorityLabel: Record<number, string> = {
+                1: 'Crítica',
+                2: 'Alta', 
+                3: 'Media',
+                4: 'Baja',
+                5: 'Urgente'
+              }
+              
+              return (
+                <tr key={t.id} className="hover:bg-blue-50/50 transition-colors duration-150 group">
+                  <td className="px-4 py-4">
+                    <div className="flex justify-center">
+                      <div 
+                        className={`relative flex items-center justify-center w-8 h-8 ${config.bg} rounded-lg shadow-lg ${config.glow} ${config.pulse} transform transition-transform group-hover:scale-110`}
+                        title={`Prioridad: ${priorityLabel[t.priority] || 'N/A'}`}
+                      >
+                        {/* Icono según prioridad */}
+                        {t.priority >= 3 && (
+                          <svg className="w-5 h-5 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                        {t.priority === 4 && (
+                          <svg className="w-4 h-4 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+                          </svg>
+                        )}
+                        {/* Pulso adicional para prioridades altas */}
+                        {t.priority <= 2 && (
+                          <span className="absolute -top-1 -right-1 flex h-3 w-3">
+                            <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${config.bg} opacity-75`}></span>
+                            <span className={`relative inline-flex rounded-full h-3 w-3 ${config.bg} border border-white`}></span>
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </td>
+                  <td className="px-6 py-4">
+                  <span className="inline-flex items-center justify-center w-8 h-8 rounded-lg bg-blue-100 text-blue-700 font-bold text-xs group-hover:bg-blue-200 transition-colors">
+                    {t.ticket_number}
+                  </span>
+                </td>
+                <td className="px-6 py-4">
+                  <Link href={`/tickets/${t.id}`} className="font-semibold text-gray-900 hover:text-blue-600 transition-colors flex items-center gap-2 group/link">
+                    <span className="group-hover/link:underline">{t.title}</span>
+                    <svg className="w-4 h-4 opacity-0 group-hover/link:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
+                  </Link>
+                </td>
+                <td className="px-6 py-4">
+                  <span className="inline-flex items-center gap-1.5 text-gray-700 text-xs">
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
+                    </svg>
+                    {getCategoryPathLabel(categories ?? [], t.category_id) || '—'}
+                  </span>
+                </td>
+                <td className="px-6 py-4">
+                  <StatusBadge status={t.status} />
+                </td>
+                <td className="px-6 py-4">
+                  <PriorityBadge priority={t.priority} />
+                </td>
+                <td className="px-6 py-4">
+                  <LevelBadge level={t.support_level} />
+                </td>
+                <td className="px-6 py-4">
+                  <div className="flex items-center gap-2 text-gray-600 text-xs">
+                    <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    {new Date(t.created_at).toLocaleString('es-ES', { 
+                      day: '2-digit', 
+                      month: 'short', 
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </div>
+                </td>
+              </tr>
+              )
+            })}
+            {tickets?.length === 0 ? (
+              <tr>
+                <td className="px-6 py-16 text-center" colSpan={8}>
+                  <div className="flex flex-col items-center gap-3">
+                    <div className="p-4 bg-gray-100 rounded-full">
+                      <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <p className="text-gray-900 font-medium">No hay tickets todavía</p>
+                      <p className="text-gray-500 text-sm mt-1">Crea el primer ticket para comenzar</p>
+                    </div>
+                  </div>
+                </td>
+              </tr>
+            ) : null}
+          </tbody>
+        </table>
+        </div>
+      </div>
+    </main>
+  )
+}
