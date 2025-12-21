@@ -11,7 +11,7 @@ export default function Footer() {
           {/* Logo compacto */}
           <div className="flex items-center gap-2">
             <img
-              src="https://integracional3.com.mx/logorigen/ZIII%20logo.png"
+              src="https://integrational3.com.mx/logorigen/ZIII%20logo.png"
               alt="ZIII"
               className="h-8 w-auto"
             />
@@ -53,7 +53,7 @@ export default function Footer() {
         {/* Fila 3: Copyright + Contacto + Estado */}
         <div className="flex flex-wrap items-center justify-between gap-4 text-xs text-gray-500">
           <div>
-            © {currentYear} <span className="font-semibold text-gray-700">Integracional3</span>
+            © {currentYear} <span className="font-semibold text-gray-700">ZIII Helpdesk</span>
           </div>
           
           <div className="flex items-center gap-4">
