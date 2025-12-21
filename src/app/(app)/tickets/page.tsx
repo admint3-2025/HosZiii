@@ -2,16 +2,54 @@ import Link from 'next/link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getCategoryPathLabel } from '@/lib/categories/path'
 import { StatusBadge, PriorityBadge, LevelBadge } from '@/lib/ui/badges'
+import TicketFilters from './ui/TicketFilters'
 
-export default async function TicketsPage() {
+export default async function TicketsPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ search?: string; status?: string; priority?: string; level?: string; category?: string }>
+}) {
   const supabase = await createSupabaseServerClient()
-  const [{ data: tickets, error }, { data: categories }] = await Promise.all([
-    supabase
+  const params = await searchParams
+  
+  // Construir query base
+  let query = supabase
     .from('tickets')
-    .select('id,ticket_number,title,status,priority,support_level,created_at,category_id')
+    .select('id,ticket_number,title,status,priority,support_level,created_at,category_id,description')
     .is('deleted_at', null)
-    .order('created_at', { ascending: false })
-    .limit(50),
+
+  // Aplicar filtros
+  if (params.search) {
+    const searchTerm = params.search.toLowerCase()
+    // Buscar en ticket_number, título o descripción
+    if (searchTerm.startsWith('#')) {
+      const num = parseInt(searchTerm.substring(1))
+      if (!isNaN(num)) {
+        query = query.eq('ticket_number', num)
+      }
+    } else {
+      query = query.or(`title.ilike.%${params.search}%,description.ilike.%${params.search}%`)
+    }
+  }
+  
+  if (params.status) {
+    query = query.eq('status', params.status)
+  }
+  
+  if (params.priority) {
+    query = query.eq('priority', parseInt(params.priority))
+  }
+  
+  if (params.level) {
+    query = query.eq('support_level', parseInt(params.level))
+  }
+  
+  if (params.category) {
+    query = query.eq('category_id', params.category)
+  }
+
+  const [{ data: tickets, error }, { data: categories }] = await Promise.all([
+    query.order('created_at', { ascending: false }).limit(100),
     supabase.from('categories').select('id,name,parent_id'),
   ])
 
@@ -56,6 +94,9 @@ export default async function TicketsPage() {
           </div>
         </div>
       ) : null}
+
+      {/* Filtros */}
+      <TicketFilters categories={categories ?? []} />
 
       {/* Tabla mejorada con diseño moderno */}
       <div className="card overflow-hidden shadow-lg border-0">
