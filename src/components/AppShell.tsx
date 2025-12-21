@@ -103,7 +103,7 @@ export default async function AppShell({ children }: { children: React.ReactNode
 
       <div className="flex-1">
         <div className="mx-auto max-w-7xl px-6 py-6 grid gap-6 lg:grid-cols-[240px_1fr]">
-          <aside className="card h-fit shadow-sm border border-slate-200">
+          <aside className="card shadow-sm border border-slate-200 sticky top-6 self-start max-h-[calc(100vh-8rem)] overflow-y-auto">
           <div className="card-body p-3">
             <nav className="flex flex-col space-y-4">
               {/* Sección Principal */}
