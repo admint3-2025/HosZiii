@@ -190,7 +190,6 @@ export default async function AppShell({ children }: { children: React.ReactNode
               </div>
             </nav>
           </div>
-          </div>
         </aside>
         <section className="min-w-0">{children}</section>
         </div>
