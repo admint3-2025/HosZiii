@@ -21,6 +21,15 @@ type User = {
   email: string | null
 }
 
+type Asset = {
+  id: string
+  asset_tag: string
+  asset_type: string
+  brand: string | null
+  model: string | null
+  status: string
+}
+
 export default function TicketCreateForm({ categories: initialCategories }: { categories: CategoryRow[] }) {
   const router = useRouter()
   const supabase = createSupabaseBrowserClient()
@@ -41,6 +50,10 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [requesterId, setRequesterId] = useState<string>('')
   const [canCreateForOthers, setCanCreateForOthers] = useState(false)
+  
+  // Asset selection (optional)
+  const [assets, setAssets] = useState<Asset[]>([])
+  const [assetId, setAssetId] = useState<string>('')
   
   // Modal states
   const [showModal, setShowModal] = useState(false)
@@ -82,6 +95,18 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
             email: null // We don't have direct access to email from client
           })))
         }
+      }
+
+      // Load available assets (only operational ones)
+      const { data: assetsData } = await supabase
+        .from('assets')
+        .select('id, asset_tag, asset_type, brand, model, status')
+        .eq('deleted_at', null)
+        .in('status', ['OPERATIONAL', 'MAINTENANCE'])
+        .order('asset_tag', { ascending: true })
+
+      if (assetsData) {
+        setAssets(assetsData)
       }
     }
     loadData()
@@ -144,6 +169,7 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
       requester_id: canCreateForOthers && requesterId && requesterId !== currentUserId
         ? requesterId
         : undefined,
+      asset_id: assetId || null,
     })
 
     if (result.error) {
@@ -396,6 +422,42 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
                 </option>
 ))}
             </select>
+            </div>
+          </div>
+        )}
+
+        {/* Selector de activo (opcional) */}
+        {assets.length > 0 && (
+          <div className="card shadow-lg border-0 overflow-hidden">
+            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border-b border-emerald-200 px-6 py-4">
+              <div className="flex items-center gap-3">
+                <div className="p-2 bg-emerald-100 rounded-lg">
+                  <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-sm font-semibold text-emerald-900 uppercase tracking-wider">Activo relacionado</h3>
+                  <p className="text-xs text-emerald-700">Opcional: vincula este ticket con un activo de TI</p>
+                </div>
+              </div>
+            </div>
+            <div className="card-body">
+              <select
+                className="select w-full text-sm"
+                value={assetId}
+                onChange={(e) => setAssetId(e.target.value)}
+              >
+                <option value="">-- Ninguno --</option>
+                {assets.map((asset) => (
+                  <option key={asset.id} value={asset.id}>
+                    {asset.asset_tag} - {asset.asset_type} 
+                    {asset.brand && ` ${asset.brand}`}
+                    {asset.model && ` ${asset.model}`}
+                    {asset.status === 'MAINTENANCE' && ' [En mantenimiento]'}
+                  </option>
+                ))}
+              </select>
             </div>
           </div>
         )}

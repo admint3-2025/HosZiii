@@ -13,6 +13,7 @@ type CreateTicketInput = {
   priority: number
   support_level: number
   requester_id?: string
+  asset_id?: string | null
 }
 
 export async function createTicket(input: CreateTicketInput) {
@@ -38,6 +39,11 @@ export async function createTicket(input: CreateTicketInput) {
   // If requester_id is provided, use it (agent creating for another user)
   if (input.requester_id) {
     ticketData.requester_id = input.requester_id
+  }
+
+  // If asset_id is provided, link the ticket to an asset
+  if (input.asset_id) {
+    ticketData.asset_id = input.asset_id
   }
 
   const { data: ticket, error } = await supabase
