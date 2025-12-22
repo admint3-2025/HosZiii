@@ -17,9 +17,8 @@ export async function GET() {
     .eq('id', user.id)
     .single()
 
-  const role = profile?.role
-  const allowed = role === 'auditor' || role === 'supervisor' || role === 'admin'
-  if (!allowed) {
+  // Solo administradores pueden exportar auditoría
+  if (profile?.role !== 'admin') {
     return new Response('Forbidden', { status: 403 })
   }
 
