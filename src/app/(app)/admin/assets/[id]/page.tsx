@@ -4,7 +4,8 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import AssetDetailView from './ui/AssetDetailView'
 import AssetTicketHistory from './ui/AssetTicketHistory'
 
-export default async function AssetDetailPage({ params }: { params: { id: string } }) {
+export default async function AssetDetailPage({ params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params
   const supabase = await createSupabaseServerClient()
   
   const { data: { user } } = await supabase.auth.getUser()
@@ -29,7 +30,7 @@ export default async function AssetDetailPage({ params }: { params: { id: string
       *,
       created_by_profile:profiles!assets_created_by_fkey(full_name)
     `)
-    .eq('id', params.id)
+    .eq('id', id)
     .is('deleted_at', null)
     .single()
 
@@ -51,7 +52,7 @@ export default async function AssetDetailPage({ params }: { params: { id: string
       requester:profiles!tickets_requester_id_fkey(full_name),
       assigned:profiles!tickets_assigned_agent_id_fkey(full_name)
     `)
-    .eq('asset_id', params.id)
+    .eq('asset_id', id)
     .is('deleted_at', null)
     .order('created_at', { ascending: false })
 
