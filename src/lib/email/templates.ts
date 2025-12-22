@@ -234,6 +234,118 @@ export function ticketCreatedEmailTemplate(params: {
   return { subject, html, text }
 }
 
+export function ticketAssignedToRequesterEmailTemplate(params: {
+  ticketNumber: string
+  title: string
+  priority: string
+  assignedAgentName: string
+  ticketUrl: string
+  requesterName: string
+}) {
+  const { ticketNumber, title, priority, assignedAgentName, ticketUrl, requesterName } = params
+
+  const subject = `✅ Tu ticket #${ticketNumber} ha sido asignado`
+
+  const text = [
+    `Actualización de tu ticket`,
+    ``,
+    `Ticket: #${ticketNumber}`,
+    `Título: ${title}`,
+    `Prioridad: ${priority}`,
+    `Asignado a: ${assignedAgentName}`,
+    ``,
+    `Tu ticket está siendo atendido por nuestro equipo de soporte.`,
+    ``,
+    `Ver ticket:`,
+    ticketUrl,
+  ].join('\n')
+
+  const html = `
+  <!DOCTYPE html>
+  <html lang="es">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  </head>
+  <body style="margin:0; padding:0; background-color:#f9fafb;">
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background:#f9fafb; padding:40px 20px;">
+      
+      <div style="max-width:600px; margin:0 auto 24px auto; text-align:center;">
+        <img src="https://integrational3.com.mx/logorigen/ZIII%20logo.png" alt="ZIII Helpdesk" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
+      </div>
+
+      <div style="max-width:600px; margin:0 auto; background:#ffffff; border-radius:16px; box-shadow:0 4px 6px rgba(0,0,0,0.07); overflow:hidden;">
+        
+        <div style="background:linear-gradient(135deg, #10b981 0%, #34d399 100%); padding:24px 24px 16px 24px;">
+          <div style="background:rgba(255,255,255,0.15); backdrop-filter:blur(10px); border-radius:12px; padding:12px; text-align:center; border:1px solid rgba(255,255,255,0.2);">
+            <div style="font-size:36px; margin-bottom:6px;">✅</div>
+            <h2 style="margin:0; font-size:20px; font-weight:700; color:#ffffff;">Ticket Asignado</h2>
+            <p style="margin:8px 0 0 0; font-size:14px; color:rgba(255,255,255,0.9);">Tu solicitud está siendo atendida</p>
+          </div>
+        </div>
+
+        <div style="padding:32px;">
+          <p style="margin:0 0 24px 0; font-size:15px; color:#374151; line-height:1.6;">
+            Hola <strong style="color:#111827;">${escapeHtml(requesterName)}</strong>,
+          </p>
+          <p style="margin:0 0 24px 0; font-size:15px; color:#374151; line-height:1.6;">
+            Tu ticket ha sido asignado a un miembro de nuestro equipo técnico y está siendo atendido.
+          </p>
+
+          <div style="margin-bottom:24px; padding:20px; background:linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%); border-radius:12px; text-align:center; border:2px solid #6ee7b7;">
+            <div style="font-size:12px; color:#059669; font-weight:700; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px;">Ticket en Proceso</div>
+            <div style="font-size:32px; color:#047857; font-weight:800; letter-spacing:-1px;">#${escapeHtml(ticketNumber)}</div>
+          </div>
+
+          <div style="margin-bottom:24px;">
+            <div style="margin-bottom:16px; padding-bottom:16px; border-bottom:1px solid #e5e7eb;">
+              <div style="font-size:11px; color:#6b7280; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:6px;">Título del ticket</div>
+              <div style="font-size:16px; color:#111827; font-weight:600; line-height:1.4;">${escapeHtml(title)}</div>
+            </div>
+
+            <div style="display:table; width:100%; margin-bottom:16px;">
+              <div style="display:table-cell; width:50%; padding-right:12px;">
+                <div style="font-size:11px; color:#6b7280; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:6px;">Prioridad</div>
+                <div style="display:inline-block; padding:4px 12px; background:#fef2f2; color:#dc2626; font-size:13px; font-weight:700; border-radius:6px;">${escapeHtml(priority)}</div>
+              </div>
+              <div style="display:table-cell; width:50%; padding-left:12px; border-left:1px solid #e5e7eb;">
+                <div style="font-size:11px; color:#6b7280; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:6px;">Responsable</div>
+                <div style="font-size:14px; color:#111827; font-weight:500;">${escapeHtml(assignedAgentName)}</div>
+              </div>
+            </div>
+          </div>
+
+          <div style="text-align:center; margin:32px 0 24px 0;">
+            <a href="${escapeAttr(ticketUrl)}"
+               style="display:inline-block; background:linear-gradient(135deg, #10b981 0%, #34d399 100%); color:#ffffff; text-decoration:none; padding:14px 32px; border-radius:12px; font-size:16px; font-weight:600; box-shadow:0 4px 12px rgba(16, 185, 129, 0.3);">
+              Ver Estado del Ticket →
+            </a>
+          </div>
+
+          <div style="margin-top:24px; padding:16px; background:#dbeafe; border-left:4px solid #3b82f6; border-radius:8px;">
+            <p style="margin:0; font-size:13px; color:#1e40af; line-height:1.5;">
+              <strong>📞 Información:</strong> El técnico asignado se pondrá en contacto contigo si necesita información adicional. Te mantendremos informado de cualquier actualización.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div style="max-width:600px; margin:24px auto 0 auto; text-align:center;">
+        <p style="margin:0 0 8px 0; font-size:12px; color:#9ca3af;">
+          Enviado por <strong>ZIII Helpdesk</strong> · Mesa de Ayuda ITIL
+        </p>
+        <p style="margin:0; font-size:11px; color:#d1d5db;">
+          Este es un mensaje automático, por favor no respondas a este correo
+        </p>
+      </div>
+    </div>
+  </body>
+  </html>
+  `
+
+  return { subject, html, text }
+}
+
 export function ticketAssignedEmailTemplate(params: {
   ticketNumber: string
   title: string

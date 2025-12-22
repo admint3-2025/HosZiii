@@ -2,6 +2,7 @@ import { sendMail } from './mailer'
 import {
   ticketCreatedEmailTemplate,
   ticketAssignedEmailTemplate,
+  ticketAssignedToRequesterEmailTemplate,
   ticketStatusChangedEmailTemplate,
   ticketClosedEmailTemplate,
   ticketEscalatedEmailTemplate,
@@ -169,14 +170,14 @@ export async function notifyTicketAssigned(data: TicketNotificationData) {
 
       const requesterName = requesterProfile?.full_name || requester.user.email
 
-      // Usar template profesional para el solicitante también
-      const requesterTemplate = ticketAssignedEmailTemplate({
+      // Usar template específico para el solicitante
+      const requesterTemplate = ticketAssignedToRequesterEmailTemplate({
         ticketNumber: data.ticketNumber,
         title: data.title,
         priority: PRIORITY_LABELS[data.priority || 3] || 'Media',
-        assignedTo: agentName,
-        assignedBy,
+        assignedAgentName: agentName,
         ticketUrl,
+        requesterName,
       })
 
       await sendMail({
