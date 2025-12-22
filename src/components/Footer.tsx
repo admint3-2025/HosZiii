@@ -50,27 +50,15 @@ export default function Footer() {
         {/* Fila 2: Separador */}
         <div className="my-3 border-t border-slate-200" />
 
-        {/* Fila 3: Copyright + Contacto + Estado */}
+        {/* Fila 3: Copyright + Estado */}
         <div className="flex flex-wrap items-center justify-between gap-4 text-xs text-gray-500">
           <div>
             © {currentYear} <span className="font-semibold text-gray-700">ZIII Helpdesk</span>
           </div>
           
-          <div className="flex items-center gap-4">
-            <a 
-              href="mailto:helpdesk@integracional3.com.mx"
-              className="hover:text-blue-600 inline-flex items-center gap-1"
-            >
-              <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-              helpdesk@integracional3.com.mx
-            </a>
-            <span className="text-gray-300">•</span>
-            <div className="flex items-center gap-1.5">
-              <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-              <span>v1.0.0</span>
-            </div>
+          <div className="flex items-center gap-1.5">
+            <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
+            <span>v1.0.0</span>
           </div>
         </div>
       </div>
