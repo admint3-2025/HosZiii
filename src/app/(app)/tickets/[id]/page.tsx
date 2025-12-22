@@ -91,6 +91,7 @@ export default async function TicketDetailPage({
           requester: usersMap.get(ticket.requester_id),
           assigned_agent: ticket.assigned_agent_id ? usersMap.get(ticket.assigned_agent_id) : null,
           closed_by_user: ticket.closed_by ? usersMap.get(ticket.closed_by) : null,
+          current_user_id: user?.id,
         }}
         comments={(comments ?? []).map(c => ({
           ...c,

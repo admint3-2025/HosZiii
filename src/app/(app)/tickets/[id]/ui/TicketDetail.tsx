@@ -79,7 +79,14 @@ export default function TicketDetail({
           <TicketAttachments ticketId={ticket.id} canDelete={canPerformActions} />
 
           {/* Comentarios */}
-          <TicketComments ticketId={ticket.id} comments={comments} />
+          <TicketComments 
+            ticketId={ticket.id} 
+            comments={comments}
+            ticketStatus={ticket.status}
+            ticketClosedAt={ticket.closed_at}
+            isRequester={ticket.current_user_id === ticket.requester_id}
+            userRole={userRole}
+          />
         </div>
 
         {/* Sidebar de acciones */}
