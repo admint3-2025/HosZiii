@@ -191,7 +191,7 @@ begin
     -- Notificaciones especiales para estados críticos
     if new.status in ('RESOLVED', 'CLOSED') then
       update notifications
-      set type = case when new.status = 'RESOLVED' then 'TICKET_RESOLVED' else 'TICKET_CLOSED' end
+      set type = case when new.status = 'RESOLVED' then 'TICKET_RESOLVED'::notification_type else 'TICKET_CLOSED'::notification_type end
       where ticket_id = new.id
         and user_id = new.requester_id
         and created_at = (select max(created_at) from notifications where ticket_id = new.id and user_id = new.requester_id);
