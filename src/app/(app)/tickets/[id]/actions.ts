@@ -15,6 +15,7 @@ type UpdateTicketStatusInput = {
   nextStatus: string
   assignedAgentId?: string | null
   resolution?: string
+  attachments?: File[]
 }
 
 export async function updateTicketStatus(input: UpdateTicketStatusInput) {
@@ -99,9 +100,10 @@ export async function updateTicketStatus(input: UpdateTicketStatusInput) {
     console.error('Error insertando historial de estado:', historyErr)
   }
 
-  // Si se cierra el ticket, agregar comentario con la resolución
+  // Si se cierra el ticket, agregar comentario con la resolución y adjuntos
   if (input.nextStatus === 'CLOSED' && input.resolution) {
-    const { error: commentErr } = await supabase
+    // Crear comentario de resolución
+    const { data: commentData, error: commentErr } = await supabase
       .from('ticket_comments')
       .insert({
         ticket_id: input.ticketId,
@@ -109,9 +111,59 @@ export async function updateTicketStatus(input: UpdateTicketStatusInput) {
         body: `🔒 **Ticket cerrado**\n\n**Resolución:**\n${input.resolution}`,
         visibility: 'public',
       })
+      .select()
+      .single()
 
     if (commentErr) {
       console.error('Error agregando comentario de resolución:', commentErr)
+    }
+
+    // Subir adjuntos si los hay
+    if (input.attachments && input.attachments.length > 0 && commentData) {
+      for (const file of input.attachments) {
+        try {
+          // Convertir File a ArrayBuffer
+          const arrayBuffer = await file.arrayBuffer()
+          const buffer = new Uint8Array(arrayBuffer)
+          
+          // Generar nombre único
+          const timestamp = Date.now()
+          const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
+          const storagePath = `${input.ticketId}/${timestamp}_${sanitizedName}`
+
+          // Subir a storage
+          const { error: uploadErr } = await supabase.storage
+            .from('ticket-attachments')
+            .upload(storagePath, buffer, {
+              contentType: file.type,
+              upsert: false,
+            })
+
+          if (uploadErr) {
+            console.error('Error subiendo adjunto:', uploadErr)
+            continue
+          }
+
+          // Registrar en la tabla ticket_attachments
+          const { error: attachErr } = await supabase
+            .from('ticket_attachments')
+            .insert({
+              ticket_id: input.ticketId,
+              comment_id: commentData.id,
+              file_name: file.name,
+              file_size: file.size,
+              file_type: file.type,
+              storage_path: storagePath,
+              uploaded_by: user.id,
+            })
+
+          if (attachErr) {
+            console.error('Error registrando adjunto en BD:', attachErr)
+          }
+        } catch (err) {
+          console.error('Error procesando adjunto:', err)
+        }
+      }
     }
   }
 

@@ -59,7 +59,21 @@ export default async function TicketDetailPage({
 
   const { data: comments } = await supabase
     .from('ticket_comments')
-    .select('id,body,visibility,created_at,author_id')
+    .select(`
+      id,
+      body,
+      visibility,
+      created_at,
+      author_id,
+      ticket_attachments (
+        id,
+        file_name,
+        file_size,
+        file_type,
+        storage_path,
+        created_at
+      )
+    `)
     .eq('ticket_id', id)
     .order('created_at', { ascending: true })
 

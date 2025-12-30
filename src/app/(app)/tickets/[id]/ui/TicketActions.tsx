@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 import { updateTicketStatus, escalateTicket, softDeleteTicket } from '../actions'
+import CloseTicketModal from './CloseTicketModal'
 
 const STATUSES = [
   'NEW',
@@ -47,6 +48,7 @@ export default function TicketActions({
   const [escalateAgentId, setEscalateAgentId] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [showCloseModal, setShowCloseModal] = useState(false)
 
   useEffect(() => {
     async function loadAgents() {
@@ -154,8 +156,16 @@ export default function TicketActions({
   }
 
   return (
-    <div className="sticky top-6">
-      <div className="card shadow-lg border-0 overflow-hidden">
+    <>
+      <CloseTicketModal
+        isOpen={showCloseModal}
+        onClose={() => setShowCloseModal(false)}
+        onConfirm={handleCloseTicket}
+        busy={busy}
+      />
+
+      <div className="sticky top-6">
+        <div className="card shadow-lg border-0 overflow-hidden">
         <div className="bg-gradient-to-br from-indigo-600 to-purple-700 px-5 py-4">
           <div className="flex items-center gap-2 text-white">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -293,6 +303,7 @@ export default function TicketActions({
           ) : null}
         </div>
       </div>
-    </div>
+      </div>
+    </>
   )
 }
