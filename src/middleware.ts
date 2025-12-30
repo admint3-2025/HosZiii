@@ -49,7 +49,7 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(loginUrl)
     }
 
-    // Admin routes: admin-only
+    // Admin routes: diferentes niveles de acceso
     if (pathname.startsWith('/admin')) {
       const { data: profile } = await supabase
         .from('profiles')
@@ -57,7 +57,31 @@ export async function middleware(request: NextRequest) {
         .eq('id', user.id)
         .single()
 
-      if (profile?.role !== 'admin') {
+      // /admin/users solo para admin
+      if (pathname.startsWith('/admin/users')) {
+        if (profile?.role !== 'admin') {
+          const redirectUrl = request.nextUrl.clone()
+          redirectUrl.pathname = '/dashboard'
+          return NextResponse.redirect(redirectUrl)
+        }
+      }
+      // Otras rutas de admin para admin y supervisor
+      else if (profile?.role !== 'admin' && profile?.role !== 'supervisor') {
+        const redirectUrl = request.nextUrl.clone()
+        redirectUrl.pathname = '/dashboard'
+        return NextResponse.redirect(redirectUrl)
+      }
+    }
+
+    // Auditoría para admin y supervisor
+    if (pathname.startsWith('/audit')) {
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role')
+        .eq('id', user.id)
+        .single()
+
+      if (profile?.role !== 'admin' && profile?.role !== 'supervisor') {
         const redirectUrl = request.nextUrl.clone()
         redirectUrl.pathname = '/dashboard'
         return NextResponse.redirect(redirectUrl)
