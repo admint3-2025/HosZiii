@@ -122,20 +122,17 @@ export async function updateTicketStatus(input: UpdateTicketStatusInput) {
     if (input.attachments && input.attachments.length > 0 && commentData) {
       for (const file of input.attachments) {
         try {
-          // Convertir File a ArrayBuffer
-          const arrayBuffer = await file.arrayBuffer()
-          const buffer = new Uint8Array(arrayBuffer)
-          
-          // Generar nombre único
+          // Generar nombre único (misma lógica que uploadTicketAttachment)
           const timestamp = Date.now()
-          const sanitizedName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_')
-          const storagePath = `${input.ticketId}/${timestamp}_${sanitizedName}`
+          const randomStr = Math.random().toString(36).substring(2, 8)
+          const fileExt = file.name.split('.').pop()
+          const storagePath = `${input.ticketId}/${timestamp}-${randomStr}.${fileExt}`
 
           // Subir a storage
           const { error: uploadErr } = await supabase.storage
             .from('ticket-attachments')
-            .upload(storagePath, buffer, {
-              contentType: file.type,
+            .upload(storagePath, file, {
+              cacheControl: '3600',
               upsert: false,
             })
 
