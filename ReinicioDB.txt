@@ -1,7 +1,7 @@
 -- ============================================================================
 -- LIMPIEZA COMPLETA DE DATOS DE DEMOSTRACIÓN
--- Preserva: usuarios, categorías, estructura de BD
--- Elimina: tickets, assets, comentarios, historial, auditoría, notificaciones
+-- Preserva: usuarios, categorías, activos (assets), sedes (locations), estructura de BD
+-- Elimina: tickets, comentarios, historial, auditoría, notificaciones, adjuntos
 -- ============================================================================
 
 -- 1. Desactivar temporalmente RLS para limpieza
@@ -12,13 +12,8 @@ DELETE FROM ticket_comments;
 DELETE FROM ticket_status_history;
 DELETE FROM tickets;
 
--- 3. Eliminar assets (si existe)
-DO $$ 
-BEGIN
-    IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'assets') THEN
-        DELETE FROM assets;
-    END IF;
-END $$;
+-- 3. PRESERVAR assets (NO eliminar)
+-- Los activos se mantienen intactos
 
 -- 4. Eliminar adjuntos y limpiar bucket de storage
 DELETE FROM ticket_attachments;
@@ -50,6 +45,8 @@ UNION ALL SELECT 'adjuntos', COUNT(*) FROM ticket_attachments
 UNION ALL SELECT 'archivos_storage', COUNT(*) FROM storage.objects WHERE bucket_id = 'ticket-attachments'
 UNION ALL SELECT 'audit_log', COUNT(*) FROM audit_log
 UNION ALL SELECT 'usuarios', COUNT(*) FROM profiles
-UNION ALL SELECT 'categorías', COUNT(*) FROM categories;
+UNION ALL SELECT 'categorías', COUNT(*) FROM categories
+UNION ALL SELECT 'activos', COUNT(*) FROM assets
+UNION ALL SELECT 'sedes', COUNT(*) FROM locations;
 
--- Resultado esperado: 0 en tickets/comments/historial/adjuntos/archivos/audit, >0 en usuarios/categorías
+-- Resultado esperado: 0 en tickets/comments/historial/adjuntos/archivos/audit, >0 en usuarios/categorías/activos/sedes

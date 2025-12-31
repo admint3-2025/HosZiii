@@ -835,7 +835,7 @@ export async function sendTicketByEmail(input: SendTicketEmailInput) {
     // Verificar que el usuario sea admin o supervisor
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role, full_name')
+      .select('role, full_name, location_id')
       .eq('id', user.id)
       .single()
 
@@ -844,7 +844,8 @@ export async function sendTicketByEmail(input: SendTicketEmailInput) {
     }
 
     // Obtener información completa del ticket
-    const { data: ticket, error: ticketError } = await supabase
+    // Admin puede ver todos los tickets, supervisores solo de su sede
+    let ticketQuery = supabase
       .from('tickets')
       .select(`
         *,
@@ -853,10 +854,17 @@ export async function sendTicketByEmail(input: SendTicketEmailInput) {
         locations (name, code)
       `)
       .eq('id', input.ticketId)
-      .single()
+
+    // Si no es admin, filtrar por ubicación
+    if (profile.role !== 'admin' && profile.location_id) {
+      ticketQuery = ticketQuery.eq('location_id', profile.location_id)
+    }
+
+    const { data: ticket, error: ticketError } = await ticketQuery.single()
 
     if (ticketError || !ticket) {
-      return { error: 'Ticket no encontrado' }
+      console.error('[sendTicketByEmail] Error obteniendo ticket:', ticketError)
+      return { error: 'Ticket no encontrado o sin permisos para acceder' }
     }
 
     // Obtener comentarios del ticket
