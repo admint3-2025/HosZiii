@@ -856,6 +856,178 @@ export function ticketEscalatedEmailTemplate(params: {
   return { subject, html, text }
 }
 
+export function ticketLocationStaffNotificationTemplate(params: {
+  ticketNumber: string
+  title: string
+  description?: string
+  priority: string
+  category?: string
+  locationName: string
+  locationCode: string
+  actorName: string
+  staffName: string
+  ticketUrl: string
+  isUpdate: boolean
+  oldStatus?: string
+  newStatus?: string
+}) {
+  const { ticketNumber, title, description, priority, category, locationName, locationCode, actorName, staffName, ticketUrl, isUpdate, oldStatus, newStatus } = params
+
+  const subject = `[${locationCode}] ${isUpdate ? 'Actualización' : 'Nuevo'} Ticket #${ticketNumber}`
+
+  const text = [
+    `${isUpdate ? 'Actualización de' : 'Nuevo'} ticket en tu sede`,
+    ``,
+    `Sede: ${locationName} (${locationCode})`,
+    `Ticket: #${ticketNumber}`,
+    `Título: ${title}`,
+    description ? `Descripción: ${description}` : '',
+    `Prioridad: ${priority}`,
+    category ? `Categoría: ${category}` : '',
+    isUpdate && oldStatus && newStatus ? `Estado: ${oldStatus} → ${newStatus}` : '',
+    `${isUpdate ? 'Actualizado' : 'Creado'} por: ${actorName}`,
+    ``,
+    `Ver ticket completo:`,
+    ticketUrl,
+    ``,
+    `Recibes esta notificación porque eres personal técnico/supervisor de la sede ${locationName}.`,
+  ].filter(Boolean).join('\n')
+
+  const html = `
+  <!DOCTYPE html>
+  <html lang="es">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  </head>
+  <body style="margin:0; padding:0; background-color:#f9fafb;">
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background:#f9fafb; padding:40px 20px;">
+      
+      <!-- Logo / Header -->
+      <div style="max-width:600px; margin:0 auto 24px auto; text-align:center;">
+        <img src="https://integrational3.com.mx/logorigen/ZIII%20logo.png" alt="ZIII Helpdesk" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
+      </div>
+
+      <!-- Main Card -->
+      <div style="max-width:600px; margin:0 auto; background:#ffffff; border-radius:16px; box-shadow:0 4px 6px rgba(0,0,0,0.07); overflow:hidden;">
+        
+        <!-- Header Gradient -->
+        <div style="background:linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding:24px 24px 16px 24px;">
+          <div style="background:rgba(255,255,255,0.15); backdrop-filter:blur(10px); border-radius:12px; padding:12px; text-align:center; border:1px solid rgba(255,255,255,0.2);">
+            <div style="font-size:36px; margin-bottom:6px;">🎫</div>
+            <h2 style="margin:0; font-size:20px; font-weight:700; color:#ffffff;">${isUpdate ? 'Actualización de' : 'Nuevo'} Ticket en tu Sede</h2>
+            <p style="margin:6px 0 0 0; font-size:13px; color:rgba(255,255,255,0.9);">Notificación para personal de ${escapeHtml(locationName)}</p>
+          </div>
+        </div>
+
+        <!-- Content -->
+        <div style="padding:32px;">
+          
+          <!-- Greeting -->
+          <p style="margin:0 0 24px 0; font-size:15px; color:#374151; line-height:1.6;">
+            Hola <strong style="color:#111827;">${escapeHtml(staffName)}</strong>,
+          </p>
+          <p style="margin:0 0 24px 0; font-size:15px; color:#374151; line-height:1.6;">
+            Se ha ${isUpdate ? 'actualizado' : 'creado'} un ticket en tu sede.
+          </p>
+
+          <!-- Location Badge -->
+          <div style="margin-bottom:24px; text-align:center;">
+            <div style="display:inline-block; padding:8px 20px; background:linear-gradient(135deg, #fef3c7 0%, #fde68a 100%); border:2px solid #fbbf24; border-radius:20px;">
+              <span style="font-size:12px; color:#78350f; font-weight:700; text-transform:uppercase; letter-spacing:1px;">📍 ${escapeHtml(locationCode)} - ${escapeHtml(locationName)}</span>
+            </div>
+          </div>
+
+          <!-- Ticket Number Badge -->
+          <div style="margin-bottom:24px; padding:20px; background:linear-gradient(135deg, #fef3c7 0%, #fed7aa 100%); border-radius:12px; text-align:center; border:2px solid #fb923c;">
+            <div style="font-size:12px; color:#c2410c; font-weight:700; text-transform:uppercase; letter-spacing:1px; margin-bottom:8px;">Ticket</div>
+            <div style="font-size:32px; color:#ea580c; font-weight:800; letter-spacing:-1px;">#${escapeHtml(ticketNumber)}</div>
+          </div>
+
+          <!-- Details Grid -->
+          <div style="margin-bottom:24px;">
+            <!-- Title -->
+            <div style="margin-bottom:16px; padding-bottom:16px; border-bottom:1px solid #e5e7eb;">
+              <div style="font-size:11px; color:#6b7280; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:6px;">Título del ticket</div>
+              <div style="font-size:16px; color:#111827; font-weight:600; line-height:1.4;">${escapeHtml(title)}</div>
+            </div>
+
+            ${description ? `
+            <!-- Description -->
+            <div style="margin-bottom:16px; padding:16px; background:#f9fafb; border-radius:10px; border:1px solid #e5e7eb;">
+              <div style="font-size:11px; color:#6b7280; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:8px;">Descripción</div>
+              <div style="font-size:14px; color:#374151; line-height:1.6; white-space:pre-wrap;">${escapeHtml(description.substring(0, 300))}${description.length > 300 ? '...' : ''}</div>
+            </div>
+            ` : ''}
+
+            <!-- Category & Priority -->
+            <div style="display:table; width:100%; margin-bottom:16px;">
+              ${category ? `
+              <div style="display:table-cell; width:50%; padding-right:12px;">
+                <div style="font-size:11px; color:#6b7280; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:6px;">Categoría</div>
+                <div style="font-size:14px; color:#111827; font-weight:500;">${escapeHtml(category)}</div>
+              </div>
+              ` : ''}
+              <div style="display:table-cell; width:50%; padding-left:12px; ${category ? 'border-left:1px solid #e5e7eb;' : ''}">
+                <div style="font-size:11px; color:#6b7280; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:6px;">Prioridad</div>
+                <div style="display:inline-block; padding:4px 12px; background:#fef2f2; color:#dc2626; font-size:13px; font-weight:700; border-radius:6px;">${escapeHtml(priority)}</div>
+              </div>
+            </div>
+
+            ${isUpdate && oldStatus && newStatus ? `
+            <!-- Status Change -->
+            <div style="margin-bottom:16px; padding:16px; background:#eff6ff; border-radius:10px; border:1px solid #bfdbfe;">
+              <div style="font-size:11px; color:#1e40af; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:8px;">📊 Cambio de Estado</div>
+              <div style="font-size:14px; color:#1e3a8a; line-height:1.6;">
+                <span style="padding:4px 8px; background:#dbeafe; border-radius:4px; font-weight:600;">${escapeHtml(oldStatus)}</span>
+                <span style="margin:0 8px; color:#6b7280;">→</span>
+                <span style="padding:4px 8px; background:#3b82f6; color:#ffffff; border-radius:4px; font-weight:600;">${escapeHtml(newStatus)}</span>
+              </div>
+            </div>
+            ` : ''}
+
+            <!-- Actor -->
+            <div style="padding:12px; background:#f3f4f6; border-radius:8px;">
+              <div style="font-size:11px; color:#6b7280; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:4px;">${isUpdate ? '👤 Actualizado por' : '👤 Creado por'}</div>
+              <div style="font-size:14px; color:#111827; font-weight:600;">${escapeHtml(actorName)}</div>
+            </div>
+          </div>
+
+          <!-- CTA Button -->
+          <div style="text-align:center; margin:32px 0 24px 0;">
+            <a href="${escapeAttr(ticketUrl)}"
+               style="display:inline-block; background:linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color:#ffffff; text-decoration:none; padding:14px 32px; border-radius:12px; font-size:16px; font-weight:600; box-shadow:0 4px 12px rgba(245, 158, 11, 0.3);">
+              Ver Ticket Completo →
+            </a>
+          </div>
+
+          <!-- Info Box -->
+          <div style="margin-top:24px; padding:16px; background:#fef3c7; border-left:4px solid #f59e0b; border-radius:8px;">
+            <p style="margin:0; font-size:13px; color:#92400e; line-height:1.5;">
+              <strong>📬 Notificación de Sede:</strong> Recibes este correo porque eres personal técnico o supervisor de <strong>${escapeHtml(locationName)}</strong>. Los tickets de tu sede requieren tu atención.
+            </p>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Footer -->
+      <div style="max-width:600px; margin:24px auto 0 auto; text-align:center;">
+        <p style="margin:0 0 8px 0; font-size:12px; color:#9ca3af;">
+          Enviado por <strong>ZIII Helpdesk</strong> · Mesa de Ayuda ITIL
+        </p>
+        <p style="margin:0; font-size:11px; color:#d1d5db;">
+          Este es un mensaje automático, por favor no respondas a este correo
+        </p>
+      </div>
+    </div>
+  </body>
+  </html>
+  `
+
+  return { subject, html, text }
+}
+
 function escapeHtml(value: string | null | undefined) {
   if (!value) return ''
   const str = String(value)

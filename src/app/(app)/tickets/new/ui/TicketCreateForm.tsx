@@ -18,7 +18,6 @@ type CategoryRow = {
 type User = {
   id: string
   full_name: string | null
-  email: string | null
 }
 
 type Asset = {
@@ -52,6 +51,8 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [requesterId, setRequesterId] = useState<string>('')
   const [canCreateForOthers, setCanCreateForOthers] = useState(false)
+  const [loadingUsers, setLoadingUsers] = useState(false)
+  const [usersError, setUsersError] = useState<string | null>(null)
   
   // Asset selection (optional)
   const [assets, setAssets] = useState<Asset[]>([])
@@ -83,6 +84,7 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
 
       if (profile && ['agent_l1', 'agent_l2', 'supervisor', 'admin'].includes(profile.role)) {
         setCanCreateForOthers(true)
+        setLoadingUsers(true)
         
         // Load users filtered by location (admin sees all, others see only their location)
         try {
@@ -91,12 +93,18 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
             const data = await response.json()
             setUsers(data.users.map((u: any) => ({
               id: u.id,
-              full_name: u.full_name,
-              email: u.email
+              full_name: u.full_name
             })))
+            setUsersError(null)
+          } else {
+            const errorText = await response.text()
+            setUsersError(`Error ${response.status}: ${errorText}`)
           }
-        } catch (err) {
+        } catch (err: any) {
           console.error('Error cargando usuarios:', err)
+          setUsersError(err?.message || 'Error de conexión al cargar usuarios')
+        } finally {
+          setLoadingUsers(false)
         }
       }
 
@@ -417,7 +425,7 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
         </div>
 
         {/* Selector de usuario (solo para agentes/supervisores/admin) */}
-        {canCreateForOthers && users.length > 0 && (
+        {canCreateForOthers && (
           <div className="card shadow-lg border-0 overflow-hidden">
             <div className="bg-gradient-to-br from-amber-50 to-orange-50 border-b border-amber-200 px-6 py-4">
               <div className="flex items-center gap-3">
@@ -433,20 +441,41 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
               </div>
             </div>
             <div className="card-body">
-              <select
-                className="select w-full text-sm"
-              value={requesterId}
-              onChange={(e) => setRequesterId(e.target.value)}
-              required
-            >
-              <option value="">-- Seleccionar usuario --</option>
-              {users.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.full_name || u.id.substring(0, 8)}
-                  {u.id === currentUserId ? ' (Yo)' : ''}
-                </option>
-))}
-            </select>
+              {loadingUsers ? (
+                <div className="flex items-center justify-center py-4 text-sm text-gray-500">
+                  <svg className="animate-spin h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                  Cargando usuarios...
+                </div>
+              ) : usersError ? (
+                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  <div className="font-semibold mb-1">Error al cargar usuarios</div>
+                  <div className="text-xs">{usersError}</div>
+                  <div className="text-xs mt-2 text-red-600">Verifica que la migración de ubicaciones esté ejecutada.</div>
+                </div>
+              ) : users.length === 0 ? (
+                <div className="rounded-md border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-yellow-700">
+                  <div className="font-semibold mb-1">No hay usuarios disponibles</div>
+                  <div className="text-xs">No se encontraron usuarios en tu ubicación. Contacta al administrador.</div>
+                </div>
+              ) : (
+                <select
+                  className="select w-full text-sm"
+                  value={requesterId}
+                  onChange={(e) => setRequesterId(e.target.value)}
+                  required
+                >
+                  <option value="">-- Seleccionar usuario --</option>
+                  {users.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.full_name || u.id.substring(0, 8)}
+                      {u.id === currentUserId ? ' (Yo)' : ''}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
         )}

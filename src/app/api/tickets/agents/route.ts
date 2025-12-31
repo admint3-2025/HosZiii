@@ -19,7 +19,7 @@ export async function GET(request: Request) {
   // Construir query base
   let query = supabase
     .from('profiles')
-    .select('id, full_name, email, role, location_id')
+    .select('id, full_name, role, location_id')
     .order('full_name', { ascending: true, nullsFirst: false })
 
   // Filtrar por roles según nivel solicitado
@@ -42,7 +42,6 @@ export async function GET(request: Request) {
   const formattedAgents = (agents ?? []).map((a) => ({
     id: a.id,
     full_name: a.full_name,
-    email: a.email,
     role: a.role,
   }))
 

@@ -27,7 +27,7 @@ export async function GET() {
   // Construir query base
   let query = supabase
     .from('profiles')
-    .select('id, full_name, email, role, location_id, locations(name, code)')
+    .select('id, full_name, role, location_id, locations(name, code)')
     .order('full_name', { ascending: true, nullsFirst: false })
 
   // Aplicar filtro de ubicación si no es admin
@@ -43,7 +43,6 @@ export async function GET() {
   const formattedUsers = (users ?? []).map((u) => ({
     id: u.id,
     full_name: u.full_name,
-    email: u.email,
     role: u.role,
     location_id: u.location_id,
     location_name: (u.locations as any)?.name ?? null,

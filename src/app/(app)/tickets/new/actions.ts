@@ -75,6 +75,7 @@ export async function createTicket(input: CreateTicketInput) {
       priority: ticket.priority,
       category: categoryPath || 'Sin categoría',
       requesterId: ticket.requester_id,
+      actorId: user.id, // Usuario que creó el ticket
     })
     console.log('[Ticket Created] ✓ Notificación enviada exitosamente')
   } catch (err) {

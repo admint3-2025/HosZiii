@@ -6,6 +6,7 @@ import {
   ticketStatusChangedEmailTemplate,
   ticketClosedEmailTemplate,
   ticketEscalatedEmailTemplate,
+  ticketLocationStaffNotificationTemplate,
 } from './templates'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 
@@ -99,6 +100,9 @@ export async function notifyTicketCreated(data: TicketNotificationData) {
     })
 
     console.log(`[notifyTicketCreated] ✓ Notificación enviada exitosamente a ${requester.user.email}`)
+    
+    // NUEVO: Notificar a supervisores y técnicos de la misma sede
+    await notifyLocationStaff(data)
   } catch (error) {
     console.error('[notifyTicketCreated] ✗ Error enviando notificación:', error)
     // No lanzar error para no bloquear la creación del ticket
@@ -280,6 +284,9 @@ export async function notifyTicketStatusChanged(data: TicketNotificationData) {
         console.log(`✓ Notificación de cambio de estado enviada a agente para ticket #${data.ticketNumber}`)
       }
     }
+    
+    // NUEVO: Notificar a supervisores y técnicos de la misma sede
+    await notifyLocationStaff(data)
   } catch (error) {
     console.error('Error enviando notificación de cambio de estado:', error)
   }
@@ -434,5 +441,132 @@ export async function notifyTicketEscalated(data: TicketNotificationData) {
     }
   } catch (error) {
     console.error('Error enviando notificación de escalamiento:', error)
+  }
+}
+
+/**
+ * Notifica a supervisores y técnicos de la misma sede sobre un ticket nuevo o actualizado
+ */
+export async function notifyLocationStaff(data: TicketNotificationData) {
+  console.log('[notifyLocationStaff] Iniciando notificación a personal de la sede para ticket #' + data.ticketNumber)
+  
+  try {
+    const supabase = createSupabaseAdminClient()
+    
+    // Obtener el location_id del ticket
+    const { data: ticket, error: ticketError } = await supabase
+      .from('tickets')
+      .select('location_id, locations(name, code)')
+      .eq('id', data.ticketId)
+      .single()
+    
+    if (ticketError || !ticket?.location_id) {
+      console.log('[notifyLocationStaff] Ticket sin ubicación asignada, omitiendo notificación de sede')
+      return
+    }
+    
+    const locationId = ticket.location_id
+    const locationName = (ticket.locations as any)?.name || 'la sede'
+    const locationCode = (ticket.locations as any)?.code || ''
+    
+    console.log(`[notifyLocationStaff] Ubicación del ticket: ${locationName} (${locationCode})`)
+    console.log(`[notifyLocationStaff] Location ID: ${locationId}`)
+    console.log(`[notifyLocationStaff] Actor ID a excluir: ${data.actorId || 'ninguno'}`)
+    
+    // Obtener todos los supervisores y técnicos de esa ubicación
+    let query = supabase
+      .from('profiles')
+      .select('id, full_name, role')
+      .eq('location_id', locationId)
+      .in('role', ['agent_l1', 'agent_l2', 'supervisor'])
+    
+    // Excluir al actor solo si existe
+    if (data.actorId) {
+      query = query.neq('id', data.actorId)
+    }
+    
+    const { data: staffProfiles, error: staffError } = await query
+    
+    if (staffError) {
+      console.error('[notifyLocationStaff] Error obteniendo personal:', staffError)
+      return
+    }
+    
+    console.log(`[notifyLocationStaff] Personal encontrado en la base de datos: ${staffProfiles?.length || 0}`)
+    if (staffProfiles && staffProfiles.length > 0) {
+      console.log('[notifyLocationStaff] Personal:', staffProfiles.map(s => `${s.full_name} (${s.role})`).join(', '))
+    }
+    
+    if (!staffProfiles || staffProfiles.length === 0) {
+      console.log('[notifyLocationStaff] No se encontró personal de la sede para notificar')
+      return
+    }
+    
+    console.log(`[notifyLocationStaff] Se notificará a ${staffProfiles.length} miembro(s) del personal`)
+    
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const ticketUrl = `${baseUrl}/tickets/${data.ticketId}`
+    
+    // Obtener quien generó el ticket/cambio
+    let actorName = 'Sistema'
+    if (data.actorId) {
+      const { data: actorProfile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', data.actorId)
+        .single()
+      actorName = actorProfile?.full_name || 'Usuario'
+    }
+    
+    const isUpdate = !!data.oldStatus
+    
+    // Enviar notificación a cada miembro del personal
+    for (const staff of staffProfiles) {
+      try {
+        // Obtener email del auth
+        const { data: authUser } = await supabase.auth.admin.getUserById(staff.id)
+        
+        if (!authUser.user?.email) {
+          console.log(`[notifyLocationStaff] Usuario ${staff.id} sin email, omitiendo`)
+          continue
+        }
+        
+        const staffName = staff.full_name || authUser.user.email
+        
+        // Usar el template del sistema
+        const template = ticketLocationStaffNotificationTemplate({
+          ticketNumber: data.ticketNumber,
+          title: data.title,
+          description: data.description,
+          priority: PRIORITY_LABELS[data.priority || 3] || 'Media',
+          category: data.category,
+          locationName,
+          locationCode,
+          actorName,
+          staffName,
+          ticketUrl,
+          isUpdate,
+          oldStatus: data.oldStatus ? STATUS_LABELS[data.oldStatus] : undefined,
+          newStatus: data.newStatus ? STATUS_LABELS[data.newStatus] : undefined,
+        })
+        
+        await sendMail({
+          to: authUser.user.email,
+          subject: template.subject,
+          html: template.html,
+          text: template.text,
+        })
+        
+        console.log(`[notifyLocationStaff] ✓ Notificación enviada a ${authUser.user.email} (${staffName})`)
+      } catch (err) {
+        console.error(`[notifyLocationStaff] Error enviando notificación a ${staff.id}:`, err)
+        // Continuar con el siguiente
+      }
+    }
+    
+    console.log(`[notifyLocationStaff] ✓ Proceso de notificación de sede completado para ticket #${data.ticketNumber}`)
+  } catch (error) {
+    console.error('[notifyLocationStaff] Error en notificación de personal de sede:', error)
+    // No lanzar error para no bloquear otras operaciones
   }
 }
