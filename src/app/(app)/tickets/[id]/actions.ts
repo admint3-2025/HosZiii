@@ -286,6 +286,110 @@ export async function escalateTicket(ticketId: string, currentLevel: number, ass
   return { success: true }
 }
 
+export async function reopenTicket(ticketId: string, reason: string) {
+  if (!reason || reason.trim().length < 10) {
+    return { error: 'Debe proporcionar un motivo de reapertura (mínimo 10 caracteres)' }
+  }
+
+  const supabase = await createSupabaseServerClient()
+  
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) {
+    return { error: 'No autenticado' }
+  }
+
+  // Verificar que el usuario sea agente, supervisor o admin
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile || !['agent_l1', 'agent_l2', 'supervisor', 'admin'].includes(profile.role)) {
+    return { error: 'No tienes permisos para reabrir tickets' }
+  }
+
+  // Obtener datos del ticket
+  const { data: ticket } = await supabase
+    .from('tickets')
+    .select('id, ticket_number, title, priority, status, requester_id, assigned_agent_id')
+    .eq('id', ticketId)
+    .single()
+
+  if (!ticket) {
+    return { error: 'Ticket no encontrado' }
+  }
+
+  if (ticket.status !== 'CLOSED') {
+    return { error: 'Solo se pueden reabrir tickets cerrados' }
+  }
+
+  // Reabrir el ticket y asignar al agente actual
+  const { error: updateErr } = await supabase
+    .from('tickets')
+    .update({ 
+      status: 'IN_PROGRESS',
+      assigned_agent_id: user.id,
+      closed_at: null,
+      closed_by: null,
+    })
+    .eq('id', ticketId)
+
+  if (updateErr) {
+    return { error: updateErr.message }
+  }
+
+  // Insertar historial de estado
+  const { error: historyErr } = await supabase
+    .from('ticket_status_history')
+    .insert({
+      ticket_id: ticketId,
+      from_status: 'CLOSED',
+      to_status: 'IN_PROGRESS',
+      actor_id: user.id,
+      note: `Ticket reabierto. Motivo: ${reason.trim()}`,
+    })
+
+  if (historyErr) {
+    console.error('Error insertando historial de reapertura:', historyErr)
+  }
+
+  // Agregar comentario de reapertura
+  const { error: commentErr } = await supabase
+    .from('ticket_comments')
+    .insert({
+      ticket_id: ticketId,
+      author_id: user.id,
+      body: `🔓 **Ticket reabierto**\n\n**Motivo:**\n${reason.trim()}`,
+      visibility: 'internal',
+    })
+
+  if (commentErr) {
+    console.error('Error agregando comentario de reapertura:', commentErr)
+  }
+
+  // Enviar notificación de cambio de estado
+  try {
+    console.log('[Ticket Reopened] Enviando notificación para ticket:', ticket.ticket_number)
+    await notifyTicketStatusChanged({
+      ticketId: ticket.id,
+      ticketNumber: ticket.ticket_number,
+      title: ticket.title,
+      priority: ticket.priority,
+      requesterId: ticket.requester_id,
+      oldStatus: 'CLOSED',
+      newStatus: 'IN_PROGRESS',
+      assignedAgentId: user.id,
+      actorId: user.id,
+    })
+    console.log('[Ticket Reopened] ✓ Notificación enviada')
+  } catch (err) {
+    console.error('[Ticket Reopened] ✗ Error enviando notificación:', err)
+  }
+
+  return { success: true }
+}
+
 export async function softDeleteTicket(ticketId: string, reason: string) {
   if (!reason || !reason.trim()) {
     return { error: 'Debe proporcionar un motivo de eliminación' }

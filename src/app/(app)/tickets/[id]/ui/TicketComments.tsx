@@ -60,6 +60,8 @@ export default function TicketComments({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [reopening, setReopening] = useState(false)
+  const [attachments, setAttachments] = useState<File[]>([])
+  const [previewUrls, setPreviewUrls] = useState<string[]>([])
 
   // Verificar si el ticket está cerrado
   const isClosed = ticketStatus === 'CLOSED'
@@ -74,6 +76,38 @@ export default function TicketComments({
   // Los usuarios estándar no pueden comentar en tickets cerrados
   const canComment = !isClosed || userRole !== 'requester'
 
+  function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
+    const files = Array.from(e.target.files || [])
+    const imageFiles = files.filter(f => f.type.startsWith('image/'))
+    
+    if (imageFiles.length !== files.length) {
+      setError('Solo se permiten archivos de imagen')
+      return
+    }
+    
+    // Validar tamaño máximo 10MB por archivo
+    const oversized = imageFiles.filter(f => f.size > 10 * 1024 * 1024)
+    if (oversized.length > 0) {
+      setError('Las imágenes no deben superar 10MB cada una')
+      return
+    }
+    
+    setError(null)
+    setAttachments(prev => [...prev, ...imageFiles])
+    
+    // Crear URLs de preview
+    imageFiles.forEach(file => {
+      const url = URL.createObjectURL(file)
+      setPreviewUrls(prev => [...prev, url])
+    })
+  }
+
+  function removeAttachment(index: number) {
+    setAttachments(prev => prev.filter((_, i) => i !== index))
+    URL.revokeObjectURL(previewUrls[index])
+    setPreviewUrls(prev => prev.filter((_, i) => i !== index))
+  }
+
   async function addComment(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
@@ -87,20 +121,74 @@ export default function TicketComments({
       return
     }
 
-    const { error } = await supabase.from('ticket_comments').insert({
-      ticket_id: ticketId,
-      author_id: authorId,
-      body,
-      visibility,
-    })
+    // Crear el comentario primero
+    const { data: commentData, error: commentErr } = await supabase
+      .from('ticket_comments')
+      .insert({
+        ticket_id: ticketId,
+        author_id: authorId,
+        body,
+        visibility,
+      })
+      .select()
+      .single()
 
-    setBusy(false)
-    if (error) {
-      setError(error.message)
+    if (commentErr) {
+      setBusy(false)
+      setError(commentErr.message)
       return
     }
 
+    // Subir archivos adjuntos si los hay
+    if (attachments.length > 0 && commentData) {
+      for (const file of attachments) {
+        try {
+          const timestamp = Date.now()
+          const randomStr = Math.random().toString(36).substring(2, 8)
+          const fileExt = file.name.split('.').pop()
+          const storagePath = `${ticketId}/${timestamp}-${randomStr}.${fileExt}`
+
+          // Subir a storage
+          const { error: uploadErr } = await supabase.storage
+            .from('ticket-attachments')
+            .upload(storagePath, file, {
+              cacheControl: '3600',
+              upsert: false,
+            })
+
+          if (uploadErr) {
+            console.error('Error subiendo imagen:', uploadErr)
+            continue
+          }
+
+          // Registrar en tabla de adjuntos
+          const { error: attachErr } = await supabase
+            .from('ticket_attachments')
+            .insert({
+              ticket_id: ticketId,
+              comment_id: commentData.id,
+              file_name: file.name,
+              file_size: file.size,
+              file_type: file.type,
+              storage_path: storagePath,
+              uploaded_by: authorId,
+            })
+
+          if (attachErr) {
+            console.error('Error registrando adjunto:', attachErr)
+          }
+        } catch (err) {
+          console.error('Error procesando archivo:', err)
+        }
+      }
+    }
+
+    // Limpiar estado y refrescar
+    setBusy(false)
     setBody('')
+    setAttachments([])
+    previewUrls.forEach(url => URL.revokeObjectURL(url))
+    setPreviewUrls([])
     router.refresh()
   }
 
@@ -301,6 +389,65 @@ export default function TicketComments({
             required
             placeholder="Escribe un comentario para dar seguimiento..."
           />
+          
+          {/* Selector de imágenes */}
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-xs font-semibold text-gray-700 uppercase tracking-wider">
+              <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              Adjuntar Imágenes
+            </label>
+            <div className="flex items-center gap-2">
+              <label className="btn btn-secondary text-sm cursor-pointer inline-flex items-center gap-2">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                </svg>
+                Seleccionar imágenes
+                <input
+                  type="file"
+                  multiple
+                  accept="image/*"
+                  onChange={handleFileSelect}
+                  className="hidden"
+                  disabled={busy}
+                />
+              </label>
+              {attachments.length > 0 && (
+                <span className="text-xs text-gray-600">
+                  {attachments.length} imagen{attachments.length !== 1 ? 'es' : ''} seleccionada{attachments.length !== 1 ? 's' : ''}
+                </span>
+              )}
+            </div>
+            
+            {/* Preview de imágenes */}
+            {previewUrls.length > 0 && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
+                {previewUrls.map((url, idx) => (
+                  <div key={idx} className="relative group">
+                    <img
+                      src={url}
+                      alt={attachments[idx].name}
+                      className="w-full h-24 object-cover rounded-lg border border-gray-300"
+                    />
+                    <button
+                      type="button"
+                      onClick={() => removeAttachment(idx)}
+                      className="absolute top-1 right-1 p-1 bg-red-600 hover:bg-red-700 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
+                      title="Eliminar"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                    <div className="absolute bottom-1 left-1 right-1 bg-black bg-opacity-60 text-white text-xs px-1.5 py-0.5 rounded truncate">
+                      {attachments[idx].name}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
           {error ? (
             <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-center gap-2">
               <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">

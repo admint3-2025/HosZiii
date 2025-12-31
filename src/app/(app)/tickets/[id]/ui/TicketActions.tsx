@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
-import { updateTicketStatus, escalateTicket, softDeleteTicket } from '../actions'
+import { updateTicketStatus, escalateTicket, softDeleteTicket, reopenTicket } from '../actions'
 import CloseTicketModal from './CloseTicketModal'
 
 const STATUSES = [
@@ -172,6 +172,28 @@ export default function TicketActions({
     router.refresh()
   }
 
+  async function handleReopenTicket() {
+    setError(null)
+    const reason = prompt('Motivo de reapertura (mínimo 10 caracteres):')
+    if (!reason || reason.trim().length < 10) {
+      setError('El motivo de reapertura debe tener al menos 10 caracteres')
+      return
+    }
+    
+    setBusy(true)
+    
+    const result = await reopenTicket(ticketId, reason.trim())
+    
+    setBusy(false)
+    
+    if (result.error) {
+      setError(result.error)
+      return
+    }
+    
+    router.refresh()
+  }
+
   return (
     <>
       <CloseTicketModal
@@ -258,7 +280,7 @@ export default function TicketActions({
               Escalamiento
             </label>
             
-            {supportLevel === 1 && (
+            {supportLevel === 1 && currentStatus !== 'CLOSED' && (
               <div className="p-3 bg-orange-50 rounded-lg border border-orange-100 mb-2">
                 <label className="flex items-center gap-2 text-xs font-semibold text-orange-800 mb-2">
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -282,18 +304,60 @@ export default function TicketActions({
               </div>
             )}
             
+            {currentStatus === 'CLOSED' && (
+              <div className="p-3 bg-gray-50 rounded-lg border border-gray-200 mb-2 text-center">
+                <svg className="w-8 h-8 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                <p className="text-xs text-gray-600 font-medium">Ticket cerrado</p>
+                <p className="text-xs text-gray-500 mt-1">El escalamiento no está disponible</p>
+              </div>
+            )}
+            
             <button
               type="button"
-              disabled={busy || supportLevel === 2}
+              disabled={busy || supportLevel === 2 || currentStatus === 'CLOSED'}
               onClick={escalateToL2}
               className="btn btn-secondary w-full flex items-center justify-center gap-2"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11l5-5m0 0l5 5m-5-5v12" />
               </svg>
-              {supportLevel === 2 ? 'Ya está en Nivel 2' : 'Escalar a Nivel 2'}
+              {currentStatus === 'CLOSED' 
+                ? 'Escalamiento no disponible'
+                : supportLevel === 2 
+                  ? 'Ya está en Nivel 2' 
+                  : 'Escalar a Nivel 2'}
             </button>
           </div>
+
+          {/* Reapertura */}
+          {currentStatus === 'CLOSED' && (
+            <div className="pt-4 border-t border-gray-200">
+              <label className="flex items-center gap-2 text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">
+                <svg className="w-4 h-4 text-green-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                </svg>
+                Reabrir Ticket
+              </label>
+              <div className="p-3 bg-green-50 rounded-lg border border-green-100 mb-2">
+                <p className="text-xs text-green-800 mb-2">
+                  ℹ️ El ticket se reabrirá en estado <strong>En progreso</strong> y se te asignará automáticamente.
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={handleReopenTicket}
+                className="btn w-full flex items-center justify-center gap-2 bg-green-600 hover:bg-green-700 text-white"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" />
+                </svg>
+                Reabrir ticket
+              </button>
+            </div>
+          )}
 
           {/* Eliminación */}
           <div className="pt-4 border-t border-gray-200">
