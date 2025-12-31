@@ -1,3 +1,13 @@
+export const STATUS_LABELS: Record<string, string> = {
+  NEW: 'Nuevo',
+  ASSIGNED: 'Asignado',
+  IN_PROGRESS: 'En progreso',
+  NEEDS_INFO: 'Requiere información',
+  WAITING_THIRD_PARTY: 'Esperando tercero',
+  RESOLVED: 'Resuelto',
+  CLOSED: 'Cerrado',
+}
+
 const ALLOWED: Record<string, string[]> = {
   NEW: ['ASSIGNED', 'IN_PROGRESS', 'NEEDS_INFO', 'WAITING_THIRD_PARTY', 'RESOLVED', 'CLOSED'],
   ASSIGNED: ['NEW', 'ASSIGNED', 'IN_PROGRESS', 'NEEDS_INFO', 'WAITING_THIRD_PARTY', 'RESOLVED', 'CLOSED'],
