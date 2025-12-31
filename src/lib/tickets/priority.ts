@@ -1,3 +1,10 @@
+export const PRIORITY_LABELS: Record<number, string> = {
+  1: 'Crítica',
+  2: 'Alta',
+  3: 'Media',
+  4: 'Baja',
+}
+
 export function computePriority({ impact, urgency }: { impact: number; urgency: number }): 1 | 2 | 3 | 4 {
   // impact: 1..4 (1 is highest), urgency: 1..4 (1 is highest)
   // Matrix summary (aligned to the earlier ITIL recommendation):
