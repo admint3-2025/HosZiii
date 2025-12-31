@@ -8,6 +8,10 @@ import {
   notifyTicketClosed,
   notifyTicketEscalated
 } from '@/lib/email/ticket-notifications'
+import { sendMail } from '@/lib/email/mailer'
+import { ticketInvestigationEmailTemplate } from '@/lib/email/templates'
+import { STATUS_LABELS } from '@/lib/tickets/workflow'
+import { PRIORITY_LABELS } from '@/lib/tickets/priority'
 
 type UpdateTicketStatusInput = {
   ticketId: string
@@ -595,5 +599,145 @@ export async function requestEscalation(ticketId: string, reason: string) {
   } catch (error: any) {
     console.error('[requestEscalation] Error:', error)
     return { error: 'Error enviando la solicitud: ' + error.message }
+  }
+}
+
+/**
+ * Enviar información completa del ticket por correo electrónico
+ * Solo admin y supervisores pueden usar esta función
+ */
+type SendTicketEmailInput = {
+  ticketId: string
+  recipientEmail: string
+  recipientName: string
+  reason?: string
+}
+
+export async function sendTicketByEmail(input: SendTicketEmailInput) {
+  try {
+    const supabase = await createSupabaseServerClient()
+    
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return { error: 'No autenticado' }
+    }
+
+    // Verificar que el usuario sea admin o supervisor
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role, full_name')
+      .eq('id', user.id)
+      .single()
+
+    if (!profile || !['admin', 'supervisor'].includes(profile.role)) {
+      return { error: 'Solo administradores y supervisores pueden enviar tickets por correo' }
+    }
+
+    // Obtener información completa del ticket
+    const { data: ticket, error: ticketError } = await supabase
+      .from('tickets')
+      .select(`
+        *,
+        profiles:requester_id (full_name),
+        assigned_agent:assigned_agent_id (full_name),
+        locations (name, code)
+      `)
+      .eq('id', input.ticketId)
+      .single()
+
+    if (ticketError || !ticket) {
+      return { error: 'Ticket no encontrado' }
+    }
+
+    // Obtener comentarios del ticket
+    const { data: comments } = await supabase
+      .from('ticket_comments')
+      .select(`
+        id,
+        content,
+        is_internal,
+        created_at,
+        profiles:author_id (full_name)
+      `)
+      .eq('ticket_id', input.ticketId)
+      .order('created_at', { ascending: true })
+
+    // Calcular días abierto
+    const createdDate = new Date(ticket.created_at)
+    const now = new Date()
+    const daysOpen = Math.floor((now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24))
+
+    // Preparar comentarios para el template
+    const formattedComments = (comments || []).map((c: any) => ({
+      author: c.profiles?.full_name || 'Usuario',
+      content: c.content,
+      date: new Date(c.created_at).toLocaleString('es-MX', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      isInternal: c.is_internal,
+    }))
+
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const ticketUrl = `${baseUrl}/tickets/${ticket.id}`
+
+    // Generar template de email
+    const template = ticketInvestigationEmailTemplate({
+      recipientName: input.recipientName,
+      ticketNumber: ticket.ticket_number,
+      title: ticket.title,
+      description: ticket.description || 'Sin descripción',
+      priority: PRIORITY_LABELS[ticket.priority] || 'Media',
+      category: ticket.category,
+      status: STATUS_LABELS[ticket.status] || ticket.status,
+      locationName: (ticket.locations as any)?.name || 'Sin sede',
+      locationCode: (ticket.locations as any)?.code || '-',
+      requesterName: ticket.profiles?.full_name || 'Desconocido',
+      assignedAgentName: ticket.assigned_agent?.full_name || null,
+      createdAt: new Date(ticket.created_at).toLocaleString('es-MX', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      updatedAt: new Date(ticket.updated_at).toLocaleString('es-MX', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      daysOpen,
+      commentsCount: comments?.length || 0,
+      comments: formattedComments,
+      ticketUrl,
+      senderName: profile.full_name || 'Sistema',
+      reason: input.reason,
+    })
+
+    // Enviar correo
+    await sendMail({
+      to: input.recipientEmail,
+      subject: template.subject,
+      html: template.html,
+      text: template.text,
+    })
+
+    // Registrar en auditoría (comentario interno)
+    await supabase.from('ticket_comments').insert({
+      ticket_id: input.ticketId,
+      author_id: user.id,
+      content: `📧 Información del ticket enviada por correo a: ${input.recipientEmail} (${input.recipientName})${input.reason ? `\nMotivo: ${input.reason}` : ''}`,
+      is_internal: true,
+    })
+
+    return { success: true, message: `Correo enviado exitosamente a ${input.recipientEmail}` }
+  } catch (error: any) {
+    console.error('[sendTicketByEmail] Error:', error)
+    return { error: 'Error enviando el correo: ' + error.message }
   }
 }

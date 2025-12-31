@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
-import { updateTicketStatus, escalateTicket, softDeleteTicket, reopenTicket, requestEscalation } from '../actions'
+import { updateTicketStatus, escalateTicket, softDeleteTicket, reopenTicket, requestEscalation, sendTicketByEmail } from '../actions'
 import CloseTicketModal from './CloseTicketModal'
 
 const STATUSES = [
@@ -51,6 +51,10 @@ export default function TicketActions({
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showCloseModal, setShowCloseModal] = useState(false)
+  const [showEmailModal, setShowEmailModal] = useState(false)
+  const [emailRecipient, setEmailRecipient] = useState('')
+  const [emailRecipientName, setEmailRecipientName] = useState('')
+  const [emailReason, setEmailReason] = useState('')
 
   useEffect(() => {
     async function loadAgents() {
@@ -187,6 +191,48 @@ export default function TicketActions({
     }
     
     alert('✓ Solicitud enviada al supervisor de tu sede')
+    router.refresh()
+  }
+
+  async function handleSendTicketEmail() {
+    setError(null)
+    
+    // Validar campos
+    if (!emailRecipient.trim() || !emailRecipientName.trim()) {
+      setError('Email y nombre del destinatario son requeridos')
+      return
+    }
+
+    // Validar formato de email
+    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+    if (!emailRegex.test(emailRecipient.trim())) {
+      setError('Email inválido')
+      return
+    }
+
+    setBusy(true)
+    
+    const result = await sendTicketByEmail({
+      ticketId,
+      recipientEmail: emailRecipient.trim(),
+      recipientName: emailRecipientName.trim(),
+      reason: emailReason.trim() || undefined,
+    })
+    
+    setBusy(false)
+    
+    if (result.error) {
+      setError(result.error)
+      return
+    }
+    
+    // Limpiar formulario y cerrar modal
+    setEmailRecipient('')
+    setEmailRecipientName('')
+    setEmailReason('')
+    setShowEmailModal(false)
+    
+    alert(`✓ ${result.message}`)
     router.refresh()
   }
 
@@ -432,6 +478,34 @@ export default function TicketActions({
             </div>
           )}
 
+          {/* Enviar ticket por email (solo admin y supervisor) */}
+          {(userRole === 'admin' || userRole === 'supervisor') && (
+            <div className="pt-4 border-t border-gray-200">
+              <label className="flex items-center gap-2 text-xs font-semibold text-gray-700 uppercase tracking-wider mb-2">
+                <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                Enviar por Correo
+              </label>
+              <div className="p-3 bg-blue-50 rounded-lg border border-blue-100 mb-2">
+                <p className="text-xs text-blue-800">
+                  📧 Envía la información completa del ticket para investigación o deslinde de responsabilidades.
+                </p>
+              </div>
+              <button
+                type="button"
+                disabled={busy}
+                onClick={() => setShowEmailModal(true)}
+                className="btn w-full flex items-center justify-center gap-2 bg-blue-600 hover:bg-blue-700 text-white"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                </svg>
+                Enviar información del ticket
+              </button>
+            </div>
+          )}
+
           {/* Eliminación */}
           <div className="pt-4 border-t border-gray-200">
             <button
@@ -458,6 +532,117 @@ export default function TicketActions({
         </div>
       </div>
       </div>
+
+      {/* Modal para enviar ticket por email */}
+      {showEmailModal && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4 rounded-t-xl">
+              <h3 className="text-lg font-bold flex items-center gap-2">
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                Enviar Ticket por Correo
+              </h3>
+              <p className="text-sm text-blue-100 mt-1">
+                Información completa para investigación
+              </p>
+            </div>
+
+            <div className="p-6 space-y-4">
+              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                <p className="text-xs text-blue-800">
+                  📧 Se enviará un correo con toda la información del ticket: descripción, comentarios, historial, tiempos, etc.
+                </p>
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Email del destinatario <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="email"
+                  value={emailRecipient}
+                  onChange={(e) => setEmailRecipient(e.target.value)}
+                  placeholder="ejemplo@empresa.com"
+                  className="input w-full"
+                  disabled={busy}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Nombre del destinatario <span className="text-red-500">*</span>
+                </label>
+                <input
+                  type="text"
+                  value={emailRecipientName}
+                  onChange={(e) => setEmailRecipientName(e.target.value)}
+                  placeholder="Juan Pérez"
+                  className="input w-full"
+                  disabled={busy}
+                />
+              </div>
+
+              <div>
+                <label className="block text-sm font-semibold text-gray-700 mb-2">
+                  Motivo del envío (opcional)
+                </label>
+                <textarea
+                  value={emailReason}
+                  onChange={(e) => setEmailReason(e.target.value)}
+                  placeholder="Ej: Investigación de ticket no atendido, deslinde de responsabilidades, etc."
+                  rows={3}
+                  className="input w-full"
+                  disabled={busy}
+                />
+                <p className="text-xs text-gray-500 mt-1">
+                  Este motivo se incluirá en el correo y en el historial del ticket
+                </p>
+              </div>
+
+              {error && (
+                <div className="p-3 bg-red-50 border border-red-200 rounded-lg">
+                  <p className="text-sm text-red-700 flex items-start gap-2">
+                    <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+                      <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                    </svg>
+                    <span>{error}</span>
+                  </p>
+                </div>
+              )}
+
+              <div className="flex gap-3 pt-4 border-t">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setShowEmailModal(false)
+                    setEmailRecipient('')
+                    setEmailRecipientName('')
+                    setEmailReason('')
+                    setError(null)
+                  }}
+                  disabled={busy}
+                  className="btn flex-1 bg-gray-100 hover:bg-gray-200 text-gray-700"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  onClick={handleSendTicketEmail}
+                  disabled={busy || !emailRecipient.trim() || !emailRecipientName.trim()}
+                  className="btn flex-1 bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  {busy ? 'Enviando...' : 'Enviar correo'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   )
 }
