@@ -261,7 +261,13 @@ export default function TicketDetail({
           </div>
 
           {canPerformActions && (
-            <TicketActions ticketId={ticket.id} currentStatus={ticket.status} supportLevel={ticket.support_level} currentAgentId={currentAgentId} />
+            <TicketActions 
+              ticketId={ticket.id} 
+              currentStatus={ticket.status} 
+              supportLevel={ticket.support_level} 
+              currentAgentId={currentAgentId}
+              userRole={userRole}
+            />
           )}
         </div>
       </div>

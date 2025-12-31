@@ -3,7 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
-import { updateTicketStatus, escalateTicket, softDeleteTicket, reopenTicket } from '../actions'
+import { updateTicketStatus, escalateTicket, softDeleteTicket, reopenTicket, requestEscalation } from '../actions'
 import CloseTicketModal from './CloseTicketModal'
 
 const STATUSES = [
@@ -33,11 +33,13 @@ export default function TicketActions({
   currentStatus,
   supportLevel,
   currentAgentId,
+  userRole,
 }: {
   ticketId: string
   currentStatus: string
   supportLevel: number
   currentAgentId: string | null
+  userRole: string
 }) {
   const router = useRouter()
   const supabase = createSupabaseBrowserClient()
@@ -162,6 +164,29 @@ export default function TicketActions({
       return
     }
     
+    router.refresh()
+  }
+
+  async function handleRequestEscalation() {
+    setError(null)
+    const reason = prompt('Motivo de la solicitud de escalamiento (mínimo 20 caracteres):')
+    if (!reason || reason.trim().length < 20) {
+      setError('El motivo debe tener al menos 20 caracteres')
+      return
+    }
+    
+    setBusy(true)
+    
+    const result = await requestEscalation(ticketId, reason.trim())
+    
+    setBusy(false)
+    
+    if (result.error) {
+      setError(result.error)
+      return
+    }
+    
+    alert('✓ Solicitud enviada al supervisor de tu sede')
     router.refresh()
   }
 
@@ -293,28 +318,70 @@ export default function TicketActions({
               Escalamiento
             </label>
             
-            {supportLevel === 1 && currentStatus !== 'CLOSED' && (
-              <div className="p-3 bg-orange-50 rounded-lg border border-orange-100 mb-2">
-                <label className="flex items-center gap-2 text-xs font-semibold text-orange-800 mb-2">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                  Asignar a (Nivel 2)
-                </label>
-                <select
-                  className="select w-full text-sm"
-                  value={escalateAgentId}
-                  onChange={(e) => setEscalateAgentId(e.target.value)}
+            {/* Técnico L1: Solo puede solicitar escalamiento */}
+            {userRole === 'agent_l1' && supportLevel === 1 && currentStatus !== 'CLOSED' && (
+              <>
+                <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 mb-3">
+                  <div className="flex items-start gap-2">
+                    <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div>
+                      <p className="text-xs text-amber-900 font-semibold mb-1">Solicitar aprobación</p>
+                      <p className="text-xs text-amber-700">Como técnico L1, debes solicitar al supervisor de tu sede que apruebe el escalamiento a Nivel 2.</p>
+                    </div>
+                  </div>
+                </div>
+                <button
+                  type="button"
                   disabled={busy}
+                  onClick={handleRequestEscalation}
+                  className="btn w-full flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-700 text-white"
                 >
-                  <option value="">-- Seleccionar técnico L2/Supervisor/Admin --</option>
-                  {agentsL2.map((a) => (
-                    <option key={a.id} value={a.id}>
-                      {a.full_name || a.id}
-                    </option>
-                  ))}
-                </select>
-              </div>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  Solicitar escalamiento
+                </button>
+              </>
+            )}
+
+            {/* Admin, Supervisor, L2: Pueden escalar directamente */}
+            {['admin', 'supervisor', 'agent_l2'].includes(userRole) && supportLevel === 1 && currentStatus !== 'CLOSED' && (
+              <>
+                <div className="p-3 bg-orange-50 rounded-lg border border-orange-100 mb-2">
+                  <label className="flex items-center gap-2 text-xs font-semibold text-orange-800 mb-2">
+                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                    </svg>
+                    Asignar a (Nivel 2)
+                  </label>
+                  <select
+                    className="select w-full text-sm"
+                    value={escalateAgentId}
+                    onChange={(e) => setEscalateAgentId(e.target.value)}
+                    disabled={busy}
+                  >
+                    <option value="">-- Seleccionar técnico L2/Supervisor/Admin --</option>
+                    {agentsL2.map((a) => (
+                      <option key={a.id} value={a.id}>
+                        {a.full_name || a.id}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+                <button
+                  type="button"
+                  disabled={busy}
+                  onClick={escalateToL2}
+                  className="btn btn-secondary w-full flex items-center justify-center gap-2"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11l5-5m0 0l5 5m-5-5v12" />
+                  </svg>
+                  Escalar a Nivel 2
+                </button>
+              </>
             )}
             
             {currentStatus === 'CLOSED' && (
@@ -326,22 +393,15 @@ export default function TicketActions({
                 <p className="text-xs text-gray-500 mt-1">El escalamiento no está disponible</p>
               </div>
             )}
-            
-            <button
-              type="button"
-              disabled={busy || supportLevel === 2 || currentStatus === 'CLOSED'}
-              onClick={escalateToL2}
-              className="btn btn-secondary w-full flex items-center justify-center gap-2"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 11l5-5m0 0l5 5m-5-5v12" />
-              </svg>
-              {currentStatus === 'CLOSED' 
-                ? 'Escalamiento no disponible'
-                : supportLevel === 2 
-                  ? 'Ya está en Nivel 2' 
-                  : 'Escalar a Nivel 2'}
-            </button>
+
+            {supportLevel === 2 && (
+              <div className="p-3 bg-blue-50 rounded-lg border border-blue-200 text-center">
+                <svg className="w-8 h-8 text-blue-500 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-xs text-blue-700 font-medium">Ya está en Nivel 2</p>
+              </div>
+            )}
           </div>
 
           {/* Reapertura */}

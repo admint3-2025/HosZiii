@@ -20,52 +20,80 @@ export default function NotificationBell() {
   const [unreadCount, setUnreadCount] = useState(0)
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
+  const [userId, setUserId] = useState<string | null>(null)
   const supabase = createSupabaseBrowserClient()
 
-  // Cargar notificaciones iniciales
+  // Obtener usuario actual
   useEffect(() => {
+    async function getUser() {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        setUserId(user.id)
+      }
+    }
+    getUser()
+  }, [])
+
+  // Cargar notificaciones iniciales y suscribirse a cambios
+  useEffect(() => {
+    if (!userId) return
+
     loadNotifications()
     
-    // Suscribirse a cambios en tiempo real
+    // Suscribirse a cambios en tiempo real FILTRADOS POR USUARIO
     const channel = supabase
-      .channel('notifications_realtime')
+      .channel(`notifications_${userId}`)
       .on(
         'postgres_changes',
         {
           event: '*',
           schema: 'public',
           table: 'notifications',
+          filter: `user_id=eq.${userId}`, // FILTRO CRÍTICO
         },
         (payload) => {
+          console.log('[NotificationBell] Realtime event:', payload.eventType, payload)
+          
           if (payload.eventType === 'INSERT') {
-            setNotifications((prev) => [payload.new as Notification, ...prev])
+            const newNotif = payload.new as Notification
+            setNotifications((prev) => [newNotif, ...prev])
             setUnreadCount((prev) => prev + 1)
             
             // Mostrar notificación del navegador si está permitido
-            if (Notification.permission === 'granted') {
-              const notif = payload.new as Notification
-              new Notification(notif.title, {
-                body: notif.message,
+            if ('Notification' in window && Notification.permission === 'granted') {
+              new Notification(newNotif.title, {
+                body: newNotif.message,
                 icon: '/favicon.ico',
               })
             }
           } else if (payload.eventType === 'UPDATE') {
+            const updatedNotif = payload.new as Notification
             setNotifications((prev) =>
               prev.map((n) =>
-                n.id === payload.new.id ? (payload.new as Notification) : n
+                n.id === updatedNotif.id ? updatedNotif : n
               )
             )
-            // Recalcular contador
-            loadNotifications()
+            // Recalcular contador solo si cambió is_read
+            if (payload.old.is_read !== updatedNotif.is_read) {
+              setUnreadCount((prev) => updatedNotif.is_read ? prev - 1 : prev + 1)
+            }
+          } else if (payload.eventType === 'DELETE') {
+            setNotifications((prev) => prev.filter((n) => n.id !== payload.old.id))
+            if (!payload.old.is_read) {
+              setUnreadCount((prev) => Math.max(0, prev - 1))
+            }
           }
         }
       )
-      .subscribe()
+      .subscribe((status) => {
+        console.log('[NotificationBell] Subscription status:', status)
+      })
 
     return () => {
+      console.log('[NotificationBell] Unsubscribing from channel')
       supabase.removeChannel(channel)
     }
-  }, [])
+  }, [userId])
 
   // Solicitar permisos de notificaciones del navegador
   useEffect(() => {

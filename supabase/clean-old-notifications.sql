@@ -26,10 +26,10 @@ FROM notifications;
 -- 5. Ver notificaciones por usuario
 SELECT 
   p.full_name,
-  p.email,
+  p.id as user_id,
   COUNT(*) as total_notificaciones,
   COUNT(CASE WHEN n.is_read = false THEN 1 END) as no_leidas
 FROM notifications n
 LEFT JOIN profiles p ON p.id = n.user_id
-GROUP BY p.full_name, p.email
+GROUP BY p.full_name, p.id
 ORDER BY no_leidas DESC;
