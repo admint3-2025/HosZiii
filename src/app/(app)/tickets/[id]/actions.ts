@@ -259,6 +259,7 @@ export async function escalateTicket(ticketId: string, currentLevel: number, ass
 
   // Obtener información del agente anterior (puede ser el técnico L1 que solicitó)
   const previousAgentId = ticket.assigned_agent_id
+  console.log('[escalateTicket] previousAgentId:', previousAgentId)
 
   const { error } = await supabase
     .from('tickets')
@@ -299,16 +300,19 @@ export async function escalateTicket(ticketId: string, currentLevel: number, ass
 
   // Notificar al técnico L1 anterior si existe
   if (previousAgentId) {
+    console.log('[escalateTicket] Notificando al técnico L1:', previousAgentId)
     try {
       const { createSupabaseAdminClient } = await import('@/lib/supabase/admin')
       const adminClient = createSupabaseAdminClient()
       
       // Obtener email del técnico L1
       const { data: authUser } = await adminClient.auth.admin.getUserById(previousAgentId)
+      console.log('[escalateTicket] AuthUser obtenido:', authUser.user?.email)
       
       if (authUser.user?.email) {
         // Crear notificación push
-        await supabase.from('notifications').insert({
+        console.log('[escalateTicket] Creando notificación push...')
+        const { error: notifError } = await supabase.from('notifications').insert({
           user_id: previousAgentId,
           type: 'TICKET_ESCALATED',
           title: `✅ Escalamiento aprobado - Ticket #${ticket.ticket_number}`,
@@ -317,8 +321,15 @@ export async function escalateTicket(ticketId: string, currentLevel: number, ass
           ticket_number: ticket.ticket_number,
           actor_id: user.id,
         })
+        
+        if (notifError) {
+          console.error('[escalateTicket] Error creando notificación:', notifError)
+        } else {
+          console.log('[escalateTicket] ✓ Notificación push creada')
+        }
 
         // Enviar email
+        console.log('[escalateTicket] Enviando email...')
         const { sendMail } = await import('@/lib/email/mailer')
         const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
         const ticketUrl = `${baseUrl}/tickets/${ticketId}`
@@ -404,11 +415,15 @@ export async function escalateTicket(ticketId: string, currentLevel: number, ass
           text: `Escalamiento aprobado\n\n${supervisorProfile?.full_name || 'El supervisor'} ha aprobado tu solicitud de escalamiento para el ticket #${ticket.ticket_number}.\n\nEl ticket ha sido escalado a Nivel 2 y asignado a ${newAgentProfile?.full_name || 'un técnico L2'}.\n\nVer ticket: ${ticketUrl}`,
         })
 
-        console.log(`[escalateTicket] Notificación enviada al técnico L1: ${authUser.user.email}`)
+        console.log(`[escalateTicket] ✓ Email enviado al técnico L1: ${authUser.user.email}`)
+      } else {
+        console.log('[escalateTicket] No se encontró email para el técnico L1')
       }
     } catch (err) {
       console.error('[escalateTicket] Error notificando al técnico L1:', err)
     }
+  } else {
+    console.log('[escalateTicket] No hay previousAgentId, no se notificará')
   }
 
   // Enviar notificaciones de escalamiento
