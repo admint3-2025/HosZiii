@@ -257,9 +257,28 @@ export async function escalateTicket(ticketId: string, currentLevel: number, ass
     return { error: 'Ticket no encontrado' }
   }
 
-  // Obtener información del agente anterior (puede ser el técnico L1 que solicitó)
-  const previousAgentId = ticket.assigned_agent_id
-  console.log('[escalateTicket] previousAgentId:', previousAgentId)
+  // Buscar quién solicitó el escalamiento (en los comentarios)
+  let previousAgentId = ticket.assigned_agent_id
+  
+  // Si no hay agente asignado, buscar en los comentarios quién solicitó el escalamiento
+  if (!previousAgentId) {
+    console.log('[escalateTicket] No hay assigned_agent_id, buscando en comentarios...')
+    const { data: escalationComment } = await supabase
+      .from('ticket_comments')
+      .select('author_id')
+      .eq('ticket_id', ticketId)
+      .ilike('body', '%🔔 **Solicitud de escalamiento a Nivel 2**%')
+      .order('created_at', { ascending: false })
+      .limit(1)
+      .single()
+    
+    if (escalationComment) {
+      previousAgentId = escalationComment.author_id
+      console.log('[escalateTicket] Encontrado solicitante en comentarios:', previousAgentId)
+    }
+  }
+  
+  console.log('[escalateTicket] previousAgentId final:', previousAgentId)
 
   const { error } = await supabase
     .from('tickets')
