@@ -484,16 +484,25 @@ export async function requestEscalation(ticketId: string, reason: string) {
     return { error: 'No se encontró ningún supervisor en tu sede' }
   }
 
-  // Registrar comentario en el ticket (auditoría)
-  await supabase.from('ticket_comments').insert({
-    ticket_id: ticketId,
-    author_id: user.id,
-    content: `🔔 **Solicitud de escalamiento a Nivel 2**\n\n**Motivo:** ${reason}\n\n*El técnico ${profile.full_name || 'L1'} ha solicitado la aprobación del supervisor para escalar este ticket a Nivel 2.*`,
-    is_internal: false, // Visible para todos para trazabilidad
-  })
-
-  // Enviar notificación a cada supervisor de la sede
   try {
+    console.log('[requestEscalation] Iniciando solicitud...')
+    
+    // Registrar comentario en el ticket (auditoría)
+    const { error: commentError } = await supabase.from('ticket_comments').insert({
+      ticket_id: ticketId,
+      author_id: user.id,
+      content: `🔔 **Solicitud de escalamiento a Nivel 2**\n\n**Motivo:** ${reason}\n\n*El técnico ${profile.full_name || 'L1'} ha solicitado la aprobación del supervisor para escalar este ticket a Nivel 2.*`,
+      is_internal: false, // Visible para todos para trazabilidad
+    })
+
+    if (commentError) {
+      console.error('[requestEscalation] Error creando comentario:', commentError)
+      throw new Error('Error registrando la solicitud en el ticket')
+    }
+
+    console.log('[requestEscalation] Comentario creado exitosamente')
+
+    // Enviar notificación a cada supervisor de la sede
     const { createSupabaseAdminClient } = await import('@/lib/supabase/admin')
     const adminClient = createSupabaseAdminClient()
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
@@ -501,14 +510,21 @@ export async function requestEscalation(ticketId: string, reason: string) {
     const locationName = (ticket.locations as any)?.name || 'la sede'
     const locationCode = (ticket.locations as any)?.code || ''
 
+    console.log(`[requestEscalation] Notificando a ${supervisors.length} supervisor(es)...`)
+
     for (const supervisor of supervisors) {
+      console.log(`[requestEscalation] Procesando supervisor ${supervisor.full_name}...`)
+      
       // Obtener email del supervisor
       const { data: authUser } = await adminClient.auth.admin.getUserById(supervisor.id)
       
-      if (!authUser.user?.email) continue
+      if (!authUser.user?.email) {
+        console.log(`[requestEscalation] Supervisor ${supervisor.full_name} sin email, omitiendo...`)
+        continue
+      }
 
       // Crear notificación push en la base de datos
-      await supabase.from('notifications').insert({
+      const { error: notifError } = await supabase.from('notifications').insert({
         user_id: supervisor.id,
         type: 'TICKET_ESCALATED', // Usar tipo válido del enum
         title: `🔔 Solicitud de escalamiento en ${locationCode}`,
@@ -518,7 +534,15 @@ export async function requestEscalation(ticketId: string, reason: string) {
         actor_id: user.id,
       })
 
+      if (notifError) {
+        console.error('[requestEscalation] Error creando notificación:', notifError)
+        // Continuar con el siguiente supervisor
+      } else {
+        console.log(`[requestEscalation] Notificación push creada para ${supervisor.full_name}`)
+      }
+
       // Enviar email
+      console.log(`[requestEscalation] Enviando email a ${authUser.user.email}...`)
       const { sendMail } = await import('@/lib/email/mailer')
       
       const html = `
@@ -601,8 +625,11 @@ export async function requestEscalation(ticketId: string, reason: string) {
         html,
         text: `Solicitud de escalamiento\n\nHola ${supervisor.full_name || 'Supervisor'},\n\n${profile.full_name || 'Un técnico L1'} solicita escalar el ticket #${ticket.ticket_number}: "${ticket.title}"\n\nMotivo: ${reason}\n\nVer ticket: ${ticketUrl}`,
       })
+      
+      console.log(`[requestEscalation] Email enviado exitosamente a ${supervisor.full_name}`)
     }
 
+    console.log('[requestEscalation] Proceso completado exitosamente')
     return { success: true, message: 'Solicitud enviada al supervisor de tu sede' }
   } catch (error: any) {
     console.error('[requestEscalation] Error:', error)
