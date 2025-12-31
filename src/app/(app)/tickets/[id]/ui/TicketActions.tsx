@@ -34,12 +34,14 @@ export default function TicketActions({
   supportLevel,
   currentAgentId,
   userRole,
+  hasEscalationRequest = false,
 }: {
   ticketId: string
   currentStatus: string
   supportLevel: number
   currentAgentId: string | null
   userRole: string
+  hasEscalationRequest?: boolean
 }) {
   const router = useRouter()
   const supabase = createSupabaseBrowserClient()
@@ -376,28 +378,44 @@ export default function TicketActions({
             {/* Técnico L1: Solo puede solicitar escalamiento */}
             {userRole === 'agent_l1' && supportLevel === 1 && currentStatus !== 'CLOSED' && (
               <>
-                <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 mb-3">
-                  <div className="flex items-start gap-2">
-                    <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <div>
-                      <p className="text-xs text-amber-900 font-semibold mb-1">Solicitar aprobación</p>
-                      <p className="text-xs text-amber-700">Como técnico L1, debes solicitar al supervisor de tu sede que apruebe el escalamiento a Nivel 2.</p>
+                {hasEscalationRequest ? (
+                  <div className="p-4 bg-amber-50 rounded-lg border border-amber-200 mb-3">
+                    <div className="flex items-start gap-2">
+                      <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <div>
+                        <p className="text-sm text-amber-900 font-semibold mb-1">⏳ Solicitud pendiente</p>
+                        <p className="text-xs text-amber-700">Ya has solicitado el escalamiento. Esperando aprobación del supervisor.</p>
+                      </div>
                     </div>
                   </div>
-                </div>
-                <button
-                  type="button"
-                  disabled={busy}
-                  onClick={handleRequestEscalation}
-                  className="btn w-full flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-700 text-white"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                  Solicitar escalamiento
-                </button>
+                ) : (
+                  <>
+                    <div className="p-3 bg-amber-50 rounded-lg border border-amber-200 mb-3">
+                      <div className="flex items-start gap-2">
+                        <svg className="w-5 h-5 text-amber-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <div>
+                          <p className="text-xs text-amber-900 font-semibold mb-1">Solicitar aprobación</p>
+                          <p className="text-xs text-amber-700">Como técnico L1, debes solicitar al supervisor de tu sede que apruebe el escalamiento a Nivel 2.</p>
+                        </div>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={handleRequestEscalation}
+                      className="btn w-full flex items-center justify-center gap-2 bg-amber-600 hover:bg-amber-700 text-white"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                      </svg>
+                      Solicitar escalamiento
+                    </button>
+                  </>
+                )}
               </>
             )}
 

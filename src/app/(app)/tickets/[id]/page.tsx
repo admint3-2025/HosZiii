@@ -96,6 +96,13 @@ export default async function TicketDetailPage({
     }
   }
 
+  // Verificar si hay una solicitud de escalamiento pendiente
+  // (comentario con "Solicitud de escalamiento" y el ticket aún es nivel 1)
+  const hasEscalationRequest = ticket.support_level === 1 && 
+    (comments ?? []).some(c => 
+      c.body?.includes('🔔 **Solicitud de escalamiento a Nivel 2**')
+    )
+
   return (
     <main className="p-6 space-y-4">
       <TicketDetail
@@ -113,6 +120,7 @@ export default async function TicketDetailPage({
         }))}
         currentAgentId={ticket.assigned_agent_id}
         userRole={userRole}
+        hasEscalationRequest={hasEscalationRequest}
       />
     </main>
   )

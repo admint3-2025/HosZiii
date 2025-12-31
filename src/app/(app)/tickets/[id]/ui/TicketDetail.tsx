@@ -8,11 +8,13 @@ export default function TicketDetail({
   comments,
   currentAgentId,
   userRole,
+  hasEscalationRequest = false,
 }: {
   ticket: any
   comments: any[]
   currentAgentId: string | null
   userRole: string
+  hasEscalationRequest?: boolean
 }) {
   // Solo permitir acciones a agentes y superiores (no a usuarios ni solicitantes)
   const canPerformActions = ['agent_l1', 'agent_l2', 'supervisor', 'admin'].includes(userRole)
@@ -267,6 +269,7 @@ export default function TicketDetail({
               supportLevel={ticket.support_level} 
               currentAgentId={currentAgentId}
               userRole={userRole}
+              hasEscalationRequest={hasEscalationRequest}
             />
           )}
         </div>
