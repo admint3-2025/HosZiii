@@ -1046,9 +1046,14 @@ export function ticketInvestigationEmailTemplate(params: {
   assignedAgentName: string | null
   createdAt: string
   updatedAt: string
+  closedAt: string | null
+  closedBy: string | null
+  resolution: string | null
+  supportLevel: number
   daysOpen: number
   commentsCount: number
   comments: Array<{ author: string; content: string; date: string; isInternal: boolean }>
+  statusHistory: Array<{ fromStatus: string; toStatus: string; actor: string; date: string; note: string | null }>
   ticketUrl: string
   senderName: string
   reason?: string
@@ -1067,15 +1072,20 @@ export function ticketInvestigationEmailTemplate(params: {
     assignedAgentName,
     createdAt,
     updatedAt,
+    closedAt,
+    closedBy,
+    resolution,
+    supportLevel,
     daysOpen,
     commentsCount,
     comments,
+    statusHistory,
     ticketUrl,
     senderName,
     reason,
   } = params
 
-  const subject = `[INVESTIGACIÓN] Ticket #${ticketNumber} - ${title}`
+  const subject = `[INFORME] Ticket #${ticketNumber} - ${title}`
 
   const text = [
     `Información del Ticket #${ticketNumber}`,
@@ -1119,6 +1129,13 @@ export function ticketInvestigationEmailTemplate(params: {
   <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Informe Ticket #${ticketNumber}</title>
+    <style>
+      @media print {
+        body { background: white !important; padding: 20px !important; }
+        .no-print { display: none !important; }
+      }
+    </style>
   </head>
   <body style="margin:0; padding:0; background-color:#f9fafb;">
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background:#f9fafb; padding:40px 20px;">
@@ -1132,12 +1149,12 @@ export function ticketInvestigationEmailTemplate(params: {
       <div style="max-width:700px; margin:0 auto; background:#ffffff; border-radius:16px; box-shadow:0 4px 6px rgba(0,0,0,0.07); overflow:hidden;">
         
         <!-- Header -->
-        <div style="background:linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); padding:24px 24px 16px 24px;">
+        <div style="background:linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%); padding:24px 24px 16px 24px;">
           <div style="background:rgba(255,255,255,0.15); backdrop-filter:blur(10px); border-radius:12px; padding:16px; text-align:center; border:1px solid rgba(255,255,255,0.2);">
             <div style="font-size:40px; margin-bottom:8px;">📋</div>
-            <h2 style="margin:0 0 8px 0; font-size:22px; font-weight:700; color:#ffffff;">Información del Ticket #${ticketNumber}</h2>
+            <h2 style="margin:0 0 8px 0; font-size:22px; font-weight:700; color:#ffffff;">INFORME DE TICKET #${ticketNumber}</h2>
             <p style="margin:0; font-size:14px; color:rgba(255,255,255,0.9); font-weight:500;">
-              Documento de Investigación
+              Documento Completo de Investigación ITIL
             </p>
           </div>
         </div>
@@ -1209,6 +1226,14 @@ export function ticketInvestigationEmailTemplate(params: {
                   ${assignedAgentName ? escapeHtml(assignedAgentName) : '<em style="color:#9ca3af;">Sin asignar</em>'}
                 </td>
               </tr>
+              <tr>
+                <td style="padding:8px 0; font-size:13px; color:#6b7280; font-weight:600;">Nivel de Soporte:</td>
+                <td style="padding:8px 0; font-size:13px;">
+                  <span style="display:inline-block; padding:4px 12px; background:#dbeafe; color:#1e40af; border-radius:6px; font-size:12px; font-weight:600;">
+                    Nivel ${supportLevel}
+                  </span>
+                </td>
+              </tr>
               <tr style="border-top:1px solid #e5e7eb;">
                 <td style="padding:12px 0 8px 0; font-size:13px; color:#6b7280; font-weight:600;">Creado:</td>
                 <td style="padding:12px 0 8px 0; font-size:13px; color:#111827;">${escapeHtml(createdAt)}</td>
@@ -1217,6 +1242,18 @@ export function ticketInvestigationEmailTemplate(params: {
                 <td style="padding:8px 0; font-size:13px; color:#6b7280; font-weight:600;">Actualizado:</td>
                 <td style="padding:8px 0; font-size:13px; color:#111827;">${escapeHtml(updatedAt)}</td>
               </tr>
+              ${closedAt ? `
+              <tr>
+                <td style="padding:8px 0; font-size:13px; color:#6b7280; font-weight:600;">Cerrado:</td>
+                <td style="padding:8px 0; font-size:13px; color:#111827;">${escapeHtml(closedAt)}</td>
+              </tr>
+              ${closedBy ? `
+              <tr>
+                <td style="padding:8px 0; font-size:13px; color:#6b7280; font-weight:600;">Cerrado por:</td>
+                <td style="padding:8px 0; font-size:13px; color:#111827; font-weight:500;">${escapeHtml(closedBy)}</td>
+              </tr>
+              ` : ''}
+              ` : ''}
               <tr>
                 <td style="padding:8px 0; font-size:13px; color:#6b7280; font-weight:600;">Días abierto:</td>
                 <td style="padding:8px 0; font-size:13px;">
@@ -1231,31 +1268,75 @@ export function ticketInvestigationEmailTemplate(params: {
           <!-- Description -->
           <div style="margin-bottom:24px; background:#f9fafb; border-radius:12px; padding:20px; border:1px solid #e5e7eb;">
             <h3 style="margin:0 0 12px 0; font-size:16px; font-weight:700; color:#111827; border-bottom:2px solid #e5e7eb; padding-bottom:8px;">
-              📝 Descripción
+              📝 Descripción del Problema
             </h3>
             <p style="margin:0; font-size:14px; color:#374151; line-height:1.7; white-space:pre-wrap;">
               ${escapeHtml(description)}
             </p>
           </div>
 
+          ${resolution ? `
+          <!-- Resolution -->
+          <div style="margin-bottom:24px; background:#f0fdf4; border-radius:12px; padding:20px; border:2px solid #22c55e;">
+            <h3 style="margin:0 0 12px 0; font-size:16px; font-weight:700; color:#15803d; border-bottom:2px solid #86efac; padding-bottom:8px;">
+              ✅ Resolución Final
+            </h3>
+            <p style="margin:0; font-size:14px; color:#166534; line-height:1.7; white-space:pre-wrap; font-weight:500;">
+              ${escapeHtml(resolution)}
+            </p>
+          </div>
+          ` : ''}
+
+          <!-- Status History -->
+          <div style="margin-bottom:24px; background:#f9fafb; border-radius:12px; padding:20px; border:1px solid #e5e7eb;">
+            <h3 style="margin:0 0 16px 0; font-size:16px; font-weight:700; color:#111827; border-bottom:2px solid #e5e7eb; padding-bottom:8px;">
+              🔄 Historial de Estados (${statusHistory.length} cambios)
+            </h3>
+            
+            ${statusHistory.length > 0 ? statusHistory.map((h, idx) => `
+            <div style="position:relative; padding:14px 14px 14px 40px; margin-bottom:${idx < statusHistory.length - 1 ? '12px' : '0'}; background:#ffffff; border-radius:8px; border-left:3px solid #6366f1;">
+              <div style="position:absolute; left:12px; top:14px; width:18px; height:18px; background:#6366f1; border-radius:50%; display:flex; align-items:center; justify-content:center; color:#ffffff; font-size:10px; font-weight:700;">
+                ${idx + 1}
+              </div>
+              <div style="margin-bottom:6px;">
+                <span style="font-size:12px; color:#6b7280; font-weight:600; text-decoration:line-through;">${escapeHtml(h.fromStatus)}</span>
+                <span style="font-size:12px; color:#6b7280; margin:0 6px;">→</span>
+                <span style="font-size:12px; color:#1e40af; font-weight:700;">${escapeHtml(h.toStatus)}</span>
+              </div>
+              <div style="font-size:12px; color:#6b7280; margin-bottom:4px;">
+                <strong style="color:#111827;">${escapeHtml(h.actor)}</strong> · ${escapeHtml(h.date)}
+              </div>
+              ${h.note ? `
+              <div style="margin-top:8px; padding:8px 12px; background:#fef3c7; border-radius:6px; font-size:12px; color:#92400e; line-height:1.5;">
+                ${escapeHtml(h.note)}
+              </div>
+              ` : ''}
+            </div>
+            `).join('') : `
+            <p style="margin:0; font-size:14px; color:#9ca3af; font-style:italic;">
+              No hay historial de cambios de estado.
+            </p>
+            `}
+          </div>
+
           <!-- Comments -->
           <div style="margin-bottom:24px; background:#f9fafb; border-radius:12px; padding:20px; border:1px solid #e5e7eb;">
             <h3 style="margin:0 0 16px 0; font-size:16px; font-weight:700; color:#111827; border-bottom:2px solid #e5e7eb; padding-bottom:8px;">
-              💬 Historial de Comentarios (${commentsCount})
+              💬 Seguimiento y Comentarios (${commentsCount})
             </h3>
             
-            ${comments.length > 0 ? comments.map((comment) => `
-            <div style="margin-bottom:16px; padding:14px; background:#ffffff; border-radius:8px; border-left:3px solid ${comment.isInternal ? '#f59e0b' : '#3b82f6'};">
-              <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:8px;">
+            ${comments.length > 0 ? comments.map((comment, idx) => `
+            <div style="margin-bottom:${idx < comments.length - 1 ? '16px' : '0'}; padding:14px; background:#ffffff; border-radius:8px; border-left:3px solid ${comment.isInternal ? '#f59e0b' : '#1e40af'};">
+              <div style="margin-bottom:8px;">
                 <strong style="font-size:13px; color:#111827;">${escapeHtml(comment.author)}</strong>
-                ${comment.isInternal ? '<span style="display:inline-block; padding:2px 8px; background:#fef3c7; color:#92400e; border-radius:4px; font-size:10px; font-weight:600; text-transform:uppercase;">Interno</span>' : ''}
+                ${comment.isInternal ? ' <span style="display:inline-block; padding:2px 8px; background:#fef3c7; color:#92400e; border-radius:4px; font-size:10px; font-weight:600; text-transform:uppercase; margin-left:8px;">Interno</span>' : ''}
+                <div style="font-size:11px; color:#9ca3af; margin-top:4px;">
+                  ${escapeHtml(comment.date)}
+                </div>
               </div>
-              <p style="margin:0 0 8px 0; font-size:13px; color:#374151; line-height:1.6;">
+              <div style="margin:0; font-size:13px; color:#374151; line-height:1.6; white-space:pre-wrap;">
                 ${escapeHtml(comment.content)}
-              </p>
-              <p style="margin:0; font-size:11px; color:#9ca3af;">
-                ${escapeHtml(comment.date)}
-              </p>
+              </div>
             </div>
             `).join('') : `
             <p style="margin:0; font-size:14px; color:#9ca3af; font-style:italic;">
@@ -1265,17 +1346,24 @@ export function ticketInvestigationEmailTemplate(params: {
           </div>
 
           <!-- CTA Button -->
-          <div style="text-align:center; margin:32px 0;">
+          <div class="no-print" style="text-align:center; margin:32px 0;">
             <a href="${escapeAttr(ticketUrl)}"
-               style="display:inline-block; background:linear-gradient(135deg, #dc2626 0%, #b91c1c 100%); color:#ffffff; text-decoration:none; padding:14px 32px; border-radius:12px; font-size:16px; font-weight:600; box-shadow:0 4px 12px rgba(220, 38, 38, 0.3);">
+               style="display:inline-block; background:linear-gradient(135deg, #1e40af 0%, #1e3a8a 100%); color:#ffffff; text-decoration:none; padding:14px 32px; border-radius:12px; font-size:16px; font-weight:600; box-shadow:0 4px 12px rgba(30, 64, 175, 0.3);">
               📋 Ver Ticket Completo en Sistema
             </a>
           </div>
 
+          <!-- Print Instructions -->
+          <div class="no-print" style="margin:24px 0; padding:16px; background:#f0f9ff; border-left:4px solid #3b82f6; border-radius:8px;">
+            <p style="margin:0; font-size:13px; color:#1e40af; line-height:1.5;">
+              <strong>💡 Sugerencia:</strong> Puedes guardar este informe como PDF usando la función de imprimir de tu navegador o cliente de correo (Ctrl+P → Guardar como PDF).
+            </p>
+          </div>
+
           <!-- Warning Box -->
-          <div style="margin-top:24px; padding:16px; background:#fef2f2; border-left:4px solid #dc2626; border-radius:8px;">
-            <p style="margin:0; font-size:13px; color:#7f1d1d; line-height:1.5;">
-              <strong>⚠️ Documento Confidencial:</strong> Esta información es de carácter confidencial y está destinada únicamente para fines de investigación interna. No debe ser compartida con terceros sin autorización.
+          <div style="margin-top:24px; padding:16px; background:#eff6ff; border-left:4px solid #1e40af; border-radius:8px;">
+            <p style="margin:0; font-size:13px; color:#1e3a8a; line-height:1.5;">
+              <strong>🔒 Documento Confidencial:</strong> Esta información es de carácter confidencial y está destinada únicamente para fines de investigación interna. No debe ser compartida con terceros sin autorización.
             </p>
           </div>
 

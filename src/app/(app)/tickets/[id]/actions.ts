@@ -847,12 +847,7 @@ export async function sendTicketByEmail(input: SendTicketEmailInput) {
     // Admin puede ver todos los tickets, supervisores solo de su sede
     let ticketQuery = supabase
       .from('tickets')
-      .select(`
-        *,
-        profiles:requester_id (full_name),
-        assigned_agent:assigned_agent_id (full_name),
-        locations (name, code)
-      `)
+      .select('*, locations (name, code)')
       .eq('id', input.ticketId)
 
     // Si no es admin, filtrar por ubicación
@@ -867,18 +862,78 @@ export async function sendTicketByEmail(input: SendTicketEmailInput) {
       return { error: 'Ticket no encontrado o sin permisos para acceder' }
     }
 
+    // Obtener nombres de usuarios desde profiles
+    const { data: requesterProfile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', ticket.requester_id)
+      .single()
+
+    const { data: agentProfile } = ticket.assigned_agent_id ? await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', ticket.assigned_agent_id)
+      .single() : { data: null }
+
+    // Obtener información de quién cerró el ticket
+    const { data: closedByProfile } = ticket.closed_by ? await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', ticket.closed_by)
+      .single() : { data: null }
+
+    // Obtener historial de estados
+    const { data: statusHistory } = await supabase
+      .from('ticket_status_history')
+      .select('from_status, to_status, created_at, note, actor_id')
+      .eq('ticket_id', input.ticketId)
+      .order('created_at', { ascending: true })
+
+    // Obtener nombres de actores del historial
+    const actorIds = [...new Set((statusHistory || []).map((h: any) => h.actor_id).filter(Boolean))]
+    const actorProfiles = new Map()
+    for (const actorId of actorIds) {
+      const { data: actor } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .eq('id', actorId)
+        .single()
+      if (actor) actorProfiles.set(actor.id, actor.full_name)
+    }
+
+    // Formatear historial de estados
+    const formattedHistory = (statusHistory || []).map((h: any) => ({
+      fromStatus: h.from_status ? STATUS_LABELS[h.from_status] || h.from_status : 'Inicio',
+      toStatus: STATUS_LABELS[h.to_status] || h.to_status,
+      actor: actorProfiles.get(h.actor_id) || 'Sistema',
+      date: new Date(h.created_at).toLocaleString('es-MX', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }),
+      note: h.note,
+    }))
+
     // Obtener comentarios del ticket
     const { data: comments } = await supabase
       .from('ticket_comments')
-      .select(`
-        id,
-        body,
-        visibility,
-        created_at,
-        profiles:author_id (full_name)
-      `)
+      .select('id, body, visibility, created_at, author_id')
       .eq('ticket_id', input.ticketId)
       .order('created_at', { ascending: true })
+
+    // Obtener nombres de autores de comentarios
+    const authorIds = [...new Set((comments || []).map((c: any) => c.author_id).filter(Boolean))]
+    const authorProfiles = new Map()
+    for (const authorId of authorIds) {
+      const { data: author } = await supabase
+        .from('profiles')
+        .select('id, full_name')
+        .eq('id', authorId)
+        .single()
+      if (author) authorProfiles.set(author.id, author.full_name)
+    }
 
     // Calcular días abierto
     const createdDate = new Date(ticket.created_at)
@@ -887,7 +942,7 @@ export async function sendTicketByEmail(input: SendTicketEmailInput) {
 
     // Preparar comentarios para el template
     const formattedComments = (comments || []).map((c: any) => ({
-      author: c.profiles?.full_name || 'Usuario',
+      author: authorProfiles.get(c.author_id) || 'Usuario',
       content: c.body,
       date: new Date(c.created_at).toLocaleString('es-MX', {
         year: 'numeric',
@@ -913,8 +968,8 @@ export async function sendTicketByEmail(input: SendTicketEmailInput) {
       status: STATUS_LABELS[ticket.status] || ticket.status,
       locationName: (ticket.locations as any)?.name || 'Sin sede',
       locationCode: (ticket.locations as any)?.code || '-',
-      requesterName: ticket.profiles?.full_name || 'Desconocido',
-      assignedAgentName: ticket.assigned_agent?.full_name || null,
+      requesterName: requesterProfile?.full_name || 'Desconocido',
+      assignedAgentName: agentProfile?.full_name || null,
       createdAt: new Date(ticket.created_at).toLocaleString('es-MX', {
         year: 'numeric',
         month: 'long',
@@ -929,9 +984,20 @@ export async function sendTicketByEmail(input: SendTicketEmailInput) {
         hour: '2-digit',
         minute: '2-digit',
       }),
+      closedAt: ticket.closed_at ? new Date(ticket.closed_at).toLocaleString('es-MX', {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+      }) : null,
+      closedBy: closedByProfile?.full_name || null,
+      resolution: ticket.resolution || null,
+      supportLevel: ticket.support_level,
       daysOpen,
       commentsCount: comments?.length || 0,
       comments: formattedComments,
+      statusHistory: formattedHistory,
       ticketUrl,
       senderName: profile.full_name || 'Sistema',
       reason: input.reason,
