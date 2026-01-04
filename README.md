@@ -1,10 +1,10 @@
 # ZIII Helpdesk
 
-Help Desk ITIL (tickets, comentarios, auditoría) pensado para correr en la nube usando servicios gratuitos.
+Help Desk ITIL (tickets, comentarios, auditoría)
 
-## Stack (gratis)
-- Hosting: Vercel (free tier)
-- Auth + DB: Supabase (free tier)
+## Stack
+- Hosting: Vercel
+- Auth + DB: Supabase
 
 ## 1) Requisitos locales
 - Node.js 20+
