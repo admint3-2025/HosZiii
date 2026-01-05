@@ -187,7 +187,7 @@ export async function POST(request: Request) {
 
   // Insertar sedes en user_locations (múltiples sedes)
   if (locationIds.length > 0) {
-    const userLocations = locationIds.map(locId => ({
+    const userLocations = locationIds.map((locId: string) => ({
       user_id: newUserId,
       location_id: locId
     }))

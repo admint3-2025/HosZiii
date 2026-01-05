@@ -94,7 +94,7 @@ export async function PATCH(
     await admin.from('user_locations').delete().eq('user_id', id)
     
     if (locationIds.length > 0) {
-      const userLocations = locationIds.map(locId => ({
+      const userLocations = locationIds.map((locId: string) => ({
         user_id: id,
         location_id: locId
       }))
