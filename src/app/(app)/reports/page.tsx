@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getReportsLocationFilter } from '@/lib/supabase/reports-filter'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 
@@ -17,7 +18,30 @@ export default async function ReportsPage() {
 
   const isAdminOrSupervisor = profile?.role === 'admin' || profile?.role === 'supervisor'
 
-  // Métricas para reportes
+  // Obtener filtro de ubicaciones para reportes
+  const locationFilter = await getReportsLocationFilter()
+
+  // Construir queries base con filtro de ubicaciones
+  let ticketsQuery = supabase.from('tickets').select('id', { count: 'exact', head: true })
+  let activeTicketsQuery = supabase.from('tickets').select('id', { count: 'exact', head: true }).is('deleted_at', null)
+  let deletedTicketsQuery = supabase.from('tickets').select('id', { count: 'exact', head: true }).not('deleted_at', 'is', null)
+  let assetsQuery = supabase.from('assets').select('id', { count: 'exact', head: true }).is('deleted_at', null)
+  
+  // Aplicar filtro de ubicación para supervisores sin permiso especial
+  if (locationFilter.shouldFilter && locationFilter.locationIds.length > 0) {
+    ticketsQuery = ticketsQuery.in('location_id', locationFilter.locationIds)
+    activeTicketsQuery = activeTicketsQuery.in('location_id', locationFilter.locationIds)
+    deletedTicketsQuery = deletedTicketsQuery.in('location_id', locationFilter.locationIds)
+    assetsQuery = assetsQuery.in('location_id', locationFilter.locationIds)
+  } else if (locationFilter.shouldFilter && locationFilter.locationIds.length === 0) {
+    // Supervisor sin sedes: no mostrar nada
+    ticketsQuery = ticketsQuery.eq('id', '00000000-0000-0000-0000-000000000000')
+    activeTicketsQuery = activeTicketsQuery.eq('id', '00000000-0000-0000-0000-000000000000')
+    deletedTicketsQuery = deletedTicketsQuery.eq('id', '00000000-0000-0000-0000-000000000000')
+    assetsQuery = assetsQuery.eq('id', '00000000-0000-0000-0000-000000000000')
+  }
+
+  // Métricas para reportes (con filtro aplicado)
   const [
     { count: totalTickets },
     { count: activeTickets },
@@ -26,11 +50,11 @@ export default async function ReportsPage() {
     { count: totalAssets },
     { count: assetChanges },
   ] = await Promise.all([
-    supabase.from('tickets').select('id', { count: 'exact', head: true }),
-    supabase.from('tickets').select('id', { count: 'exact', head: true }).is('deleted_at', null),
-    supabase.from('tickets').select('id', { count: 'exact', head: true }).not('deleted_at', 'is', null),
+    ticketsQuery,
+    activeTicketsQuery,
+    deletedTicketsQuery,
     supabase.from('audit_log').select('id', { count: 'exact', head: true }),
-    supabase.from('assets').select('id', { count: 'exact', head: true }).is('deleted_at', null),
+    assetsQuery,
     supabase.from('asset_changes').select('id', { count: 'exact', head: true }),
   ])
 
@@ -44,7 +68,7 @@ export default async function ReportsPage() {
       color: 'bg-blue-50 border-blue-200 text-blue-700',
       hoverColor: 'hover:bg-blue-100',
       enabled: true,
-      requiresAdminOrSupervisor: false, // Visible para todos
+      requiresRole: 'all', // Visible para todos
     },
     {
       title: 'Tickets Eliminados',
@@ -55,7 +79,7 @@ export default async function ReportsPage() {
       color: 'bg-red-50 border-red-200 text-red-700',
       hoverColor: 'hover:bg-red-100',
       enabled: true,
-      requiresAdminOrSupervisor: true,
+      requiresRole: 'supervisor', // Solo supervisores y admins
     },
     {
       title: 'Historial de Auditoría',
@@ -67,7 +91,7 @@ export default async function ReportsPage() {
       hoverColor: 'hover:bg-indigo-100',
       enabled: true,
       badge: 'Actualizado',
-      requiresAdminOrSupervisor: true,
+      requiresRole: 'admin', // Solo admins
     },
     {
       title: 'Inventario de Activos',
@@ -79,7 +103,7 @@ export default async function ReportsPage() {
       hoverColor: 'hover:bg-cyan-100',
       enabled: true,
       badge: 'Actualizado',
-      requiresAdminOrSupervisor: true,
+      requiresRole: 'supervisor', // Solo supervisores y admins
     },
     {
       title: 'Historial de Activos',
@@ -91,7 +115,7 @@ export default async function ReportsPage() {
       hoverColor: 'hover:bg-teal-100',
       enabled: true,
       badge: 'Nuevo',
-      requiresAdminOrSupervisor: true,
+      requiresRole: 'admin', // Solo admins
     },
     {
       title: 'Cambios de Ubicación',
@@ -103,7 +127,7 @@ export default async function ReportsPage() {
       hoverColor: 'hover:bg-amber-100',
       enabled: true,
       badge: 'Nuevo',
-      requiresAdminOrSupervisor: true,
+      requiresRole: 'admin', // Solo admins
     },
     {
       title: 'Activos por Especificaciones',
@@ -115,7 +139,7 @@ export default async function ReportsPage() {
       hoverColor: 'hover:bg-violet-100',
       enabled: true,
       badge: 'Nuevo',
-      requiresAdminOrSupervisor: true,
+      requiresRole: 'supervisor', // Solo supervisores y admins
     },
     {
       title: 'Actividad por Usuario',
@@ -127,7 +151,7 @@ export default async function ReportsPage() {
       hoverColor: 'hover:bg-purple-100',
       badge: 'Nuevo',
       enabled: true,
-      requiresAdminOrSupervisor: true,
+      requiresRole: 'admin', // Solo admins
     },
     {
       title: 'Tiempos de Resolución',
@@ -139,7 +163,7 @@ export default async function ReportsPage() {
       hoverColor: 'hover:bg-green-100',
       badge: 'Próximamente',
       enabled: false,
-      requiresAdminOrSupervisor: true,
+      requiresRole: 'admin', // Solo admins
     },
     {
       title: 'Cambios de Estado',
@@ -151,7 +175,7 @@ export default async function ReportsPage() {
       hoverColor: 'hover:bg-orange-100',
       badge: 'Próximamente',
       enabled: false,
-      requiresAdminOrSupervisor: true,
+      requiresRole: 'admin', // Solo admins
     },
     {
       title: 'Escalamientos N1→N2',
@@ -163,16 +187,30 @@ export default async function ReportsPage() {
       hoverColor: 'hover:bg-indigo-100',
       badge: 'Próximamente',
       enabled: false,
-      requiresAdminOrSupervisor: true,
+      requiresRole: 'admin', // Solo admins
     },
   ]
 
   // Filtrar reportes según el rol del usuario
   const visibleReports = reports.filter(report => {
-    if (report.requiresAdminOrSupervisor && !isAdminOrSupervisor) {
-      return false
+    const userRole = profile?.role
+    
+    // Reportes para todos
+    if (report.requiresRole === 'all') {
+      return true
     }
-    return true
+    
+    // Reportes solo para admin
+    if (report.requiresRole === 'admin') {
+      return userRole === 'admin'
+    }
+    
+    // Reportes para supervisor y admin
+    if (report.requiresRole === 'supervisor') {
+      return userRole === 'admin' || userRole === 'supervisor'
+    }
+    
+    return false
   })
 
   return (

@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { getReportsLocationFilter } from '@/lib/supabase/reports-filter'
 import { redirect } from 'next/navigation'
 import AssetSpecsClient from './AssetSpecsClient'
 
@@ -19,11 +20,14 @@ export default async function AssetSpecsReportPage() {
     redirect('/dashboard')
   }
 
+  // Obtener filtro de ubicaciones para reportes
+  const locationFilter = await getReportsLocationFilter()
+
   // Usar cliente admin para que el reporte tenga visibilidad completa de activos
   const adminSupabase = createSupabaseAdminClient()
 
   // Obtener activos con especificaciones técnicas (solo PC y Laptops)
-  const { data: assets, error: assetsError } = await adminSupabase
+  let assetsQuery = adminSupabase
     .from('assets')
     .select(`
       id,
@@ -46,6 +50,16 @@ export default async function AssetSpecsReportPage() {
     .in('asset_type', ['DESKTOP', 'LAPTOP'])
     .is('deleted_at', null)
     .order('asset_tag', { ascending: true })
+
+  // Aplicar filtro de ubicación para supervisores sin permiso especial
+  if (locationFilter.shouldFilter && locationFilter.locationIds.length > 0) {
+    assetsQuery = assetsQuery.in('location_id', locationFilter.locationIds)
+  } else if (locationFilter.shouldFilter && locationFilter.locationIds.length === 0) {
+    // Supervisor sin sedes: no mostrar nada
+    assetsQuery = assetsQuery.eq('id', '00000000-0000-0000-0000-000000000000')
+  }
+
+  const { data: assets, error: assetsError } = await assetsQuery
 
   if (assetsError) {
     console.error('Error loading assets:', assetsError)
