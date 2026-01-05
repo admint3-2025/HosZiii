@@ -30,7 +30,7 @@ export default async function TicketsPage({
   // Construir query base
   let query = supabase
     .from('tickets')
-    .select('id,ticket_number,title,status,priority,support_level,created_at,category_id,description,location_id,locations(code,name)')
+    .select('id,ticket_number,title,status,priority,support_level,created_at,category_id,description,location_id,locations!inner(code,name)')
     .is('deleted_at', null)
 
   // Aplicar filtro de ubicación
@@ -239,10 +239,10 @@ export default async function TicketsPage({
                 <td className="px-6 py-4">
                   <div className="inline-flex flex-col text-xs text-gray-700">
                     <span className="font-semibold">
-                      {t.locations?.code || '—'}
+                      {(t.locations as any)?.code || '—'}
                     </span>
-                    {t.locations?.name && (
-                      <span className="text-gray-500 text-[11px]">{t.locations.name}</span>
+                    {(t.locations as any)?.name && (
+                      <span className="text-gray-500 text-[11px]">{(t.locations as any).name}</span>
                     )}
                   </div>
                 </td>
