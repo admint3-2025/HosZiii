@@ -81,9 +81,25 @@ export async function PATCH(
     updates.position = position || null
   }
 
-  if (body?.location_id !== undefined) {
-    const locationId = typeof body.location_id === 'string' ? body.location_id.trim() : ''
-    updates.location_id = locationId || null
+  // Manejo de múltiples sedes
+  if (body?.location_ids !== undefined) {
+    const locationIds = Array.isArray(body.location_ids) 
+      ? body.location_ids.filter((id: unknown) => typeof id === 'string') 
+      : []
+    
+    // Guardar primera sede en profiles (retrocompatibilidad)
+    updates.location_id = locationIds[0] || null
+    
+    // Actualizar user_locations (eliminar y reinsertar)
+    await admin.from('user_locations').delete().eq('user_id', id)
+    
+    if (locationIds.length > 0) {
+      const userLocations = locationIds.map(locId => ({
+        user_id: id,
+        location_id: locId
+      }))
+      await admin.from('user_locations').insert(userLocations)
+    }
   }
 
   if (body?.can_view_beo !== undefined) {
@@ -120,7 +136,7 @@ export async function PATCH(
         building: body?.building,
         floor: body?.floor,
         position: body?.position,
-        location_id: body?.location_id,
+        location_ids: body?.location_ids,
         can_view_beo: body?.can_view_beo,
         can_manage_assets: body?.can_manage_assets,
         active: body?.active,

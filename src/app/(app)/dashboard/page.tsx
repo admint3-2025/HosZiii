@@ -20,15 +20,21 @@ export default async function DashboardPage() {
 
   const dashboardErrors: string[] = []
 
-  // Obtener filtro de ubicación (null si es admin, location_id si no lo es)
+  // Obtener filtro de ubicación (null si es admin, array de location_ids si no lo es)
   const locationFilter = await getLocationFilter()
 
   // Helper para aplicar filtro de ubicación
   const applyFilter = (query: any) => {
-    if (locationFilter) {
-      return query.eq('location_id', locationFilter)
+    if (locationFilter === null) {
+      // Admin: sin filtro
+      return query
     }
-    return query
+    if (Array.isArray(locationFilter) && locationFilter.length > 0) {
+      // Múltiples sedes
+      return query.in('location_id', locationFilter)
+    }
+    // Sin sedes: query imposible
+    return query.eq('location_id', 'none')
   }
 
   // KPIs principales

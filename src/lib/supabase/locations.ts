@@ -83,20 +83,38 @@ export async function isAdminUser(userId: string): Promise<boolean> {
 /**
  * Obtiene el filtro de ubicación para queries
  * - Si es admin: null (sin filtro, ve todas las sedes)
- * - Si no es admin: location_id del usuario
+ * - Si es supervisor/técnico: array de location_ids de user_locations + profiles.location_id
+ * - Si no tiene sedes asignadas: array vacío
  */
-export async function getLocationFilter(): Promise<string | null> {
+export async function getLocationFilter(): Promise<string[] | null> {
   const supabase = await createSupabaseServerClient()
   
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return null
   
   // Verificar si es admin
-  const admin = await isAdminUser(user.id)
-  if (admin) return null // Admin ve todo
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role, location_id')
+    .eq('id', user.id)
+    .single()
   
-  // No admin: filtrar por su sede
-  return await getUserLocation(user.id)
+  if (profile?.role === 'admin') return null // Admin ve todo
+  
+  // Cargar sedes desde user_locations
+  const { data: userLocs } = await supabase
+    .from('user_locations')
+    .select('location_id')
+    .eq('user_id', user.id)
+  
+  const locationIds = userLocs?.map(ul => ul.location_id).filter(Boolean) || []
+  
+  // Incluir también location_id del perfil si existe y no está ya en el array
+  if (profile?.location_id && !locationIds.includes(profile.location_id)) {
+    locationIds.push(profile.location_id)
+  }
+  
+  return locationIds.length > 0 ? locationIds : []
 }
 
 /**
@@ -106,13 +124,20 @@ export async function getLocationFilter(): Promise<string | null> {
 export async function applyLocationFilter<T>(
   query: any
 ): Promise<any> {
-  const locationId = await getLocationFilter()
+  const locationIds = await getLocationFilter()
   
-  if (locationId) {
-    return query.eq('location_id', locationId)
+  if (locationIds === null) {
+    // Admin: sin filtro
+    return query
   }
   
-  return query
+  if (Array.isArray(locationIds) && locationIds.length > 0) {
+    // Múltiples sedes: usar .in()
+    return query.in('location_id', locationIds)
+  }
+  
+  // Sin sedes asignadas: query imposible (ningún resultado)
+  return query.eq('location_id', 'none')
 }
 
 /**

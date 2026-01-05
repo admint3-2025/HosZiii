@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import DepartmentSelector from '@/components/DepartmentSelector'
 import PositionSelector from '@/components/PositionSelector'
+import MultiLocationSelector from '@/components/MultiLocationSelector'
 
 const ROLES = [
   { value: 'requester', label: 'Usuario' },
@@ -38,6 +39,7 @@ export default function UserCreateForm() {
   const [floor, setFloor] = useState('')
   const [position, setPosition] = useState('')
   const [locationId, setLocationId] = useState<string>('')
+  const [locationIds, setLocationIds] = useState<string[]>([]) // Múltiples sedes
   const [locations, setLocations] = useState<Location[]>([])
   const [canViewBeo, setCanViewBeo] = useState(false)
   const [canManageAssets, setCanManageAssets] = useState(false)
@@ -90,7 +92,7 @@ export default function UserCreateForm() {
           building: building.trim(),
           floor: floor.trim(),
           position: position.trim(),
-          location_id: locationId || null,
+          location_ids: locationIds.length > 0 ? locationIds : [],
           can_view_beo: canViewBeo,
           can_manage_assets: canManageAssets,
           invite,
@@ -114,7 +116,7 @@ export default function UserCreateForm() {
       setBuilding('')
       setFloor('')
       setPosition('')
-      setLocationId('')
+      setLocationIds([])
       setCanViewBeo(false)
       setCanManageAssets(false)
       setInvite(true)
@@ -227,16 +229,14 @@ export default function UserCreateForm() {
             </select>
           </div>
 
-          <div>
-            <label className="block text-[11px] font-medium text-gray-700">Ciudad/Empresa</label>
-            <select className="select mt-1" value={locationId} onChange={(e) => setLocationId(e.target.value)}>
-              <option value="">Sin asignar</option>
-              {locations.map((loc) => (
-                <option key={loc.id} value={loc.id}>
-                  {loc.name} ({loc.code})
-                </option>
-              ))}
-            </select>
+          <div className="sm:col-span-2">
+            <MultiLocationSelector
+              value={locationIds}
+              onChange={setLocationIds}
+              locations={locations}
+              label="Sedes asignadas"
+              helpText="Selecciona una o más sedes para este usuario"
+            />
           </div>
 
           {/* Permisos especiales agrupados */}

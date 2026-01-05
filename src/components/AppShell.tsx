@@ -44,6 +44,14 @@ export default async function AppShell({ children }: { children: React.ReactNode
     ? await supabase.from('profiles').select('role,location_id,can_view_beo,locations(name,code)').eq('id', user.id).single()
     : { data: null }
 
+  // Cargar múltiples sedes del usuario desde user_locations
+  const { data: userLocations } = user
+    ? await supabase.from('user_locations').select('location_id,locations(name,code)').eq('user_id', user.id)
+    : { data: null }
+
+  const locationCodes = userLocations?.map((ul: any) => ul.locations?.code).filter(Boolean) || []
+  const locationNames = userLocations?.map((ul: any) => ul.locations?.name).filter(Boolean) || []
+
   return (
     <div className="min-h-screen bg-slate-50 relative flex flex-col">
       {/* Patrón de fondo con iconos de helpdesk */}
@@ -94,15 +102,15 @@ export default async function AppShell({ children }: { children: React.ReactNode
                       </span>
                     </>
                   )}
-                  {(profile as any)?.locations?.name && (
+                  {locationCodes.length > 0 && (
                     <>
                       <span className="text-white/50">•</span>
-                      <span className="px-1.5 py-0.5 bg-emerald-500/30 rounded text-[10px] font-medium flex items-center gap-1">
+                      <span className="px-1.5 py-0.5 bg-emerald-500/30 rounded text-[10px] font-medium flex items-center gap-1" title={locationNames.join(', ')}>
                         <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
                         </svg>
-                        {(profile as any).locations.code}
+                        {locationCodes.join(', ')}
                       </span>
                     </>
                   )}

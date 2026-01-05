@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState, Fragment } from 'react'
 import DepartmentSelector from '@/components/DepartmentSelector'
 import PositionSelector from '@/components/PositionSelector'
+import MultiLocationSelector from '@/components/MultiLocationSelector'
+import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 
 type Role = 'requester' | 'agent_l1' | 'agent_l2' | 'supervisor' | 'auditor' | 'admin'
 
@@ -27,7 +29,10 @@ type UserRow = {
   position: string | null
   supervisor_id: string | null
   location_id: string | null
+  location_code: string | null
   location_name: string | null
+  location_codes: string[]
+  location_names: string[]
   can_view_beo: boolean | null
   can_manage_assets: boolean | null
 }
@@ -60,7 +65,7 @@ export default function UserList() {
   const [editPosition, setEditPosition] = useState('')
   const [editBuilding, setEditBuilding] = useState('')
   const [editFloor, setEditFloor] = useState('')
-  const [editLocationId, setEditLocationId] = useState<string>('')
+  const [editLocationIds, setEditLocationIds] = useState<string[]>([])
   const [editCanViewBeo, setEditCanViewBeo] = useState(false)
   const [editCanManageAssets, setEditCanManageAssets] = useState(false)
 
@@ -153,9 +158,29 @@ export default function UserList() {
     setEditPosition(u.position ?? '')
     setEditBuilding(u.building ?? '')
     setEditFloor(u.floor ?? '')
-    setEditLocationId(u.location_id ?? '')
     setEditCanViewBeo(u.can_view_beo ?? false)
     setEditCanManageAssets(u.can_manage_assets ?? false)
+    
+    // Cargar sedes del usuario desde user_locations
+    try {
+      const supabase = createSupabaseBrowserClient()
+      const { data: userLocs } = await supabase
+        .from('user_locations')
+        .select('location_id')
+        .eq('user_id', u.id)
+      
+      const locationIds = userLocs?.map(ul => ul.location_id) ?? []
+      // Si no tiene sedes en user_locations, usar location_id de profiles
+      if (locationIds.length === 0 && u.location_id) {
+        setEditLocationIds([u.location_id])
+      } else {
+        setEditLocationIds(locationIds)
+      }
+    } catch (err) {
+      console.error('Error loading user locations:', err)
+      // Fallback a location_id de profiles
+      setEditLocationIds(u.location_id ? [u.location_id] : [])
+    }
   }
 
   async function saveEdit(userId: string) {
@@ -173,7 +198,7 @@ export default function UserList() {
           position: editPosition.trim(),
           building: editBuilding.trim(),
           floor: editFloor.trim(),
-          location_id: editLocationId || null,
+          location_ids: editLocationIds,
           can_view_beo: editCanViewBeo,
           can_manage_assets: editCanManageAssets,
         }),
@@ -404,10 +429,18 @@ export default function UserList() {
 
                     <td className="px-3 py-2">
                       <div className="text-gray-900 text-xs">
-                        {u.location_name ? (
-                          <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 font-medium">
-                            {u.location_name}
-                          </span>
+                        {u.location_codes && u.location_codes.length > 0 ? (
+                          <div className="flex flex-wrap gap-1">
+                            {u.location_codes.map((code, idx) => (
+                              <span
+                                key={idx}
+                                className="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 font-medium text-[10px]"
+                                title={u.location_names?.[idx] || code}
+                              >
+                                {code}
+                              </span>
+                            ))}
+                          </div>
                         ) : (
                           <span className="text-gray-400">Sin asignar</span>
                         )}
@@ -537,16 +570,14 @@ export default function UserList() {
                               <input className="input text-xs" value={editFloor} onChange={(e) => setEditFloor(e.target.value)} placeholder="3, PB..." />
                             </div>
 
-                            <div>
-                              <label className="block text-[11px] font-medium text-gray-700 mb-1">Ciudad/Empresa</label>
-                              <select className="select text-xs" value={editLocationId} onChange={(e) => setEditLocationId(e.target.value)}>
-                                <option value="">Sin asignar</option>
-                                {locations.map((loc) => (
-                                  <option key={loc.id} value={loc.id}>
-                                    {loc.name} ({loc.code})
-                                  </option>
-                                ))}
-                              </select>
+                            <div className="md:col-span-2">
+                              <MultiLocationSelector
+                                value={editLocationIds}
+                                onChange={setEditLocationIds}
+                                locations={locations}
+                                label="Sedes asignadas"
+                                helpText="Selecciona una o más sedes"
+                              />
                             </div>
 
                             <div>

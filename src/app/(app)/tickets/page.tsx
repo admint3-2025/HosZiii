@@ -34,8 +34,14 @@ export default async function TicketsPage({
     .is('deleted_at', null)
 
   // Aplicar filtro de ubicación
-  if (locationFilter) {
-    query = query.eq('location_id', locationFilter)
+  if (locationFilter === null) {
+    // Admin: sin filtro (ve todos los tickets)
+  } else if (Array.isArray(locationFilter) && locationFilter.length > 0) {
+    // Supervisor/Técnico con múltiples sedes
+    query = query.in('location_id', locationFilter)
+  } else {
+    // Sin sedes asignadas: no mostrar tickets
+    query = query.eq('location_id', 'none')
   }
 
   // Aplicar filtros

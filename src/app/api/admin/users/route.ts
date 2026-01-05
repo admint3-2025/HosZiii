@@ -39,7 +39,7 @@ export async function GET() {
 
   const { data: profiles, error: profErr } = await admin
     .from('profiles')
-    .select('id,full_name,role,department,phone,building,floor,position,supervisor_id,location_id,can_view_beo,can_manage_assets,locations(name)')
+    .select('id,full_name,role,department,phone,building,floor,position,supervisor_id,location_id,can_view_beo,can_manage_assets,locations(code,name)')
     .in('id', ids)
 
   if (profErr) return new Response(profErr.message, { status: 500 })
@@ -51,10 +51,32 @@ export async function GET() {
     .eq('is_active', true)
     .order('name')
 
+  // Cargar sedes de user_locations para cada usuario
+  const { data: userLocations } = await admin
+    .from('user_locations')
+    .select('user_id,location_id,locations(code,name)')
+    .in('user_id', ids)
+
+  // Crear mapa de sedes por usuario
+  const userLocationsMap = new Map<string, Array<{code: string, name: string}>>()
+  if (userLocations) {
+    for (const ul of userLocations) {
+      if (!userLocationsMap.has(ul.user_id)) {
+        userLocationsMap.set(ul.user_id, [])
+      }
+      const loc = (ul as any).locations
+      if (loc?.code) {
+        userLocationsMap.get(ul.user_id)!.push({ code: loc.code, name: loc.name })
+      }
+    }
+  }
+
   const profileMap = new Map((profiles ?? []).map((p) => [p.id, p]))
 
   const users = authUsers.map((u) => {
     const p = profileMap.get(u.id) as any
+    const userLocs = userLocationsMap.get(u.id) || []
+    
     return {
       id: u.id,
       email: (u as any).email ?? null,
@@ -70,7 +92,10 @@ export async function GET() {
       position: (p?.position as any) ?? null,
       supervisor_id: (p?.supervisor_id as any) ?? null,
       location_id: (p?.location_id as any) ?? null,
+      location_code: (p?.locations as any)?.code ?? null,
       location_name: (p?.locations as any)?.name ?? null,
+      location_codes: userLocs.map(l => l.code),
+      location_names: userLocs.map(l => l.name),
       can_view_beo: (p?.can_view_beo as any) ?? false,
       can_manage_assets: (p?.can_manage_assets as any) ?? false,
     }
@@ -105,7 +130,7 @@ export async function POST(request: Request) {
   const building = typeof body?.building === 'string' ? body.building.trim() : ''
   const floor = typeof body?.floor === 'string' ? body.floor.trim() : ''
   const position = typeof body?.position === 'string' ? body.position.trim() : ''
-  const locationId = typeof body?.location_id === 'string' ? body.location_id.trim() : ''
+  const locationIds = Array.isArray(body?.location_ids) ? body.location_ids.filter((id: unknown) => typeof id === 'string') : []
   const canViewBeo = Boolean(body?.can_view_beo)
   const canManageAssets = Boolean(body?.can_manage_assets)
   const invite = body?.invite !== false
@@ -151,13 +176,27 @@ export async function POST(request: Request) {
     building: building || null,
     floor: floor || null,
     position: position || null,
-    location_id: locationId || null,
+    location_id: locationIds[0] || null, // Sede principal (retrocompatibilidad)
     can_view_beo: canViewBeo,
     can_manage_assets: canManageAssets,
   })
 
   if (upsertErr) {
     return new Response(`User created, but profile update failed: ${upsertErr.message}`, { status: 500 })
+  }
+
+  // Insertar sedes en user_locations (múltiples sedes)
+  if (locationIds.length > 0) {
+    const userLocations = locationIds.map(locId => ({
+      user_id: newUserId,
+      location_id: locId
+    }))
+    
+    const { error: locErr } = await admin.from('user_locations').insert(userLocations)
+    if (locErr) {
+      console.error('[CREATE USER] Error inserting user_locations:', locErr)
+      // No bloqueamos la operación, solo registramos el error
+    }
   }
 
   // Best-effort audit (won't block)
@@ -170,7 +209,7 @@ export async function POST(request: Request) {
       email,
       role,
       department,
-      location_id: locationId || null,
+      location_ids: locationIds,
       invite,
     },
   })

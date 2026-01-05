@@ -32,8 +32,28 @@ export async function GET() {
     .order('full_name', { ascending: true, nullsFirst: false })
 
   // Aplicar filtro de ubicación si no es admin
-  if (locationFilter) {
-    query = query.eq('location_id', locationFilter)
+  if (locationFilter === null) {
+    // Admin: sin filtro (ve todos los usuarios)
+  } else if (Array.isArray(locationFilter) && locationFilter.length > 0) {
+    // Supervisor/Técnico con múltiples sedes: buscar usuarios de esas sedes
+    // Necesitamos buscar en user_locations también
+    const { data: usersInLocations } = await supabase
+      .from('user_locations')
+      .select('user_id')
+      .in('location_id', locationFilter)
+    
+    const userIdsFromLocations = usersInLocations?.map(ul => ul.user_id) || []
+    
+    // Combinar usuarios que tengan location_id en profiles O estén en user_locations
+    if (userIdsFromLocations.length > 0) {
+      query = query.or(`location_id.in.(${locationFilter.join(',')}),id.in.(${userIdsFromLocations.join(',')})`)
+    } else {
+      // Solo usuarios con location_id en profiles
+      query = query.in('location_id', locationFilter)
+    }
+  } else {
+    // Sin sedes asignadas: no mostrar usuarios
+    query = query.eq('location_id', 'none')
   }
 
   const { data: users, error } = await query
