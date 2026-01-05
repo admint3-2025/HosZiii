@@ -125,8 +125,8 @@ export default async function ReportsPage() {
       count: 0,
       color: 'bg-purple-50 border-purple-200 text-purple-700',
       hoverColor: 'hover:bg-purple-100',
-      badge: 'Próximamente',
-      enabled: false,
+      badge: 'Nuevo',
+      enabled: true,
       requiresAdminOrSupervisor: true,
     },
     {

@@ -12,7 +12,7 @@ export async function GET() {
     return new Response('Unauthorized', { status: 401 })
   }
 
-  const { data: tickets } = await supabase
+  const { data: rawTickets } = await supabase
     .from('tickets')
     .select(
       `
@@ -34,12 +34,26 @@ export async function GET() {
     .order('created_at', { ascending: false })
     .range(0, 4999)
 
+  const tickets = (rawTickets ?? []).sort((a, b) => {
+    const aClosed = a.status === 'CLOSED'
+    const bClosed = b.status === 'CLOSED'
+
+    if (aClosed !== bClosed) {
+      // Tickets abiertos primero, cerrados al final
+      return aClosed ? 1 : -1
+    }
+
+    const aCreated = a.created_at ? new Date(a.created_at as string).getTime() : 0
+    const bCreated = b.created_at ? new Date(b.created_at as string).getTime() : 0
+    return bCreated - aCreated
+  })
+
   const { data: categories } = await supabase.from('categories').select('id,name,parent_id')
 
   const allUserIds = [
     ...new Set([
-      ...(tickets ?? []).map((t) => t.requester_id),
-      ...(tickets ?? []).map((t) => t.assigned_agent_id).filter(Boolean),
+      ...tickets.map((t) => t.requester_id),
+      ...tickets.map((t) => t.assigned_agent_id).filter(Boolean),
     ]),
   ]
 
@@ -65,7 +79,7 @@ export async function GET() {
     'updated_at',
   ]
 
-  const rows = (tickets ?? []).map((t) => {
+  const rows = tickets.map((t) => {
     const requester = userMap.get(t.requester_id)
     const agent = t.assigned_agent_id ? userMap.get(t.assigned_agent_id) : null
 

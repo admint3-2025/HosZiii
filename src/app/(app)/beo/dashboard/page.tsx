@@ -1,6 +1,7 @@
 import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import Link from 'next/link'
+import BEOPdfThumbnail from '@/components/BEOPdfThumbnail'
 
 export const metadata = {
   title: 'Dashboard BEO | Helpdesk',
@@ -218,7 +219,12 @@ export default async function BEODashboardPage() {
                       href={`/tickets/${ticket.id}`}
                       className="group block bg-white rounded-lg border-l-4 border-rose-500 shadow-sm hover:shadow-md transition-all p-5"
                     >
-                      <div className="flex items-start justify-between gap-4">
+                      <div className="flex items-start gap-4">
+                        {/* Miniatura PDF BEO */}
+                        <div className="flex-shrink-0">
+                          <BEOPdfThumbnail attachment={ticket.beo_attachment} />
+                        </div>
+
                         <div className="flex-1">
                           <div className="flex items-center gap-2 mb-3 flex-wrap">
                             <span className="px-2.5 py-1 text-xs font-mono font-bold rounded bg-gray-100 text-gray-700 border border-gray-200">
@@ -266,6 +272,7 @@ export default async function BEODashboardPage() {
                             </div>
                           </div>
                         </div>
+                        
                         <div className="flex-shrink-0 w-8 h-8 rounded bg-gray-100 flex items-center justify-center group-hover:bg-gray-200 transition-colors">
                           <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
@@ -318,7 +325,12 @@ export default async function BEODashboardPage() {
                         href={`/tickets/${ticket.id}`}
                         className={`group block ${style.bg} ${style.border} rounded-lg shadow-sm hover:shadow-md transition-all p-4`}
                       >
-                        <div className="flex items-start justify-between gap-4">
+                        <div className="flex items-start gap-3">
+                          {/* Miniatura PDF BEO */}
+                          <div className="flex-shrink-0">
+                            <BEOPdfThumbnail attachment={ticket.beo_attachment} />
+                          </div>
+
                           <div className="flex-1">
                             <div className="flex items-center gap-2 mb-2 flex-wrap">
                               <span className="px-2 py-0.5 text-xs font-mono font-semibold rounded bg-gray-100 text-gray-700 border border-gray-200">
@@ -366,6 +378,7 @@ export default async function BEODashboardPage() {
                               )}
                             </div>
                           </div>
+                          
                           <div className="flex-shrink-0 w-8 h-8 rounded bg-gray-100 flex items-center justify-center group-hover:bg-gray-200 transition-colors">
                             <svg className="w-4 h-4 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />

@@ -32,7 +32,9 @@ export default async function NewTicketPage() {
           </div>
         </div>
 
-        <TicketCreateForm categories={categories ?? []} />
+        <TicketCreateForm
+          categories={(categories ?? []).filter((c) => c.name !== 'BEO - Evento')}
+        />
       </div>
     </main>
   )

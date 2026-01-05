@@ -67,10 +67,25 @@ export default async function TicketsPage({
     query = query.eq('category_id', params.category)
   }
 
-  const [{ data: tickets, error }, { data: categories }] = await Promise.all([
+  const [{ data: rawTickets, error }, { data: categories }] = await Promise.all([
     query.order('created_at', { ascending: false }).limit(100),
     supabase.from('categories').select('id,name,parent_id'),
   ])
+
+  const tickets = (rawTickets ?? []).sort((a, b) => {
+    const aClosed = a.status === 'CLOSED'
+    const bClosed = b.status === 'CLOSED'
+
+    if (aClosed !== bClosed) {
+      // Tickets abiertos (no cerrados) primero, cerrados al final
+      return aClosed ? 1 : -1
+    }
+
+    // Dentro del mismo grupo, más recientes primero
+    const aCreated = a.created_at ? new Date(a.created_at as string).getTime() : 0
+    const bCreated = b.created_at ? new Date(b.created_at as string).getTime() : 0
+    return bCreated - aCreated
+  })
 
   return (
     <main className="p-6 space-y-6">
@@ -151,7 +166,7 @@ export default async function TicketsPage({
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
-            {(tickets ?? []).map((t) => {
+            {tickets.map((t) => {
               // Configuración del semáforo según prioridad (P1=Crítica, P2=Alta, P3=Media, P4=Baja)
               const priorityConfig: Record<number, { bg: string, border: string, glow: string, pulse: string }> = {
                 1: { bg: 'bg-red-500', border: 'border-red-600', glow: 'shadow-red-500/50', pulse: 'animate-pulse' }, // Crítica

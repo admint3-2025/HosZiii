@@ -91,9 +91,8 @@ export default async function DashboardPage() {
   // Tendencia últimos 7 días (incluyendo hoy)
   const last7Days = Array.from({ length: 7 }, (_, i) => {
     const date = new Date()
-    date.setHours(0, 0, 0, 0) // Normalizar a medianoche para evitar problemas de zona horaria
+    date.setHours(0, 0, 0, 0)
     date.setDate(date.getDate() - (6 - i))
-    // Retornar formato YYYY-MM-DD en zona horaria local
     const year = date.getFullYear()
     const month = String(date.getMonth() + 1).padStart(2, '0')
     const day = String(date.getDate()).padStart(2, '0')
@@ -108,15 +107,27 @@ export default async function DashboardPage() {
   )
   if (trendError) dashboardErrors.push(trendError.message)
 
-  const trendCounts = last7Days.map((date) => {
-    const count = (trendData ?? []).filter((t: { created_at: string }) =>
-      t.created_at.startsWith(date)
-    ).length
-    return { date, count }
+  const trendCountMap = new Map<string, number>()
+
+  ;(trendData ?? []).forEach((t: { created_at: string }) => {
+    const createdUtc = new Date(t.created_at)
+    const local = new Date(
+      createdUtc.toLocaleString('en-US', { timeZone: 'America/Mexico_City' })
+    )
+    const year = local.getFullYear()
+    const month = String(local.getMonth() + 1).padStart(2, '0')
+    const day = String(local.getDate()).padStart(2, '0')
+    const key = `${year}-${month}-${day}`
+    trendCountMap.set(key, (trendCountMap.get(key) || 0) + 1)
   })
 
+  const trendCounts = last7Days.map((date) => ({
+    date,
+    count: trendCountMap.get(date) || 0,
+  }))
+
   // Tickets recientes
-  const { data: recentTickets, error: recentError } = await applyFilter(
+  const { data: rawRecentTickets, error: recentError } = await applyFilter(
     supabase
       .from('tickets')
       .select('id,ticket_number,title,status,priority,created_at')
@@ -125,6 +136,20 @@ export default async function DashboardPage() {
       .limit(5)
   )
   if (recentError) dashboardErrors.push(recentError.message)
+
+  const recentTickets = (rawRecentTickets ?? []).sort((a, b) => {
+    const aClosed = a.status === 'CLOSED'
+    const bClosed = b.status === 'CLOSED'
+
+    if (aClosed !== bClosed) {
+      // Tickets abiertos primero, cerrados al final
+      return aClosed ? 1 : -1
+    }
+
+    const aCreated = a.created_at ? new Date(a.created_at as string).getTime() : 0
+    const bCreated = b.created_at ? new Date(b.created_at as string).getTime() : 0
+    return bCreated - aCreated
+  })
 
   // Métricas de aging por estado
   const { data: agingData, error: agingError } = await applyFilter(

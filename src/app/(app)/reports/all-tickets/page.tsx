@@ -35,7 +35,21 @@ export default async function AllTicketsReportPage() {
   }
 
   // Obtener todos los tickets activos
-  const { data: tickets } = await query.order('created_at', { ascending: false })
+  const { data: rawTickets } = await query.order('created_at', { ascending: false })
+
+  // Ordenar: primero tickets abiertos, luego cerrados; dentro de cada grupo, más recientes primero
+  const tickets = (rawTickets ?? []).sort((a, b) => {
+    const aClosed = a.status === 'CLOSED'
+    const bClosed = b.status === 'CLOSED'
+
+    if (aClosed !== bClosed) {
+      return aClosed ? 1 : -1
+    }
+
+    const aCreated = a.created_at ? new Date(a.created_at as string).getTime() : 0
+    const bCreated = b.created_at ? new Date(b.created_at as string).getTime() : 0
+    return bCreated - aCreated
+  })
 
   // Obtener categorías para breadcrumbs
   const { data: categories } = await supabase

@@ -37,13 +37,10 @@ export async function createTicket(input: CreateTicketInput) {
 
   const canCreateForOthers = currentProfile && ['agent_l1', 'agent_l2', 'supervisor', 'admin'].includes(currentProfile.role)
 
-  // VALIDACIÓN CRÍTICA: Si es admin/supervisor/técnico, DEBE especificar requester_id
-  if (canCreateForOthers && !input.requester_id) {
-    return { error: 'Como admin/supervisor/técnico debes especificar el usuario solicitante. Todo ticket debe tener trazabilidad ITIL con solicitante y sede.' }
-  }
+  // Determinar el solicitante: si es admin/supervisor/técnico y especificó requester_id, usarlo; sino, usar el usuario actual
+  const requesterId = input.requester_id || user.id
 
   // Validar que el solicitante tenga una sede asignada
-  const requesterId = input.requester_id || user.id
   const { data: requesterProfile } = await supabase
     .from('profiles')
     .select('location_id')

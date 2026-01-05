@@ -74,7 +74,13 @@ export default function BEOTicketForm({ locations, requesterId }: BEOTicketFormP
         throw new Error('La fecha del evento es obligatoria')
       }
       if (beoFiles.length === 0) {
-        throw new Error('Debe adjuntar el documento BEO')
+        throw new Error('Debe adjuntar el documento BEO en formato PDF emitido del PMS')
+      }
+
+      // Validar que sea PDF
+      const nonPdfFiles = beoFiles.filter(f => !f.type.includes('pdf'))
+      if (nonPdfFiles.length > 0) {
+        throw new Error('Solo se permiten archivos PDF del PMS. Por favor adjunte el documento oficial en formato PDF.')
       }
 
       // Combinar fecha y hora
@@ -453,18 +459,17 @@ ${formData.description.trim() ? `\n**Notas adicionales:**\n${formData.descriptio
               </label>
               <input
                 type="file"
-                accept=".pdf,.jpg,.jpeg,.png"
-                multiple
+                accept=".pdf,application/pdf"
                 onChange={(e) => setBeoFiles(Array.from(e.target.files || []))}
                 className="block w-full text-sm text-gray-500
                   file:mr-4 file:py-2 file:px-4
                   file:rounded-lg file:border-0
                   file:text-sm file:font-semibold
-                  file:bg-blue-50 file:text-blue-700
-                  hover:file:bg-blue-100"
+                  file:bg-red-50 file:text-red-700
+                  hover:file:bg-red-100"
               />
-              <p className="text-xs text-gray-500 mt-1">
-                PDF, JPG o PNG. El documento BEO original es obligatorio.
+              <p className="text-xs text-red-600 mt-1 font-medium">
+                ⚠️ Solo PDF emitido del PMS (Opera). El documento BEO original es obligatorio.
               </p>
               {beoFiles.length > 0 && (
                 <div className="mt-2 text-sm text-green-600">

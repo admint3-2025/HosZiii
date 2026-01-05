@@ -230,7 +230,7 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
       urgency,
       priority,
       support_level: 1,
-      requester_id: canCreateForOthers && requesterId && requesterId !== currentUserId
+      requester_id: canCreateForOthers && requesterId
         ? requesterId
         : undefined,
       asset_id: assetId || null,
