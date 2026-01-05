@@ -269,30 +269,23 @@ export default async function DashboardPage() {
           <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl"></div>
           <div className="absolute bottom-0 left-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl"></div>
           
-          <div className="relative z-10 px-8 py-6">
+          <div className="relative z-10 px-8 py-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-4">
                 {/* Icono principal */}
                 <div className="relative">
                   <div className="absolute inset-0 bg-blue-500 rounded-xl blur-md opacity-50"></div>
-                  <div className="relative w-14 h-14 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 border border-blue-400/30 flex items-center justify-center shadow-xl">
-                    <svg className="w-7 h-7 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="relative w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 border border-blue-400/30 flex items-center justify-center shadow-xl">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
                     </svg>
                   </div>
                 </div>
                 
                 <div>
-                  <h1 className="text-2xl font-bold text-white tracking-tight">Service Desk Dashboard</h1>
-                  <p className="text-slate-300 text-sm mt-0.5 flex items-center gap-2">
-                    <span className="flex items-center gap-1.5">
-                      <svg className="w-3.5 h-3.5 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
-                      </svg>
-                      Monitoreo en tiempo real
-                    </span>
-                    <span className="text-slate-500">•</span>
-                    <span className="text-slate-400">ITIL v4 Compliant</span>
+                  <h1 className="text-xl font-bold text-white tracking-tight">Service Desk Dashboard</h1>
+                  <p className="text-slate-400 text-xs mt-0.5">
+                    ITIL v4 Compliant
                   </p>
                 </div>
               </div>
@@ -303,7 +296,7 @@ export default async function DashboardPage() {
                   href="/tickets/new"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group relative flex items-center gap-2.5 px-5 py-2.5 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl font-semibold text-sm transition-all shadow-lg hover:shadow-xl hover:shadow-blue-500/25 hover:scale-[1.02]"
+                  className="group relative flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl font-semibold text-sm transition-all shadow-lg hover:shadow-xl hover:shadow-blue-500/25 hover:scale-[1.02]"
                 >
                   <svg className="w-4 h-4 group-hover:rotate-90 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
@@ -312,7 +305,7 @@ export default async function DashboardPage() {
                 </a>
                 
                 {/* Indicador de estado */}
-                <div className="hidden lg:flex items-center gap-2.5 px-4 py-2.5 bg-slate-800/60 backdrop-blur-sm rounded-xl border border-slate-700/50">
+                <div className="hidden lg:flex items-center gap-2 px-3 py-2 bg-slate-800/60 backdrop-blur-sm rounded-xl border border-slate-700/50">
                   <div className="relative">
                     <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
                     <div className="absolute inset-0 w-2 h-2 bg-emerald-500 rounded-full animate-ping"></div>
@@ -340,7 +333,6 @@ export default async function DashboardPage() {
             <div className="h-1 w-1 rounded-full bg-blue-600"></div>
             <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Métricas Operativas</h2>
           </div>
-          <div className="text-xs text-gray-500 font-medium">Actualización en tiempo real</div>
         </div>
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <InteractiveKPI

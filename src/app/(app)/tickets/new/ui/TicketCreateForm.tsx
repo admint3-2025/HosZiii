@@ -19,6 +19,8 @@ type CategoryRow = {
 type User = {
   id: string
   full_name: string | null
+  location_name?: string | null
+  location_code?: string | null
 }
 
 type Asset = {
@@ -102,7 +104,9 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
             const data = await response.json()
             setUsers(data.users.map((u: any) => ({
               id: u.id,
-              full_name: u.full_name
+              full_name: u.full_name,
+              location_name: u.location_name,
+              location_code: u.location_code
             })))
             setUsersError(null)
           } else {
@@ -551,6 +555,7 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
                       <option key={u.id} value={u.id}>
                         {u.full_name || u.id.substring(0, 8)}
                         {u.id === currentUserId ? ' (Yo)' : ''}
+                        {u.location_code && u.location_name ? ` • ${u.location_code} - ${u.location_name}` : ''}
                       </option>
                     ))}
                   </select>
