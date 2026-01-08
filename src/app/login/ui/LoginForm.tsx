@@ -71,10 +71,10 @@ export default function LoginForm() {
 
   return (
     <form onSubmit={mode === 'login' ? onSubmit : onForgot} className="space-y-4">
-      <div>
+      <div className="animate-[fadeInUp_0.6s_ease-out_0.1s_both]">
         <label className="block text-sm font-medium text-gray-700">Correo</label>
         <input
-          className="input mt-1"
+          className="input mt-1 transition-all duration-200 hover:border-blue-400"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           type="email"
@@ -84,10 +84,10 @@ export default function LoginForm() {
       </div>
 
       {mode === 'login' ? (
-        <div>
+        <div className="animate-[fadeInUp_0.6s_ease-out_0.2s_both]">
           <label className="block text-sm font-medium text-gray-700">Contraseña</label>
           <input
-            className="input mt-1"
+            className="input mt-1 transition-all duration-200 hover:border-blue-400"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             type="password"
@@ -98,13 +98,13 @@ export default function LoginForm() {
       ) : null}
 
       {error ? (
-        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 animate-[shake_0.4s_ease-in-out]">
           {error}
         </div>
       ) : null}
 
       {mode === 'forgot' && sent ? (
-        <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800">
+        <div className="rounded-md border border-blue-200 bg-blue-50 px-3 py-2 text-sm text-blue-800 animate-[fadeIn_0.4s_ease-out]">
           ✅ Solicitud recibida. Un administrador te enviará una contraseña temporal en un máximo de 2 horas.
         </div>
       ) : null}
@@ -112,8 +112,8 @@ export default function LoginForm() {
       <button
         type="submit"
         disabled={busy}
-        className={`btn btn-primary w-full flex items-center justify-center gap-2 transition-transform duration-150 ${
-          busy ? 'scale-[0.99] shadow-lg shadow-blue-200' : 'hover:-translate-y-0.5 hover:shadow-md'
+        className={`btn btn-primary w-full flex items-center justify-center gap-2 transition-all duration-200 animate-[fadeInUp_0.6s_ease-out_0.3s_both] ${
+          busy ? 'scale-[0.98] shadow-lg shadow-blue-200' : 'hover:-translate-y-0.5 hover:shadow-lg hover:shadow-blue-200'
         }`}
       >
         {busy && (

@@ -14,10 +14,10 @@ export default async function LoginPage() {
     <main className="min-h-screen grid lg:grid-cols-2 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
       <section className="hidden lg:flex flex-col justify-between bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-700 p-12 text-white relative overflow-hidden">
         {/* Decorative circles */}
-        <div className="absolute top-20 right-20 w-64 h-64 bg-white/10 rounded-full blur-3xl"></div>
-        <div className="absolute bottom-20 left-10 w-96 h-96 bg-indigo-400/20 rounded-full blur-3xl"></div>
+        <div className="absolute top-20 right-20 w-64 h-64 bg-white/10 rounded-full blur-3xl animate-[pulse_4s_ease-in-out_infinite]"></div>
+        <div className="absolute bottom-20 left-10 w-96 h-96 bg-indigo-400/20 rounded-full blur-3xl animate-[pulse_6s_ease-in-out_infinite]"></div>
         
-        <div className="relative z-10">
+        <div className="relative z-10 animate-[fadeInUp_0.8s_ease-out]">
           <div className="flex items-center gap-4 mb-6">
             <img 
               src="https://integrational3.com.mx/logorigen/ZIII%20logo.png" 
@@ -44,7 +44,7 @@ export default async function LoginPage() {
           </p>
 
           <div className="mt-8 space-y-4">
-            <div className="flex items-start gap-3">
+            <div className="flex items-start gap-3 animate-[fadeInUp_0.8s_ease-out_0.2s_both]">
               <div className="w-8 h-8 rounded-lg bg-white/10 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
                 <svg className="w-5 h-5 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -56,7 +56,7 @@ export default async function LoginPage() {
               </div>
             </div>
 
-            <div className="flex items-start gap-3">
+            <div className="flex items-start gap-3 animate-[fadeInUp_0.8s_ease-out_0.3s_both]">
               <div className="w-8 h-8 rounded-lg bg-white/10 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
                 <svg className="w-5 h-5 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
@@ -68,7 +68,7 @@ export default async function LoginPage() {
               </div>
             </div>
 
-            <div className="flex items-start gap-3">
+            <div className="flex items-start gap-3 animate-[fadeInUp_0.8s_ease-out_0.4s_both]">
               <div className="w-8 h-8 rounded-lg bg-white/10 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
                 <svg className="w-5 h-5 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
@@ -80,7 +80,7 @@ export default async function LoginPage() {
               </div>
             </div>
 
-            <div className="flex items-start gap-3">
+            <div className="flex items-start gap-3 animate-[fadeInUp_0.8s_ease-out_0.5s_both]">
               <div className="w-8 h-8 rounded-lg bg-white/10 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
                 <svg className="w-5 h-5 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -94,7 +94,7 @@ export default async function LoginPage() {
           </div>
         </div>
 
-        <div className="relative z-10 flex items-center justify-between text-xs text-blue-100 pt-6 border-t border-white/10">
+        <div className="relative z-10 flex items-center justify-between text-xs text-blue-100 pt-6 border-t border-white/10 animate-[fadeIn_1s_ease-out_0.6s_both]">
           <div className="flex items-center gap-6">
             <div className="flex items-center gap-1.5">
               <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
@@ -119,12 +119,12 @@ export default async function LoginPage() {
       </section>
 
       <section className="flex items-center justify-center p-8">
-        <div className="w-full max-w-md">
+        <div className="w-full max-w-md animate-[fadeInRight_0.8s_ease-out]">
           <div className="mb-6 text-center">
             <img 
               src="https://integrational3.com.mx/logorigen/ZIII%20logo.png" 
               alt="ZIII Logo" 
-              className="h-32 w-auto mx-auto mb-6 drop-shadow-xl"
+              className="h-32 w-auto mx-auto mb-6 drop-shadow-xl transition-transform hover:scale-105 duration-300"
             />
             <h2 className="text-2xl font-bold text-gray-900">Acceso al sistema</h2>
             <p className="mt-2 text-sm text-gray-600">Ingresa tus credenciales para gestionar tickets</p>
