@@ -1,0 +1,23 @@
+#!/sbin/openrc-run
+
+name="helpdesk"
+description="ZIII Helpdesk Next.js Application"
+
+directory="/opt/helpdesk"
+command="/usr/bin/node"
+command_args="node_modules/.bin/next start -p 32123"
+command_user="node"
+command_background="yes"
+
+pidfile="/run/${RC_SVCNAME}.pid"
+output_log="/var/log/helpdesk/output.log"
+error_log="/var/log/helpdesk/error.log"
+
+depend() {
+    need net
+    after firewall
+}
+
+start_pre() {
+    checkpath --directory --owner ${command_user}:${command_user} --mode 0755 /var/log/helpdesk
+}
