@@ -49,12 +49,12 @@ export default function DisposalApprovalPanel({ requests }: Props) {
     return null
   }
 
-  const handleApprove = async (requestId: string) => {
+  const handleApprove = async (requestId: string, assetId: string) => {
     setProcessingId(requestId)
     setError(null)
     
     try {
-      const result = await approveDisposalRequest(requestId, approveNotes || undefined)
+      const result = await approveDisposalRequest(requestId, assetId, approveNotes || undefined)
       
       if (result.success) {
         setApprovingId(null)
@@ -209,7 +209,7 @@ export default function DisposalApprovalPanel({ requests }: Props) {
                       />
                       <div className="flex gap-2">
                         <button
-                          onClick={() => handleApprove(request.id)}
+                          onClick={() => handleApprove(request.id, request.asset_id)}
                           disabled={isProcessing}
                           className="flex-1 px-4 py-2 text-sm font-medium text-white bg-green-600 rounded-lg hover:bg-green-700 disabled:opacity-50"
                         >
