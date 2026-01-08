@@ -1,16 +1,15 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 import DepartmentSelector from '@/components/DepartmentSelector'
 import BrandSelector from '@/components/BrandSelector'
 import AssetImageUpload from '@/components/AssetImageUpload'
-import ComboboxInput, {
-  PROCESSOR_SUGGESTIONS,
+import ComboboxWithAdd from '@/components/ComboboxWithAdd'
+import {
   RAM_SUGGESTIONS,
   STORAGE_SUGGESTIONS,
-  OS_SUGGESTIONS,
 } from '@/components/ComboboxInput'
 
 type Location = {
@@ -27,6 +26,10 @@ type AssetCreateFormProps = {
 
 export default function AssetCreateForm({ locations, canManageAllAssets, userRole }: AssetCreateFormProps) {
   const router = useRouter()
+  const [processorSuggestions, setProcessorSuggestions] = useState<string[]>([])
+  const [osSuggestions, setOsSuggestions] = useState<string[]>([])
+  const [isLoadingCatalogs, setIsLoadingCatalogs] = useState(true)
+  
   const [formData, setFormData] = useState({
     asset_tag: '',
     asset_type: 'DESKTOP',
@@ -47,6 +50,38 @@ export default function AssetCreateForm({ locations, canManageAllAssets, userRol
     image_url: '',
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  // Cargar catálogos desde la base de datos
+  useEffect(() => {
+    async function loadCatalogs() {
+      const supabase = createSupabaseBrowserClient()
+      
+      const [processorsRes, osRes] = await Promise.all([
+        supabase
+          .from('asset_processors')
+          .select('name')
+          .eq('is_active', true)
+          .order('name'),
+        supabase
+          .from('asset_operating_systems')
+          .select('name')
+          .eq('is_active', true)
+          .order('name'),
+      ])
+
+      if (processorsRes.data) {
+        setProcessorSuggestions(processorsRes.data.map(p => p.name))
+      }
+      
+      if (osRes.data) {
+        setOsSuggestions(osRes.data.map(o => o.name))
+      }
+      
+      setIsLoadingCatalogs(false)
+    }
+
+    loadCatalogs()
+  }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -316,62 +351,89 @@ export default function AssetCreateForm({ locations, canManageAllAssets, userRol
           <div className="card-body p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Especificaciones Técnicas</h2>
             
-            <div className="grid gap-4 md:grid-cols-2">
-              {/* Procesador */}
-              <ComboboxInput
-                id="processor"
-                label="Procesador"
-                value={formData.processor}
-                onChange={(value) => setFormData({ ...formData, processor: value })}
-                suggestions={PROCESSOR_SUGGESTIONS}
-                placeholder="Buscar o escribir procesador..."
-              />
-
-              {/* Memoria RAM */}
-              <ComboboxInput
-                id="ram_gb"
-                label="Memoria RAM (GB)"
-                value={formData.ram_gb}
-                onChange={(value) => setFormData({ ...formData, ram_gb: value })}
-                suggestions={RAM_SUGGESTIONS}
-                placeholder="Buscar o escribir..."
-                type="number"
-                min="1"
-              />
-
-              {/* Almacenamiento */}
-              <ComboboxInput
-                id="storage_gb"
-                label="Almacenamiento (GB)"
-                value={formData.storage_gb}
-                onChange={(value) => setFormData({ ...formData, storage_gb: value })}
-                suggestions={STORAGE_SUGGESTIONS}
-                placeholder="Buscar o escribir..."
-                type="number"
-                min="1"
-              />
-
-              {/* Sistema Operativo */}
-              <ComboboxInput
-                id="os"
-                label="Sistema Operativo"
-                value={formData.os}
-                onChange={(value) => setFormData({ ...formData, os: value })}
-                suggestions={OS_SUGGESTIONS}
-                placeholder="Buscar o escribir S.O..."
-              />
-            </div>
-
-            <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded">
-              <div className="flex items-start gap-2">
-                <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            {isLoadingCatalogs ? (
+              <div className="flex items-center justify-center py-8">
+                <svg className="animate-spin h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
                 </svg>
-                <p className="text-xs text-blue-800">
-                  <strong>Importante:</strong> Estos datos técnicos son críticos para el inventario. Cualquier modificación quedará registrada en el historial con usuario responsable.
-                </p>
+                <span className="ml-2 text-sm text-gray-600">Cargando catálogos...</span>
               </div>
-            </div>
+            ) : (
+              <>
+                <div className="grid gap-4 md:grid-cols-2">
+                  {/* Procesador */}
+                  <ComboboxWithAdd
+                    id="processor"
+                    label="Procesador"
+                    value={formData.processor}
+                    onChange={(value) => setFormData({ ...formData, processor: value })}
+                    suggestions={processorSuggestions}
+                    placeholder="Buscar o escribir procesador..."
+                    allowAdd={userRole === 'admin' || userRole === 'supervisor'}
+                    tableName="asset_processors"
+                    onSuggestionsUpdate={setProcessorSuggestions}
+                  />
+
+                  {/* Memoria RAM */}
+                  <ComboboxWithAdd
+                    id="ram_gb"
+                    label="Memoria RAM (GB)"
+                    value={formData.ram_gb}
+                    onChange={(value) => setFormData({ ...formData, ram_gb: value })}
+                    suggestions={RAM_SUGGESTIONS}
+                    placeholder="Buscar o escribir..."
+                    type="number"
+                    min="1"
+                  />
+
+                  {/* Almacenamiento */}
+                  <ComboboxWithAdd
+                    id="storage_gb"
+                    label="Almacenamiento (GB)"
+                    value={formData.storage_gb}
+                    onChange={(value) => setFormData({ ...formData, storage_gb: value })}
+                    suggestions={STORAGE_SUGGESTIONS}
+                    placeholder="Buscar o escribir..."
+                    type="number"
+                    min="1"
+                  />
+
+                  {/* Sistema Operativo */}
+                  <ComboboxWithAdd
+                    id="os"
+                    label="Sistema Operativo"
+                    value={formData.os}
+                    onChange={(value) => setFormData({ ...formData, os: value })}
+                    suggestions={osSuggestions}
+                    placeholder="Buscar o escribir S.O..."
+                    allowAdd={userRole === 'admin' || userRole === 'supervisor'}
+                    tableName="asset_operating_systems"
+                    onSuggestionsUpdate={setOsSuggestions}
+                  />
+                </div>
+
+                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded">
+                  <div className="flex items-start gap-2">
+                    <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div className="text-xs text-blue-800">
+                      <p className="font-semibold mb-1">Información importante:</p>
+                      <ul className="list-disc list-inside space-y-0.5">
+                        <li>Estos datos técnicos son críticos para el inventario</li>
+                        <li>Cualquier modificación quedará registrada en el historial</li>
+                        {(userRole === 'admin' || userRole === 'supervisor') && (
+                          <li className="text-green-700 font-medium">
+                            ✨ Puedes agregar nuevos procesadores y sistemas operativos al catálogo
+                          </li>
+                        )}
+                      </ul>
+                    </div>
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
