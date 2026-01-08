@@ -16,6 +16,9 @@ export async function middleware(request: NextRequest) {
   })
 
   const supabase = createServerClient(url, anonKey, {
+    cookieOptions: {
+      name: 'sb-helpdesk-auth',
+    },
     cookies: {
       getAll() {
         return request.cookies.getAll()

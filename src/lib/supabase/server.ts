@@ -10,6 +10,9 @@ export async function createSupabaseServerClient() {
 
   const cookieStore = await cookies()
   return createServerClient(url, anonKey, {
+    cookieOptions: {
+      name: 'sb-helpdesk-auth',
+    },
     cookies: {
       getAll() {
         return cookieStore.getAll()
