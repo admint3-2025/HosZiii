@@ -6,6 +6,12 @@ import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 import DepartmentSelector from '@/components/DepartmentSelector'
 import BrandSelector from '@/components/BrandSelector'
 import AssetImageUpload from '@/components/AssetImageUpload'
+import ComboboxInput, {
+  PROCESSOR_SUGGESTIONS,
+  RAM_SUGGESTIONS,
+  STORAGE_SUGGESTIONS,
+  OS_SUGGESTIONS,
+} from '@/components/ComboboxInput'
 
 type Location = {
   id: string
@@ -312,62 +318,48 @@ export default function AssetCreateForm({ locations, canManageAllAssets, userRol
             
             <div className="grid gap-4 md:grid-cols-2">
               {/* Procesador */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Procesador
-                </label>
-                <input
-                  type="text"
-                  value={formData.processor}
-                  onChange={(e) => setFormData({ ...formData, processor: e.target.value })}
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Ej: Intel Core i7-1165G7, AMD Ryzen 5 5600"
-                />
-              </div>
+              <ComboboxInput
+                id="processor"
+                label="Procesador"
+                value={formData.processor}
+                onChange={(value) => setFormData({ ...formData, processor: value })}
+                suggestions={PROCESSOR_SUGGESTIONS}
+                placeholder="Buscar o escribir procesador..."
+              />
 
               {/* Memoria RAM */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Memoria RAM (GB)
-                </label>
-                <input
-                  type="number"
-                  value={formData.ram_gb}
-                  onChange={(e) => setFormData({ ...formData, ram_gb: e.target.value })}
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Ej: 8, 16, 32"
-                  min="1"
-                />
-              </div>
+              <ComboboxInput
+                id="ram_gb"
+                label="Memoria RAM (GB)"
+                value={formData.ram_gb}
+                onChange={(value) => setFormData({ ...formData, ram_gb: value })}
+                suggestions={RAM_SUGGESTIONS}
+                placeholder="Buscar o escribir..."
+                type="number"
+                min="1"
+              />
 
               {/* Almacenamiento */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Almacenamiento (GB)
-                </label>
-                <input
-                  type="number"
-                  value={formData.storage_gb}
-                  onChange={(e) => setFormData({ ...formData, storage_gb: e.target.value })}
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Ej: 256, 512, 1024"
-                  min="1"
-                />
-              </div>
+              <ComboboxInput
+                id="storage_gb"
+                label="Almacenamiento (GB)"
+                value={formData.storage_gb}
+                onChange={(value) => setFormData({ ...formData, storage_gb: value })}
+                suggestions={STORAGE_SUGGESTIONS}
+                placeholder="Buscar o escribir..."
+                type="number"
+                min="1"
+              />
 
               {/* Sistema Operativo */}
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  Sistema Operativo
-                </label>
-                <input
-                  type="text"
-                  value={formData.os}
-                  onChange={(e) => setFormData({ ...formData, os: e.target.value })}
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Ej: Windows 11 Pro, Ubuntu 22.04, macOS 13"
-                />
-              </div>
+              <ComboboxInput
+                id="os"
+                label="Sistema Operativo"
+                value={formData.os}
+                onChange={(value) => setFormData({ ...formData, os: value })}
+                suggestions={OS_SUGGESTIONS}
+                placeholder="Buscar o escribir S.O..."
+              />
             </div>
 
             <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded">
