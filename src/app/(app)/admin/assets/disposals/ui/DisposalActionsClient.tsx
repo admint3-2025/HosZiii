@@ -220,7 +220,7 @@ export default function DisposalActionsClient({ requests }: Props) {
                   {/* Motivo */}
                   <div>
                     <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Motivo de la Solicitud</h4>
-                    <p className="text-sm text-gray-700">"{req.reason}"</p>
+                    <p className="text-sm text-gray-700">&quot;{req.reason}&quot;</p>
                   </div>
 
                   {/* Resolución */}

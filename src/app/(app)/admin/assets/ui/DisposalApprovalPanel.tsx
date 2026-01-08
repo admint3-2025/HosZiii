@@ -175,7 +175,7 @@ export default function DisposalApprovalPanel({ requests }: Props) {
                   {/* Motivo */}
                   <div className="mt-3 p-3 bg-red-50 border border-red-100 rounded-lg">
                     <p className="text-xs font-semibold text-red-800 mb-1">Motivo de baja:</p>
-                    <p className="text-sm text-red-700 italic">"{request.reason}"</p>
+                    <p className="text-sm text-red-700 italic">&quot;{request.reason}&quot;</p>
                   </div>
                   
                   {/* Solicitante */}

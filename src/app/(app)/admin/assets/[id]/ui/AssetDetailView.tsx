@@ -337,7 +337,7 @@ export default function AssetDetailView({
                   Este activo tiene una solicitud de baja esperando autorización de un administrador.
                 </p>
                 <div className="mt-2 p-2 bg-white/60 rounded border border-red-200">
-                  <p className="text-sm text-red-800 italic">"{pendingDisposalRequest.reason}"</p>
+                  <p className="text-sm text-red-800 italic">&quot;{pendingDisposalRequest.reason}&quot;</p>
                 </div>
                 <div className="flex items-center gap-4 mt-2 text-xs text-red-600">
                   <span>
