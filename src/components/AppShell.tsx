@@ -3,6 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import SignOutButton from './SignOutButton'
 import Footer from './Footer'
 import NotificationBell from './NotificationBell'
+import MobileSidebar from './MobileSidebar'
 
 function NavItem({ href, label, icon, badge }: { href: string; label: string; icon: React.ReactNode; badge?: string }) {
   return (
@@ -63,6 +64,12 @@ export default async function AppShell({ children }: { children: React.ReactNode
   const locationCodes = userLocations?.map((ul: any) => ul.locations?.code).filter(Boolean) || []
   const locationNames = userLocations?.map((ul: any) => ul.locations?.name).filter(Boolean) || []
 
+  // Datos para el sidebar móvil
+  const userData = {
+    role: profile?.role || null,
+    canViewBeo: profile?.can_view_beo || false,
+  }
+
   return (
     <div className="min-h-screen bg-slate-50 relative flex flex-col">
       {/* Patrón de fondo con iconos de helpdesk */}
@@ -78,22 +85,26 @@ export default async function AppShell({ children }: { children: React.ReactNode
       <div className="fixed inset-0 -z-10 bg-gradient-to-br from-transparent via-blue-50/30 to-indigo-50/30" />
       
       <header className="sticky top-0 z-50 border-b border-blue-200/50 bg-gradient-to-r from-blue-600 via-indigo-600 to-blue-700 shadow-lg backdrop-blur-sm">
-        <div className="mx-auto max-w-7xl px-6 py-4 flex items-center justify-between">
-          <div className="flex items-center gap-5">
-            <div className="rounded-2xl bg-white/[0.03] ring-1 ring-white/5 p-2.5 backdrop-blur-sm">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-3 sm:py-4 flex items-center justify-between gap-3">
+          {/* Logo y título - compacto en móvil */}
+          <div className="flex items-center gap-3 sm:gap-5 min-w-0">
+            <div className="rounded-xl sm:rounded-2xl bg-white/[0.03] ring-1 ring-white/5 p-1.5 sm:p-2.5 backdrop-blur-sm flex-shrink-0">
               <img
                 src="https://integrational3.com.mx/logorigen/ZIII%20logo.png"
                 alt="ZIII Logo"
-                className="h-20 w-auto drop-shadow-xl"
+                className="h-10 sm:h-20 w-auto drop-shadow-xl"
               />
             </div>
-            <div className="border-l border-white/30 pl-5">
-              <div className="text-xl font-bold text-white tracking-wider font-[family-name:var(--font-orbitron)]">ZIII Helpdesk</div>
-              <div className="text-xs text-blue-100 font-medium mt-0.5">Sistema de Gestión ITIL v4 · Service Desk</div>
+            <div className="border-l border-white/30 pl-3 sm:pl-5 min-w-0">
+              <div className="text-base sm:text-xl font-bold text-white tracking-wider font-[family-name:var(--font-orbitron)] truncate">ZIII Helpdesk</div>
+              <div className="text-[10px] sm:text-xs text-blue-100 font-medium mt-0.5 hidden sm:block">Sistema de Gestión ITIL v4 · Service Desk</div>
+              <div className="text-[10px] text-blue-100 font-medium mt-0.5 sm:hidden">ITIL v4 · Service Desk</div>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="hidden md:flex items-center gap-3 px-4 py-2 bg-white/[0.03] backdrop-blur-sm rounded-2xl border border-white/5">
+          {/* Controles del header */}
+          <div className="flex items-center gap-2 sm:gap-4 flex-shrink-0">
+            {/* Info usuario - solo desktop */}
+            <div className="hidden lg:flex items-center gap-3 px-4 py-2 bg-white/[0.03] backdrop-blur-sm rounded-2xl border border-white/5">
               <div className="flex-shrink-0 w-9 h-9 bg-gradient-to-br from-blue-400 to-indigo-400 rounded-full flex items-center justify-center ring-2 ring-white/30">
                 <span className="text-white text-sm font-bold">
                   {user?.email?.[0]?.toUpperCase() || '?'}
@@ -128,24 +139,30 @@ export default async function AppShell({ children }: { children: React.ReactNode
                 </div>
               </div>
             </div>
+            {/* Notificaciones */}
             <NotificationBell />
+            
+            {/* Perfil - solo desktop */}
             <Link
               href="/profile"
-              className="hidden md:flex items-center gap-2 px-3 py-2 rounded-lg bg-white/[0.03] backdrop-blur-sm border border-white/5 text-white hover:bg-white/[0.08] transition-colors text-sm"
+              className="hidden lg:flex items-center gap-2 px-3 py-2 rounded-lg bg-white/[0.03] backdrop-blur-sm border border-white/5 text-white hover:bg-white/[0.08] transition-colors text-sm"
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
               </svg>
               <span>Mi Perfil</span>
             </Link>
+            
+            {/* Salir */}
             <SignOutButton />
           </div>
         </div>
       </header>
 
       <div className="flex-1">
-        <div className="mx-auto max-w-7xl px-6 py-6 grid gap-6 lg:grid-cols-[240px_1fr]">
-          <aside className="card shadow-sm border border-slate-200 sticky top-6 self-start max-h-[calc(100vh-8rem)] overflow-y-auto">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 py-4 sm:py-6 pb-20 lg:pb-6 lg:grid lg:gap-6 lg:grid-cols-[240px_1fr]">
+          {/* Sidebar - solo visible en desktop */}
+          <aside className="hidden lg:block card shadow-sm border border-slate-200 sticky top-6 self-start max-h-[calc(100vh-8rem)] overflow-y-auto">
           <div className="card-body p-4">
             <nav className="flex flex-col space-y-1">
               {/* Sección Principal */}
@@ -311,6 +328,7 @@ export default async function AppShell({ children }: { children: React.ReactNode
       </div>
       
       <Footer />
+      <MobileSidebar userData={userData} />
     </div>
   )
 }

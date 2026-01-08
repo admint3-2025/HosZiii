@@ -14,22 +14,22 @@ type KPIProps = {
 
 const ICONS = {
   open: (
-    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg className="w-6 h-6 sm:w-8 sm:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
     </svg>
   ),
   closed: (
-    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg className="w-6 h-6 sm:w-8 sm:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
     </svg>
   ),
   escalated: (
-    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg className="w-6 h-6 sm:w-8 sm:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
     </svg>
   ),
   assigned: (
-    <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <svg className="w-6 h-6 sm:w-8 sm:h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
     </svg>
   ),
@@ -96,18 +96,18 @@ export default function InteractiveKPI({
           isExpanded ? 'ring-4 ' + colorScheme.ring : ''
         }`}
       >
-        <div className="card-body relative overflow-hidden">
+        <div className="card-body relative overflow-hidden p-3 sm:p-4">
           {/* Background decoration */}
-          <div className={`absolute top-0 right-0 w-32 h-32 ${colorScheme.bg} rounded-full blur-3xl opacity-50 -mr-16 -mt-16`}></div>
+          <div className={`absolute top-0 right-0 w-20 h-20 sm:w-32 sm:h-32 ${colorScheme.bg} rounded-full blur-3xl opacity-50 -mr-10 -mt-10 sm:-mr-16 sm:-mt-16`}></div>
           
           <div className="relative z-10">
-            <div className="flex items-start justify-between mb-3">
-              <div className={`p-3 rounded-xl ${colorScheme.iconBg} ${colorScheme.text} transition-transform group-hover:scale-110`}>
+            <div className="flex items-start justify-between mb-2 sm:mb-3">
+              <div className={`p-2 sm:p-3 rounded-lg sm:rounded-xl ${colorScheme.iconBg} ${colorScheme.text} transition-transform group-hover:scale-110`}>
                 {ICONS[icon]}
               </div>
               
-              {/* Mini progress ring - sin texto interno */}
-              <svg className="w-14 h-14 -rotate-90" viewBox="0 0 80 80">
+              {/* Mini progress ring */}
+              <svg className="w-10 h-10 sm:w-14 sm:h-14 -rotate-90" viewBox="0 0 80 80">
                 {/* Background circle */}
                 <circle
                   cx="40"
@@ -134,19 +134,19 @@ export default function InteractiveKPI({
               </svg>
             </div>
 
-            <div className="space-y-1">
-              <div className="text-sm font-medium text-gray-600">{label}</div>
-              <div className="flex items-baseline gap-2">
-                <div className={`text-4xl font-extrabold bg-gradient-to-r ${colorScheme.gradient} bg-clip-text text-transparent`}>
+            <div className="space-y-0.5 sm:space-y-1">
+              <div className="text-[11px] sm:text-sm font-medium text-gray-600 truncate">{label}</div>
+              <div className="flex items-baseline gap-1 sm:gap-2 flex-wrap">
+                <div className={`text-2xl sm:text-4xl font-extrabold bg-gradient-to-r ${colorScheme.gradient} bg-clip-text text-transparent`}>
                   {value}
                 </div>
                 {/* Porcentaje como badge separado */}
-                <div className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full ${colorScheme.bg} ${colorScheme.text}`}>
+                <div className={`flex items-center gap-0.5 sm:gap-1 text-[10px] sm:text-xs font-bold px-1.5 sm:px-2 py-0.5 sm:py-1 rounded-full ${colorScheme.bg} ${colorScheme.text}`}>
                   {percentage}%
                 </div>
                 {trend !== undefined && trend !== 0 && (
                   <div
-                    className={`flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full ${
+                    className={`hidden sm:flex items-center gap-1 text-xs font-bold px-2 py-1 rounded-full ${
                       trend > 0
                         ? 'bg-green-100 text-green-700'
                         : 'bg-red-100 text-red-700'
@@ -159,7 +159,7 @@ export default function InteractiveKPI({
               </div>
               
               {isExpanded && (
-                <div className="mt-3 pt-3 border-t border-gray-200 text-xs text-gray-600 animate-in fade-in slide-in-from-top-2 duration-300">
+                <div className="mt-2 sm:mt-3 pt-2 sm:pt-3 border-t border-gray-200 text-[10px] sm:text-xs text-gray-600 animate-in fade-in slide-in-from-top-2 duration-300">
                   {description}
                 </div>
               )}

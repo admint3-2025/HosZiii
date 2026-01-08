@@ -277,10 +277,10 @@ export default async function DashboardPage() {
   }
 
   return (
-    <main className="min-h-screen space-y-6">
+    <main className="min-h-screen space-y-4 sm:space-y-6">
       <div className="max-w-7xl mx-auto">
         {/* Header del Dashboard - Service Desk */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-800 via-slate-900 to-blue-900 shadow-2xl border border-slate-700/50">
+        <div className="relative overflow-hidden rounded-xl sm:rounded-2xl bg-gradient-to-br from-slate-800 via-slate-900 to-blue-900 shadow-2xl border border-slate-700/50">
           {/* Patrón de fondo técnico */}
           <div className="absolute inset-0 opacity-10">
             <div className="absolute inset-0" style={{
@@ -290,37 +290,37 @@ export default async function DashboardPage() {
           </div>
           
           {/* Elementos decorativos */}
-          <div className="absolute top-0 right-0 w-96 h-96 bg-blue-500/10 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-0 left-0 w-96 h-96 bg-indigo-500/10 rounded-full blur-3xl"></div>
+          <div className="absolute top-0 right-0 w-48 sm:w-96 h-48 sm:h-96 bg-blue-500/10 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-0 left-0 w-48 sm:w-96 h-48 sm:h-96 bg-indigo-500/10 rounded-full blur-3xl"></div>
           
-          <div className="relative z-10 px-8 py-4">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
+          <div className="relative z-10 px-4 sm:px-8 py-4">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-3 sm:gap-4">
                 {/* Icono principal */}
-                <div className="relative">
-                  <div className="absolute inset-0 bg-blue-500 rounded-xl blur-md opacity-50"></div>
-                  <div className="relative w-12 h-12 rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 border border-blue-400/30 flex items-center justify-center shadow-xl">
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className="relative flex-shrink-0">
+                  <div className="absolute inset-0 bg-blue-500 rounded-lg sm:rounded-xl blur-md opacity-50"></div>
+                  <div className="relative w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 border border-blue-400/30 flex items-center justify-center shadow-xl">
+                    <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
                     </svg>
                   </div>
                 </div>
                 
-                <div>
-                  <h1 className="text-xl font-bold text-white tracking-tight">Service Desk Dashboard</h1>
-                  <p className="text-slate-400 text-xs mt-0.5">
+                <div className="min-w-0">
+                  <h1 className="text-base sm:text-xl font-bold text-white tracking-tight truncate">Service Desk Dashboard</h1>
+                  <p className="text-slate-400 text-[10px] sm:text-xs mt-0.5">
                     ITIL v4 Compliant
                   </p>
                 </div>
               </div>
               
-              <div className="flex items-center gap-3">
+              <div className="flex items-center gap-2 sm:gap-3">
                 {/* Botón principal */}
                 <a
                   href="/tickets/new"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group relative flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-xl font-semibold text-sm transition-all shadow-lg hover:shadow-xl hover:shadow-blue-500/25 hover:scale-[1.02]"
+                  className="group relative flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-lg sm:rounded-xl font-semibold text-xs sm:text-sm transition-all shadow-lg hover:shadow-xl hover:shadow-blue-500/25 hover:scale-[1.02]"
                 >
                   <svg className="w-4 h-4 group-hover:rotate-90 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
@@ -328,7 +328,7 @@ export default async function DashboardPage() {
                   <span>Crear Ticket</span>
                 </a>
                 
-                {/* Indicador de estado */}
+                {/* Indicador de estado - solo desktop */}
                 <div className="hidden lg:flex items-center gap-2 px-3 py-2 bg-slate-800/60 backdrop-blur-sm rounded-xl border border-slate-700/50">
                   <div className="relative">
                     <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
@@ -351,14 +351,14 @@ export default async function DashboardPage() {
       ) : null}
 
       {/* KPIs principales - Estilo técnico profesional */}
-      <div className="pt-6">
-        <div className="flex items-center gap-3 mb-6 pb-3 border-b-2 border-gray-200">
+      <div className="pt-4 sm:pt-6">
+        <div className="flex items-center gap-3 mb-4 sm:mb-6 pb-3 border-b-2 border-gray-200">
           <div>
-            <h2 className="text-base font-bold text-gray-900 tracking-tight">Métricas Operativas</h2>
-            <p className="text-xs text-gray-500 mt-0.5">Indicadores clave de rendimiento en tiempo real</p>
+            <h2 className="text-sm sm:text-base font-bold text-gray-900 tracking-tight">Métricas Operativas</h2>
+            <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5">Indicadores clave de rendimiento en tiempo real</p>
           </div>
         </div>
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
         <InteractiveKPI
           label="Tickets Activos"
           value={abiertos}
