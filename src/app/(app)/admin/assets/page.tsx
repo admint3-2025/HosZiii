@@ -154,6 +154,26 @@ export default async function AssetsPage({
     outOfService: assets?.filter(a => a.status === 'OUT_OF_SERVICE').length || 0,
   }
 
+  // Obtener solicitudes de baja pendientes (solo para admins)
+  let pendingDisposalRequests: any[] = []
+  if (userRole === 'admin') {
+    const { data: disposalRequests, error: disposalError } = await dbClient
+      .from('asset_disposal_requests')
+      .select(`
+        *,
+        requester:profiles!asset_disposal_requests_requested_by_fkey(full_name),
+        asset:assets(asset_tag, asset_type, brand, model, image_url)
+      `)
+      .eq('status', 'pending')
+      .order('requested_at', { ascending: false })
+    
+    if (disposalError) {
+      console.error('[AssetsPage] Error fetching disposal requests:', disposalError)
+    }
+    pendingDisposalRequests = disposalRequests || []
+    console.log('[AssetsPage] Pending disposals:', pendingDisposalRequests.length)
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -174,15 +194,36 @@ export default async function AssetsPage({
           )}
         </div>
         {(userRole === 'admin' || userRole === 'supervisor') && (
-          <Link
-            href="/admin/assets/new"
-            className="btn btn-primary inline-flex items-center gap-2"
-          >
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Nuevo Activo
-          </Link>
+          <div className="flex items-center gap-3">
+            {userRole === 'admin' && (
+              <Link
+                href="/admin/assets/disposals"
+                className={`btn inline-flex items-center gap-2 ${
+                  pendingDisposalRequests.length > 0 
+                    ? 'bg-amber-500 hover:bg-amber-600 text-white border-0 animate-pulse' 
+                    : 'btn-outline btn-warning'
+                }`}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                {pendingDisposalRequests.length > 0 ? (
+                  <span className="font-semibold">{pendingDisposalRequests.length} Bajas Pendientes</span>
+                ) : (
+                  <span>Solicitudes de Baja</span>
+                )}
+              </Link>
+            )}
+            <Link
+              href="/admin/assets/new"
+              className="btn btn-primary inline-flex items-center gap-2"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+              </svg>
+              Nuevo Activo
+            </Link>
+          </div>
         )}
         {(userRole === 'agent_l1' || userRole === 'agent_l2') && (
           <div className="inline-flex items-center gap-2 px-4 py-2 bg-yellow-50 border border-yellow-200 rounded-lg text-sm text-yellow-800">
@@ -193,6 +234,38 @@ export default async function AssetsPage({
           </div>
         )}
       </div>
+
+      {/* Panel de aprobación de bajas (solo admins) */}
+      {userRole === 'admin' && pendingDisposalRequests.length > 0 && (
+        <Link 
+          href="/admin/assets/disposals"
+          className="block bg-gradient-to-r from-amber-50 to-orange-50 border-2 border-amber-300 rounded-xl p-4 hover:shadow-md transition-all"
+        >
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-4">
+              <div className="w-12 h-12 bg-amber-100 rounded-full flex items-center justify-center">
+                <svg className="w-6 h-6 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="font-semibold text-amber-900">
+                  {pendingDisposalRequests.length} Solicitud{pendingDisposalRequests.length > 1 ? 'es' : ''} de Baja Pendiente{pendingDisposalRequests.length > 1 ? 's' : ''}
+                </h3>
+                <p className="text-sm text-amber-700">
+                  Requieren su autorización para proceder
+                </p>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-amber-700">
+              <span className="font-medium">Ver Panel de Autorizaciones</span>
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+              </svg>
+            </div>
+          </div>
+        </Link>
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">

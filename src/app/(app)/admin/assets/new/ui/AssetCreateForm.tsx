@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 import DepartmentSelector from '@/components/DepartmentSelector'
 import BrandSelector from '@/components/BrandSelector'
+import AssetImageUpload from '@/components/AssetImageUpload'
 
 type Location = {
   id: string
@@ -37,6 +38,7 @@ export default function AssetCreateForm({ locations, canManageAllAssets, userRol
     ram_gb: '',
     storage_gb: '',
     os: '',
+    image_url: '',
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -78,6 +80,7 @@ export default function AssetCreateForm({ locations, canManageAllAssets, userRol
         ram_gb: formData.ram_gb ? parseInt(formData.ram_gb) : null,
         storage_gb: formData.storage_gb ? parseInt(formData.storage_gb) : null,
         os: formData.os || null,
+        image_url: formData.image_url || null,
         created_by: user?.id || null,
       })
       .select()
@@ -386,17 +389,32 @@ export default function AssetCreateForm({ locations, canManageAllAssets, userRol
         <div className="card-body p-6">
           <h2 className="text-lg font-semibold text-gray-900 mb-4">Información Adicional</h2>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">
-              Notas
-            </label>
-            <textarea
-              value={formData.notes}
-              onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-              rows={4}
-              className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              placeholder="Información adicional sobre el activo..."
-            />
+          <div className="grid gap-6 md:grid-cols-2">
+            {/* Imagen del activo */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Imagen del Activo
+              </label>
+              <AssetImageUpload
+                onImageUploaded={(url) => setFormData({ ...formData, image_url: url })}
+                onImageRemoved={() => setFormData({ ...formData, image_url: '' })}
+              />
+              <p className="text-xs text-gray-500 mt-1">JPG, PNG, WebP o GIF. Máximo 5MB.</p>
+            </div>
+
+            {/* Notas */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Notas
+              </label>
+              <textarea
+                value={formData.notes}
+                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                rows={4}
+                className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                placeholder="Información adicional sobre el activo..."
+              />
+            </div>
           </div>
         </div>
       </div>

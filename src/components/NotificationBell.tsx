@@ -310,6 +310,19 @@ export default function NotificationBell() {
                                 Ver ticket →
                               </Link>
                             )}
+                            {/* Link para solicitudes de baja (TICKET_ESCALATED sin ticket_id) */}
+                            {!notification.ticket_id && notification.type === 'TICKET_ESCALATED' && notification.title.includes('Baja') && (
+                              <Link
+                                href="/admin/assets/disposals"
+                                onClick={() => {
+                                  markAsRead(notification.id)
+                                  setIsOpen(false)
+                                }}
+                                className="text-xs text-amber-600 hover:text-amber-700 font-medium"
+                              >
+                                Ver solicitud →
+                              </Link>
+                            )}
                             {!notification.is_read && (
                               <button
                                 onClick={() => markAsRead(notification.id)}

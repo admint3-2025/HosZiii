@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { updateAssetWithLocationChange } from '../actions'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
+import AssetImageUpload from '@/components/AssetImageUpload'
 
 type Location = {
   id: string
@@ -29,6 +30,7 @@ type Asset = {
   ram_gb: number | null
   storage_gb: number | null
   os: string | null
+  image_url: string | null
 }
 
 type AssetEditFormProps = {
@@ -57,6 +59,7 @@ export default function AssetEditForm({ asset, locations, onCancel, onSuccess }:
     ram_gb: asset.ram_gb?.toString() || '',
     storage_gb: asset.storage_gb?.toString() || '',
     os: asset.os || '',
+    image_url: asset.image_url || '',
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showLocationChangeModal, setShowLocationChangeModal] = useState(false)
@@ -171,6 +174,7 @@ export default function AssetEditForm({ asset, locations, onCancel, onSuccess }:
           ram_gb: formData.ram_gb ? parseInt(formData.ram_gb) : null,
           storage_gb: formData.storage_gb ? parseInt(formData.storage_gb) : null,
           os: formData.os || null,
+          image_url: formData.image_url || null,
         },
         formData.location_id !== asset.location_id ? locationChangeReason : undefined
       )
@@ -541,17 +545,34 @@ export default function AssetEditForm({ asset, locations, onCancel, onSuccess }:
           <div className="card-body p-6">
             <h2 className="text-lg font-semibold text-gray-900 mb-4">Información Adicional</h2>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Notas
-              </label>
-              <textarea
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                rows={4}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                placeholder="Información adicional sobre el activo..."
-              />
+            <div className="grid gap-6 md:grid-cols-2">
+              {/* Imagen del activo */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Imagen del Activo
+                </label>
+                <AssetImageUpload
+                  assetId={asset.id}
+                  currentImageUrl={formData.image_url || null}
+                  onImageUploaded={(url) => setFormData({ ...formData, image_url: url })}
+                  onImageRemoved={() => setFormData({ ...formData, image_url: '' })}
+                />
+                <p className="text-xs text-gray-500 mt-1">JPG, PNG, WebP o GIF. Máximo 5MB.</p>
+              </div>
+
+              {/* Notas */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Notas
+                </label>
+                <textarea
+                  value={formData.notes}
+                  onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                  rows={4}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  placeholder="Información adicional sobre el activo..."
+                />
+              </div>
             </div>
           </div>
         </div>

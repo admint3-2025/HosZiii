@@ -23,6 +23,7 @@ export async function updateAssetWithLocationChange(
     ram_gb: number | null
     storage_gb: number | null
     os: string | null
+    image_url?: string | null
   },
   locationChangeReason?: string
 ) {
@@ -49,6 +50,7 @@ export async function updateAssetWithLocationChange(
       p_ram_gb: updateData.ram_gb,
       p_storage_gb: updateData.storage_gb,
       p_os: updateData.os,
+      p_image_url: updateData.image_url || null,
       p_location_change_reason: locationChangeReason || null
     })
 

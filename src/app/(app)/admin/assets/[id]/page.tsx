@@ -107,6 +107,20 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
     .eq('asset_id', id)
     .order('changed_at', { ascending: false })
     .limit(100)
+
+  // Obtener solicitud de baja pendiente (si existe)
+  const { data: pendingDisposalRequest } = await supabase
+    .from('asset_disposal_requests')
+    .select(`
+      id,
+      reason,
+      created_at,
+      requester:profiles!asset_disposal_requests_requested_by_fkey(full_name)
+    `)
+    .eq('asset_id', id)
+    .eq('status', 'pending')
+    .maybeSingle()
+
   const assetStats = rawStats
     ? {
         totalTickets: rawStats.total_tickets ?? 0,
@@ -125,8 +139,9 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
       relatedTickets={relatedTickets || []}
       assignedUser={assignedUser}
       stats={assetStats}
-        assetHistory={assetHistory || []}
-        userRole={userRole}
-      />
+      assetHistory={assetHistory || []}
+      userRole={userRole}
+      pendingDisposalRequest={pendingDisposalRequest as any}
+    />
   )
 }

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 import AssetEditForm from './AssetEditForm'
+import DisposalRequestModal from './DisposalRequestModal'
 
 type Location = {
   id: string
@@ -44,6 +45,7 @@ type Asset = {
   ram_gb: number | null
   storage_gb: number | null
   os: string | null
+  image_url: string | null
 }
 
 type AssetStats = {
@@ -73,7 +75,8 @@ export default function AssetDetailView({
   assignedUser,
   stats,
   assetHistory,
-  userRole = 'requester'
+  userRole = 'requester',
+  pendingDisposalRequest
 }: {
   asset: Asset
   locations: Location[]
@@ -82,13 +85,21 @@ export default function AssetDetailView({
   stats?: AssetStats | null
   assetHistory?: AssetChange[]
   userRole?: string
+  pendingDisposalRequest?: {
+    id: string
+    reason: string
+    created_at: string
+    requester: { full_name: string | null } | null
+  } | null
 }) {
   const router = useRouter()
   const [isEditing, setIsEditing] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
   const [isChangingStatus, setIsChangingStatus] = useState(false)
+  const [showDisposalModal, setShowDisposalModal] = useState(false)
 
   const isReadOnly = userRole === 'agent_l1' || userRole === 'agent_l2'
+  const hasPendingDisposal = !!pendingDisposalRequest
 
   const handleDelete = async () => {
     if (isReadOnly) {
@@ -226,14 +237,15 @@ export default function AssetDetailView({
               Editar
             </button>
             <button
-              onClick={handleDelete}
-              disabled={isDeleting}
+              onClick={() => setShowDisposalModal(true)}
+              disabled={isDeleting || hasPendingDisposal}
               className="btn btn-danger inline-flex items-center gap-2"
+              title={hasPendingDisposal ? 'Ya existe una solicitud pendiente' : undefined}
             >
               <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
               </svg>
-              {isDeleting ? 'Dando de baja...' : 'Dar de baja'}
+              {hasPendingDisposal ? 'Baja Pendiente' : 'Solicitar Baja'}
             </button>
           </div>
         )}
@@ -308,6 +320,67 @@ export default function AssetDetailView({
           </div>
         </div>
       </div>
+
+      {/* Banner de solicitud de baja pendiente */}
+      {pendingDisposalRequest && (
+        <div className="card bg-red-50 border-2 border-red-300 shadow-md">
+          <div className="card-body p-4">
+            <div className="flex items-start gap-3">
+              <div className="flex items-center justify-center w-10 h-10 bg-red-100 rounded-full flex-shrink-0">
+                <svg className="w-5 h-5 text-red-600 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+              </div>
+              <div className="flex-1">
+                <h3 className="font-semibold text-red-900">⚠️ Solicitud de Baja Pendiente</h3>
+                <p className="text-sm text-red-700 mt-1">
+                  Este activo tiene una solicitud de baja esperando autorización de un administrador.
+                </p>
+                <div className="mt-2 p-2 bg-white/60 rounded border border-red-200">
+                  <p className="text-sm text-red-800 italic">"{pendingDisposalRequest.reason}"</p>
+                </div>
+                <div className="flex items-center gap-4 mt-2 text-xs text-red-600">
+                  <span>
+                    Solicitado por: <strong>{pendingDisposalRequest.requester?.full_name || 'Usuario'}</strong>
+                  </span>
+                  <span>
+                    {new Date(pendingDisposalRequest.created_at).toLocaleString('es-ES', {
+                      day: '2-digit',
+                      month: 'short',
+                      year: 'numeric',
+                      hour: '2-digit',
+                      minute: '2-digit'
+                    })}
+                  </span>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Imagen del activo */}
+      {asset.image_url && (
+        <div className="card shadow-sm border border-slate-200">
+          <div className="card-body p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              <h2 className="text-base font-semibold text-gray-900">Imagen del Activo</h2>
+            </div>
+            <div className="flex justify-center">
+              <div className="relative max-w-md w-full">
+                <img
+                  src={asset.image_url}
+                  alt={`Imagen de ${asset.asset_tag}`}
+                  className="w-full h-64 object-contain rounded-lg border border-gray-200 bg-gray-50"
+                />
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
 
       {stats && (
         <div className="card shadow-sm border border-slate-200">
@@ -655,7 +728,21 @@ export default function AssetDetailView({
                   department: 'Departamento',
                   created: 'Creación',
                   deleted: 'Eliminación',
+                  image_url: 'Imagen',
                 }
+
+                // Función para formatear valores de imagen
+                const formatImageValue = (value: string | null): string => {
+                  if (!value) return '(vacío)'
+                  if (value === 'Sin imagen') return 'Sin imagen'
+                  if (value === 'Imagen eliminada') return 'Imagen eliminada'
+                  // Si es una URL, mostrar texto amigable
+                  if (value.startsWith('http')) return 'Imagen agregada'
+                  return value
+                }
+
+                // Determinar si es un campo de imagen
+                const isImageField = change.field_name === 'image_url'
 
                 return (
                   <div
@@ -668,19 +755,24 @@ export default function AssetDetailView({
                   >
                     <div className="flex items-start justify-between gap-3">
                       <div className="flex-1 min-w-0">
-                        <div className="flex items-center gap-2 mb-1">
+                        <div className="flex items-center gap-2 mb-1 flex-wrap">
                           <span className={`text-xs font-bold px-2 py-0.5 rounded ${
                             change.change_type === 'CREATE' ? 'bg-green-200 text-green-800' :
                             change.change_type === 'DELETE' ? 'bg-red-200 text-red-800' :
+                            isImageField ? 'bg-purple-200 text-purple-800' :
                             'bg-blue-200 text-blue-800'
                           }`}>
                             {fieldLabels[change.field_name] || change.field_name}
                           </span>
                           {change.change_type === 'UPDATE' && (
                             <span className="text-xs text-gray-600">
-                              <span className="text-gray-400">{change.old_value || '(vacío)'}</span>
+                              <span className="text-gray-400">
+                                {isImageField ? formatImageValue(change.old_value) : (change.old_value || '(vacío)')}
+                              </span>
                               {' → '}
-                              <span className="font-semibold text-gray-900">{change.new_value || '(vacío)'}</span>
+                              <span className="font-semibold text-gray-900">
+                                {isImageField ? formatImageValue(change.new_value) : (change.new_value || '(vacío)')}
+                              </span>
                             </span>
                           )}
                           {change.change_type === 'CREATE' && (
@@ -722,6 +814,18 @@ export default function AssetDetailView({
           </div>
         </div>
       )}
+
+      {/* Modal de solicitud de baja */}
+      <DisposalRequestModal
+        assetId={asset.id}
+        assetTag={asset.asset_tag}
+        isOpen={showDisposalModal}
+        onClose={() => setShowDisposalModal(false)}
+        onSuccess={() => {
+          router.refresh()
+          alert('Solicitud de baja enviada. Los administradores serán notificados por correo.')
+        }}
+      />
     </div>
   )
 }
