@@ -44,19 +44,21 @@ export async function generateQRCode(
 }
 
 /**
- * Genera URL completa para escaneo de activo
+ * Genera URL completa para ver detalle de activo
+ * @param assetId ID del activo (UUID)
  */
-export function getAssetQRUrl(assetCode: string): string {
+export function getAssetQRUrl(assetId: string): string {
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-  return `${baseUrl}/admin/assets/scan/${encodeURIComponent(assetCode)}`
+  return `${baseUrl}/admin/assets/${encodeURIComponent(assetId)}`
 }
 
 /**
- * Genera contenido del QR (puede incluir más datos en formato JSON si es necesario)
+ * Genera contenido del QR para el activo
+ * @param assetId ID del activo (UUID)
  */
-export function getAssetQRContent(assetCode: string): string {
-  // Simple: solo la URL
-  return getAssetQRUrl(assetCode)
+export function getAssetQRContent(assetId: string): string {
+  // Simple: solo la URL de detalle del activo
+  return getAssetQRUrl(assetId)
   
   // Alternativa: JSON con más datos
   // return JSON.stringify({

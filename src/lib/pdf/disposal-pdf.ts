@@ -340,12 +340,12 @@ export async function generateDisposalPDF(data: DisposalData): Promise<void> {
   doc.setFont('helvetica', 'bold')
   doc.text('CÓDIGOS DE IDENTIFICACIÓN Y VERIFICACIÓN', margin + 4, y + 6)
   
-  // Columna izquierda: QR del Activo (si existe asset_code)
+  // Columna izquierda: QR del Activo (si existe assetId)
   const leftX = margin + 10
-  if (data.assetCode) {
+  if (data.assetId) {
     try {
-      // Generar QR del activo con ALTA CALIDAD
-      const qrContent = getAssetQRContent(data.assetCode)
+      // Generar QR del activo con ALTA CALIDAD - apunta a página de detalle
+      const qrContent = getAssetQRContent(data.assetId)
       const qrImage = await generateQRCode(qrContent, { size: 400, margin: 1, errorCorrectionLevel: 'H' })
       
       // QR code más grande y nítido
@@ -360,7 +360,8 @@ export async function generateDisposalPDF(data: DisposalData): Promise<void> {
       
       doc.setFont('courier', 'normal')
       doc.setFontSize(6)
-      doc.text(data.assetCode, leftX + qrSize / 2, y + qrSize + 16, { align: 'center' })
+      const displayCode = data.assetCode || data.assetTag
+      doc.text(displayCode, leftX + qrSize / 2, y + qrSize + 16, { align: 'center' })
     } catch (error) {
       console.warn('No se pudo generar QR del activo:', error)
     }
