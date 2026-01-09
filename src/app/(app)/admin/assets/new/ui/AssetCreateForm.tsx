@@ -413,22 +413,54 @@ export default function AssetCreateForm({ locations, canManageAllAssets, userRol
                   />
                 </div>
 
-                <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded">
-                  <div className="flex items-start gap-2">
-                    <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <div className="text-xs text-blue-800">
-                      <p className="font-semibold mb-1">Información importante:</p>
-                      <ul className="list-disc list-inside space-y-0.5">
-                        <li>Estos datos técnicos son críticos para el inventario</li>
-                        <li>Cualquier modificación quedará registrada en el historial</li>
-                        {(userRole === 'admin' || userRole === 'supervisor') && (
-                          <li className="text-green-700 font-medium">
-                            ✨ Puedes agregar nuevos procesadores y sistemas operativos al catálogo
-                          </li>
+                {/* Info sobre catálogos */}
+                <div className="mt-4 space-y-3">
+                  {/* Estado de catálogos */}
+                  <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <svg className="w-4 h-4 text-gray-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <div className="text-xs text-gray-700">
+                        <p className="font-semibold mb-1">Estado de catálogos:</p>
+                        <ul className="list-disc list-inside space-y-0.5">
+                          <li>Procesadores cargados: <strong>{processorSuggestions.length}</strong></li>
+                          <li>Sistemas operativos cargados: <strong>{osSuggestions.length}</strong></li>
+                          <li>Tu rol: <strong>{userRole}</strong></li>
+                          {(userRole === 'admin' || userRole === 'supervisor') && (
+                            <li className="text-green-700 font-medium">✓ Puedes agregar nuevos elementos</li>
+                          )}
+                          {userRole !== 'admin' && userRole !== 'supervisor' && (
+                            <li className="text-amber-700 font-medium">⚠ Solo admin/supervisor pueden agregar elementos</li>
+                          )}
+                        </ul>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Instrucciones */}
+                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <div className="flex items-start gap-2">
+                      <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      <div className="text-xs text-blue-800">
+                        <p className="font-semibold mb-1">Cómo agregar nuevos elementos:</p>
+                        <ol className="list-decimal list-inside space-y-1">
+                          <li>Selecciona tipo de activo: <strong>Desktop</strong> o <strong>Laptop</strong></li>
+                          <li>En Procesador o Sistema Operativo, escribe un valor nuevo</li>
+                          <li>Si no existe en la lista, aparecerá un botón <strong>"Agregar al catálogo"</strong></li>
+                          <li>Haz clic en el botón para agregarlo permanentemente</li>
+                          <li>El nuevo elemento queda disponible para todos los usuarios</li>
+                        </ol>
+                        {processorSuggestions.length === 0 && (
+                          <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded">
+                            <p className="font-bold text-red-700">⚠️ ATENCIÓN: No se cargaron procesadores</p>
+                            <p className="mt-1">Esto indica que la migración SQL no se ejecutó en Supabase.</p>
+                            <p className="mt-1">Ejecuta: <code className="bg-red-100 px-1 py-0.5 rounded">supabase/migration-add-asset-catalogs.sql</code></p>
+                          </div>
                         )}
-                      </ul>
+                      </div>
                     </div>
                   </div>
                 </div>

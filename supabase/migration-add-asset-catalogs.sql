@@ -49,12 +49,15 @@ BEGIN
 END;
 $$ LANGUAGE plpgsql;
 
+DROP TRIGGER IF EXISTS update_asset_processors_updated_at ON asset_processors;
 CREATE TRIGGER update_asset_processors_updated_at BEFORE UPDATE ON asset_processors
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_asset_os_updated_at ON asset_operating_systems;
 CREATE TRIGGER update_asset_os_updated_at BEFORE UPDATE ON asset_operating_systems
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
+DROP TRIGGER IF EXISTS update_asset_custom_types_updated_at ON asset_custom_types;
 CREATE TRIGGER update_asset_custom_types_updated_at BEFORE UPDATE ON asset_custom_types
   FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -62,6 +65,20 @@ CREATE TRIGGER update_asset_custom_types_updated_at BEFORE UPDATE ON asset_custo
 ALTER TABLE asset_processors ENABLE ROW LEVEL SECURITY;
 ALTER TABLE asset_operating_systems ENABLE ROW LEVEL SECURITY;
 ALTER TABLE asset_custom_types ENABLE ROW LEVEL SECURITY;
+
+-- Eliminar políticas existentes para recrearlas
+DROP POLICY IF EXISTS "Usuarios autenticados pueden ver procesadores activos" ON asset_processors;
+DROP POLICY IF EXISTS "Usuarios autenticados pueden ver sistemas operativos activos" ON asset_operating_systems;
+DROP POLICY IF EXISTS "Usuarios autenticados pueden ver tipos personalizados activos" ON asset_custom_types;
+DROP POLICY IF EXISTS "Admins y supervisores pueden insertar procesadores" ON asset_processors;
+DROP POLICY IF EXISTS "Admins y supervisores pueden actualizar procesadores" ON asset_processors;
+DROP POLICY IF EXISTS "Admins pueden eliminar procesadores" ON asset_processors;
+DROP POLICY IF EXISTS "Admins y supervisores pueden insertar sistemas operativos" ON asset_operating_systems;
+DROP POLICY IF EXISTS "Admins y supervisores pueden actualizar sistemas operativos" ON asset_operating_systems;
+DROP POLICY IF EXISTS "Admins pueden eliminar sistemas operativos" ON asset_operating_systems;
+DROP POLICY IF EXISTS "Admins y supervisores pueden insertar tipos personalizados" ON asset_custom_types;
+DROP POLICY IF EXISTS "Admins y supervisores pueden actualizar tipos personalizados" ON asset_custom_types;
+DROP POLICY IF EXISTS "Admins pueden eliminar tipos personalizados" ON asset_custom_types;
 
 -- Políticas de lectura: todos los usuarios autenticados pueden ver catálogos activos
 CREATE POLICY "Usuarios autenticados pueden ver procesadores activos"
