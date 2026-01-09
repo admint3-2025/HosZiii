@@ -449,7 +449,7 @@ export default function AssetCreateForm({ locations, canManageAllAssets, userRol
                         <ol className="list-decimal list-inside space-y-1">
                           <li>Selecciona tipo de activo: <strong>Desktop</strong> o <strong>Laptop</strong></li>
                           <li>En Procesador o Sistema Operativo, escribe un valor nuevo</li>
-                          <li>Si no existe en la lista, aparecerá un botón <strong>"Agregar al catálogo"</strong></li>
+                          <li>Si no existe en la lista, aparecerá un botón <strong>&quot;Agregar al catálogo&quot;</strong></li>
                           <li>Haz clic en el botón para agregarlo permanentemente</li>
                           <li>El nuevo elemento queda disponible para todos los usuarios</li>
                         </ol>
