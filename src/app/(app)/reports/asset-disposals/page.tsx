@@ -86,7 +86,7 @@ export default async function AssetDisposalsReportPage() {
       *,
       requester:profiles!asset_disposal_requests_requested_by_fkey(full_name),
       reviewer:profiles!asset_disposal_requests_reviewed_by_fkey(full_name),
-      asset:assets(asset_tag, asset_type)
+      asset:assets(id, asset_tag, asset_type, asset_code)
     `)
     .order('created_at', { ascending: false })
   

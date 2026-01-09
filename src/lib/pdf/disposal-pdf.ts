@@ -1,11 +1,14 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
+import { generateQRCode, getAssetQRContent } from '@/lib/qr/generator'
 
 // Logo ZIII embebido en base64 (SVG)
 const LOGO_BASE64 = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgZmlsbD0iIzI1NjNlYiIgcng9IjY0Ii8+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTEzMiAxMzJIMzcyQzM4MiAxMzIgMzkwIDE0MCAzOTAgMTUwQzM5MCAxNjAgMzgyIDE2OCAzNzIgMTY4SDIzMkwzODQgMzI4QzM5MSAzMzYgMzkwIDM0OCAzODIgMzU1QzM3NCAzNjIgMzYyIDM2MSAzNTUgMzUzTDIwMCAxOTBWMzQ0SDM0MEMzNTAgMzQ0IDM1OCAzNTIgMzU4IDM2MkMzNTggMzcyIDM1MCAzODAgMzQwIDM4MEgxMzJDMTIyIDM4MCAxMTQgMzcyIDExNCAzNjJWMTUwQzExNCAxNDAgMTIyIDEzMiAxMzIgMTMyWiIvPjxyZWN0IGZpbGw9IiNmZmYiIHg9IjMwMiIgeT0iMjU2IiB3aWR0aD0iMjQiIGhlaWdodD0iMTA4IiByeD0iMTIiLz48cmVjdCBmaWxsPSIjZmZmIiB4PSIzMzYiIHk9IjIzNiIgd2lkdGg9IjI0IiBoZWlnaHQ9IjEyOCIgcng9IjEyIi8+PHJlY3QgZmlsbD0iI2RkZCIgeD0iMzcwIiB5PSIyMTQiIHdpZHRoPSIyNCIgaGVpZ2h0PSIxNTAiIHJ4PSIxMiIvPjwvc3ZnPg=='
 
 interface DisposalData {
   id?: string
+  assetId?: string
+  assetCode?: string
   assetTag: string
   assetType: string
   brand: string
@@ -324,39 +327,97 @@ export async function generateDisposalPDF(data: DisposalData): Promise<void> {
   y += boxHeight + 10
 
   // ═══════════════════════════════════════════════════════════════
-  // CÓDIGO DE VERIFICACIÓN
+  // CÓDIGOS QR Y VERIFICACIÓN
   // ═══════════════════════════════════════════════════════════════
   
-  // Recuadro de verificación
+  // Recuadro principal más alto para QR más grandes
   doc.setFillColor(240, 249, 255) // blue-50
   doc.setDrawColor(59, 130, 246) // blue-500
   doc.setLineWidth(0.3)
-  doc.roundedRect(margin, y, pageWidth - margin * 2, 18, 2, 2, 'FD')
+  doc.roundedRect(margin, y, pageWidth - margin * 2, 70, 2, 2, 'FD')
   
+  // Título
+  doc.setTextColor(30, 64, 175)
+  doc.setFontSize(9)
+  doc.setFont('helvetica', 'bold')
+  doc.text('CÓDIGOS DE IDENTIFICACIÓN Y VERIFICACIÓN', margin + 4, y + 6)
+  
+  // Columna izquierda: QR del Activo (si existe asset_code)
+  const leftX = margin + 10
+  if (data.assetCode) {
+    try {
+      // Generar QR del activo con ALTA CALIDAD
+      const qrContent = getAssetQRContent(data.assetCode)
+      const qrImage = await generateQRCode(qrContent, { size: 400, margin: 1, errorCorrectionLevel: 'H' })
+      
+      // QR code más grande y nítido
+      const qrSize = 45
+      doc.addImage(qrImage, 'PNG', leftX, y + 10, qrSize, qrSize)
+      
+      // Etiqueta
+      doc.setTextColor(0, 0, 0)
+      doc.setFontSize(7)
+      doc.setFont('helvetica', 'bold')
+      doc.text('QR Activo', leftX + qrSize / 2, y + qrSize + 12, { align: 'center' })
+      
+      doc.setFont('courier', 'normal')
+      doc.setFontSize(6)
+      doc.text(data.assetCode, leftX + qrSize / 2, y + qrSize + 16, { align: 'center' })
+    } catch (error) {
+      console.warn('No se pudo generar QR del activo:', error)
+    }
+  }
+  
+  // Columna central: Código de Verificación del documento
+  const centerX = margin + (pageWidth - margin * 2) / 2
   doc.setTextColor(30, 64, 175)
   doc.setFontSize(7)
   doc.setFont('helvetica', 'bold')
-  doc.text('CÓDIGO DE VERIFICACIÓN', margin + 4, y + 5)
+  doc.text('CÓDIGO DE VERIFICACIÓN', centerX, y + 13, { align: 'center' })
   
   doc.setTextColor(0, 0, 0)
-  doc.setFontSize(9)
+  doc.setFontSize(8)
   doc.setFont('courier', 'bold')
-  doc.text(verificationCode, margin + 4, y + 12)
+  const vCodeLines = doc.splitTextToSize(verificationCode, 65)
+  doc.text(vCodeLines, centerX, y + 19, { align: 'center' })
   
-  // Hash visual (código de barras simple)
-  const hashX = pageWidth - margin - 60
-  doc.setFillColor(0, 0, 0)
-  const codeChars = verificationCode.replace(/-/g, '')
-  for (let i = 0; i < 30; i++) {
-    const charCode = codeChars.charCodeAt(i % codeChars.length) || 65
-    const barWidth = (charCode % 3) === 0 ? 1.5 : 0.8
-    doc.rect(hashX + i * 2, y + 3, barWidth, 12, 'F')
-  }
-  
-  doc.setTextColor(100, 100, 100)
-  doc.setFontSize(5)
+  // Folio del documento
+  doc.setFontSize(7)
   doc.setFont('helvetica', 'normal')
-  doc.text('Verifique autenticidad con este código', margin + 4, y + 16)
+  doc.setTextColor(100, 100, 100)
+  doc.text(`Folio: ${folio}`, centerX, y + 30, { align: 'center' })
+  doc.text(`Generado: ${generatedAt}`, centerX, y + 35, { align: 'center' })
+  
+  // Información adicional
+  doc.setFontSize(6)
+  doc.text('Este documento es válido con firmas autorizadas', centerX, y + 42, { align: 'center' })
+  doc.text('Conserve este documento para registros contables', centerX, y + 47, { align: 'center' })
+  
+  // Columna derecha: QR del documento (PDF)
+  const rightX = pageWidth - margin - 55
+  try {
+    // QR con datos del documento de baja - ALTA CALIDAD
+    const docQRData = JSON.stringify({
+      type: 'disposal',
+      folio,
+      assetTag: data.assetTag,
+      date: data.requestDate,
+      code: verificationCode
+    })
+    const docQrImage = await generateQRCode(docQRData, { size: 400, margin: 1, errorCorrectionLevel: 'H' })
+    
+    const qrSize = 45
+    doc.addImage(docQrImage, 'PNG', rightX, y + 10, qrSize, qrSize)
+    
+    doc.setTextColor(0, 0, 0)
+    doc.setFontSize(7)
+    doc.setFont('helvetica', 'bold')
+    doc.text('QR Documento', rightX + qrSize / 2, y + qrSize + 12, { align: 'center' })
+  } catch (error) {
+    console.warn('No se pudo generar QR del documento:', error)
+  }
+
+  y += 75
 
   // ═══════════════════════════════════════════════════════════════
   // PIE DE PÁGINA

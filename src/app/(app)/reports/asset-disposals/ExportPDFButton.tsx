@@ -19,7 +19,7 @@ type DisposalRequest = {
   review_notes: string | null
   requester?: { full_name: string } | null
   reviewer?: { full_name: string } | null
-  asset?: { asset_tag: string; asset_type: string } | null
+  asset?: { id: string; asset_tag: string; asset_type: string; asset_code?: string } | null
 }
 
 interface ExportPDFButtonProps {
@@ -70,6 +70,8 @@ export default function ExportPDFButton({ disposal }: ExportPDFButtonProps) {
       }>
 
       await generateDisposalPDF({
+        assetId: disposal.asset?.id,
+        assetCode: disposal.asset?.asset_code ?? getValue(snapshot, 'asset_code'),
         assetTag: disposal.asset?.asset_tag ?? getValue(snapshot, 'asset_tag'),
         assetType: disposal.asset?.asset_type ?? getValue(snapshot, 'asset_type'),
         brand: getValue(snapshot, 'brand'),
