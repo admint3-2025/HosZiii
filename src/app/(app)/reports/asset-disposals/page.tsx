@@ -19,7 +19,7 @@ type DisposalRequest = {
   review_notes: string | null
   requester?: { full_name: string } | null
   reviewer?: { full_name: string } | null
-  asset?: { asset_tag: string; asset_type: string } | null
+  asset?: { id: string; asset_tag: string; asset_type: string; asset_code?: string } | null
 }
 
 const fieldLabels: Record<string, string> = {
