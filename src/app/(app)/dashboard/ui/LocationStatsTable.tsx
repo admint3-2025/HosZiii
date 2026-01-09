@@ -1,6 +1,7 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect } from "react"
+import { createSupabaseBrowserClient } from "@/lib/supabase/browser"
 
 type LocationStatsRow = {
   location_id: string
@@ -9,6 +10,13 @@ type LocationStatsRow = {
   total_tickets: number
   open_tickets: number
   closed_tickets: number
+  avg_resolution_days: number
+}
+
+type TopAgent = {
+  agent_id: string
+  agent_name: string
+  tickets_closed: number
   avg_resolution_days: number
 }
 
@@ -33,6 +41,107 @@ export default function LocationStatsTable({ rows }: { rows: LocationStatsRow[] 
   const [showModal, setShowModal] = useState(false)
   const [includeResponsables, setIncludeResponsables] = useState(true)
   const [extraEmails, setExtraEmails] = useState('')
+
+  const [topAgents, setTopAgents] = useState<TopAgent[]>([])
+  const [loadingAgents, setLoadingAgents] = useState(false)
+
+  // Cargar agentes más activos cuando cambia la sede seleccionada
+  useEffect(() => {
+    if (!selectedLocationId) return
+
+    const loadTopAgents = async () => {
+      setLoadingAgents(true)
+      try {
+        const supabase = createSupabaseBrowserClient()
+        
+        // Tickets cerrados en esta ubicación (histórico completo)
+        // Usar closed_by para ver quién cerró el ticket
+        const { data: tickets, error: ticketsError } = await supabase
+          .from('tickets')
+          .select('closed_by, created_at, closed_at')
+          .eq('location_id', selectedLocationId)
+          .eq('status', 'CLOSED')
+          .not('closed_by', 'is', null)
+          .not('closed_at', 'is', null)
+          .limit(500)
+
+        if (ticketsError) {
+          console.error('Error cargando tickets:', ticketsError)
+          setTopAgents([])
+          setLoadingAgents(false)
+          return
+        }
+
+        if (!tickets || tickets.length === 0) {
+          setTopAgents([])
+          setLoadingAgents(false)
+          return
+        }
+
+        // Obtener IDs únicos de agentes (quienes cerraron tickets)
+        const agentIds = [...new Set(tickets.map(t => t.closed_by).filter(id => id))]
+        
+        if (agentIds.length === 0) {
+          setTopAgents([])
+          setLoadingAgents(false)
+          return
+        }
+
+        // Obtener nombres de agentes
+        const { data: profiles, error: profilesError } = await supabase
+          .from('profiles')
+          .select('id, full_name')
+          .in('id', agentIds)
+
+        if (profilesError) {
+          console.error('Error cargando perfiles:', profilesError)
+        }
+
+        const profileMap = new Map((profiles || []).map(p => [p.id, p.full_name]))
+
+        // Agrupar por agente y calcular métricas
+        const agentMap = new Map<string, { name: string; count: number; totalDays: number }>()
+        
+        tickets.forEach((ticket) => {
+          const agentId = ticket.closed_by
+          if (!agentId) return
+          
+          const agentName = profileMap.get(agentId) || 'Sin nombre'
+          const createdAt = new Date(ticket.created_at)
+          const closedAt = new Date(ticket.closed_at)
+          const resolutionDays = Math.max(0, (closedAt.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24))
+
+          if (!agentMap.has(agentId)) {
+            agentMap.set(agentId, { name: agentName, count: 0, totalDays: 0 })
+          }
+
+          const agent = agentMap.get(agentId)!
+          agent.count++
+          agent.totalDays += resolutionDays
+        })
+
+        // Convertir a array y ordenar por tickets cerrados
+        const agents: TopAgent[] = Array.from(agentMap.entries())
+          .map(([id, stats]) => ({
+            agent_id: id,
+            agent_name: stats.name,
+            tickets_closed: stats.count,
+            avg_resolution_days: stats.count > 0 ? stats.totalDays / stats.count : 0
+          }))
+          .sort((a, b) => b.tickets_closed - a.tickets_closed)
+          .slice(0, 5)
+
+        setTopAgents(agents)
+      } catch (err) {
+        console.error('Error general:', err)
+        setTopAgents([])
+      } finally {
+        setLoadingAgents(false)
+      }
+    }
+
+    loadTopAgents()
+  }, [selectedLocationId])
 
   if (!rows || rows.length === 0) {
     return null
@@ -322,6 +431,67 @@ export default function LocationStatsTable({ rows }: { rows: LocationStatsRow[] 
               </svg>
               Generar resumen ejecutivo
             </button>
+
+            {/* Agentes más activos */}
+            <div className="mt-3 rounded-lg bg-gradient-to-br from-slate-50 to-slate-100/50 border border-slate-200 p-3">
+              <div className="flex items-center gap-2 mb-2.5">
+                <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                </svg>
+                <h4 className="text-xs font-bold text-slate-700">Agentes más activos</h4>
+              </div>
+
+              {loadingAgents ? (
+                <div className="flex items-center justify-center py-4">
+                  <svg className="w-5 h-5 animate-spin text-indigo-600" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                  </svg>
+                </div>
+              ) : topAgents.length === 0 ? (
+                <p className="text-xs text-slate-500 text-center py-3">
+                  No hay tickets cerrados en esta sede
+                </p>
+              ) : (
+                <div className="space-y-1.5">
+                  {topAgents.map((agent, idx) => {
+                    const maxTickets = topAgents[0]?.tickets_closed || 1
+                    const widthPct = (agent.tickets_closed / maxTickets) * 100
+                    
+                    return (
+                      <div key={agent.agent_id} className="flex items-center gap-2">
+                        <div className="flex-shrink-0 w-5 h-5 rounded-full bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center text-[10px] font-bold text-white shadow-sm">
+                          {idx + 1}
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <div className="flex items-center justify-between mb-0.5">
+                            <p className="text-[11px] font-semibold text-slate-800 truncate">
+                              {agent.agent_name}
+                            </p>
+                            <div className="flex items-center gap-1.5 text-[10px]">
+                              <span className="font-bold text-indigo-700">{agent.tickets_closed}</span>
+                              <span className="text-slate-500">tickets</span>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <div className="flex-1 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                              <div 
+                                className="h-full bg-gradient-to-r from-indigo-500 to-purple-600 rounded-full transition-all duration-500"
+                                style={{ width: `${widthPct}%` }}
+                              />
+                            </div>
+                            <span className="text-[10px] text-slate-500 whitespace-nowrap">
+                              {agent.avg_resolution_days.toFixed(1)}d avg
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+
             {sendMessage && (
               <div className={`rounded-lg px-3 py-2 text-[10px] ${
                 sendMessage.includes('enviado') || sendMessage.includes('✓')

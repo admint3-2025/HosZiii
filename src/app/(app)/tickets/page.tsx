@@ -9,7 +9,7 @@ import TicketFilters from './ui/TicketFilters'
 export default async function TicketsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ search?: string; status?: string; priority?: string; level?: string; category?: string }>
+  searchParams: Promise<{ search?: string; status?: string; priority?: string; level?: string; category?: string; location?: string }>
 }) {
   const supabase = await createSupabaseServerClient()
   const params = await searchParams
@@ -73,10 +73,15 @@ export default async function TicketsPage({
   if (params.category) {
     query = query.eq('category_id', params.category)
   }
+  
+  if (params.location) {
+    query = query.eq('location_id', params.location)
+  }
 
-  const [{ data: rawTickets, error }, { data: categories }] = await Promise.all([
+  const [{ data: rawTickets, error }, { data: categories }, { data: locations }] = await Promise.all([
     query.order('created_at', { ascending: false }).limit(100),
     supabase.from('categories').select('id,name,parent_id'),
+    supabase.from('locations').select('id,code,name').eq('is_active', true).order('code'),
   ])
 
   const tickets = (rawTickets ?? []).sort((a, b) => {
@@ -150,7 +155,7 @@ export default async function TicketsPage({
       ) : null}
 
       {/* Filtros */}
-      <TicketFilters categories={categories ?? []} />
+      <TicketFilters categories={categories ?? []} locations={locations ?? []} />
 
       {/* Tabla mejorada con diseño moderno */}
       <div className="card overflow-hidden shadow-lg border-0">

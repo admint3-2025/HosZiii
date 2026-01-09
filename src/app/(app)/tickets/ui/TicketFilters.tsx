@@ -9,7 +9,19 @@ type Category = {
   parent_id: string | null
 }
 
-export default function TicketFilters({ categories }: { categories: Category[] }) {
+type Location = {
+  id: string
+  code: string
+  name: string
+}
+
+export default function TicketFilters({ 
+  categories, 
+  locations 
+}: { 
+  categories: Category[]
+  locations: Location[]
+}) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
@@ -19,6 +31,7 @@ export default function TicketFilters({ categories }: { categories: Category[] }
   const [priority, setPriority] = useState(searchParams.get('priority') || '')
   const [level, setLevel] = useState(searchParams.get('level') || '')
   const [category, setCategory] = useState(searchParams.get('category') || '')
+  const [location, setLocation] = useState(searchParams.get('location') || '')
 
   const handleFilter = () => {
     const params = new URLSearchParams()
@@ -27,6 +40,7 @@ export default function TicketFilters({ categories }: { categories: Category[] }
     if (priority) params.set('priority', priority)
     if (level) params.set('level', level)
     if (category) params.set('category', category)
+    if (location) params.set('location', location)
     
     startTransition(() => {
       router.push(`/tickets?${params.toString()}`)
@@ -39,12 +53,13 @@ export default function TicketFilters({ categories }: { categories: Category[] }
     setPriority('')
     setLevel('')
     setCategory('')
+    setLocation('')
     startTransition(() => {
       router.push('/tickets')
     })
   }
 
-  const hasFilters = search || status || priority || level || category
+  const hasFilters = search || status || priority || level || category || location
 
   return (
     <div className="card shadow-sm border border-slate-200">
@@ -134,9 +149,30 @@ export default function TicketFilters({ categories }: { categories: Category[] }
             </select>
           </div>
 
+          {/* Sede/Ubicación */}
+          {locations.length > 0 && (
+            <div>
+              <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                Sede
+              </label>
+              <select
+                value={location}
+                onChange={(e) => setLocation(e.target.value)}
+                className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="">Todas las sedes</option>
+                {locations.map((loc) => (
+                  <option key={loc.id} value={loc.id}>
+                    [{loc.code}] {loc.name}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* Categoría */}
           {categories.length > 0 && (
-            <div className="lg:col-span-3">
+            <div className={locations.length > 0 ? 'lg:col-span-2' : 'lg:col-span-3'}>
               <label className="block text-xs font-medium text-gray-700 mb-1.5">
                 Categoría
               </label>
@@ -184,7 +220,7 @@ export default function TicketFilters({ categories }: { categories: Category[] }
 
           {hasFilters && (
             <span className="text-xs text-gray-500 ml-auto">
-              {[search, status, priority, level, category].filter(Boolean).length} filtro(s) activo(s)
+              {[search, status, priority, level, category, location].filter(Boolean).length} filtro(s) activo(s)
             </span>
           )}
         </div>
