@@ -451,14 +451,11 @@ export async function generateDisposalPDF(data: DisposalData): Promise<void> {
   addFooter(2, 2)
   
   // Regresar a página 1 para agregar su footer
-  const currentPage = (doc.internal as { getCurrentPageInfo: () => { pageNumber: number } }).getCurrentPageInfo().pageNumber
-  if (currentPage === 2) {
-    // Ir a página 1
-    doc.setPage(1)
-    addFooter(1, 2)
-    // Regresar a página 2
-    doc.setPage(2)
-  }
+  doc.setPage(1)
+  addFooter(1, 2)
+  
+  // Volver a página 2 (última página antes de guardar)
+  doc.setPage(2)
 
   // ═══════════════════════════════════════════════════════════════
   // DESCARGAR
