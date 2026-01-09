@@ -1,11 +1,16 @@
 /**
  * Script de prueba para verificar la configuración SMTP
- * Ejecutar con: node --env-file=.env.local scripts/test-email.mjs
+ * Ejecutar con: node scripts/test-email.mjs
  */
 
+import { config } from 'dotenv'
+import { resolve } from 'path'
 import nodemailer from 'nodemailer'
 
-const config = {
+// Cargar variables de entorno desde .env.local
+config({ path: resolve(process.cwd(), '.env.local') })
+
+const smtpConfig = {
   host: process.env.SMTP_HOST,
   port: parseInt(process.env.SMTP_PORT || '587'),
   user: process.env.SMTP_USER,
@@ -15,25 +20,25 @@ const config = {
 }
 
 console.log('🔧 Configuración SMTP:')
-console.log(`   Host: ${config.host}`)
-console.log(`   Port: ${config.port}`)
-console.log(`   Secure: ${config.secure}`)
-console.log(`   User: ${config.user}`)
-console.log(`   From: ${config.from}`)
+console.log(`   Host: ${smtpConfig.host}`)
+console.log(`   Port: ${smtpConfig.port}`)
+console.log(`   Secure: ${smtpConfig.secure}`)
+console.log(`   User: ${smtpConfig.user}`)
+console.log(`   From: ${smtpConfig.from}`)
 console.log('')
 
-if (!config.host || !config.user || !config.pass) {
+if (!smtpConfig.host || !smtpConfig.user || !smtpConfig.pass) {
   console.error('❌ Faltan variables de entorno SMTP')
   process.exit(1)
 }
 
 const transporter = nodemailer.createTransport({
-  host: config.host,
-  port: config.port,
-  secure: config.secure,
+  host: smtpConfig.host,
+  port: smtpConfig.port,
+  secure: smtpConfig.secure,
   auth: {
-    user: config.user,
-    pass: config.pass,
+    user: smtpConfig.user,
+    pass: smtpConfig.pass,
   },
 })
 
@@ -48,12 +53,12 @@ try {
 }
 
 // Email de prueba
-const testEmail = process.argv[2] || config.user
+const testEmail = process.argv[2] || smtpConfig.user
 
 console.log(`📨 Enviando email de prueba a: ${testEmail}`)
 
 const mailOptions = {
-  from: `${config.from} <${config.user}>`,
+  from: `${smtpConfig.from} <${smtpConfig.user}>`,
   to: testEmail,
   subject: 'Prueba de notificaciones - ZIII Helpdesk',
   text: 'Este es un correo de prueba del sistema de notificaciones del Helpdesk.',
@@ -72,9 +77,9 @@ const mailOptions = {
         <div style="margin:20px 0; padding:16px; background:#f3f4f6; border-radius:8px; border-left:4px solid #4f46e5;">
           <p style="margin:0; font-size:13px; color:#111827; line-height:1.5;">
             <strong>✓</strong> Configuración SMTP correcta<br>
-            <strong>✓</strong> Servidor: ${config.host}<br>
-            <strong>✓</strong> Puerto: ${config.port}<br>
-            <strong>✓</strong> Remitente: ${config.user}
+            <strong>✓</strong> Servidor: ${smtpConfig.host}<br>
+            <strong>✓</strong> Puerto: ${smtpConfig.port}<br>
+            <strong>✓</strong> Remitente: ${smtpConfig.user}
           </p>
         </div>
 
