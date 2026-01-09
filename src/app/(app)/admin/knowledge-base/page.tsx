@@ -23,8 +23,9 @@ export default async function KnowledgeBaseAdminPage() {
     .eq('id', user.id)
     .single()
 
-  // Técnicos, supervisores y admins pueden acceder
-  if (!profile || !['admin', 'supervisor', 'agent_l1', 'agent_l2'].includes(profile.role)) {
+  // Solo técnicos, supervisores y admins pueden acceder
+  const allowedRoles = ['admin', 'supervisor', 'agent_l1', 'agent_l2']
+  if (!profile?.role || !allowedRoles.includes(profile.role)) {
     redirect('/tickets')
   }
 

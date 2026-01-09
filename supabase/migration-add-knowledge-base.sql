@@ -239,6 +239,17 @@ ALTER TABLE knowledge_base_articles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE knowledge_base_usage ENABLE ROW LEVEL SECURITY;
 ALTER TABLE knowledge_base_suggestions ENABLE ROW LEVEL SECURITY;
 
+-- Limpiar políticas existentes
+DROP POLICY IF EXISTS "Usuarios pueden ver artículos aprobados" ON knowledge_base_articles;
+DROP POLICY IF EXISTS "Admins y supervisores ven todos los artículos" ON knowledge_base_articles;
+DROP POLICY IF EXISTS "Usuarios ven sus propios artículos" ON knowledge_base_articles;
+DROP POLICY IF EXISTS "Agentes pueden crear artículos" ON knowledge_base_articles;
+DROP POLICY IF EXISTS "Admins pueden actualizar artículos" ON knowledge_base_articles;
+DROP POLICY IF EXISTS "Usuarios pueden registrar uso de artículos" ON knowledge_base_usage;
+DROP POLICY IF EXISTS "Usuarios pueden ver uso de artículos" ON knowledge_base_usage;
+DROP POLICY IF EXISTS "Usuarios ven sugerencias" ON knowledge_base_suggestions;
+DROP POLICY IF EXISTS "Sistema crea sugerencias" ON knowledge_base_suggestions;
+
 -- Todos pueden ver artículos aprobados
 CREATE POLICY "Usuarios pueden ver artículos aprobados"
   ON knowledge_base_articles FOR SELECT

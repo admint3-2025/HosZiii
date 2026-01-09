@@ -5,6 +5,9 @@
 DO $$
 DECLARE
   admin_user_id UUID;
+  cat_software_id TEXT;
+  cat_hardware_id TEXT;
+  cat_incidencia_id TEXT;
 BEGIN
   SELECT id INTO admin_user_id FROM profiles WHERE role = 'admin' LIMIT 1;
   
@@ -12,6 +15,23 @@ BEGIN
     RAISE NOTICE 'No se encontró usuario admin. Los artículos se crearán sin created_by válido.';
     RETURN;
   END IF;
+
+  -- Obtener IDs de categorías existentes (usar nombres que coincidan con tu DB)
+  -- Si no existen, los artículos usarán los nombres directamente
+  SELECT id INTO cat_software_id FROM categories WHERE name ILIKE '%software%' AND parent_id IS NULL LIMIT 1;
+  SELECT id INTO cat_hardware_id FROM categories WHERE name ILIKE '%hardware%' AND parent_id IS NULL LIMIT 1;
+  SELECT id INTO cat_incidencia_id FROM categories WHERE name ILIKE '%inciden%' AND parent_id IS NULL LIMIT 1;
+
+  -- Si no encontramos categorías específicas, usar la primera categoría nivel 1
+  IF cat_software_id IS NULL THEN
+    SELECT id INTO cat_software_id FROM categories WHERE parent_id IS NULL ORDER BY sort_order LIMIT 1;
+  END IF;
+  
+  IF cat_hardware_id IS NULL THEN
+    cat_hardware_id := cat_software_id;
+  END IF;
+
+  RAISE NOTICE 'Usando categoría ID: % para artículos', cat_software_id;
 
   -- ========================================
   -- INCIDENCIAS DE SOFTWARE
@@ -83,7 +103,7 @@ Generalmente causado por:
 - Crear puntos de restauración antes de cambios importantes
 - No interrumpir actualizaciones en proceso
 - Realizar mantenimiento preventivo mensual',
-    'Software',
+    COALESCE(cat_software_id, 'Software'),
     'Sistema Operativo',
     'Windows',
     'approved',
@@ -173,7 +193,7 @@ Outlook no sincroniza correctamente con el servidor de correo Exchange/Office 36
 - Archivar correos antiguos periódicamente
 - Vaciar elementos eliminados semanalmente
 - Mantener Outlook actualizado',
-    'Software',
+    COALESCE(cat_software_id, 'Software'),
     'Aplicaciones',
     'Office 365',
     'approved',
@@ -274,7 +294,7 @@ Si después de estos pasos NO enciende:
 - No bloquear ventilaciones
 - Usar adaptador original del fabricante
 - Calibrar batería cada 3 meses',
-    'Hardware',
+    COALESCE(cat_hardware_id, 'Hardware'),
     'Laptop',
     'Energía',
     'approved',
@@ -381,7 +401,7 @@ El equipo tiene rendimiento muy bajo, aplicaciones lentas, sistema que no respon
 - Actualizar Windows regularmente
 - Evitar instalar software de fuentes desconocidas
 - Reiniciar el equipo al menos semanalmente',
-    'Hardware',
+    COALESCE(cat_hardware_id, 'Hardware'),
     'PC',
     'Rendimiento',
     'approved',
@@ -495,7 +515,7 @@ Si se derramó líquido recientemente:
 - Usar protector de teclado de silicona
 - Limpieza con aire comprimido mensual
 - Evitar presionar teclas con fuerza excesiva',
-    'Hardware',
+    COALESCE(cat_hardware_id, 'Hardware'),
     'Laptop',
     'Periféricos',
     'approved',
