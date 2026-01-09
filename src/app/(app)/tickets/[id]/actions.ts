@@ -196,6 +196,23 @@ export async function updateTicketStatus(input: UpdateTicketStatusInput) {
       console.log('[Ticket Closed] Enviando notificación para ticket:', ticket.ticket_number)
       await notifyTicketClosed({ ...notificationData, resolution: input.resolution })
       console.log('[Ticket Closed] ✓ Notificación enviada')
+      
+      // Detectar si el ticket califica para base de conocimientos
+      try {
+        console.log('[KB] Evaluando ticket para base de conocimientos:', ticket.ticket_number)
+        const { data: kbResult, error: kbError } = await supabase
+          .rpc('detect_kb_candidate_from_ticket', { ticket_id_param: input.ticketId })
+        
+        if (kbError) {
+          console.error('[KB] ✗ Error al evaluar candidato:', kbError)
+        } else if (kbResult === true) {
+          console.log('[KB] ✓ Ticket agregado a KB pendiente de revisión')
+        } else {
+          console.log('[KB] ℹ Ticket no cumple criterios para KB')
+        }
+      } catch (kbErr) {
+        console.error('[KB] ✗ Error inesperado:', kbErr)
+      }
     } else if (input.nextStatus !== 'ASSIGNED') {
       // For other status changes, send status change notification
       console.log('[Ticket Status Changed] Enviando notificación para ticket:', ticket.ticket_number)

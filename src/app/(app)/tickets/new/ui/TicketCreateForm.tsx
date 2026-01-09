@@ -8,6 +8,7 @@ import { createTicket } from '../actions'
 import AttachmentUploader from '@/components/AttachmentUploader'
 import { uploadTicketAttachment } from '@/lib/storage/attachments'
 import ConfirmTicketModal from './ConfirmTicketModal'
+import KBSuggestions from '@/components/KBSuggestions'
 
 type CategoryRow = {
   id: string
@@ -509,6 +510,13 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
           </div>
           </div>
         </div>
+
+        {/* Sugerencias de la Base de Conocimientos */}
+        <KBSuggestions
+          categoryLevel1={categoryL1}
+          categoryLevel2={categoryL2}
+          categoryLevel3={categoryL3}
+        />
 
         {/* Selector de usuario (solo para agentes/supervisores/admin) */}
         {canCreateForOthers && (
