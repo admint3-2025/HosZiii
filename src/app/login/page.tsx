@@ -11,138 +11,166 @@ export default async function LoginPage() {
   if (user) redirect('/dashboard')
 
   return (
-    <main className="min-h-screen grid lg:grid-cols-2 bg-gradient-to-br from-slate-50 via-blue-50 to-indigo-100">
-      <section className="hidden lg:flex flex-col justify-between bg-gradient-to-br from-blue-600 via-indigo-600 to-violet-700 p-12 text-white relative overflow-hidden">
-        {/* Decorative circles */}
-        <div className="absolute top-20 right-20 w-64 h-64 bg-white/10 rounded-full blur-3xl animate-[pulse_4s_ease-in-out_infinite]"></div>
-        <div className="absolute bottom-20 left-10 w-96 h-96 bg-indigo-400/20 rounded-full blur-3xl animate-[pulse_6s_ease-in-out_infinite]"></div>
+    <main className="min-h-screen flex bg-slate-900">
+      {/* Panel izquierdo - Branding */}
+      <section className="hidden lg:flex lg:w-[55%] xl:w-[60%] flex-col justify-between p-10 xl:p-14 relative overflow-hidden">
+        {/* Fondo con gradiente y patrón */}
+        <div className="absolute inset-0 bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-950"></div>
+        <div className="absolute inset-0 opacity-[0.03]" style={{
+          backgroundImage: `radial-gradient(circle at 1px 1px, rgb(255 255 255) 1px, transparent 0)`,
+          backgroundSize: '24px 24px'
+        }}></div>
         
-        <div className="relative z-10 animate-[fadeInUp_0.8s_ease-out]">
-          <div className="flex items-center gap-4 mb-6">
+        {/* Círculos decorativos */}
+        <div className="absolute top-0 right-0 w-[600px] h-[600px] bg-indigo-500/10 rounded-full blur-3xl -mr-48 -mt-48"></div>
+        <div className="absolute bottom-0 left-0 w-[500px] h-[500px] bg-violet-500/10 rounded-full blur-3xl -ml-32 -mb-32"></div>
+        <div className="absolute top-1/2 left-1/3 w-[300px] h-[300px] bg-blue-500/5 rounded-full blur-3xl"></div>
+        
+        {/* Contenido */}
+        <div className="relative z-10">
+          {/* Logo y badge */}
+          <div className="flex items-center gap-5 mb-10">
             <img 
               src="https://integrational3.com.mx/logorigen/ZIII%20logo.png" 
               alt="ZIII Logo" 
-              className="h-32 w-auto drop-shadow-2xl"
+              className="h-20 w-20 object-contain drop-shadow-2xl"
             />
-            <div className="inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-white/10 backdrop-blur-sm border border-white/20">
-              <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></span>
-              <span className="text-xs font-semibold tracking-wide uppercase">Helpdesk Pro</span>
+            <div>
+              <h2 className="text-2xl font-bold text-white tracking-tight">
+                ZIII <span className="text-indigo-400 font-light">Helpdesk</span>
+              </h2>
+              <div className="flex items-center gap-2 mt-1">
+                <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
+                <span className="text-xs font-medium text-slate-400 uppercase tracking-wider">Sistema Activo</span>
+              </div>
             </div>
           </div>
           
-          <h1 className="mt-6 text-4xl font-extrabold leading-tight tracking-tight">
-            Mesa de ayuda inteligente
-            <br />
-            <span className="bg-gradient-to-r from-blue-200 to-indigo-200 bg-clip-text text-transparent">
-              basada en ITIL
-            </span>
-          </h1>
-          
-          <p className="mt-5 text-lg text-blue-50 max-w-lg leading-relaxed">
-            Gestiona incidentes con profesionalismo: workflow estructurado, escalamiento automático, 
-            auditoría completa y métricas en tiempo real.
-          </p>
+          {/* Título principal */}
+          <div className="max-w-xl">
+            <h1 className="text-4xl xl:text-5xl font-extrabold text-white leading-tight tracking-tight">
+              Service Desk
+              <br />
+              <span className="bg-gradient-to-r from-indigo-400 via-violet-400 to-purple-400 bg-clip-text text-transparent">
+                Profesional
+              </span>
+            </h1>
+            
+            <p className="mt-6 text-lg text-slate-400 leading-relaxed max-w-lg">
+              Plataforma empresarial de gestión de incidentes con workflow ITIL, 
+              escalamiento automático y métricas en tiempo real.
+            </p>
+          </div>
 
-          <div className="mt-8 space-y-4">
-            <div className="flex items-start gap-3 animate-[fadeInUp_0.8s_ease-out_0.2s_both]">
-              <div className="w-8 h-8 rounded-lg bg-white/10 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
-                <svg className="w-5 h-5 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          {/* Features list - diseño limpio y no interactivo */}
+          <div className="mt-12 space-y-5 max-w-lg">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-indigo-500/10 flex items-center justify-center flex-shrink-0">
+                <svg className="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
               </div>
               <div>
-                <div className="font-semibold text-white">Workflow ITIL certificado</div>
-                <div className="text-sm text-blue-100">Estados, transiciones y escalamiento N1→N2 con reglas de negocio</div>
+                <div className="text-base font-bold text-white mb-1">ITIL v4 Certified</div>
+                <div className="text-sm text-slate-400">Workflow estandarizado con estados, transiciones y escalamiento N1→N2</div>
               </div>
             </div>
 
-            <div className="flex items-start gap-3 animate-[fadeInUp_0.8s_ease-out_0.3s_both]">
-              <div className="w-8 h-8 rounded-lg bg-white/10 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
-                <svg className="w-5 h-5 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-violet-500/10 flex items-center justify-center flex-shrink-0">
+                <svg className="w-6 h-6 text-violet-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
                 </svg>
               </div>
               <div>
-                <div className="font-semibold text-white">Priorización automática</div>
-                <div className="text-sm text-blue-100">Matriz Impacto × Urgencia con cálculo inteligente de prioridades</div>
+                <div className="text-base font-bold text-white mb-1">Priorización Automática</div>
+                <div className="text-sm text-slate-400">Matriz Impacto × Urgencia con cálculo inteligente de prioridades</div>
               </div>
             </div>
 
-            <div className="flex items-start gap-3 animate-[fadeInUp_0.8s_ease-out_0.4s_both]">
-              <div className="w-8 h-8 rounded-lg bg-white/10 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
-                <svg className="w-5 h-5 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 flex items-center justify-center flex-shrink-0">
+                <svg className="w-6 h-6 text-emerald-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
                 </svg>
               </div>
               <div>
-                <div className="font-semibold text-white">Dashboard ejecutivo</div>
-                <div className="text-sm text-blue-100">KPIs en tiempo real, aging, tendencias y reportes operativos</div>
+                <div className="text-base font-bold text-white mb-1">Dashboard Ejecutivo</div>
+                <div className="text-sm text-slate-400">KPIs en tiempo real, aging, tendencias y reportes multi-sede</div>
               </div>
             </div>
 
-            <div className="flex items-start gap-3 animate-[fadeInUp_0.8s_ease-out_0.5s_both]">
-              <div className="w-8 h-8 rounded-lg bg-white/10 backdrop-blur-sm flex items-center justify-center flex-shrink-0">
-                <svg className="w-5 h-5 text-blue-200" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <div className="flex items-start gap-4">
+              <div className="w-12 h-12 rounded-2xl bg-amber-500/10 flex items-center justify-center flex-shrink-0">
+                <svg className="w-6 h-6 text-amber-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                 </svg>
               </div>
               <div>
-                <div className="font-semibold text-white">Auditoría total</div>
-                <div className="text-sm text-blue-100">Registro completo de cambios, soft-delete con motivo y trazabilidad</div>
+                <div className="text-base font-bold text-white mb-1">Auditoría Total</div>
+                <div className="text-sm text-slate-400">Trazabilidad completa con registro de cambios y soft-delete con motivo</div>
               </div>
             </div>
           </div>
         </div>
 
-        <div className="relative z-10 flex items-center justify-between text-xs text-blue-100 pt-6 border-t border-white/10 animate-[fadeIn_1s_ease-out_0.6s_both]">
-          <div className="flex items-center gap-6">
-            <div className="flex items-center gap-1.5">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              <span>Seguro & Encriptado</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              <span>ITIL v4 Compatible</span>
-            </div>
-            <div className="flex items-center gap-1.5">
-              <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              <span>Soporte 24/7</span>
-            </div>
+        {/* Footer */}
+        <div className="relative z-10 flex items-center gap-6 text-xs text-slate-500 pt-8 border-t border-white/10">
+          <div className="flex items-center gap-2">
+            <svg className="w-4 h-4 text-emerald-500" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            <span>SSL Encriptado</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <svg className="w-4 h-4 text-indigo-400" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            <span>Multi-sede</span>
+          </div>
+          <div className="flex items-center gap-2">
+            <svg className="w-4 h-4 text-violet-400" fill="currentColor" viewBox="0 0 20 20">
+              <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+            </svg>
+            <span>Soporte 24/7</span>
           </div>
         </div>
       </section>
 
-      <section className="flex items-center justify-center p-8">
-        <div className="w-full max-w-md animate-[fadeInRight_0.8s_ease-out]">
-          <div className="mb-6 text-center">
+      {/* Panel derecho - Login Form */}
+      <section className="flex-1 flex items-center justify-center p-6 lg:p-10 bg-gradient-to-br from-slate-50 to-slate-100">
+        <div className="w-full max-w-md">
+          {/* Logo - visible en todas las resoluciones */}
+          <div className="flex flex-col items-center mb-8">
             <img 
               src="https://integrational3.com.mx/logorigen/ZIII%20logo.png" 
               alt="ZIII Logo" 
-              className="h-32 w-auto mx-auto mb-6 drop-shadow-xl transition-transform hover:scale-105 duration-300"
+              className="h-24 w-24 object-contain drop-shadow-xl mb-4"
             />
-            <h2 className="text-2xl font-bold text-gray-900">Acceso al sistema</h2>
-            <p className="mt-2 text-sm text-gray-600">Ingresa tus credenciales para gestionar tickets</p>
+            <h2 className="text-xl font-bold text-slate-800">
+              ZIII <span className="text-indigo-600 font-light">Helpdesk</span>
+            </h2>
           </div>
 
-          <div className="card shadow-xl border-0 bg-white/80 backdrop-blur-sm">
-            <div className="card-body">
+          {/* Card de login */}
+          <div className="bg-white rounded-3xl shadow-xl shadow-slate-200/50 border border-slate-200/50 overflow-hidden">
+            {/* Header del card */}
+            <div className="px-8 pt-8 pb-6 border-b border-slate-100 bg-gradient-to-br from-slate-50 to-white">
+              <h3 className="text-2xl font-bold text-slate-800 tracking-tight">Iniciar Sesión</h3>
+              <p className="mt-2 text-sm text-slate-500">Ingresa tus credenciales para acceder al sistema</p>
+            </div>
+
+            {/* Form */}
+            <div className="px-8 py-8">
               <LoginForm />
             </div>
           </div>
 
+          {/* Footer */}
           <div className="mt-6 text-center">
-            <p className="text-xs text-gray-500 mb-3">Plataforma protegida con autenticación segura</p>
-            <div className="flex items-center justify-center text-xs text-gray-400">
-              <div className="flex items-center gap-1">
-                <div className="w-2 h-2 rounded-full bg-green-500"></div>
-                <span>Sistema operativo seguro y monitoreado</span>
-              </div>
+            <div className="flex items-center justify-center gap-2 text-xs text-slate-400">
+              <div className="w-2 h-2 rounded-full bg-emerald-500"></div>
+              <span>Sistema protegido y monitoreado</span>
             </div>
           </div>
         </div>
