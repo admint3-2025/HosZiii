@@ -277,11 +277,10 @@ export default async function DashboardPage() {
   }
 
   return (
-    <main className="min-h-screen space-y-4 sm:space-y-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header del Dashboard - Service Desk */}
-        <div className="relative overflow-hidden rounded-xl sm:rounded-2xl bg-gradient-to-br from-slate-800 via-slate-900 to-blue-900 shadow-2xl border border-slate-700/50">
-          {/* Patrón de fondo técnico */}
+    <main className="min-h-screen space-y-6">
+        {/* Header del Dashboard - Nuevo diseño moderno */}
+        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-slate-900 via-slate-800 to-indigo-900 shadow-2xl border border-slate-700/50">
+          {/* Patrón de fondo */}
           <div className="absolute inset-0 opacity-10">
             <div className="absolute inset-0" style={{
               backgroundImage: `radial-gradient(circle at 2px 2px, rgb(147 197 253) 1px, transparent 0)`,
@@ -290,37 +289,37 @@ export default async function DashboardPage() {
           </div>
           
           {/* Elementos decorativos */}
-          <div className="absolute top-0 right-0 w-48 sm:w-96 h-48 sm:h-96 bg-blue-500/10 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-0 left-0 w-48 sm:w-96 h-48 sm:h-96 bg-indigo-500/10 rounded-full blur-3xl"></div>
+          <div className="absolute top-0 right-0 w-72 h-72 bg-indigo-500/20 rounded-full blur-3xl"></div>
+          <div className="absolute bottom-0 left-0 w-72 h-72 bg-violet-500/10 rounded-full blur-3xl"></div>
           
-          <div className="relative z-10 px-4 sm:px-8 py-4">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-              <div className="flex items-center gap-3 sm:gap-4">
+          <div className="relative z-10 px-6 py-5">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+              <div className="flex items-center gap-4">
                 {/* Icono principal */}
                 <div className="relative flex-shrink-0">
-                  <div className="absolute inset-0 bg-blue-500 rounded-lg sm:rounded-xl blur-md opacity-50"></div>
-                  <div className="relative w-10 h-10 sm:w-12 sm:h-12 rounded-lg sm:rounded-xl bg-gradient-to-br from-blue-500 to-indigo-600 border border-blue-400/30 flex items-center justify-center shadow-xl">
-                    <svg className="w-5 h-5 sm:w-6 sm:h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <div className="absolute inset-0 bg-indigo-500 rounded-xl blur-md opacity-50"></div>
+                  <div className="relative w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-violet-600 border border-indigo-400/30 flex items-center justify-center shadow-xl">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
                     </svg>
                   </div>
                 </div>
                 
                 <div className="min-w-0">
-                  <h1 className="text-base sm:text-xl font-bold text-white tracking-tight truncate">Service Desk Dashboard</h1>
-                  <p className="text-slate-400 text-[10px] sm:text-xs mt-0.5">
-                    ITIL v4 Compliant
+                  <h1 className="text-xl font-extrabold text-white tracking-tight">Service Desk Dashboard</h1>
+                  <p className="text-slate-400 text-xs mt-0.5">
+                    ITIL v4 Compliant • Sistema de Gestión de Incidentes
                   </p>
                 </div>
               </div>
               
-              <div className="flex items-center gap-2 sm:gap-3">
+              <div className="flex items-center gap-3">
                 {/* Botón principal */}
                 <a
                   href="/tickets/new"
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="group relative flex items-center gap-1.5 sm:gap-2 px-3 sm:px-4 py-2 bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white rounded-lg sm:rounded-xl font-semibold text-xs sm:text-sm transition-all shadow-lg hover:shadow-xl hover:shadow-blue-500/25 hover:scale-[1.02]"
+                  className="group relative flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl font-bold text-sm transition-all shadow-lg hover:shadow-xl hover:shadow-indigo-500/25 hover:scale-[1.02]"
                 >
                   <svg className="w-4 h-4 group-hover:rotate-90 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
@@ -328,7 +327,7 @@ export default async function DashboardPage() {
                   <span>Crear Ticket</span>
                 </a>
                 
-                {/* Indicador de estado - solo desktop */}
+                {/* Indicador de estado */}
                 <div className="hidden lg:flex items-center gap-2 px-3 py-2 bg-slate-800/60 backdrop-blur-sm rounded-xl border border-slate-700/50">
                   <div className="relative">
                     <div className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></div>
@@ -350,15 +349,20 @@ export default async function DashboardPage() {
         </div>
       ) : null}
 
-      {/* KPIs principales - Estilo técnico profesional */}
-      <div className="pt-4 sm:pt-6">
-        <div className="flex items-center gap-3 mb-4 sm:mb-6 pb-3 border-b-2 border-gray-200">
+      {/* KPIs principales - Estilo moderno */}
+      <div className="pt-6">
+        <div className="flex items-center gap-3 mb-6">
+          <div className="p-2 bg-indigo-50 rounded-xl">
+            <svg className="w-5 h-5 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+            </svg>
+          </div>
           <div>
-            <h2 className="text-sm sm:text-base font-bold text-gray-900 tracking-tight">Métricas Operativas</h2>
-            <p className="text-[10px] sm:text-xs text-gray-500 mt-0.5">Indicadores clave de rendimiento en tiempo real</p>
+            <h2 className="text-base font-bold text-slate-900 tracking-tight">Métricas Operativas</h2>
+            <p className="text-xs text-slate-500">Indicadores clave de rendimiento en tiempo real</p>
           </div>
         </div>
-        <div className="grid gap-3 sm:gap-4 grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
         <InteractiveKPI
           label="Tickets Activos"
           value={abiertos}
@@ -396,14 +400,22 @@ export default async function DashboardPage() {
 
       {isAdminOrSupervisor && locationStats.length > 0 && (
         <div className="pt-8">
-          <div className="flex items-center justify-between mb-6 pb-3 border-b-2 border-gray-200">
-            <div>
-              <h2 className="text-base font-bold text-gray-900 tracking-tight">Estadísticas Multi-Sede</h2>
-              <p className="text-xs text-gray-500 mt-0.5">Análisis comparativo por ubicaciones</p>
+          <div className="flex items-center justify-between mb-6">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-emerald-50 rounded-xl">
+                <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                </svg>
+              </div>
+              <div>
+                <h2 className="text-base font-bold text-slate-900 tracking-tight">Estadísticas Multi-Sede</h2>
+                <p className="text-xs text-slate-500">Análisis comparativo por ubicaciones</p>
+              </div>
             </div>
-            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-lg">
+            <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-emerald-50 border border-emerald-200 rounded-xl">
               <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-              <span className="text-xs font-medium text-emerald-700">Todas las ubicaciones</span>
+              <span className="text-xs font-bold text-emerald-700">Todas las ubicaciones</span>
             </div>
           </div>
           <LocationStatsTable rows={locationStats} />
@@ -411,16 +423,23 @@ export default async function DashboardPage() {
       )}
 
       <div className="pt-8">
-        <div className="flex items-center justify-between mb-6 pb-3 border-b-2 border-gray-200">
-          <div>
-            <h2 className="text-base font-bold text-gray-900 tracking-tight">Análisis Detallado</h2>
-            <p className="text-xs text-gray-500 mt-0.5">Tendencias, aging y activos asignados</p>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-violet-50 rounded-xl">
+              <svg className="w-5 h-5 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-slate-900 tracking-tight">Análisis Detallado</h2>
+              <p className="text-xs text-slate-500">Tendencias, aging y activos asignados</p>
+            </div>
           </div>
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-purple-50 border border-purple-200 rounded-lg">
-            <svg className="w-3.5 h-3.5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-violet-50 border border-violet-200 rounded-xl">
+            <svg className="w-3.5 h-3.5 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
             </svg>
-            <span className="text-xs font-medium text-purple-700">Últimos 7 días</span>
+            <span className="text-xs font-bold text-violet-700">Últimos 7 días</span>
           </div>
         </div>
         <div className="grid gap-4 lg:grid-cols-3">
@@ -435,23 +454,26 @@ export default async function DashboardPage() {
 
       {/* Gráficos y distribución */}
       <div className="pt-8">
-        <div className="flex items-center justify-between mb-6 pb-3 border-b-2 border-gray-200">
-          <div>
-            <h2 className="text-base font-bold text-gray-900 tracking-tight">Distribución y Patrones</h2>
-            <p className="text-xs text-gray-500 mt-0.5">Estados y prioridades de tickets activos</p>
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-indigo-50 rounded-xl">
+              <svg className="w-5 h-5 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
+                <path d="M10 3.5a1.5 1.5 0 013 0V4a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-.5a1.5 1.5 0 000 3h.5a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-.5a1.5 1.5 0 00-3 0v.5a1 1 0 01-1 1H6a1 1 0 01-1-1v-3a1 1 0 00-1-1h-.5a1.5 1.5 0 010-3H4a1 1 0 001-1V6a1 1 0 011-1h3a1 1 0 001-1v-.5z"/>
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-slate-900 tracking-tight">Distribución y Patrones</h2>
+              <p className="text-xs text-slate-500">Estados y prioridades de tickets activos</p>
+            </div>
           </div>
-          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-indigo-50 border border-indigo-200 rounded-lg">
-            <svg className="w-3.5 h-3.5 text-indigo-600" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M10 3.5a1.5 1.5 0 013 0V4a1 1 0 001 1h3a1 1 0 011 1v3a1 1 0 01-1 1h-.5a1.5 1.5 0 000 3h.5a1 1 0 011 1v3a1 1 0 01-1 1h-3a1 1 0 01-1-1v-.5a1.5 1.5 0 00-3 0v.5a1 1 0 01-1 1H6a1 1 0 01-1-1v-3a1 1 0 00-1-1h-.5a1.5 1.5 0 010-3H4a1 1 0 001-1V6a1 1 0 011-1h3a1 1 0 001-1v-.5z"/>
-            </svg>
-            <span className="text-xs font-medium text-indigo-700">Vista consolidada</span>
+          <div className="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-indigo-50 border border-indigo-200 rounded-xl">
+            <span className="text-xs font-bold text-indigo-700">Vista consolidada</span>
           </div>
         </div>
         <div className="grid gap-4 lg:grid-cols-2">
           <StatusChart data={statusChartData} />
           <PriorityChart data={priorityChartData} />
         </div>
-      </div>
       </div>
     </main>
   )

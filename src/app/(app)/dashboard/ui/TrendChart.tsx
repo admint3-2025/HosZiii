@@ -11,14 +11,12 @@ export default function TrendChart({ data }: { data: TrendData[] }) {
   const [hoveredIndex, setHoveredIndex] = useState<number | null>(null)
   
   const maxCount = Math.max(...data.map((d) => d.count), 1)
-  const chartHeight = 120
-  const chartWidth = 100
 
   // Calcular métricas
   const totalTickets = data.reduce((sum, d) => sum + d.count, 0)
   const avgPerDay = (totalTickets / Math.max(data.length, 1)).toFixed(1)
 
-  // Determinar la fecha "hoy" y "ayer" en la zona horaria local del navegador
+  // Determinar la fecha "hoy" y "ayer"
   const now = new Date()
   const todayYear = now.getFullYear()
   const todayMonth = String(now.getMonth() + 1).padStart(2, '0')
@@ -50,244 +48,137 @@ export default function TrendChart({ data }: { data: TrendData[] }) {
   const isPositive = trendState === 'positive'
   const isNeutral = trendState === 'neutral'
 
-  const points = data.map((item, index) => {
-    const x = (index / (data.length - 1)) * chartWidth
-    const y = chartHeight - (item.count / maxCount) * chartHeight
-    return { x, y, count: item.count, date: item.date }
-  })
-
-  const pathD = `M ${points.map(p => `${p.x},${p.y}`).join(' L ')}`
-  const areaD = `${pathD} L ${chartWidth},${chartHeight} L 0,${chartHeight} Z`
-
   return (
-    <div className="card shadow-lg border-0 overflow-visible hover:shadow-xl transition-shadow duration-300">
-      <div className="card-body">
-        {/* Header con métricas resumen */}
-        <div className="flex items-start justify-between mb-4">
-          <div className="flex items-center gap-2">
-            <div className="p-2 bg-gradient-to-br from-green-100 to-emerald-100 rounded-lg">
-              <svg className="w-5 h-5 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+    <div className="bg-white rounded-2xl shadow-sm border border-slate-100 overflow-hidden hover:shadow-md transition-shadow duration-300">
+      <div className="p-5">
+        {/* Header */}
+        <div className="flex items-start justify-between mb-5">
+          <div className="flex items-center gap-3">
+            <div className="p-2 bg-emerald-50 rounded-xl">
+              <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7h8m0 0v8m0-8l-8 8-4-4-6 6" />
               </svg>
             </div>
             <div>
-              <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider">Tendencia de Tickets</h3>
-              <p className="text-xs text-gray-600">Últimos 7 días • Nuevos tickets creados</p>
+              <h3 className="text-sm font-bold text-slate-800">Tendencia de Tickets</h3>
+              <p className="text-xs text-slate-500">Últimos 7 días</p>
             </div>
           </div>
           
-          {/* Badge de cambio (hoy vs ayer, sin porcentajes agresivos) */}
-          <div className={`flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold ${
+          {/* Badge de cambio */}
+          <div className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-semibold ${
             isNeutral
-              ? 'bg-gray-100 text-gray-700'
+              ? 'bg-slate-100 text-slate-600'
               : isPositive 
-                ? 'bg-green-100 text-green-700' 
-                : 'bg-red-100 text-red-700'
+                ? 'bg-emerald-50 text-emerald-700' 
+                : 'bg-red-50 text-red-600'
           }`}>
-            <svg className={`w-3 h-3 ${isNeutral ? '' : isPositive ? '' : 'rotate-180'}`} fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
-            </svg>
+            {!isNeutral && (
+              <svg className={`w-3 h-3 ${isPositive ? '' : 'rotate-180'}`} fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M5.293 9.707a1 1 0 010-1.414l4-4a1 1 0 011.414 0l4 4a1 1 0 01-1.414 1.414L11 7.414V15a1 1 0 11-2 0V7.414L6.707 9.707a1 1 0 01-1.414 0z" clipRule="evenodd" />
+              </svg>
+            )}
             <span>{trendLabel}</span>
           </div>
         </div>
 
-        {/* Estadísticas rápidas */}
-        <div className="grid grid-cols-3 gap-3 mb-4">
-          <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg p-3 text-center border border-blue-100">
-            <div className="text-2xl font-bold text-blue-600">{totalTickets}</div>
-            <div className="text-[10px] text-blue-700 font-medium uppercase tracking-wide mt-0.5">Total esta semana</div>
+        {/* Stats row */}
+        <div className="flex items-center gap-4 mb-5">
+          <div className="flex items-baseline gap-1.5">
+            <span className="text-3xl font-extrabold text-slate-800">{totalTickets}</span>
+            <span className="text-xs text-slate-500 font-medium">tickets</span>
           </div>
-          <div className="bg-gradient-to-br from-purple-50 to-pink-50 rounded-lg p-3 text-center border border-purple-100">
-            <div className="text-2xl font-bold text-purple-600">{avgPerDay}</div>
-            <div className="text-[10px] text-purple-700 font-medium uppercase tracking-wide mt-0.5 leading-tight">
-              <span className="block">Promedio</span>
-              <span className="block">/día</span>
-            </div>
+          <div className="h-8 w-px bg-slate-200"></div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-lg font-bold text-slate-600">{avgPerDay}</span>
+            <span className="text-xs text-slate-400">/día</span>
           </div>
-          <div className="bg-gradient-to-br from-green-50 to-emerald-50 rounded-lg p-3 text-center border border-green-100">
-            <div className="text-2xl font-bold text-green-600">{todayCount}</div>
-            <div className="text-[10px] text-green-700 font-medium uppercase tracking-wide mt-0.5">Creados hoy</div>
+          <div className="h-8 w-px bg-slate-200"></div>
+          <div className="flex items-baseline gap-1">
+            <span className="text-lg font-bold text-emerald-600">{todayCount}</span>
+            <span className="text-xs text-slate-400">hoy</span>
           </div>
         </div>
 
-        {/* Gráfico interactivo */}
-        <div className="relative">
-          <svg
-            viewBox={`0 0 ${chartWidth} ${chartHeight}`}
-            className="w-full h-32"
-            preserveAspectRatio="none"
-            style={{ filter: 'drop-shadow(0 4px 6px rgba(0, 0, 0, 0.05))' }}
-          >
-            <defs>
-              <linearGradient id="trendGradient" x1="0" x2="0" y1="0" y2="1">
-                <stop offset="0%" stopColor="#10b981" stopOpacity="0.5" />
-                <stop offset="100%" stopColor="#10b981" stopOpacity="0.05" />
-              </linearGradient>
-            </defs>
-            
-            {/* Líneas de referencia */}
-            {[0.25, 0.5, 0.75].map((ratio, i) => (
-              <line
-                key={i}
-                x1="0"
-                y1={chartHeight * ratio}
-                x2={chartWidth}
-                y2={chartHeight * ratio}
-                stroke="#e5e7eb"
-                strokeWidth="0.5"
-                strokeDasharray="2,2"
-              />
-            ))}
-            
-            {/* Área bajo la curva */}
-            <path 
-              d={areaD} 
-              fill="url(#trendGradient)"
-              className="animate-fadeIn"
-            />
-            
-            {/* Línea principal */}
-            <path
-              d={pathD}
-              fill="none"
-              stroke="#10b981"
-              strokeWidth="3"
-              vectorEffect="non-scaling-stroke"
-              strokeLinecap="round"
-              strokeLinejoin="round"
-              className="drop-shadow-md"
-            />
-            
-            {/* Puntos interactivos */}
-            {points.map((point, index) => (
-              <g key={index}>
-                {/* Área de hover más grande (invisible) */}
-                <circle
-                  cx={point.x}
-                  cy={point.y}
-                  r="5"
-                  fill="transparent"
-                  className="cursor-pointer"
-                  onMouseEnter={() => setHoveredIndex(index)}
-                  onMouseLeave={() => setHoveredIndex(null)}
-                />
-                
-                {/* Punto visible */}
-                <circle
-                  cx={point.x}
-                  cy={point.y}
-                  r={hoveredIndex === index ? "4" : "2.5"}
-                  fill={hoveredIndex === index ? "#059669" : "#10b981"}
-                  className={`transition-all duration-200 ${hoveredIndex === index ? 'drop-shadow-lg' : 'drop-shadow'}`}
-                  style={{ pointerEvents: 'none' }}
-                />
-                
-                {/* Anillo exterior en hover */}
-                {hoveredIndex === index && (
-                  <circle
-                    cx={point.x}
-                    cy={point.y}
-                    r="6"
-                    fill="none"
-                    stroke="#10b981"
-                    strokeWidth="2"
-                    opacity="0.3"
-                    className="animate-pulse"
-                    style={{ pointerEvents: 'none' }}
-                  />
-                )}
-              </g>
-            ))}
-          </svg>
-          
-          {/* Tooltip flotante */}
-          {hoveredIndex !== null && (
-            <div 
-              className="absolute bg-gray-900 text-white px-3 py-2 rounded-lg shadow-xl text-xs font-medium z-10 animate-fadeIn pointer-events-none"
-              style={{
-                left: `${(hoveredIndex / (data.length - 1)) * 100}%`,
-                top: '-65px',
-                transform: 'translateX(-50%)'
-              }}
-            >
-              <div className="flex flex-col gap-1">
-                <div className="text-center">
-                  <div className="text-lg font-bold text-green-400">{data[hoveredIndex].count}</div>
-                  <div className="text-[10px] text-gray-300">
-                    {data[hoveredIndex].count === 1 ? 'ticket creado' : 'tickets creados'}
-                  </div>
-                  <div className="text-[10px] text-gray-400 uppercase mt-1">
-                    {new Date(data[hoveredIndex].date).toLocaleDateString('es-ES', { 
-                      weekday: 'long',
-                      day: 'numeric',
-                      month: 'short'
-                    })}
-                  </div>
-                </div>
-                {hoveredIndex > 0 && (
-                  <div className="text-[10px] text-gray-400 text-center pt-1 border-t border-gray-700">
-                    {data[hoveredIndex].count > data[hoveredIndex - 1].count ? '+' : ''}
-                    {data[hoveredIndex].count - data[hoveredIndex - 1].count} vs día anterior
-                  </div>
-                )}
-              </div>
-              {/* Flecha del tooltip */}
-              <div className="absolute bottom-[-4px] left-1/2 transform -translate-x-1/2 w-2 h-2 bg-gray-900 rotate-45"></div>
-            </div>
-          )}
-        </div>
-
-        {/* Etiquetas de días (más compactas) */}
-        <div className="grid grid-cols-7 gap-0.5 text-[11px] mt-3">
+        {/* Gráfico de barras */}
+        <div className="flex items-end justify-between gap-3 h-28 mb-3 px-2">
           {data.map((item, idx) => {
             const isHovered = hoveredIndex === idx
             const isToday = item.date === todayKey
-            // Parsear fecha local correctamente para evitar problema de zona horaria
+            // Calcular altura: mínimo 8px, máximo 100% del contenedor
+            const barHeight = maxCount > 0 
+              ? Math.max(8, (item.count / maxCount) * 100) 
+              : 8
+            
+            return (
+              <div 
+                key={idx}
+                className="flex-1 flex flex-col items-center justify-end cursor-pointer"
+                onMouseEnter={() => setHoveredIndex(idx)}
+                onMouseLeave={() => setHoveredIndex(null)}
+              >
+                {/* Valor sobre la barra */}
+                <div className={`text-sm font-bold mb-1 transition-all ${
+                  item.count > 0 
+                    ? isToday 
+                      ? 'text-indigo-600' 
+                      : isHovered 
+                        ? 'text-emerald-600' 
+                        : 'text-slate-700'
+                    : 'text-slate-300'
+                }`}>
+                  {item.count}
+                </div>
+                
+                {/* Barra */}
+                <div 
+                  className={`w-full max-w-[40px] rounded-lg transition-all duration-200 ${
+                    item.count === 0
+                      ? 'bg-slate-100 border border-dashed border-slate-200'
+                      : isToday 
+                        ? 'bg-gradient-to-t from-indigo-600 to-indigo-400 shadow-md shadow-indigo-200' 
+                        : isHovered 
+                          ? 'bg-gradient-to-t from-emerald-600 to-emerald-400 shadow-md shadow-emerald-200' 
+                          : 'bg-gradient-to-t from-slate-400 to-slate-300'
+                  } ${isHovered && item.count > 0 ? 'scale-105' : ''}`}
+                  style={{ 
+                    height: item.count === 0 ? '8px' : `${barHeight}%`,
+                  }}
+                ></div>
+              </div>
+            )
+          })}
+        </div>
+
+        {/* Etiquetas de días */}
+        <div className="flex justify-between gap-2">
+          {data.map((item, idx) => {
+            const isHovered = hoveredIndex === idx
+            const isToday = item.date === todayKey
             const [year, month, day] = item.date.split('-').map(Number)
             const dateObj = new Date(year, month - 1, day)
             
             return (
               <div 
                 key={idx} 
-                className={`text-center transition-all duration-200 cursor-pointer px-1.5 py-1 rounded-md ${
-                  isHovered 
-                    ? 'bg-green-50 border border-green-200 transform scale-105' 
-                    : isToday 
-                      ? 'bg-blue-50 border border-blue-200' 
-                      : 'hover:bg-gray-50'
+                className={`flex-1 text-center transition-all ${
+                  isHovered ? 'transform scale-105' : ''
                 }`}
                 onMouseEnter={() => setHoveredIndex(idx)}
                 onMouseLeave={() => setHoveredIndex(null)}
               >
-                {/* Día de la semana */}
-                <div className={`text-[9px] uppercase tracking-wide font-medium mb-0.5 ${
-                  isHovered 
-                    ? 'text-green-700' 
-                    : isToday 
-                      ? 'text-blue-700' 
-                      : 'text-gray-700'
+                <div className={`text-[10px] uppercase font-semibold ${
+                  isToday ? 'text-indigo-600' : isHovered ? 'text-emerald-600' : 'text-slate-400'
                 }`}>
-                  {dateObj.toLocaleDateString('es-ES', { weekday: 'short' })}
+                  {dateObj.toLocaleDateString('es-ES', { weekday: 'short' }).replace('.', '')}
                 </div>
-                
-                {/* Número del día del mes (fecha exacta) */}
-                <div className={`font-semibold text-sm ${
-                  isHovered 
-                    ? 'text-green-700' 
-                    : isToday 
-                      ? 'text-blue-700' 
-                      : 'text-gray-700'
+                <div className={`text-sm font-bold ${
+                  isToday ? 'text-indigo-700' : isHovered ? 'text-emerald-700' : 'text-slate-600'
                 }`}>
                   {dateObj.getDate()}
                 </div>
-                
-                {/* Número de tickets creados ese día */}
-                <div className="text-[10px] text-gray-500 mt-0.5">
-                  {item.count} {item.count === 1 ? 'ticket' : 'tickets'}
-                </div>
-                
                 {isToday && (
-                  <div className="text-[9px] text-blue-600 font-semibold mt-0.5">HOY</div>
+                  <div className="text-[9px] font-bold text-indigo-500 uppercase">Hoy</div>
                 )}
               </div>
             )

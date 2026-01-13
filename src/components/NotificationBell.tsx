@@ -197,11 +197,11 @@ export default function NotificationBell() {
       {/* Bell Button */}
       <button
         onClick={() => setIsOpen(!isOpen)}
-        className="relative p-2 text-white hover:bg-white/10 rounded-lg transition-colors"
+        className="relative p-2.5 text-slate-500 hover:text-violet-600 hover:bg-slate-100 rounded-xl transition-all"
         aria-label="Notificaciones"
       >
         <svg
-          className="w-6 h-6"
+          className="w-5 h-5"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -216,7 +216,7 @@ export default function NotificationBell() {
         
         {/* Badge */}
         {unreadCount > 0 && (
-          <span className="absolute top-1 right-1 flex items-center justify-center w-5 h-5 text-[10px] font-bold text-white bg-red-500 rounded-full ring-2 ring-blue-600 animate-pulse">
+          <span className="absolute top-0.5 right-0.5 flex items-center justify-center w-5 h-5 text-[10px] font-bold text-white bg-rose-500 rounded-full ring-2 ring-slate-50 animate-pulse">
             {unreadCount > 9 ? '9+' : unreadCount}
           </span>
         )}
@@ -227,19 +227,19 @@ export default function NotificationBell() {
         <>
           {/* Overlay */}
           <div
-            className="fixed inset-0 z-40"
+            className="fixed inset-0 z-[9998]"
             onClick={() => setIsOpen(false)}
           />
 
           {/* Panel */}
-          <div className="absolute right-0 mt-2 w-96 bg-white rounded-xl shadow-2xl border border-gray-200 z-50 max-h-[600px] flex flex-col">
+          <div className="absolute right-0 mt-2 w-96 bg-white rounded-2xl shadow-2xl border border-slate-200 z-[9999] max-h-[600px] flex flex-col overflow-hidden">
             {/* Header */}
-            <div className="px-4 py-3 border-b border-gray-200 bg-gradient-to-r from-blue-50 to-indigo-50">
+            <div className="px-4 py-3 border-b border-slate-200 bg-gradient-to-r from-violet-50 to-indigo-50">
               <div className="flex items-center justify-between">
-                <h3 className="text-sm font-bold text-gray-900">
+                <h3 className="text-sm font-bold text-slate-800">
                   Notificaciones
                   {unreadCount > 0 && (
-                    <span className="ml-2 text-xs font-normal text-blue-600">
+                    <span className="ml-2 text-xs font-normal text-violet-600">
                       ({unreadCount} nueva{unreadCount !== 1 ? 's' : ''})
                     </span>
                   )}
@@ -247,7 +247,7 @@ export default function NotificationBell() {
                 {unreadCount > 0 && (
                   <button
                     onClick={markAllAsRead}
-                    className="text-xs text-blue-600 hover:text-blue-700 font-medium"
+                    className="text-xs text-violet-600 hover:text-violet-700 font-medium"
                   >
                     Marcar todas como leídas
                   </button>

@@ -94,107 +94,113 @@ export default function KBAdminView() {
   }
 
   return (
-    <div className="p-6 max-w-7xl mx-auto">
-      {/* Header */}
-      <div className="mb-8">
-        <div className="flex items-center gap-4 mb-4">
-          <div className="p-3 bg-gradient-to-br from-blue-500 to-purple-600 rounded-xl shadow-lg">
-            <svg className="w-8 h-8 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-            </svg>
-          </div>
-          <div>
-            <h1 className="text-3xl font-bold text-gray-900">Base de Conocimientos</h1>
-            <p className="text-gray-600 mt-1">Revisa y aprueba artículos generados automáticamente desde tickets cerrados</p>
-          </div>
-        </div>
-
-        {/* Banner informativo */}
-        <div className="mb-6 bg-gradient-to-r from-blue-50 to-purple-50 border-l-4 border-blue-500 rounded-lg p-6 shadow-sm">
-          <div className="flex items-start gap-4">
-            <div className="flex-shrink-0">
-              <svg className="w-8 h-8 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+    <div className="space-y-6">
+      {/* Header moderno */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-emerald-600 via-teal-600 to-cyan-600 p-6 shadow-xl">
+        <div className="absolute top-0 right-0 w-72 h-72 bg-white/10 rounded-full blur-3xl -mr-36 -mt-36"></div>
+        <div className="absolute bottom-0 left-0 w-48 h-48 bg-black/10 rounded-full blur-3xl -ml-24 -mb-24"></div>
+        
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+          <div className="flex items-center gap-4">
+            <div className="p-3 bg-white/20 backdrop-blur-sm rounded-xl shadow-lg">
+              <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
               </svg>
             </div>
-            <div className="flex-1">
-              <h3 className="text-lg font-bold text-gray-900 mb-2">
-                🚀 Sistema de Base de Conocimientos Inteligente
-              </h3>
-              <p className="text-sm text-gray-700 mb-3 leading-relaxed">
-                Esta herramienta revolucionará la forma en que resolvemos incidencias técnicas en nuestro equipo.
-              </p>
-              <div className="space-y-2 text-sm text-gray-700">
-                <div className="flex items-start gap-2">
-                  <svg className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span><strong>Aprendizaje automático:</strong> Se alimenta inteligentemente de tickets resueltos y sus comentarios</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <svg className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span><strong>Soluciones validadas:</strong> Solo las resoluciones mejor puntuadas y probadas se convierten en artículos</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <svg className="w-5 h-5 text-green-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span><strong>Resolución ágil:</strong> Reduce tiempos de respuesta al tener soluciones documentadas y accesibles</span>
-                </div>
-                <div className="flex items-start gap-2">
-                  <svg className="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span><strong>Próximamente operando:</strong> El sistema está siendo calibrado para garantizar la calidad de los artículos generados</span>
-                </div>
+            <div>
+              <h1 className="text-2xl font-bold text-white">Base de Conocimientos</h1>
+              <p className="text-white/80 text-sm mt-0.5">Artículos generados desde tickets resueltos</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Banner informativo - Diseño moderno */}
+      <div className="bg-gradient-to-r from-teal-50 to-emerald-50 border border-teal-200 rounded-2xl p-5">
+        <div className="flex items-start gap-4">
+          <div className="flex-shrink-0 p-2 bg-teal-100 rounded-xl">
+            <svg className="w-6 h-6 text-teal-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div className="flex-1">
+            <h3 className="text-base font-bold text-slate-800 mb-2">
+              🚀 Sistema de Base de Conocimientos Inteligente
+            </h3>
+            <p className="text-sm text-slate-600 mb-3">
+              Revoluciona la resolución de incidencias técnicas en tu equipo.
+            </p>
+            <div className="grid sm:grid-cols-2 gap-2 text-sm text-slate-600">
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span><strong>Aprendizaje automático</strong> de tickets resueltos</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span><strong>Soluciones validadas</strong> y probadas</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-emerald-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span><strong>Resolución ágil</strong> con documentación accesible</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <svg className="w-4 h-4 text-teal-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span><strong>Sistema activo</strong> y en mejora continua</span>
               </div>
             </div>
           </div>
         </div>
+      </div>
 
-        <div className="flex gap-2">
-          <button
-            onClick={() => setFilter('approved')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+      {/* Filtros */}
+      <div className="flex gap-2">
+        <button
+          onClick={() => setFilter('approved')}
+          className={`px-4 py-2.5 rounded-xl font-medium transition-all ${
               filter === 'approved'
-                ? 'bg-blue-600 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                ? 'bg-emerald-600 text-white shadow-lg shadow-emerald-500/25'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
-            Aprobados ({articles.length})
+            ✓ Aprobados ({articles.length})
           </button>
           <button
             onClick={() => setFilter('pending')}
-            className={`px-4 py-2 rounded-lg font-medium transition-colors ${
+            className={`px-4 py-2.5 rounded-xl font-medium transition-all ${
               filter === 'pending'
-                ? 'bg-orange-600 text-white'
-                : 'bg-gray-200 text-gray-700 hover:bg-gray-300'
+                ? 'bg-orange-500 text-white shadow-lg shadow-orange-500/25'
+                : 'bg-slate-100 text-slate-600 hover:bg-slate-200'
             }`}
           >
-            Pendientes {pendingCount > 0 && (
-              <span className="ml-1 px-2 py-0.5 bg-white text-orange-600 rounded-full text-xs font-bold">
+            ⏳ Pendientes {pendingCount > 0 && (
+              <span className="ml-1.5 px-2 py-0.5 bg-white text-orange-600 rounded-full text-xs font-bold">
                 {pendingCount}
               </span>
             )}
           </button>
-        </div>
       </div>
 
       {/* Lista de artículos */}
       {articles.length === 0 ? (
-        <div className="card shadow-lg border-0">
-          <div className="card-body text-center py-12">
+        <div className="bg-white rounded-2xl border border-slate-200 shadow-sm">
+          <div className="text-center py-12 px-6">
             <div className="mb-4">
-              <svg className="w-16 h-16 mx-auto text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-16 h-16 mx-auto text-slate-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
               </svg>
             </div>
-            <h3 className="text-lg font-semibold text-gray-700 mb-2">
+            <h3 className="text-lg font-semibold text-slate-700 mb-2">
               {filter === 'pending' ? 'No hay artículos pendientes' : 'No hay artículos aprobados'}
             </h3>
-            <p className="text-gray-500">
+            <p className="text-slate-500">
               {filter === 'pending' 
                 ? 'Los artículos se generan automáticamente cuando se cierran tickets con resoluciones de calidad.'
                 : 'Aprueba artículos pendientes para que aparezcan aquí.'
@@ -203,14 +209,13 @@ export default function KBAdminView() {
           </div>
         </div>
       ) : (
-        <div className="grid gap-6 lg:grid-cols-2">
+        <div className="grid gap-4 lg:grid-cols-2">
           {articles.map((article) => (
-            <div key={article.id} className="card shadow-lg border-0 hover:shadow-xl transition-shadow">
-              <div className="card-body">
-                {/* Header del artículo */}
-                <div className="mb-4">
-                  <h3 className="text-lg font-bold text-gray-900 mb-2">{article.title}</h3>
-                  <p className="text-sm text-gray-600 line-clamp-2">{article.summary}</p>
+            <div key={article.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg hover:border-teal-300 transition-all p-5">
+              {/* Header del artículo */}
+              <div className="mb-4">
+                <h3 className="text-lg font-bold text-slate-800 mb-2">{article.title}</h3>
+                <p className="text-sm text-slate-600 line-clamp-2">{article.summary}</p>
                 </div>
 
                 {/* Metadata */}
@@ -319,7 +324,6 @@ export default function KBAdminView() {
                     </button>
                   )}
                 </div>
-              </div>
             </div>
           ))}
         </div>

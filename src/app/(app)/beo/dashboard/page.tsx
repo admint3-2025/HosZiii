@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 import BEOPdfThumbnail from '@/components/BEOPdfThumbnail'
+import PageHeader, { SectionTitle } from '@/components/ui/PageHeader'
 
 export const metadata = {
   title: 'Dashboard BEO | Helpdesk',
@@ -70,94 +71,83 @@ export default async function BEODashboardPage() {
   }
 
   return (
-    <div className="min-h-screen">
-      <div className="max-w-7xl mx-auto space-y-6">
-        {/* Header Profesional y Sobrio */}
-        <div className="relative overflow-hidden rounded-xl bg-white shadow-sm border border-gray-200">
-          <div className="px-6 py-5">
-            <div className="flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                {/* Icono minimalista */}
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-indigo-500 to-purple-600 flex items-center justify-center shadow-md">
-                  <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-                  </svg>
-                </div>
-                
-                <div>
-                  <h1 className="text-2xl font-bold text-gray-900">Dashboard BEO</h1>
-                  <p className="text-sm text-gray-600 mt-0.5">
-                    Gestión de Eventos Técnicos · Banquet Event Orders
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-2.5 px-3 py-2 bg-emerald-50 rounded-lg border border-emerald-200">
-                <div className="w-2 h-2 bg-emerald-500 rounded-full"></div>
-                <span className="text-xs text-emerald-700 font-medium">Sistema Activo</span>
-              </div>
-            </div>
+    <div className="space-y-6">
+      {/* Header moderno */}
+      <PageHeader
+        title="Dashboard BEO"
+        description="Gestión de Eventos Técnicos · Banquet Event Orders"
+        color="purple"
+        icon={
+          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+          </svg>
+        }
+        action={{
+          label: 'Nuevo Evento BEO',
+          href: '/tickets/beo/new',
+          icon: (
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+            </svg>
+          ),
+        }}
+      />
 
-            {/* Info BEO - Sobrio */}
-            <div className="mt-4 bg-indigo-50 border border-indigo-100 rounded-lg p-3.5">
-              <div className="flex gap-3">
-                <div className="flex-shrink-0 w-8 h-8 rounded-lg bg-indigo-100 flex items-center justify-center">
-                  <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                </div>
-                <div className="text-sm text-gray-700">
-                  <p className="font-semibold text-gray-900 mb-0.5">📋 BEO = Banquet Event Order</p>
-                  <p className="text-gray-600">
-                    Sistema especializado para gestión de requerimientos técnicos de IT en eventos corporativos, con documentación BEO completa.
-                  </p>
-                </div>
-              </div>
-            </div>
+      {/* Info BEO */}
+      <div className="bg-gradient-to-r from-violet-50 to-purple-50 border border-violet-200 rounded-2xl p-4">
+        <div className="flex gap-3">
+          <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-violet-100 flex items-center justify-center">
+            <svg className="w-5 h-5 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div className="text-sm">
+            <p className="font-bold text-violet-900 mb-0.5">📋 BEO = Banquet Event Order</p>
+            <p className="text-violet-700">
+              Sistema especializado para gestión de requerimientos técnicos de IT en eventos corporativos.
+            </p>
           </div>
         </div>
+      </div>
 
-        {/* Estadísticas - Diseño limpio y profesional */}
-        <div>
-          <div className="flex items-center gap-2 mb-4">
-            <div className="h-1 w-1 rounded-full bg-indigo-600"></div>
-            <h2 className="text-sm font-bold text-gray-900 uppercase tracking-wider">Métricas en Tiempo Real</h2>
+      {/* Estadísticas */}
+      <div>
+        <SectionTitle title="Métricas en Tiempo Real" subtitle="Estado de los eventos BEO" />
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
+          {/* Total Activos */}
+          <div className="bg-white rounded-xl p-4 border border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+            <div className="text-[10px] text-slate-500 font-semibold mb-1 uppercase tracking-wide">Total Activos</div>
+            <div className="text-2xl font-bold text-slate-800">{stats?.total_active || 0}</div>
           </div>
-          <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-8 gap-3">
-            {/* Total Activos */}
-            <div className="bg-white rounded-lg p-4 border border-gray-200 shadow-sm hover:shadow-md transition-shadow">
-              <div className="text-[10px] text-gray-500 font-medium mb-1 uppercase tracking-wide">Total Activos</div>
-              <div className="text-2xl font-bold text-gray-900">{stats?.total_active || 0}</div>
-            </div>
 
-            {/* Críticos */}
-            <div className="bg-white rounded-lg p-4 border-l-4 border-rose-500 shadow-sm hover:shadow-md transition-shadow">
-              <div className="text-[10px] text-rose-600 font-semibold mb-1 uppercase tracking-wide flex items-center gap-1">
-                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
-                </svg>
-                Críticos
-              </div>
-              <div className="text-2xl font-bold text-rose-600">{stats?.critical || 0}</div>
-              <div className="text-[10px] text-rose-500 mt-0.5">&lt; 24 horas</div>
+          {/* Críticos */}
+          <div className="bg-white rounded-xl p-4 border-l-4 border-l-rose-500 border-y border-r border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+            <div className="text-[10px] text-rose-600 font-semibold mb-1 uppercase tracking-wide flex items-center gap-1">
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+              </svg>
+              Críticos
             </div>
+            <div className="text-2xl font-bold text-rose-600">{stats?.critical || 0}</div>
+            <div className="text-[10px] text-rose-500 mt-0.5">&lt; 24 horas</div>
+          </div>
 
-            {/* Urgentes */}
-            <div className="bg-white rounded-lg p-4 border-l-4 border-orange-500 shadow-sm hover:shadow-md transition-shadow">
-              <div className="text-[10px] text-orange-600 font-semibold mb-1 uppercase tracking-wide flex items-center gap-1">
-                <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                </svg>
-                Urgentes
-              </div>
-              <div className="text-2xl font-bold text-orange-600">{stats?.urgent || 0}</div>
-              <div className="text-[10px] text-orange-500 mt-0.5">24-48 horas</div>
+          {/* Urgentes */}
+          <div className="bg-white rounded-xl p-4 border-l-4 border-l-orange-500 border-y border-r border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+            <div className="text-[10px] text-orange-600 font-semibold mb-1 uppercase tracking-wide flex items-center gap-1">
+              <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              Urgentes
             </div>
+            <div className="text-2xl font-bold text-orange-600">{stats?.urgent || 0}</div>
+            <div className="text-[10px] text-orange-500 mt-0.5">24-48 horas</div>
+          </div>
 
-            {/* Próximos */}
-            <div className="bg-white rounded-lg p-4 border-l-4 border-amber-500 shadow-sm hover:shadow-md transition-shadow">
-              <div className="text-[10px] text-amber-600 font-semibold mb-1 uppercase tracking-wide">Próximos</div>
-              <div className="text-2xl font-bold text-amber-600">{stats?.upcoming || 0}</div>
+          {/* Próximos */}
+          <div className="bg-white rounded-xl p-4 border-l-4 border-l-amber-500 border-y border-r border-slate-200 shadow-sm hover:shadow-md transition-shadow">
+            <div className="text-[10px] text-amber-600 font-semibold mb-1 uppercase tracking-wide">Próximos</div>
+            <div className="text-2xl font-bold text-amber-600">{stats?.upcoming || 0}</div>
               <div className="text-[10px] text-amber-500 mt-0.5">48-72 horas</div>
             </div>
 
@@ -403,12 +393,11 @@ export default async function BEODashboardPage() {
             <p className="text-gray-600">
               No hay tickets BEO pendientes en este momento
             </p>
-            <p className="text-gray-500 text-sm mt-1">
+            <p className="text-slate-500 text-sm mt-1">
               Todos los eventos están atendidos
             </p>
           </div>
         )}
       </div>
-    </div>
   )
 }

@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getReportsLocationFilter } from '@/lib/supabase/reports-filter'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
+import PageHeader, { SectionTitle, StatCard } from '@/components/ui/PageHeader'
 
 export default async function ReportsPage() {
   const supabase = await createSupabaseServerClient()
@@ -194,79 +195,113 @@ export default async function ReportsPage() {
   })
 
   return (
-    <main className="p-6 space-y-6 bg-gray-50 min-h-screen">
-      {/* Header simple */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h1 className="text-2xl font-semibold text-gray-900">Reportes</h1>
-          <p className="text-sm text-gray-500 mt-1">Consulta y exportación de datos operativos</p>
-        </div>
-      </div>
+    <main className="space-y-6">
+      {/* Header moderno */}
+      <PageHeader
+        title="Reportes"
+        description="Consulta y exportación de datos operativos del sistema"
+        color="purple"
+        icon={
+          <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+          </svg>
+        }
+      />
 
-      {/* Estadísticas en fila */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Total Tickets</div>
-          <div className="text-2xl font-semibold text-gray-900 mt-1">{totalTickets ?? 0}</div>
+      {/* Estadísticas */}
+      <div>
+        <SectionTitle title="Resumen General" subtitle="Métricas del sistema" />
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <StatCard
+            label="Total Tickets"
+            value={totalTickets ?? 0}
+            color="blue"
+            icon={
+              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+              </svg>
+            }
+          />
+          <StatCard
+            label="Tickets Activos"
+            value={activeTickets ?? 0}
+            color="green"
+            icon={
+              <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+            }
+          />
+          {isAdminOrSupervisor && (
+            <>
+              <StatCard
+                label="Activos IT"
+                value={totalAssets ?? 0}
+                color="purple"
+                icon={
+                  <svg className="w-5 h-5 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                }
+              />
+              <StatCard
+                label="Eventos Auditoría"
+                value={auditEvents ?? 0}
+                color="orange"
+                icon={
+                  <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                }
+              />
+            </>
+          )}
         </div>
-        <div className="bg-white rounded-lg border border-gray-200 p-4">
-          <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Tickets Activos</div>
-          <div className="text-2xl font-semibold text-gray-900 mt-1">{activeTickets ?? 0}</div>
-        </div>
-        {isAdminOrSupervisor && (
-          <>
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Activos</div>
-              <div className="text-2xl font-semibold text-gray-900 mt-1">{totalAssets ?? 0}</div>
-            </div>
-            <div className="bg-white rounded-lg border border-gray-200 p-4">
-              <div className="text-xs font-medium text-gray-500 uppercase tracking-wide">Eventos Auditoría</div>
-              <div className="text-2xl font-semibold text-gray-900 mt-1">{auditEvents ?? 0}</div>
-            </div>
-          </>
-        )}
       </div>
 
       {/* Grid de reportes */}
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-        {visibleReports.map((report) => (
-          report.enabled ? (
-            <Link
-              key={report.link}
-              href={report.link}
-              className="bg-white rounded-lg border border-gray-200 p-4 hover:border-gray-300 hover:shadow-sm transition-all group"
-            >
-              <div className="flex items-start gap-3">
-                <span className="text-2xl">{report.icon}</span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-medium text-gray-900 group-hover:text-blue-600 transition-colors">{report.title}</h3>
-                    {report.count > 0 && (
-                      <span className="text-sm font-medium text-gray-500">{report.count}</span>
-                    )}
+      <div>
+        <SectionTitle title="Reportes Disponibles" subtitle="Selecciona un reporte para ver detalles" />
+        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+          {visibleReports.map((report) => (
+            report.enabled ? (
+              <Link
+                key={report.link}
+                href={report.link}
+                className="bg-white rounded-2xl border border-slate-200/80 p-5 hover:border-indigo-300 hover:shadow-lg hover:shadow-indigo-100/50 transition-all duration-300 group"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="text-3xl group-hover:scale-110 transition-transform">{report.icon}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="font-semibold text-slate-800 group-hover:text-indigo-600 transition-colors">{report.title}</h3>
+                      {report.count > 0 && (
+                        <span className="text-sm font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">{report.count}</span>
+                      )}
+                    </div>
+                    <p className="text-sm text-slate-500 mt-1.5 line-clamp-2">{report.description}</p>
                   </div>
-                  <p className="text-sm text-gray-500 mt-1 line-clamp-2">{report.description}</p>
+                </div>
+              </Link>
+            ) : (
+              <div
+                key={report.link}
+                className="bg-slate-50 rounded-2xl border border-slate-200 p-5 opacity-60"
+              >
+                <div className="flex items-start gap-4">
+                  <div className="text-3xl grayscale">{report.icon}</div>
+                  <div className="flex-1 min-w-0">
+                    <div className="flex items-center justify-between gap-2">
+                      <h3 className="font-semibold text-slate-500">{report.title}</h3>
+                      <span className="text-[10px] text-slate-400 bg-slate-200 px-2 py-0.5 rounded-full font-medium">Próximamente</span>
+                    </div>
+                    <p className="text-sm text-slate-400 mt-1.5 line-clamp-2">{report.description}</p>
+                  </div>
                 </div>
               </div>
-            </Link>
-          ) : (
-            <div
-              key={report.link}
-              className="bg-gray-50 rounded-lg border border-gray-200 p-4 opacity-60"
-            >
-              <div className="flex items-start gap-3">
-                <span className="text-2xl grayscale">{report.icon}</span>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center justify-between">
-                    <h3 className="font-medium text-gray-600">{report.title}</h3>
-                    <span className="text-xs text-gray-400 bg-gray-200 px-2 py-0.5 rounded">Próximamente</span>
-                  </div>
-                  <p className="text-sm text-gray-400 mt-1 line-clamp-2">{report.description}</p>
-                </div>
-              </div>
-            </div>
-          )
-        ))}
+            )
+          ))}
+        </div>
       </div>
     </main>
   )
