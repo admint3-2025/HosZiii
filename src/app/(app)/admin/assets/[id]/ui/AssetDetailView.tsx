@@ -468,24 +468,24 @@ export default function AssetDetailView({
       const tableCommon = {
         margin: { left: 15, right: 15, top: 30 },
         styles: {
-          font: 'helvetica',
+          font: 'helvetica' as const,
           fontSize: 8,
           cellPadding: 1.6,
-          overflow: 'linebreak',
-          valign: 'top',
+          overflow: 'linebreak' as const,
+          valign: 'top' as const,
         },
         headStyles: {
-          fillColor: [15, 23, 42],
+          fillColor: [15, 23, 42] as [number, number, number],
           textColor: 255,
-          fontStyle: 'bold',
+          fontStyle: 'bold' as const,
         },
         alternateRowStyles: {
-          fillColor: [248, 250, 252],
+          fillColor: [248, 250, 252] as [number, number, number],
         },
         didDrawPage: () => {
           drawHeader('Incidencias e historial de cambios')
         },
-      } as const
+      }
 
       // Incidencias relacionadas (tabla)
       ensureSpace(20)
