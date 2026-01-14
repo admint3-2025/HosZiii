@@ -6,6 +6,7 @@ import TicketAttachments from "./TicketAttachments"
 import RemoteConnectionInfo from "./RemoteConnectionInfo"
 import { StatusBadge, PriorityBadge, LevelBadge } from "@/lib/ui/badges"
 import { formatTicketCode } from "@/lib/tickets/code"
+import { getAvatarInitial } from "@/lib/ui/avatar"
 
 type AssetInfo = {
   id: string
@@ -257,7 +258,10 @@ export default function TicketDetail({
                   <div className="flex items-center gap-2">
                     <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-blue-500 to-blue-600 rounded-full flex items-center justify-center">
                       <span className="text-white text-xs font-bold">
-                        {ticket.requester?.full_name?.[0]?.toUpperCase() || ticket.requester?.email?.[0]?.toUpperCase() || "?"}
+                        {getAvatarInitial({
+                          fullName: ticket.requester?.full_name,
+                          email: ticket.requester?.email,
+                        })}
                       </span>
                     </div>
                     <div className="min-w-0 flex-1">
@@ -303,7 +307,10 @@ export default function TicketDetail({
                     <div className="flex items-center gap-2">
                       <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full flex items-center justify-center">
                         <span className="text-white text-xs font-bold">
-                          {ticket.assigned_agent.full_name?.[0]?.toUpperCase() || ticket.assigned_agent.email?.[0]?.toUpperCase() || "?"}
+                          {getAvatarInitial({
+                            fullName: ticket.assigned_agent.full_name,
+                            email: ticket.assigned_agent.email,
+                          })}
                         </span>
                       </div>
                       <div className="min-w-0 flex-1">
@@ -330,7 +337,10 @@ export default function TicketDetail({
                     <div className="flex items-center gap-2">
                       <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-gray-500 to-gray-600 rounded-full flex items-center justify-center">
                         <span className="text-white text-xs font-bold">
-                          {ticket.closed_by_user.full_name?.[0]?.toUpperCase() || ticket.closed_by_user.email?.[0]?.toUpperCase() || "?"}
+                          {getAvatarInitial({
+                            fullName: ticket.closed_by_user.full_name,
+                            email: ticket.closed_by_user.email,
+                          })}
                         </span>
                       </div>
                       <div className="min-w-0 flex-1">

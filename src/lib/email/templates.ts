@@ -30,7 +30,7 @@ export function passwordResetRequestEmailTemplate(params: {
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background:#f9fafb; padding:40px 20px;">
       <!-- Logo / Header -->
       <div style="max-width:600px; margin:0 auto 24px auto; text-align:center;">
-        <img src="https://integrational3.com.mx/logorigen/ZIII%20logo.png" alt="ZIII Helpdesk" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
+        <img src="https://integrational3.com.mx/logorigen/ZIII%20logo.png" alt="ZIII HoS" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
       </div>
 
       <!-- Main Card -->
@@ -108,7 +108,7 @@ export function passwordResetRequestEmailTemplate(params: {
       <!-- Footer -->
       <div style="max-width:600px; margin:24px auto 0 auto; text-align:center;">
         <p style="margin:0 0 8px 0; font-size:12px; color:#9ca3af;">
-          Este correo fue enviado automáticamente por <strong>ZIII Helpdesk</strong>
+          Este correo fue enviado automáticamente por <strong>ZIII HoS</strong>
         </p>
         <p style="margin:0; font-size:11px; color:#d1d5db;">
           No respondas a este mensaje · Sistema de Mesa de Ayuda ITIL
@@ -161,7 +161,7 @@ export function temporaryPasswordEmailTemplate(params: {
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background:#f9fafb; padding:40px 20px;">
       <!-- Logo / Header -->
       <div style="max-width:600px; margin:0 auto 24px auto; text-align:center;">
-        <img src="https://integrational3.com.mx/logorigen/ZIII%20logo.png" alt="ZIII Helpdesk" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
+        <img src="https://integrational3.com.mx/logorigen/ZIII%20logo.png" alt="ZIII HoS" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
       </div>
 
       <!-- Main Card -->
@@ -236,7 +236,7 @@ export function temporaryPasswordEmailTemplate(params: {
       <!-- Footer -->
       <div style="max-width:600px; margin:24px auto 0 auto; text-align:center;">
         <p style="margin:0 0 8px 0; font-size:12px; color:#9ca3af;">
-          Este correo fue enviado automáticamente por <strong>ZIII Helpdesk</strong>
+          Este correo fue enviado automáticamente por <strong>ZIII HoS</strong>
         </p>
         <p style="margin:0; font-size:11px; color:#d1d5db;">
           No respondas a este mensaje · Sistema de Mesa de Ayuda ITIL
@@ -280,7 +280,7 @@ export function passwordRecoveryEmailTemplate(params: {
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background:#f9fafb; padding:40px 20px;">
       <!-- Logo / Header -->
       <div style="max-width:600px; margin:0 auto 24px auto; text-align:center;">
-        <img src="https://integrational3.com.mx/logorigen/ZIII%20logo.png" alt="ZIII Helpdesk" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
+        <img src="https://integrational3.com.mx/logorigen/ZIII%20logo.png" alt="ZIII HoS" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
       </div>
 
       <!-- Main Card -->
@@ -337,7 +337,7 @@ export function passwordRecoveryEmailTemplate(params: {
       <!-- Footer -->
       <div style="max-width:600px; margin:24px auto 0 auto; text-align:center;">
         <p style="margin:0 0 8px 0; font-size:12px; color:#9ca3af;">
-          Este correo fue enviado automáticamente por <strong>ZIII Helpdesk</strong>
+          Este correo fue enviado automáticamente por <strong>ZIII HoS</strong>
         </p>
         <p style="margin:0; font-size:11px; color:#d1d5db;">
           No respondas a este mensaje · Sistema de Mesa de Ayuda ITIL
@@ -426,7 +426,7 @@ export function ticketCreatedEmailTemplate(params: {
       
       <!-- Logo / Header -->
       <div style="max-width:600px; margin:0 auto 24px auto; text-align:center;">
-        <img src="https://integrational3.com.mx/logorigen/ZIII%20logo.png" alt="ZIII Helpdesk" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
+        <img src="https://integrational3.com.mx/logorigen/ZIII%20logo.png" alt="ZIII HoS" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
       </div>
 
       <!-- Main Card -->
@@ -522,7 +522,7 @@ export function ticketCreatedEmailTemplate(params: {
       <!-- Footer -->
       <div style="max-width:600px; margin:24px auto 0 auto; text-align:center;">
         <p style="margin:0 0 8px 0; font-size:12px; color:#9ca3af;">
-          Enviado por <strong>ZIII Helpdesk</strong> · Mesa de Ayuda ITIL
+          Enviado por <strong>ZIII HoS</strong> · Mesa de Ayuda ITIL
         </p>
         <p style="margin:0; font-size:11px; color:#d1d5db;">
           Este es un mensaje automático, por favor no respondas a este correo

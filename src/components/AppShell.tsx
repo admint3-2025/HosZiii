@@ -8,7 +8,11 @@ export default async function AppShell({ children }: { children: React.ReactNode
   } = await supabase.auth.getUser()
 
   const { data: profile } = user
-    ? await supabase.from('profiles').select('role,location_id,can_view_beo,locations(name,code)').eq('id', user.id).single()
+    ? await supabase
+        .from('profiles')
+        .select('full_name,position,role,location_id,can_view_beo,locations(name,code)')
+        .eq('id', user.id)
+        .single()
     : { data: null }
 
   // Cargar múltiples sedes del usuario desde user_locations

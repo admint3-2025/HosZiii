@@ -2,9 +2,10 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import SignOutButton from './SignOutButton'
 import NotificationBell from './NotificationBell'
+import { getAvatarInitial } from '@/lib/ui/avatar'
 import MobileSidebar from './MobileSidebar'
 
 // Iconos Lucide-style como SVG
@@ -53,6 +54,76 @@ const Icons = {
   Assets: (props: any) => (
     <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24">
       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+    </svg>
+  ),
+  Wrench: (props: any) => (
+    <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M21 2.5a6.5 6.5 0 01-9.2 8.3L7 15.6V19H4v-3.4l4.8-4.8A6.5 6.5 0 1119.5 3l-3 3 2.5 2.5 2-2z"
+      />
+    </svg>
+  ),
+  Bell: (props: any) => (
+    <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M15 17h5l-1.4-1.4A2 2 0 0118 14.2V11a6 6 0 10-12 0v3.2a2 2 0 01-.6 1.4L4 17h5m6 0a3 3 0 01-6 0"
+      />
+    </svg>
+  ),
+  BarChart: (props: any) => (
+    <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 19V5m0 14h16" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 17V9m4 8V7m4 10v-5" />
+    </svg>
+  ),
+  Bed: (props: any) => (
+    <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18v9M5 19v-2m14 2v-2" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 10V7a2 2 0 012-2h6a2 2 0 012 2v3" />
+    </svg>
+  ),
+  Utensils: (props: any) => (
+    <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 3v7a4 4 0 004 4v7" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 3v7" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 3v8a3 3 0 003 3v7" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 3v6" />
+    </svg>
+  ),
+  ShieldCheck: (props: any) => (
+    <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M12 3l7 4v6c0 5-3 8-7 9-4-1-7-4-7-9V7l7-4z"
+      />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4" />
+    </svg>
+  ),
+  GraduationCap: (props: any) => (
+    <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7l9-4 9 4-9 4-9-4z" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 10v5c0 1 2 3 5 3s5-2 5-3v-5" />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 10v6" />
+    </svg>
+  ),
+  Briefcase: (props: any) => (
+    <svg {...props} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V6a2 2 0 012-2h4a2 2 0 012 2v1" />
+      <path
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        strokeWidth={2}
+        d="M3 10a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2v-8z"
+      />
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 13h18" />
     </svg>
   ),
   User: (props: any) => (
@@ -134,6 +205,13 @@ type MenuSection = {
   }[]
 }
 
+type CollapsibleMenu = {
+  id: string
+  label: string
+  icon: keyof typeof Icons
+  items: (MenuSection['items'][number] & { disabled?: boolean })[]
+}
+
 interface AppShellClientProps {
   children: React.ReactNode
   user: any
@@ -156,35 +234,131 @@ export default function AppShellClient({
 }: AppShellClientProps) {
   const pathname = usePathname()
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({})
   
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
 
-  // Estructura del menú basada en roles
-  const menuStructure: MenuSection[] = [
+  // Links existentes de Helpdesk (se muestran dentro de "Mesa de Ayuda")
+  const helpdeskItems: MenuSection['items'] = [
+    { id: 'hd_dashboard', label: 'Dashboard', icon: 'Dashboard', href: '/dashboard' },
+    { id: 'hd_tickets', label: 'Mis Tickets', icon: 'Ticket', href: '/tickets' },
+    { id: 'hd_beo', label: 'Eventos (BEO)', icon: 'Calendar', href: '/beo/dashboard', requireBeo: true },
+    { id: 'hd_reports', label: 'Reportes', icon: 'Reports', href: '/reports' },
     {
-      group: 'Principal',
-      items: [
-        { id: 'dashboard', label: 'Dashboard', icon: 'Dashboard', href: '/dashboard' },
-        { id: 'tickets', label: 'Mis Tickets', icon: 'Ticket', href: '/tickets' },
-        { id: 'beo', label: 'Eventos (BEO)', icon: 'Calendar', href: '/beo/dashboard', requireBeo: true },
-      ]
+      id: 'hd_knowledge',
+      label: 'Base de Conocimientos',
+      icon: 'Book',
+      href: '/admin/knowledge-base',
+      roles: ['admin', 'supervisor', 'agent_l1', 'agent_l2'],
     },
+    { id: 'hd_audit', label: 'Auditoría', icon: 'Audit', href: '/audit', roles: ['admin'] },
+    { id: 'hd_assets', label: 'Activos', icon: 'Assets', href: '/admin/assets', roles: ['admin', 'supervisor'] },
+    { id: 'hd_profile', label: 'Mi Perfil', icon: 'User', href: '/profile' },
+  ]
+
+  const topMenu: MenuSection[] = [
     {
-      group: 'Análisis',
-      items: [
-        { id: 'reports', label: 'Reportes', icon: 'Reports', href: '/reports' },
-        { id: 'knowledge', label: 'Base de Conocimientos', icon: 'Book', href: '/admin/knowledge-base', roles: ['admin', 'supervisor', 'agent_l1', 'agent_l2'] },
-        { id: 'audit', label: 'Auditoría', icon: 'Audit', href: '/audit', roles: ['admin'] },
-      ]
+      group: 'General',
+      items: [{ id: 'ops_home', label: 'Dashboard', icon: 'Dashboard', href: '/' }],
     },
     {
       group: 'Administración',
       items: [
-        { id: 'users', label: 'Usuarios', icon: 'Users', href: '/admin/users', roles: ['admin'] },
-        { id: 'locations', label: 'Ubicaciones', icon: 'Location', href: '/admin/locations', roles: ['admin'] },
-        { id: 'assets', label: 'Activos', icon: 'Assets', href: '/admin/assets', roles: ['admin', 'supervisor'] },
-      ]
-    }
+        { id: 'admin_users', label: 'Usuarios', icon: 'Users', href: '/admin/users', roles: ['admin'] },
+        { id: 'admin_locations', label: 'Ubicaciones', icon: 'Location', href: '/admin/locations', roles: ['admin'] },
+      ],
+    },
+  ]
+
+  const collapsibleGroups: { group: string; menus: CollapsibleMenu[] }[] = [
+    {
+      group: 'Front Office',
+      menus: [
+        {
+          id: 'recepcion',
+          label: 'Recepción',
+          icon: 'Bell',
+          items: [
+            { id: 'fo_desk', label: 'Front Desk', icon: 'Bell', href: '/mantenimiento#fo_desk', disabled: true },
+            { id: 'fo_concierge', label: 'Concierge', icon: 'Bell', href: '/mantenimiento#fo_concierge', disabled: true },
+          ],
+        },
+        {
+          id: 'ventas',
+          label: 'Ventas',
+          icon: 'BarChart',
+          items: [
+            { id: 'sales_res', label: 'Reservas', icon: 'BarChart', href: '/mantenimiento#sales_res', disabled: true },
+            { id: 'sales_groups', label: 'Grupos', icon: 'BarChart', href: '/mantenimiento#sales_groups', disabled: true },
+          ],
+        },
+      ],
+    },
+    {
+      group: 'Operación & Mantenimiento',
+      menus: [
+        {
+          id: 'ingenieria',
+          label: 'Ingeniería',
+          icon: 'Wrench',
+          items: [
+            { id: 'eng_tickets', label: 'Ticketera', icon: 'Wrench', href: '/mantenimiento#eng_tickets', disabled: true },
+            { id: 'eng_plan', label: 'Plan Anual', icon: 'Wrench', href: '/mantenimiento#eng_plan', disabled: true },
+          ],
+        },
+        {
+          id: 'housekeeping',
+          label: 'Ama de Llaves',
+          icon: 'Bed',
+          items: [
+            { id: 'hk_rooms', label: 'Tablero Habitaciones', icon: 'Bed', href: '/ama-de-llaves/tablero-habitaciones' },
+            { id: 'hk_plan', label: 'Plan Anual & Proyectos', icon: 'Calendar', href: '/ama-de-llaves/plan-anual' },
+            { id: 'hk_laundry', label: 'Ropería', icon: 'Bed', href: '/ama-de-llaves/roperia' },
+          ],
+        },
+        {
+          id: 'ayb',
+          label: 'A y B',
+          icon: 'Utensils',
+          items: [
+            { id: 'fb_pos', label: 'Puntos Venta', icon: 'Utensils', href: '/mantenimiento#fb_pos', disabled: true },
+            { id: 'fb_kitchen', label: 'Cocina', icon: 'Utensils', href: '/mantenimiento#fb_kitchen', disabled: true },
+          ],
+        },
+        {
+          id: 'helpdesk',
+          label: 'Mesa de Ayuda',
+          icon: 'Ticket',
+          items: helpdeskItems,
+        },
+      ],
+    },
+    {
+      group: 'Corporativo',
+      menus: [
+        {
+          id: 'calidad',
+          label: 'Calidad',
+          icon: 'ShieldCheck',
+          items: [
+            { id: 'qa_audit', label: 'Auditorías', icon: 'ShieldCheck', href: '/mantenimiento#qa_audit', disabled: true },
+            { id: 'qa_guest', label: 'Quejas', icon: 'ShieldCheck', href: '/mantenimiento#qa_guest', disabled: true },
+          ],
+        },
+        {
+          id: 'academia',
+          label: 'Academia',
+          icon: 'GraduationCap',
+          items: [{ id: 'lms_courses', label: 'Cursos', icon: 'GraduationCap', href: '/mantenimiento#lms_courses', disabled: true }],
+        },
+        {
+          id: 'rrhh',
+          label: 'RRHH',
+          icon: 'Briefcase',
+          items: [{ id: 'hr_staff', label: 'Personal', icon: 'Briefcase', href: '/mantenimiento#hr_staff', disabled: true }],
+        },
+      ],
+    },
   ]
 
   // Filtrar items según roles y permisos
@@ -195,6 +369,47 @@ export default function AppShellClient({
       return true
     })
   }
+
+  const isAnyActive = (items: (MenuSection['items'][number] & { disabled?: boolean })[]) => {
+    return filterItems(items as any).some((item) => isActive(item.href))
+  }
+
+  const toggleExpanded = (id: string) => {
+    setExpandedMenus((prev) => ({
+      ...prev,
+      [id]: !prev[id],
+    }))
+  }
+
+  // Auto-expand solo el menú que contiene la ruta activa.
+  // Por defecto, todos colapsados (evita que "Mesa de Ayuda" aparezca abierta al iniciar sesión).
+  useEffect(() => {
+    const nextExpanded: Record<string, boolean> = {}
+    for (const group of collapsibleGroups) {
+      for (const menu of group.menus) {
+        if (isAnyActive(menu.items)) {
+          nextExpanded[menu.id] = true
+        }
+      }
+    }
+
+    if (Object.keys(nextExpanded).length === 0) return
+    setExpandedMenus((prev) => ({ ...prev, ...nextExpanded }))
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pathname, profile?.role, profile?.can_view_beo])
+
+  const roleLabel =
+    profile?.role === 'admin'
+      ? 'Admin'
+      : profile?.role === 'agent_l1'
+        ? 'Agente L1'
+        : profile?.role === 'agent_l2'
+          ? 'Agente L2'
+          : profile?.role === 'supervisor'
+            ? 'Supervisor'
+            : profile?.role
+              ? 'Usuario'
+              : 'Usuario'
 
   return (
     <div className="flex h-screen bg-[#F8FAFC] font-sans text-slate-900 overflow-hidden">
@@ -215,7 +430,7 @@ export default function AppShellClient({
             </div>
             {sidebarOpen && (
               <div className="animate-in fade-in duration-300 min-w-0">
-                <span className="tracking-wider text-lg block">ZIII <span className="font-light text-indigo-400">Helpdesk</span></span>
+                <span className="tracking-wider text-lg block">ZIII <span className="font-light text-indigo-400">HoS</span></span>
                 <p className="text-[10px] text-slate-500 font-normal truncate">ITIL v4 Service Desk</p>
               </div>
             )}
@@ -236,10 +451,10 @@ export default function AppShellClient({
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-4 custom-scrollbar z-10">
-          {menuStructure.map((section) => {
+          {topMenu.map((section) => {
             const filteredItems = filterItems(section.items)
             if (filteredItems.length === 0) return null
-            
+
             return (
               <div key={section.group}>
                 {sidebarOpen && (
@@ -263,16 +478,101 @@ export default function AppShellClient({
             )
           })}
 
-          {/* Perfil en sidebar */}
-          <div className="pt-4 border-t border-slate-800">
-            <NavItem
-              href="/profile"
-              label="Mi Perfil"
-              icon="User"
-              isActive={isActive('/profile')}
-              sidebarOpen={sidebarOpen}
-            />
-          </div>
+          {collapsibleGroups.map((group) => (
+            <div key={group.group}>
+              {sidebarOpen && (
+                <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 px-3">
+                  {group.group}
+                </h3>
+              )}
+
+              <div className="space-y-1">
+                {group.menus.map((menu) => {
+                  const Icon = Icons[menu.icon]
+                  const active = isAnyActive(menu.items)
+                  const expanded = !!expandedMenus[menu.id]
+
+                  return (
+                    <div key={menu.id}>
+                      <button
+                        type="button"
+                        onClick={() => toggleExpanded(menu.id)}
+                        className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative ${
+                          active ? 'bg-white/10 text-white' : 'text-slate-400 hover:bg-white/5 hover:text-white'
+                        }`}
+                        title={!sidebarOpen ? menu.label : undefined}
+                      >
+                        {active && (
+                          <div className="absolute left-0 top-1/2 -translate-y-1/2 h-8 w-1 bg-indigo-500 rounded-r-full shadow-[0_0_10px_rgba(99,102,241,0.5)]"></div>
+                        )}
+                        <Icon
+                          className={`w-5 h-5 z-10 transition-colors flex-shrink-0 ${
+                            active ? 'text-indigo-400' : 'text-slate-400 group-hover:text-white'
+                          }`}
+                        />
+                        {sidebarOpen && (
+                          <>
+                            <span
+                              className={`text-sm font-medium tracking-wide z-10 whitespace-nowrap ${active ? 'text-white font-semibold' : ''}`}
+                            >
+                              {menu.label}
+                            </span>
+                            <Icons.ChevronRight
+                              className={`ml-auto w-4 h-4 text-slate-500 transition-transform ${expanded ? 'rotate-90 text-white' : ''}`}
+                            />
+                          </>
+                        )}
+                      </button>
+
+                      {sidebarOpen && (
+                        <div
+                          className={`overflow-hidden transition-all duration-300 ease-in-out ${
+                            expanded ? 'max-h-[520px] opacity-100 mt-1' : 'max-h-0 opacity-0'
+                          }`}
+                        >
+                          <div className="relative pl-4 ml-3 border-l border-slate-700/50 space-y-1 my-1">
+                            {filterItems(menu.items as any).map((item: any) => {
+                              const disabled = !!item.disabled
+
+                              if (disabled) {
+                                return (
+                                  <div
+                                    key={item.id}
+                                    className="w-full text-left py-2 px-3 rounded-lg text-xs font-medium flex items-center gap-2 text-slate-500/70 cursor-not-allowed select-none"
+                                    aria-disabled="true"
+                                    title="Próximamente"
+                                  >
+                                    {item.label}
+                                  </div>
+                                )
+                              }
+
+                              return (
+                                <Link
+                                  key={item.id}
+                                  href={item.href}
+                                  className={`w-full text-left py-2 px-3 rounded-lg text-xs font-medium transition-colors flex items-center gap-2 relative ${
+                                    isActive(item.href)
+                                      ? 'text-indigo-300 bg-white/5'
+                                      : 'text-slate-400 hover:text-white hover:bg-white/5'
+                                  }`}
+                                >
+                                  {item.label}
+                                  {isActive(item.href) && (
+                                    <div className="absolute right-2 w-1.5 h-1.5 bg-indigo-400 rounded-full"></div>
+                                  )}
+                                </Link>
+                              )
+                            })}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          ))}
 
           {/* Badge ITIL */}
           {sidebarOpen && (
@@ -296,13 +596,13 @@ export default function AppShellClient({
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
         {/* Decoración de fondo - movida al área de scroll */}
         
-        {/* Header fijo - fuera del scroll */}
-        <header className="h-16 lg:h-[68px] flex items-center justify-between px-4 lg:px-8 z-40 bg-slate-50 border-b border-slate-200 shadow-sm flex-shrink-0">
+        {/* Header fijo - Premium Dark Style */}
+        <header className="h-[72px] lg:h-20 flex items-center justify-between px-4 lg:px-8 z-40 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-b border-slate-700/50 shadow-xl flex-shrink-0">
           {/* Izquierda - Sede actual */}
           <div className="flex items-center">
             {/* Logo móvil */}
             <div className="lg:hidden flex items-center gap-2 mr-4">
-              <div className="bg-white rounded-lg shadow p-1 border border-slate-200">
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow-lg p-1 border border-white/20">
                 <img 
                   src="https://integrational3.com.mx/logorigen/ZIII%20logo.png" 
                   alt="ZIII Logo" 
@@ -311,11 +611,11 @@ export default function AppShellClient({
               </div>
             </div>
 
-            {/* Sede activa - estilo simple */}
+            {/* Sede activa - Dark Style */}
             {locationCodes.length > 0 && (
-              <div className="hidden md:inline-flex items-center gap-2 px-3 py-1.5 rounded-full border border-emerald-400 bg-white" title={locationNames.join(', ')}>
-                <div className="w-2.5 h-2.5 rounded-full bg-emerald-500"></div>
-                <span className="text-xs font-bold text-slate-700 uppercase tracking-wide">
+              <div className="hidden md:inline-flex items-center gap-2 px-4 py-2 rounded-full border border-emerald-500/40 bg-emerald-500/10 backdrop-blur-sm" title={locationNames.join(', ')}>
+                <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-lg shadow-emerald-500/50"></div>
+                <span className="text-xs font-bold text-emerald-100 uppercase tracking-wider">
                   {locationCodes.join(' · ')}
                 </span>
               </div>
@@ -323,28 +623,49 @@ export default function AppShellClient({
           </div>
 
           {/* Derecha - Todo agrupado */}
-          <div className="flex items-center gap-3">
-            {/* Grupo usuario + perfil juntos */}
-            <div className="hidden lg:flex items-center gap-1 bg-white rounded-full border border-slate-200 shadow-sm pl-1.5 pr-1">
-              {/* Avatar */}
-              <div className="w-9 h-9 bg-gradient-to-br from-violet-500 to-purple-600 rounded-full flex items-center justify-center">
-                <span className="text-white text-sm font-bold">
-                  {user?.email?.[0]?.toUpperCase() || 'H'}
+          <div className="flex items-center gap-5">
+            {/* Grupo usuario + perfil - Premium Dark */}
+            <div className="hidden lg:flex items-center gap-4 bg-slate-800/60 backdrop-blur-sm rounded-2xl border border-slate-700/50 shadow-lg pl-2 pr-3 py-2 max-w-[720px] min-w-0">
+              {/* Avatar Premium */}
+              <div className="w-11 h-11 bg-gradient-to-br from-violet-500 via-purple-600 to-indigo-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg shadow-violet-500/30 ring-2 ring-violet-400/20">
+                <span className="text-white text-base font-bold tracking-tight">
+                  {getAvatarInitial({
+                    fullName: profile?.full_name || user?.user_metadata?.full_name,
+                    description: profile?.position,
+                    email: user?.email,
+                  })}
                 </span>
               </div>
-              {/* Nombre y rol */}
-              <div className="text-left px-2 py-1.5 border-r border-slate-100">
-                <div className="text-sm font-semibold text-slate-800 leading-tight">
-                  {user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Usuario'}
+              {/* Identidad Premium */}
+              <div className="min-w-0 text-left px-1 py-0.5">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div
+                    className="text-base font-semibold text-white leading-tight tracking-tight truncate min-w-0"
+                    title={profile?.full_name || user?.user_metadata?.full_name || user?.email || ''}
+                  >
+                    {profile?.full_name || user?.user_metadata?.full_name || user?.email?.split('@')[0] || 'Usuario'}
+                  </div>
+                  <span className="flex-shrink-0 inline-flex items-center rounded-full border border-violet-400/30 bg-violet-500/20 px-2.5 py-0.5 text-[10px] font-bold text-violet-200 uppercase tracking-wider">
+                    {roleLabel}
+                  </span>
                 </div>
-                <div className="text-[10px] font-bold text-violet-500 uppercase">
-                  {profile?.role === 'admin' ? 'Admin' : profile?.role === 'agent_l1' ? 'Agente L1' : profile?.role === 'agent_l2' ? 'Agente L2' : profile?.role === 'supervisor' ? 'Supervisor' : 'Usuario'}
+                <div className="mt-1 flex items-center gap-2.5 min-w-0">
+                  <div className="text-[11px] text-slate-400 leading-tight truncate min-w-0 font-medium" title={user?.email || ''}>
+                    {user?.email || ''}
+                  </div>
+                  <span className="text-slate-600">•</span>
+                  <div
+                    className="text-[11px] font-medium text-slate-400 leading-tight truncate min-w-0 uppercase tracking-wide"
+                    title={profile?.position || ''}
+                  >
+                    {profile?.position || '—'}
+                  </div>
                 </div>
               </div>
-              {/* Botón Perfil integrado */}
+              {/* Botón Perfil Premium */}
               <Link
                 href="/profile"
-                className="flex items-center gap-1.5 px-3 py-2 text-slate-500 hover:text-violet-600 transition-colors text-xs font-medium"
+                className="flex items-center gap-1.5 px-4 py-2.5 text-slate-300 hover:text-violet-300 hover:bg-violet-500/10 rounded-xl transition-all text-xs font-semibold flex-shrink-0 border border-transparent hover:border-violet-500/30"
               >
                 <Icons.User className="w-4 h-4" />
                 <span>Perfil</span>

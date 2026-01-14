@@ -32,7 +32,7 @@ export default function LoginForm() {
       }
       return
     }
-    router.push('/dashboard')
+    router.push('/')
     router.refresh()
   }
 
@@ -72,9 +72,9 @@ export default function LoginForm() {
   return (
     <form onSubmit={mode === 'login' ? onSubmit : onForgot} className="space-y-5">
       <div>
-        <label className="block text-sm font-semibold text-slate-700 mb-2">Correo electrónico</label>
+        <label className="block text-sm font-medium text-slate-700 mb-2">Correo</label>
         <input
-          className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-200"
+          className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all duration-200"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           type="email"
@@ -86,9 +86,9 @@ export default function LoginForm() {
 
       {mode === 'login' ? (
         <div>
-          <label className="block text-sm font-semibold text-slate-700 mb-2">Contraseña</label>
+          <label className="block text-sm font-medium text-slate-700 mb-2">Contraseña</label>
           <input
-            className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-slate-50 text-slate-800 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 focus:border-indigo-500 transition-all duration-200"
+            className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all duration-200"
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             type="password"
@@ -121,9 +121,9 @@ export default function LoginForm() {
         type="submit"
         disabled={busy}
         className={`w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl font-semibold text-white transition-all duration-200 ${
-          busy 
-            ? 'bg-indigo-400 cursor-not-allowed' 
-            : 'bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 shadow-lg shadow-indigo-500/25 hover:shadow-xl hover:shadow-indigo-500/30 hover:-translate-y-0.5'
+          busy
+            ? 'bg-blue-400 cursor-not-allowed'
+            : 'bg-blue-600 hover:bg-blue-500'
         }`}
       >
         {busy && (
@@ -134,7 +134,7 @@ export default function LoginForm() {
         )}
         <span>
           {mode === 'login'
-            ? busy ? 'Ingresando…' : 'Ingresar al Sistema'
+            ? busy ? 'Ingresando…' : 'Ingresar'
             : busy ? 'Enviando…' : 'Solicitar Recuperación'}
         </span>
       </button>
@@ -143,7 +143,7 @@ export default function LoginForm() {
         {mode === 'login' ? (
           <button
             type="button"
-            className="text-sm text-slate-500 hover:text-indigo-600 transition-colors"
+            className="text-sm text-slate-600 hover:text-blue-600 transition-colors"
             onClick={() => { setError(null); setSent(false); setMode('forgot') }}
             disabled={busy}
           >
@@ -152,7 +152,7 @@ export default function LoginForm() {
         ) : (
           <button
             type="button"
-            className="text-sm text-slate-500 hover:text-indigo-600 transition-colors flex items-center gap-1 mx-auto"
+            className="text-sm text-slate-600 hover:text-blue-600 transition-colors flex items-center gap-1 mx-auto"
             onClick={() => { setError(null); setSent(false); setMode('login') }}
             disabled={busy}
           >

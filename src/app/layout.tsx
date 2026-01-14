@@ -9,8 +9,8 @@ const orbitron = Orbitron({
 })
 
 export const metadata: Metadata = {
-  title: 'ZIII Helpdesk',
-  description: 'Mesa de ayuda ITIL: tickets, seguimiento y auditoría.',
+  title: 'ZIII HoS',
+  description: 'HoS: Operación y Mesa de Ayuda con trazabilidad ITIL.',
   icons: {
     icon: 'https://integrational3.com.mx/logorigen/ZIII%20logo.png',
     shortcut: 'https://integrational3.com.mx/logorigen/ZIII%20logo.png',

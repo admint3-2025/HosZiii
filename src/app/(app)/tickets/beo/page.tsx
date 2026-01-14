@@ -3,7 +3,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import Link from 'next/link'
 
 export const metadata = {
-  title: 'Mis Tickets BEO | Helpdesk',
+  title: 'Mis Tickets BEO | ZIII HoS',
   description: 'Tickets BEO (Banquet Event Orders) creados',
 }
 

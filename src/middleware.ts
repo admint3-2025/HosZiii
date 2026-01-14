@@ -33,9 +33,31 @@ export async function middleware(request: NextRequest) {
   })
 
   // Refresh session if needed
-  await supabase.auth.getUser()
+  const {
+    data: { user: refreshedUser },
+  } = await supabase.auth.getUser()
 
   const { pathname } = request.nextUrl
+
+  // Mantener '/' como URL principal: servir el dashboard (ruta /mantenimiento) sin exponer el path.
+  if (pathname === '/') {
+    if (!refreshedUser) {
+      const loginUrl = request.nextUrl.clone()
+      loginUrl.pathname = '/login'
+      return NextResponse.redirect(loginUrl)
+    }
+
+    const rewriteUrl = request.nextUrl.clone()
+    rewriteUrl.pathname = '/mantenimiento'
+
+    const rewriteResponse = NextResponse.rewrite(rewriteUrl)
+    // Propagar cookies actualizadas (refresh) al response de rewrite.
+    response.cookies.getAll().forEach((c) => {
+      rewriteResponse.cookies.set(c)
+    })
+
+    return rewriteResponse
+  }
   const isAppRoute =
     pathname.startsWith('/dashboard') ||
     pathname.startsWith('/tickets') ||

@@ -17,7 +17,7 @@ export default function SignOutButton() {
     <button
       type="button"
       onClick={signOut}
-      className="flex items-center gap-2 px-3 py-2 rounded-xl bg-white border border-slate-200 text-slate-600 hover:text-rose-600 hover:border-rose-300 hover:bg-rose-50 text-sm font-medium transition-all shadow-sm"
+      className="flex items-center gap-2 px-4 py-2.5 rounded-xl bg-slate-800/60 backdrop-blur-sm border border-slate-700/50 text-slate-300 hover:text-rose-300 hover:border-rose-500/50 hover:bg-rose-500/10 text-sm font-semibold transition-all shadow-lg"
       title="Cerrar sesión"
     >
       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

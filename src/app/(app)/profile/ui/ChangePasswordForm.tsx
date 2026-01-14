@@ -67,22 +67,22 @@ export default function ChangePasswordForm() {
 
   return (
     <div className="card">
-      <div className="p-6">
+      <div className="card-body">
         <div className="flex items-center gap-3 mb-4">
-          <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-blue-500 to-indigo-600 flex items-center justify-center text-white">
+          <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-indigo-600 to-violet-600 flex items-center justify-center text-white shadow-sm">
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-            </svg>
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+          </svg>
           </div>
           <div>
-            <h2 className="text-lg font-semibold text-gray-900">Cambiar contraseña</h2>
-            <p className="text-xs text-gray-500">Actualiza tu contraseña por seguridad</p>
+            <h2 className="text-lg font-semibold text-slate-900">Cambiar contraseña</h2>
+            <p className="text-xs text-slate-500">Actualiza tu contraseña por seguridad</p>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-slate-700 mb-1">
               Contraseña actual
             </label>
             <input
@@ -96,7 +96,7 @@ export default function ChangePasswordForm() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-slate-700 mb-1">
               Nueva contraseña
             </label>
             <input
@@ -110,7 +110,7 @@ export default function ChangePasswordForm() {
           </div>
 
           <div>
-            <label className="block text-xs font-medium text-gray-700 mb-1">
+            <label className="block text-xs font-medium text-slate-700 mb-1">
               Confirmar nueva contraseña
             </label>
             <input
@@ -136,11 +136,7 @@ export default function ChangePasswordForm() {
           )}
 
           <div className="flex gap-2 pt-2">
-            <button
-              type="submit"
-              className="btn btn-primary"
-              disabled={busy}
-            >
+            <button type="submit" className="btn btn-primary" disabled={busy}>
               {busy ? 'Actualizando...' : 'Actualizar contraseña'}
             </button>
             <button

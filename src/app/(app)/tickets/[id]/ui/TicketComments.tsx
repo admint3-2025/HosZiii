@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 import { getSignedUrl } from '@/lib/storage/attachments'
+import { getAvatarInitial } from '@/lib/ui/avatar'
 
 function AttachmentLink({ attachment, isImage }: { attachment: any; isImage: boolean }) {
   const [url, setUrl] = useState<string | null>(null)
@@ -240,7 +241,10 @@ export default function TicketComments({
                   {/* Avatar del autor */}
                   <div className="flex-shrink-0 w-9 h-9 bg-gradient-to-br from-purple-500 to-purple-600 rounded-full flex items-center justify-center ring-2 ring-purple-100">
                     <span className="text-white text-sm font-bold">
-                      {c.author?.full_name?.[0]?.toUpperCase() || c.author?.email?.[0]?.toUpperCase() || '?'}
+                      {getAvatarInitial({
+                        fullName: c.author?.full_name,
+                        email: c.author?.email,
+                      })}
                     </span>
                   </div>
                   

@@ -17,7 +17,7 @@ export default function Footer() {
             />
             <div className="border-l border-slate-300 pl-2">
               <div className="font-bold text-gray-900 font-[family-name:var(--font-orbitron)] text-[10px] sm:text-xs">
-                ZIII Helpdesk
+                ZIII HoS
               </div>
             </div>
           </div>
@@ -53,7 +53,7 @@ export default function Footer() {
         {/* Fila 3: Copyright + Estado */}
         <div className="flex items-center justify-center sm:justify-between gap-3 sm:gap-4 text-[10px] sm:text-xs text-gray-500">
           <div>
-            © {currentYear} <span className="font-semibold text-gray-700">ZIII Helpdesk</span>
+            © {currentYear} <span className="font-semibold text-gray-700">ZIII HoS</span>
           </div>
           
           <div className="flex items-center gap-1.5">

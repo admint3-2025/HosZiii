@@ -1,7 +1,7 @@
 #!/sbin/openrc-run
 
 name="helpdesk"
-description="ZIII Helpdesk Next.js Application"
+description="ZIII HoS Next.js Application"
 
 directory="/opt/helpdesk"
 command="/usr/bin/node"

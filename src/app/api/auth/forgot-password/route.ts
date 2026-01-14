@@ -69,7 +69,7 @@ export async function POST(request: Request) {
         .map((u) => u.email!)
 
       const tpl = passwordResetRequestEmailTemplate({
-        appName: 'ZIII Helpdesk',
+        appName: 'ZIII HoS',
         requestingUserName: fullName,
         requestingUserEmail: email,
         adminPanelUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/admin/users`,
