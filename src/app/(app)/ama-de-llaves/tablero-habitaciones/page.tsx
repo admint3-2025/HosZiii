@@ -101,9 +101,11 @@ const PROPERTIES = [
   },
 ];
 
+type RoomStatus = 'disponible' | 'ocupada' | 'sucia' | 'limpieza' | 'mantenimiento' | 'bloqueada';
+
 // Generar datos de ejemplo para habitaciones
 function generateRoomData(propertyId: string, totalRooms: number, totalFloors: number) {
-  const statuses = ['disponible', 'ocupada', 'sucia', 'limpieza', 'mantenimiento', 'bloqueada'];
+  const statuses: RoomStatus[] = ['disponible', 'ocupada', 'sucia', 'limpieza', 'mantenimiento', 'bloqueada'];
   const statusWeights = [0.3, 0.35, 0.15, 0.1, 0.05, 0.05]; // Probabilidades
 
   const roomsPerFloor = Math.ceil(totalRooms / totalFloors);
@@ -112,7 +114,7 @@ function generateRoomData(propertyId: string, totalRooms: number, totalFloors: n
   for (let i = 1; i <= totalRooms; i++) {
     const rand = Math.random();
     let accumulated = 0;
-    let status = 'disponible';
+    let status: RoomStatus = 'disponible';
     
     for (let j = 0; j < statusWeights.length; j++) {
       accumulated += statusWeights[j];
