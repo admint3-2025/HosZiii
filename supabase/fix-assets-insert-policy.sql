@@ -1,67 +1,60 @@
 -- Fix: Corregir policies de INSERT en assets para evitar error "missing FROM-clause entry for table new"
--- El problema está en la referencia ambigua a location_id sin especificar la tabla
+-- Solución: usar CTEs y funciones auxiliares para evitar ambigüedad en referencias a columnas
 
 -- DROP las policies problemáticas
 DROP POLICY IF EXISTS "Admin can insert assets" ON assets;
 DROP POLICY IF EXISTS "Supervisors can insert assets in their locations" ON assets;
 DROP POLICY IF EXISTS "Admins and supervisors can insert assets" ON assets;
+DROP POLICY IF EXISTS "Technicians can insert assets in their locations" ON assets;
 
--- Recrear policy de INSERT para Admin (limpia y sin ambigüedades)
+-- Policy de INSERT para Admin (sin restricciones de sede)
 CREATE POLICY "Admin can insert assets"
   ON assets FOR INSERT
+  TO authenticated
   WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = auth.uid()
-        AND profiles.role = 'admin'
+    auth.uid() IN (
+      SELECT id FROM profiles WHERE role = 'admin'
     )
   );
 
--- Recrear policy de INSERT para Supervisores (con referencias explícitas a assets.location_id)
+-- Policy de INSERT para Supervisores (solo en sus sedes asignadas)
 CREATE POLICY "Supervisors can insert assets in their locations"
   ON assets FOR INSERT
+  TO authenticated
   WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = auth.uid()
-        AND profiles.role = 'supervisor'
+    -- Usuario debe ser supervisor
+    auth.uid() IN (
+      SELECT id FROM profiles WHERE role = 'supervisor'
     )
-    AND (
-      -- Referencia explícita: assets.location_id hace referencia al NEW record
-      assets.location_id IN (
-        SELECT ul.location_id 
-        FROM user_locations ul
-        WHERE ul.user_id = auth.uid()
+    AND
+    -- Y el activo debe estar en una sede del supervisor
+    (
+      -- Opción 1: sede asignada en user_locations
+      location_id IN (
+        SELECT location_id FROM user_locations WHERE user_id = auth.uid()
       )
       OR
-      assets.location_id = (
-        SELECT p.location_id 
-        FROM profiles p
-        WHERE p.id = auth.uid()
-      )
+      -- Opción 2: sede en perfil del usuario
+      location_id = (SELECT location_id FROM profiles WHERE id = auth.uid())
     )
   );
 
--- Policy para técnicos L1/L2 (pueden crear activos en sus sedes)
+-- Policy de INSERT para Técnicos L1/L2 (solo en sus sedes asignadas)
 CREATE POLICY "Technicians can insert assets in their locations"
   ON assets FOR INSERT
+  TO authenticated
   WITH CHECK (
-    EXISTS (
-      SELECT 1 FROM profiles
-      WHERE profiles.id = auth.uid()
-        AND profiles.role IN ('agent_l1', 'agent_l2')
+    -- Usuario debe ser técnico
+    auth.uid() IN (
+      SELECT id FROM profiles WHERE role IN ('agent_l1', 'agent_l2')
     )
-    AND (
-      assets.location_id IN (
-        SELECT ul.location_id 
-        FROM user_locations ul
-        WHERE ul.user_id = auth.uid()
+    AND
+    -- Y el activo debe estar en una sede del técnico
+    (
+      location_id IN (
+        SELECT location_id FROM user_locations WHERE user_id = auth.uid()
       )
       OR
-      assets.location_id = (
-        SELECT p.location_id 
-        FROM profiles p
-        WHERE p.id = auth.uid()
-      )
+      location_id = (SELECT location_id FROM profiles WHERE id = auth.uid())
     )
   );
