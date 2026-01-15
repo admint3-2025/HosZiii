@@ -9,6 +9,12 @@ import {
   ticketLocationStaffNotificationTemplate,
 } from './templates'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import {
+  fetchTicketAssetCategory,
+  getServiceLabelForTicketCategory,
+  inferTicketAssetCategory,
+  recipientMatchesTicketCategory,
+} from '@/lib/tickets/ticket-asset-category'
 
 const STATUS_LABELS: Record<string, string> = {
   NEW: 'Nuevo',
@@ -86,6 +92,8 @@ export async function notifyTicketCreated(data: TicketNotificationData) {
 
     const requesterName = requesterProfile?.full_name || requester.user.email
     const assetInfo = await fetchTicketAssetInfo(supabase, data.ticketId)
+    const ticketAssetCategory = inferTicketAssetCategory(assetInfo?.assetType)
+    const serviceLabel = getServiceLabelForTicketCategory(ticketAssetCategory)
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const ticketUrl = `${baseUrl}/tickets/${data.ticketId}`
 
@@ -98,11 +106,12 @@ export async function notifyTicketCreated(data: TicketNotificationData) {
       category: data.category || 'Sin categoría',
       ticketUrl,
       requesterName,
-       assetTag: assetInfo?.assetTag,
-       assetType: assetInfo?.assetType || undefined,
-       assetBrand: assetInfo?.brand || undefined,
-       assetModel: assetInfo?.model || undefined,
-       assetSerial: assetInfo?.serialNumber || undefined,
+      serviceLabel,
+      assetTag: assetInfo?.assetTag,
+      assetType: assetInfo?.assetType || undefined,
+      assetBrand: assetInfo?.brand || undefined,
+      assetModel: assetInfo?.model || undefined,
+      assetSerial: assetInfo?.serialNumber || undefined,
     })
 
     console.log('[notifyTicketCreated] Enviando email a:', requester.user.email)
@@ -196,6 +205,8 @@ export async function notifyTicketAssigned(data: TicketNotificationData) {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const ticketUrl = `${baseUrl}/tickets/${data.ticketId}`
     const assetInfo = await fetchTicketAssetInfo(supabase, data.ticketId)
+    const serviceLabel = getServiceLabelForTicketCategory(inferTicketAssetCategory(assetInfo?.assetType))
+    const serviceLabel = getServiceLabelForTicketCategory(inferTicketAssetCategory(assetInfo?.assetType))
 
     const template = ticketAssignedEmailTemplate({
       ticketNumber: data.ticketNumber,
@@ -204,6 +215,7 @@ export async function notifyTicketAssigned(data: TicketNotificationData) {
       assignedTo: agentName,
       assignedBy,
       ticketUrl,
+      serviceLabel,
       assetTag: assetInfo?.assetTag,
       assetType: assetInfo?.assetType || undefined,
       assetBrand: assetInfo?.brand || undefined,
@@ -240,6 +252,7 @@ export async function notifyTicketAssigned(data: TicketNotificationData) {
         assignedAgentName: agentName,
         ticketUrl,
         requesterName,
+        serviceLabel,
         assetTag: assetInfo?.assetTag,
         assetType: assetInfo?.assetType || undefined,
         assetBrand: assetInfo?.brand || undefined,
@@ -304,6 +317,7 @@ export async function notifyTicketStatusChanged(data: TicketNotificationData) {
         changedBy,
         ticketUrl,
         recipientName: requesterName,
+        serviceLabel,
         assetTag: assetInfo?.assetTag,
         assetType: assetInfo?.assetType || undefined,
         assetBrand: assetInfo?.brand || undefined,
@@ -341,6 +355,7 @@ export async function notifyTicketStatusChanged(data: TicketNotificationData) {
           changedBy,
           ticketUrl,
           recipientName: agentName,
+          serviceLabel,
           assetTag: assetInfo?.assetTag,
           assetType: assetInfo?.assetType || undefined,
           assetBrand: assetInfo?.brand || undefined,
@@ -399,6 +414,7 @@ export async function notifyTicketClosed(data: TicketNotificationData) {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const ticketUrl = `${baseUrl}/tickets/${data.ticketId}`
     const assetInfo = await fetchTicketAssetInfo(supabase, data.ticketId)
+    const serviceLabel = getServiceLabelForTicketCategory(inferTicketAssetCategory(assetInfo?.assetType))
 
     const template = ticketClosedEmailTemplate({
       ticketNumber: data.ticketNumber,
@@ -407,6 +423,7 @@ export async function notifyTicketClosed(data: TicketNotificationData) {
       ticketUrl,
       recipientName: requesterName,
       resolution: data.resolution,
+      serviceLabel,
       assetTag: assetInfo?.assetTag,
       assetType: assetInfo?.assetType || undefined,
       assetBrand: assetInfo?.brand || undefined,
@@ -441,6 +458,7 @@ export async function notifyTicketEscalated(data: TicketNotificationData) {
 
     // Obtener información del activo asociado
     const assetInfo = await fetchTicketAssetInfo(supabase, data.ticketId)
+    const serviceLabel = getServiceLabelForTicketCategory(inferTicketAssetCategory(assetInfo?.assetType))
 
     // Obtener quien escaló
     let escalatedBy = 'Sistema'
@@ -472,6 +490,7 @@ export async function notifyTicketEscalated(data: TicketNotificationData) {
         specialistName,
         ticketUrl,
         isSpecialist: true,
+        serviceLabel,
         assetTag: assetInfo?.assetTag,
         assetType: assetInfo?.assetType || undefined,
         assetBrand: assetInfo?.brand || undefined,
@@ -516,6 +535,7 @@ export async function notifyTicketEscalated(data: TicketNotificationData) {
         specialistName,
         ticketUrl,
         isSpecialist: false,
+        serviceLabel,
         assetTag: assetInfo?.assetTag,
         assetType: assetInfo?.assetType || undefined,
         assetBrand: assetInfo?.brand || undefined,
@@ -565,11 +585,14 @@ export async function notifyLocationStaff(data: TicketNotificationData) {
     console.log(`[notifyLocationStaff] Ubicación del ticket: ${locationName} (${locationCode})`)
     console.log(`[notifyLocationStaff] Location ID: ${locationId}`)
     console.log(`[notifyLocationStaff] Actor ID a excluir: ${data.actorId || 'ninguno'}`)
+
+    const ticketCategory = await fetchTicketAssetCategory(supabase as any, data.ticketId)
+    const serviceLabel = getServiceLabelForTicketCategory(ticketCategory)
     
     // Obtener todos los supervisores y técnicos de esa ubicación
     let query = supabase
       .from('profiles')
-      .select('id, full_name, role')
+      .select('id, full_name, role, asset_category')
       .eq('location_id', locationId)
       .in('role', ['agent_l1', 'agent_l2', 'supervisor'])
     
@@ -585,17 +608,23 @@ export async function notifyLocationStaff(data: TicketNotificationData) {
       return
     }
     
+    const filteredStaffProfiles = (staffProfiles || []).filter((staff: any) =>
+      recipientMatchesTicketCategory({
+        recipientAssetCategory: staff.asset_category,
+        ticketCategory,
+        recipientRole: staff.role,
+      }),
+    )
+
     console.log(`[notifyLocationStaff] Personal encontrado en la base de datos: ${staffProfiles?.length || 0}`)
-    if (staffProfiles && staffProfiles.length > 0) {
-      console.log('[notifyLocationStaff] Personal:', staffProfiles.map(s => `${s.full_name} (${s.role})`).join(', '))
-    }
+    console.log(`[notifyLocationStaff] Personal permitido por categoría: ${filteredStaffProfiles.length}`)
     
-    if (!staffProfiles || staffProfiles.length === 0) {
+    if (filteredStaffProfiles.length === 0) {
       console.log('[notifyLocationStaff] No se encontró personal de la sede para notificar')
       return
     }
     
-    console.log(`[notifyLocationStaff] Se notificará a ${staffProfiles.length} miembro(s) del personal`)
+    console.log(`[notifyLocationStaff] Se notificará a ${filteredStaffProfiles.length} miembro(s) del personal`)
     
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const ticketUrl = `${baseUrl}/tickets/${data.ticketId}`
@@ -612,11 +641,12 @@ export async function notifyLocationStaff(data: TicketNotificationData) {
     }
     
     const isUpdate = !!data.oldStatus
+
+    const assetInfo = await fetchTicketAssetInfo(supabase, data.ticketId)
     
     // Enviar notificación a cada miembro del personal
-    for (const staff of staffProfiles) {
+    for (const staff of filteredStaffProfiles as any[]) {
       try {
-        const assetInfo = await fetchTicketAssetInfo(supabase, data.ticketId)
         // Obtener email del auth
         const { data: authUser } = await supabase.auth.admin.getUserById(staff.id)
         
@@ -642,6 +672,7 @@ export async function notifyLocationStaff(data: TicketNotificationData) {
           isUpdate,
           oldStatus: data.oldStatus ? STATUS_LABELS[data.oldStatus] : undefined,
           newStatus: data.newStatus ? STATUS_LABELS[data.newStatus] : undefined,
+          serviceLabel,
           assetTag: assetInfo?.assetTag,
           assetType: assetInfo?.assetType || undefined,
           assetBrand: assetInfo?.brand || undefined,

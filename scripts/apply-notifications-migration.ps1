@@ -52,7 +52,11 @@ Write-Host "   supabase\migration-add-notifications.sql" -ForegroundColor Cyan
 Write-Host ""
 Write-Host "4. Ejecuta el script (boton 'Run' o Ctrl+Enter)" -ForegroundColor White
 Write-Host ""
-Write-Host "5. Verifica que no haya errores en la consola" -ForegroundColor White
+Write-Host "5. (Opcional) Si separas personal IT vs MAINTENANCE (profiles.asset_category)," -ForegroundColor White
+Write-Host "   ejecuta despues el contenido de:" -ForegroundColor White
+Write-Host "   supabase\migration-filter-notifications-by-asset-category.sql" -ForegroundColor Cyan
+Write-Host ""
+Write-Host "6. Verifica que no haya errores en la consola" -ForegroundColor White
 Write-Host ""
 Write-Host "=====================================" -ForegroundColor Green
 Write-Host "  CARACTERISTICAS                   " -ForegroundColor Green

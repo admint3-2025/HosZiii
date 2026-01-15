@@ -41,6 +41,11 @@ Ve a **SQL Editor** y ejecuta el contenido de:
 supabase/migration-add-notifications.sql
 ```
 
+Si tu operación separa personal **IT vs MAINTENANCE** (columna `profiles.asset_category`), ejecuta después:
+```
+supabase/migration-filter-notifications-by-asset-category.sql
+```
+
 O usa el script de ayuda:
 ```powershell
 .\scripts\apply-notifications-migration.ps1

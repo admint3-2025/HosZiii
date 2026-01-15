@@ -359,6 +359,7 @@ export function ticketCreatedEmailTemplate(params: {
   category: string
   ticketUrl: string
   requesterName: string
+  serviceLabel?: string
   assetTag?: string
   assetType?: string
   assetBrand?: string
@@ -373,12 +374,15 @@ export function ticketCreatedEmailTemplate(params: {
     category,
     ticketUrl,
     requesterName,
+    serviceLabel: serviceLabelParam,
     assetTag,
     assetType,
     assetBrand,
     assetModel,
     assetSerial,
   } = params
+
+  const serviceLabel = serviceLabelParam || 'Mesa de Ayuda ITIL'
 
   const subject = `Ticket #${ticketNumber} creado exitosamente`
 
@@ -522,7 +526,7 @@ export function ticketCreatedEmailTemplate(params: {
       <!-- Footer -->
       <div style="max-width:600px; margin:24px auto 0 auto; text-align:center;">
         <p style="margin:0 0 8px 0; font-size:12px; color:#9ca3af;">
-          Enviado por <strong>ZIII HoS</strong> · Mesa de Ayuda ITIL
+          Enviado por <strong>ZIII HoS</strong> · ${escapeHtml(serviceLabel)}
         </p>
         <p style="margin:0; font-size:11px; color:#d1d5db;">
           Este es un mensaje automático, por favor no respondas a este correo
@@ -543,6 +547,7 @@ export function ticketAssignedToRequesterEmailTemplate(params: {
   assignedAgentName: string
   ticketUrl: string
   requesterName: string
+  serviceLabel?: string
   assetTag?: string
   assetType?: string
   assetBrand?: string
@@ -556,12 +561,15 @@ export function ticketAssignedToRequesterEmailTemplate(params: {
     assignedAgentName,
     ticketUrl,
     requesterName,
+    serviceLabel: serviceLabelParam,
     assetTag,
     assetType,
     assetBrand,
     assetModel,
     assetSerial,
   } = params
+
+  const serviceLabel = serviceLabelParam || 'Mesa de Ayuda ITIL'
 
   const subject = `✅ Tu ticket #${ticketNumber} ha sido asignado`
 
@@ -682,7 +690,7 @@ export function ticketAssignedToRequesterEmailTemplate(params: {
 
       <div style="max-width:600px; margin:24px auto 0 auto; text-align:center;">
         <p style="margin:0 0 8px 0; font-size:12px; color:#9ca3af;">
-          Enviado por <strong>ZIII Helpdesk</strong> · Mesa de Ayuda ITIL
+          Enviado por <strong>ZIII Helpdesk</strong> · ${escapeHtml(serviceLabel)}
         </p>
         <p style="margin:0; font-size:11px; color:#d1d5db;">
           Este es un mensaje automático, por favor no respondas a este correo
@@ -703,6 +711,7 @@ export function ticketAssignedEmailTemplate(params: {
   assignedTo: string
   assignedBy: string
   ticketUrl: string
+  serviceLabel?: string
   assetTag?: string
   assetType?: string
   assetBrand?: string
@@ -716,12 +725,15 @@ export function ticketAssignedEmailTemplate(params: {
     assignedTo,
     assignedBy,
     ticketUrl,
+    serviceLabel: serviceLabelParam,
     assetTag,
     assetType,
     assetBrand,
     assetModel,
     assetSerial,
   } = params
+
+  const serviceLabel = serviceLabelParam || 'Mesa de Ayuda ITIL'
 
   const subject = `🎯 Ticket #${ticketNumber} asignado a ti`
 
@@ -840,7 +852,7 @@ export function ticketAssignedEmailTemplate(params: {
 
       <div style="max-width:600px; margin:24px auto 0 auto; text-align:center;">
         <p style="margin:0 0 8px 0; font-size:12px; color:#9ca3af;">
-          Enviado por <strong>ZIII Helpdesk</strong> · Mesa de Ayuda ITIL
+          Enviado por <strong>ZIII Helpdesk</strong> · ${escapeHtml(serviceLabel)}
         </p>
         <p style="margin:0; font-size:11px; color:#d1d5db;">
           Este es un mensaje automático, por favor no respondas a este correo
@@ -862,6 +874,7 @@ export function ticketStatusChangedEmailTemplate(params: {
   changedBy: string
   ticketUrl: string
   recipientName: string
+  serviceLabel?: string
   resolution?: string
   assetTag?: string
   assetType?: string
@@ -877,6 +890,7 @@ export function ticketStatusChangedEmailTemplate(params: {
     changedBy,
     ticketUrl,
     recipientName,
+    serviceLabel: serviceLabelParam,
     resolution,
     assetTag,
     assetType,
@@ -884,6 +898,8 @@ export function ticketStatusChangedEmailTemplate(params: {
     assetModel,
     assetSerial,
   } = params
+
+  const serviceLabel = serviceLabelParam || 'Mesa de Ayuda ITIL'
 
   const subject = `🔄 Actualización Ticket #${ticketNumber}`
 
@@ -1023,7 +1039,7 @@ export function ticketStatusChangedEmailTemplate(params: {
 
       <div style="max-width:600px; margin:24px auto 0 auto; text-align:center;">
         <p style="margin:0 0 8px 0; font-size:12px; color:#9ca3af;">
-          Enviado por <strong>ZIII Helpdesk</strong> · Mesa de Ayuda ITIL
+          Enviado por <strong>ZIII Helpdesk</strong> · ${escapeHtml(serviceLabel)}
         </p>
         <p style="margin:0; font-size:11px; color:#d1d5db;">
           Este es un mensaje automático, por favor no respondas a este correo
@@ -1043,6 +1059,7 @@ export function ticketClosedEmailTemplate(params: {
   closedBy: string
   ticketUrl: string
   recipientName: string
+  serviceLabel?: string
   resolution?: string
   assetTag?: string
   assetType?: string
@@ -1056,6 +1073,7 @@ export function ticketClosedEmailTemplate(params: {
     closedBy,
     ticketUrl,
     recipientName,
+    serviceLabel: serviceLabelParam,
     resolution,
     assetTag,
     assetType,
@@ -1063,6 +1081,8 @@ export function ticketClosedEmailTemplate(params: {
     assetModel,
     assetSerial,
   } = params
+
+  const serviceLabel = serviceLabelParam || 'Mesa de Ayuda ITIL'
 
   const subject = `✅ Ticket #${ticketNumber} cerrado`
 
@@ -1186,7 +1206,7 @@ export function ticketClosedEmailTemplate(params: {
 
       <div style="max-width:600px; margin:24px auto 0 auto; text-align:center;">
         <p style="margin:0 0 8px 0; font-size:12px; color:#9ca3af;">
-          Enviado por <strong>ZIII Helpdesk</strong> · Mesa de Ayuda ITIL
+          Enviado por <strong>ZIII Helpdesk</strong> · ${escapeHtml(serviceLabel)}
         </p>
         <p style="margin:0; font-size:11px; color:#d1d5db;">
           Este es un mensaje automático, por favor no respondas a este correo
@@ -1208,6 +1228,7 @@ export function ticketEscalatedEmailTemplate(params: {
   specialistName: string
   ticketUrl: string
   isSpecialist: boolean
+  serviceLabel?: string
   assetTag?: string
   assetType?: string
   assetBrand?: string
@@ -1222,6 +1243,7 @@ export function ticketEscalatedEmailTemplate(params: {
     specialistName,
     ticketUrl,
     isSpecialist,
+    serviceLabel: serviceLabelParam,
     assetTag,
     assetType,
     assetBrand,
@@ -1229,7 +1251,9 @@ export function ticketEscalatedEmailTemplate(params: {
     assetSerial,
   } = params
 
-  const subject = `🔺 Ticket #${ticketNumber} escalado a Nivel 2 — ZIII Helpdesk`
+  const serviceLabel = serviceLabelParam || 'Mesa de Ayuda ITIL'
+
+  const subject = `🔺 Ticket #${ticketNumber} escalado a Nivel 2 — ${serviceLabel}`
 
   const textLines: string[] = [
     `Ticket #${ticketNumber} escalado a Nivel 2`,
@@ -1386,7 +1410,7 @@ export function ticketEscalatedEmailTemplate(params: {
 
       <div style="max-width:600px; margin:24px auto 0 auto; text-align:center;">
         <p style="margin:0 0 8px 0; font-size:12px; color:#9ca3af;">
-          Enviado por <strong>ZIII Helpdesk</strong> · Mesa de Ayuda ITIL
+          Enviado por <strong>ZIII Helpdesk</strong> · ${escapeHtml(serviceLabel)}
         </p>
         <p style="margin:0; font-size:11px; color:#d1d5db;">
           Este es un mensaje automático, por favor no respondas a este correo
@@ -1414,6 +1438,7 @@ export function ticketLocationStaffNotificationTemplate(params: {
   isUpdate: boolean
   oldStatus?: string
   newStatus?: string
+  serviceLabel?: string
   assetTag?: string
   assetType?: string
   assetBrand?: string
@@ -1434,12 +1459,15 @@ export function ticketLocationStaffNotificationTemplate(params: {
     isUpdate,
     oldStatus,
     newStatus,
+    serviceLabel: serviceLabelParam,
     assetTag,
     assetType,
     assetBrand,
     assetModel,
     assetSerial,
   } = params
+
+  const serviceLabel = serviceLabelParam || 'Mesa de Ayuda ITIL'
 
   const subject = `[${locationCode}] ${isUpdate ? 'Actualización' : 'Nuevo'} Ticket #${ticketNumber}`
 
@@ -1617,7 +1645,7 @@ export function ticketLocationStaffNotificationTemplate(params: {
       <!-- Footer -->
       <div style="max-width:600px; margin:24px auto 0 auto; text-align:center;">
         <p style="margin:0 0 8px 0; font-size:12px; color:#9ca3af;">
-          Enviado por <strong>ZIII Helpdesk</strong> · Mesa de Ayuda ITIL
+          Enviado por <strong>ZIII Helpdesk</strong> · ${escapeHtml(serviceLabel)}
         </p>
         <p style="margin:0; font-size:11px; color:#d1d5db;">
           Este es un mensaje automático, por favor no respondas a este correo

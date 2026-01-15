@@ -13,6 +13,11 @@ import { sendMail } from '@/lib/email/mailer'
 import { ticketInvestigationEmailTemplate } from '@/lib/email/templates'
 import { STATUS_LABELS } from '@/lib/tickets/workflow'
 import { PRIORITY_LABELS } from '@/lib/tickets/priority'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import {
+  fetchTicketAssetCategory,
+  recipientMatchesTicketCategory,
+} from '@/lib/tickets/ticket-asset-category'
 
 type UpdateTicketStatusInput = {
   ticketId: string
@@ -292,6 +297,7 @@ export async function escalateTicket(ticketId: string, currentLevel: number, ass
   }
 
   const supabase = await createSupabaseServerClient()
+  const adminClient = createSupabaseAdminClient()
   
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
@@ -354,6 +360,8 @@ export async function escalateTicket(ticketId: string, currentLevel: number, ass
   
   console.log('[escalateTicket] previousAgentId final:', previousAgentId)
 
+  const ticketCategory = await fetchTicketAssetCategory(adminClient as any, ticketId)
+
   const { error } = await supabase
     .from('tickets')
     .update({ 
@@ -395,8 +403,22 @@ export async function escalateTicket(ticketId: string, currentLevel: number, ass
   if (previousAgentId) {
     console.log('[escalateTicket] Notificando al técnico L1:', previousAgentId)
     try {
-      const { createSupabaseAdminClient } = await import('@/lib/supabase/admin')
-      const adminClient = createSupabaseAdminClient()
+      const { data: prevProfile } = await adminClient
+        .from('profiles')
+        .select('role, asset_category')
+        .eq('id', previousAgentId)
+        .single()
+
+      const canNotify = recipientMatchesTicketCategory({
+        recipientAssetCategory: (prevProfile as any)?.asset_category,
+        ticketCategory,
+        recipientRole: (prevProfile as any)?.role,
+      })
+
+      if (!canNotify) {
+        console.log('[escalateTicket] Omitiendo notificación: categoría de ticket no coincide con el receptor')
+        return { success: true }
+      }
       
       // Obtener email del técnico L1
       const { data: authUser } = await adminClient.auth.admin.getUserById(previousAgentId)
@@ -690,6 +712,7 @@ export async function softDeleteTicket(ticketId: string, reason: string) {
  */
 export async function requestEscalation(ticketId: string, reason: string) {
   const supabase = await createSupabaseServerClient()
+  const adminClient = createSupabaseAdminClient()
   
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) {
@@ -725,7 +748,7 @@ export async function requestEscalation(ticketId: string, reason: string) {
   // Buscar supervisores de la misma sede
   const { data: supervisors } = await supabase
     .from('profiles')
-    .select('id, full_name')
+    .select('id, full_name, role, asset_category')
     .eq('location_id', profile.location_id)
     .eq('role', 'supervisor')
 
@@ -735,6 +758,8 @@ export async function requestEscalation(ticketId: string, reason: string) {
 
   try {
     console.log('[requestEscalation] Iniciando solicitud...')
+
+    const ticketCategory = await fetchTicketAssetCategory(adminClient as any, ticketId)
     
     // Registrar comentario en el ticket (auditoría)
     const { error: commentError } = await supabase.from('ticket_comments').insert({
@@ -763,6 +788,17 @@ export async function requestEscalation(ticketId: string, reason: string) {
 
     for (const supervisor of supervisors) {
       console.log(`[requestEscalation] Procesando supervisor ${supervisor.full_name}...`)
+
+      const canNotify = recipientMatchesTicketCategory({
+        recipientAssetCategory: (supervisor as any).asset_category,
+        ticketCategory,
+        recipientRole: (supervisor as any).role,
+      })
+
+      if (!canNotify) {
+        console.log('[requestEscalation] Omitiendo notificación: categoría de ticket no coincide con el receptor')
+        continue
+      }
       
       // Obtener email del supervisor
       const { data: authUser } = await adminClient.auth.admin.getUserById(supervisor.id)

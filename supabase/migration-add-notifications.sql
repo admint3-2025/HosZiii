@@ -74,9 +74,24 @@ declare
   staff_id uuid;
   requester_name text;
   ticket_code text;
+  ticket_asset_type text;
+  ticket_asset_category text;
 begin
   -- Obtener nombre del solicitante
   requester_name := get_user_name(new.requester_id);
+
+  -- Determinar categoría del ticket (IT vs MAINTENANCE) según el activo asociado
+  select a.asset_type
+  into ticket_asset_type
+  from tickets t
+  join assets a on a.id = t.asset_id
+  where t.id = new.id;
+
+  ticket_asset_category := case
+    when ticket_asset_type = any (array['DESKTOP','LAPTOP','TABLET','PHONE','MONITOR','PRINTER','SCANNER','SERVER','UPS','PROJECTOR']) then 'IT'
+    when ticket_asset_type = any (array['AIR_CONDITIONING','HVAC_SYSTEM','BOILER','REFRIGERATOR','KITCHEN_EQUIPMENT','WASHING_MACHINE','DRYER','WATER_HEATER','PUMP','GENERATOR','ELEVATOR','FURNITURE','FIXTURE','CLEANING_EQUIPMENT','SECURITY_SYSTEM','FIRE_SYSTEM','PLUMBING','ELECTRICAL','LIGHTING','VEHICLE','OTHER']) then 'MAINTENANCE'
+    else null
+  end;
 
   -- Construir código de ticket con fecha + secuencia (CDMX)
   ticket_code := to_char(new.created_at at time zone 'America/Mexico_City', 'YYYYMMDD') || '-' || lpad(new.ticket_number::text, 4, '0');
@@ -91,6 +106,12 @@ begin
         (location_id = new.location_id and new.location_id is not null)
         -- O admins sin sede asignada (ven todos)
         or (role = 'admin' and location_id is null)
+      )
+      and (
+        role = 'admin'
+        or ticket_asset_category is null
+        or asset_category is null
+        or asset_category = ticket_asset_category
       )
   loop
     -- No notificar al creador del ticket
@@ -121,6 +142,10 @@ as $$
 declare
   assigner_name text;
   ticket_code text;
+  ticket_asset_type text;
+  ticket_asset_category text;
+  assignee_role text;
+  assignee_asset_category text;
 begin
   -- Solo si hay cambio de asignación
   if new.assigned_agent_id is not null and (old.assigned_agent_id is null or old.assigned_agent_id != new.assigned_agent_id) then
@@ -130,17 +155,41 @@ begin
     -- Código visible del ticket
     ticket_code := to_char(new.created_at at time zone 'America/Mexico_City', 'YYYYMMDD') || '-' || lpad(new.ticket_number::text, 4, '0');
 
-    -- Notificar al agente asignado
-    insert into notifications (user_id, type, title, message, ticket_id, ticket_number, actor_id)
-    values (
-      new.assigned_agent_id,
-      'TICKET_ASSIGNED',
-      'Ticket asignado a ti',
-      format('Te han asignado el ticket %s: "%s"', ticket_code, new.title),
-      new.id,
-      new.ticket_number,
-      new.requester_id
-    );
+    -- Determinar categoría del ticket (IT vs MAINTENANCE) según el activo asociado
+    select a.asset_type
+    into ticket_asset_type
+    from tickets t
+    join assets a on a.id = t.asset_id
+    where t.id = new.id;
+
+    ticket_asset_category := case
+      when ticket_asset_type = any (array['DESKTOP','LAPTOP','TABLET','PHONE','MONITOR','PRINTER','SCANNER','SERVER','UPS','PROJECTOR']) then 'IT'
+      when ticket_asset_type = any (array['AIR_CONDITIONING','HVAC_SYSTEM','BOILER','REFRIGERATOR','KITCHEN_EQUIPMENT','WASHING_MACHINE','DRYER','WATER_HEATER','PUMP','GENERATOR','ELEVATOR','FURNITURE','FIXTURE','CLEANING_EQUIPMENT','SECURITY_SYSTEM','FIRE_SYSTEM','PLUMBING','ELECTRICAL','LIGHTING','VEHICLE','OTHER']) then 'MAINTENANCE'
+      else null
+    end;
+
+    -- Obtener categoría del asignado para filtrar notificación
+    select p.role, p.asset_category
+    into assignee_role, assignee_asset_category
+    from profiles p
+    where p.id = new.assigned_agent_id;
+
+    -- Notificar al agente asignado SOLO si coincide categoría (o es admin / sin categoría)
+    if (assignee_role = 'admin'
+        or ticket_asset_category is null
+        or assignee_asset_category is null
+        or assignee_asset_category = ticket_asset_category) then
+      insert into notifications (user_id, type, title, message, ticket_id, ticket_number, actor_id)
+      values (
+        new.assigned_agent_id,
+        'TICKET_ASSIGNED',
+        'Ticket asignado a ti',
+        format('Te han asignado el ticket %s: "%s"', ticket_code, new.title),
+        new.id,
+        new.ticket_number,
+        new.requester_id
+      );
+    end if;
 
     -- Notificar al solicitante (si es diferente)
     if new.requester_id != new.assigned_agent_id then
@@ -171,6 +220,10 @@ declare
   status_label text;
   staff_id uuid;
   ticket_code text;
+  ticket_asset_type text;
+  ticket_asset_category text;
+  assignee_role text;
+  assignee_asset_category text;
 begin
   -- Solo si hay cambio de estado
   if new.status != old.status then
@@ -190,6 +243,19 @@ begin
     -- Código visible del ticket
     ticket_code := to_char(new.created_at at time zone 'America/Mexico_City', 'YYYYMMDD') || '-' || lpad(new.ticket_number::text, 4, '0');
 
+    -- Determinar categoría del ticket (IT vs MAINTENANCE) según el activo asociado
+    select a.asset_type
+    into ticket_asset_type
+    from tickets t
+    join assets a on a.id = t.asset_id
+    where t.id = new.id;
+
+    ticket_asset_category := case
+      when ticket_asset_type = any (array['DESKTOP','LAPTOP','TABLET','PHONE','MONITOR','PRINTER','SCANNER','SERVER','UPS','PROJECTOR']) then 'IT'
+      when ticket_asset_type = any (array['AIR_CONDITIONING','HVAC_SYSTEM','BOILER','REFRIGERATOR','KITCHEN_EQUIPMENT','WASHING_MACHINE','DRYER','WATER_HEATER','PUMP','GENERATOR','ELEVATOR','FURNITURE','FIXTURE','CLEANING_EQUIPMENT','SECURITY_SYSTEM','FIRE_SYSTEM','PLUMBING','ELECTRICAL','LIGHTING','VEHICLE','OTHER']) then 'MAINTENANCE'
+      else null
+    end;
+
     -- Notificar al solicitante
     insert into notifications (user_id, type, title, message, ticket_id, ticket_number)
     values (
@@ -203,15 +269,25 @@ begin
 
     -- Si hay agente asignado y es diferente al solicitante, notificarle también
     if new.assigned_agent_id is not null and new.assigned_agent_id != new.requester_id then
-      insert into notifications (user_id, type, title, message, ticket_id, ticket_number)
-      values (
-        new.assigned_agent_id,
-        'TICKET_STATUS_CHANGED',
-        'Estado actualizado',
-        format('El ticket %s cambió a: %s', ticket_code, status_label),
-        new.id,
-        new.ticket_number
-      );
+      select p.role, p.asset_category
+      into assignee_role, assignee_asset_category
+      from profiles p
+      where p.id = new.assigned_agent_id;
+
+      if (assignee_role = 'admin'
+          or ticket_asset_category is null
+          or assignee_asset_category is null
+          or assignee_asset_category = ticket_asset_category) then
+        insert into notifications (user_id, type, title, message, ticket_id, ticket_number)
+        values (
+          new.assigned_agent_id,
+          'TICKET_STATUS_CHANGED',
+          'Estado actualizado',
+          format('El ticket %s cambió a: %s', ticket_code, status_label),
+          new.id,
+          new.ticket_number
+        );
+      end if;
     end if;
 
     -- Notificaciones especiales para estados críticos
@@ -236,6 +312,12 @@ begin
             )
             and id != new.requester_id
             and id != coalesce(new.assigned_agent_id, '00000000-0000-0000-0000-000000000000'::uuid)
+            and (
+              role = 'admin'
+              or ticket_asset_category is null
+              or asset_category is null
+              or asset_category = ticket_asset_category
+            )
         loop
           insert into notifications (user_id, type, title, message, ticket_id, ticket_number)
           values (
