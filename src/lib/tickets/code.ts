@@ -1,4 +1,3 @@
-const MX_TIME_ZONE = 'America/Mexico_City'
 const MX_UTC_OFFSET = -6 // México está en UTC-6 (CST)
 
 export function formatTicketCode(params: { ticket_number: number; created_at: string | null }): string {

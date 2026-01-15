@@ -20,7 +20,13 @@ type TopAgent = {
   avg_resolution_days: number
 }
 
-export default function LocationStatsTable({ rows }: { rows: LocationStatsRow[] }) {
+type Props = {
+  rows: LocationStatsRow[]
+  serviceArea?: 'it' | 'maintenance' | null
+  userRole?: string | null
+}
+
+export default function LocationStatsTable({ rows, serviceArea, userRole }: Props) {
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(
     rows[0]?.location_id ?? null
   )
@@ -56,14 +62,21 @@ export default function LocationStatsTable({ rows }: { rows: LocationStatsRow[] 
         
         // Tickets cerrados en esta ubicación (histórico completo)
         // Usar closed_by para ver quién cerró el ticket
-        const { data: tickets, error: ticketsError } = await supabase
+        // Filtrar por service_area si el usuario es supervisor (no admin)
+        let ticketsQuery = supabase
           .from('tickets')
           .select('closed_by, created_at, closed_at')
           .eq('location_id', selectedLocationId)
           .eq('status', 'CLOSED')
           .not('closed_by', 'is', null)
           .not('closed_at', 'is', null)
-          .limit(500)
+        
+        // Aplicar filtro de service_area para supervisores
+        if (userRole === 'supervisor' && serviceArea) {
+          ticketsQuery = ticketsQuery.eq('service_area', serviceArea)
+        }
+        
+        const { data: tickets, error: ticketsError } = await ticketsQuery.limit(500)
 
         if (ticketsError) {
           console.error('Error cargando tickets:', ticketsError)
@@ -141,7 +154,7 @@ export default function LocationStatsTable({ rows }: { rows: LocationStatsRow[] 
     }
 
     loadTopAgents()
-  }, [selectedLocationId])
+  }, [selectedLocationId, serviceArea, userRole])
 
   if (!rows || rows.length === 0) {
     return null

@@ -16,6 +16,7 @@ export async function POST(req: NextRequest) {
     } = body
 
     console.log('📧 Iniciando notificación de cambio de sede:', {
+      assetId,
       assetTag,
       fromLocationId,
       toLocationId,

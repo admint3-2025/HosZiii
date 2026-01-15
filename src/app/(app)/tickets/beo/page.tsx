@@ -7,23 +7,6 @@ export const metadata = {
   description: 'Tickets BEO (Banquet Event Orders) creados',
 }
 
-type BEOTicket = {
-  id: string
-  ticket_number: string
-  title: string
-  status: string
-  priority: string
-  created_at: string
-  beo_number: string
-  event_name: string
-  event_date: string | null
-  event_room: string | null
-  days_until_event: number | null
-  urgency_level: string
-  requester_name: string
-  agent_name: string | null
-}
-
 export default async function MyBEOTicketsPage() {
   const supabase = await createSupabaseServerClient()
   

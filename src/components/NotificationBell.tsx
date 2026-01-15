@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 import Link from 'next/link'
 
@@ -21,7 +21,26 @@ export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
-  const supabase = createSupabaseBrowserClient()
+  const supabase = useMemo(() => createSupabaseBrowserClient(), [])
+
+  const loadNotifications = useCallback(async () => {
+    try {
+      const { data, error } = await supabase
+        .from('notifications')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20)
+
+      if (error) throw error
+
+      setNotifications(data || [])
+      setUnreadCount(data?.filter((n) => !n.is_read).length || 0)
+    } catch (error) {
+      console.error('Error cargando notificaciones:', error)
+    } finally {
+      setIsLoading(false)
+    }
+  }, [supabase])
 
   // Obtener usuario actual
   useEffect(() => {
@@ -32,7 +51,7 @@ export default function NotificationBell() {
       }
     }
     getUser()
-  }, [])
+  }, [supabase])
 
   // Cargar notificaciones iniciales y suscribirse a cambios
   useEffect(() => {
@@ -93,7 +112,7 @@ export default function NotificationBell() {
       console.log('[NotificationBell] Unsubscribing from channel')
       supabase.removeChannel(channel)
     }
-  }, [userId])
+  }, [userId, supabase, loadNotifications])
 
   // Solicitar permisos de notificaciones del navegador
   useEffect(() => {
@@ -101,25 +120,6 @@ export default function NotificationBell() {
       Notification.requestPermission()
     }
   }, [])
-
-  async function loadNotifications() {
-    try {
-      const { data, error } = await supabase
-        .from('notifications')
-        .select('*')
-        .order('created_at', { ascending: false })
-        .limit(20)
-
-      if (error) throw error
-
-      setNotifications(data || [])
-      setUnreadCount(data?.filter((n) => !n.is_read).length || 0)
-    } catch (error) {
-      console.error('Error cargando notificaciones:', error)
-    } finally {
-      setIsLoading(false)
-    }
-  }
 
   async function markAsRead(id: string) {
     try {

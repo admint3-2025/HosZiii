@@ -794,6 +794,7 @@ export default function AssetDetailView({
                       aria-label="Abrir imagen del activo en tamaño real"
                       title="Abrir imagen en tamaño real"
                     >
+                      {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
                         src={asset.image_url}
                         alt={`Imagen de ${asset.asset_tag}`}
@@ -816,6 +817,7 @@ export default function AssetDetailView({
                   <div className="bg-gradient-to-br from-blue-50 to-indigo-50 rounded-lg border-2 border-blue-400 p-6 flex items-center justify-center" style={{ minHeight: '320px' }}>
                     {qrImageUrl ? (
                       <div className="bg-white p-4 rounded-xl shadow-lg">
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
                           src={qrImageUrl}
                           alt={`Código QR de ${asset.asset_tag}`}

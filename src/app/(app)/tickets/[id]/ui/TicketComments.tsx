@@ -7,8 +7,6 @@ import { getSignedUrl } from '@/lib/storage/attachments'
 import { getAvatarInitial } from '@/lib/ui/avatar'
 
 function AttachmentLink({ attachment, isImage }: { attachment: any; isImage: boolean }) {
-  const [url, setUrl] = useState<string | null>(null)
-
   async function handleClick(e: React.MouseEvent) {
     e.preventDefault()
     const signedUrl = await getSignedUrl(attachment.storage_path)
@@ -429,6 +427,7 @@ export default function TicketComments({
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3 p-3 bg-gray-50 rounded-lg border border-gray-200">
                 {previewUrls.map((url, idx) => (
                   <div key={idx} className="relative group">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img
                       src={url}
                       alt={attachments[idx].name}

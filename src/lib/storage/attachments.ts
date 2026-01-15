@@ -66,7 +66,7 @@ export async function uploadTicketAttachment(
 
   try {
     // Subir archivo a Storage
-    const { data: uploadData, error: uploadError } = await supabase.storage
+    const { error: uploadError } = await supabase.storage
       .from('ticket-attachments')
       .upload(fileName, file, {
         cacheControl: '3600',

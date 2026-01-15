@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { usePathname } from 'next/navigation'
 import { useEffect, useState } from 'react'
 import SignOutButton from './SignOutButton'
@@ -245,6 +246,8 @@ export default function AppShellClient({
   const helpdeskItems: MenuSection['items'] = [
     { id: 'hd_dashboard', label: 'Dashboard', icon: 'Dashboard', href: '/dashboard' },
     { id: 'hd_tickets_mine', label: 'Mis Tickets', icon: 'Ticket', href: '/tickets?view=mine' },
+    { id: 'hd_new_it', label: 'Crear Ticket IT', icon: 'Ticket', href: '/tickets/new?area=it' },
+    { id: 'hd_new_maintenance', label: 'Crear Ticket Mantenimiento', icon: 'Wrench', href: '/tickets/new?area=maintenance' },
     ...(userData.role === 'admin' || userData.role === 'supervisor'
       ? ([{ id: 'hd_tickets_queue', label: 'Bandeja', icon: 'BarChart', href: '/tickets?view=queue', roles: ['admin', 'supervisor'] }] as MenuSection['items'])
       : []),
@@ -427,10 +430,13 @@ export default function AppShellClient({
         <div className="h-20 flex items-center px-4 z-10 border-b border-slate-800">
           <div className="flex items-center gap-3 text-white font-bold tracking-tight overflow-hidden">
             <div className="bg-white rounded-xl shadow-lg shadow-indigo-500/20 flex items-center justify-center p-1 flex-shrink-0">
-              <img 
-                src="https://integrational3.com.mx/logorigen/ZIII%20logo.png" 
-                alt="ZIII Logo" 
+              <Image
+                src="https://integrational3.com.mx/logorigen/ZIII%20logo.png"
+                alt="ZIII Logo"
+                width={40}
+                height={40}
                 className={`${sidebarOpen ? 'w-10 h-10' : 'w-9 h-9'} object-contain transition-all`}
+                unoptimized
               />
             </div>
             {sidebarOpen && (
@@ -608,10 +614,13 @@ export default function AppShellClient({
             {/* Logo móvil */}
             <div className="lg:hidden flex items-center gap-2 mr-4">
               <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow-lg p-1 border border-white/20">
-                <img 
-                  src="https://integrational3.com.mx/logorigen/ZIII%20logo.png" 
-                  alt="ZIII Logo" 
+                <Image
+                  src="https://integrational3.com.mx/logorigen/ZIII%20logo.png"
+                  alt="ZIII Logo"
+                  width={32}
+                  height={32}
                   className="w-8 h-8 object-contain"
+                  unoptimized
                 />
               </div>
             </div>

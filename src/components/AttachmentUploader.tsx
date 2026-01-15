@@ -119,11 +119,14 @@ export default function AttachmentUploader({ onFilesChange, maxFiles = 5 }: Prop
               {/* Preview o ícono */}
               <div className="flex-shrink-0">
                 {item.preview ? (
-                  <img
-                    src={item.preview}
-                    alt={item.file.name}
-                    className="w-12 h-12 object-cover rounded border border-gray-300"
-                  />
+                  <>
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img
+                      src={item.preview}
+                      alt={item.file.name}
+                      className="w-12 h-12 object-cover rounded border border-gray-300"
+                    />
+                  </>
                 ) : (
                   <div className="w-12 h-12 flex items-center justify-center bg-white border border-gray-300 rounded text-2xl">
                     {getFileIcon(item.file.type)}

@@ -1740,7 +1740,9 @@ export function ticketInvestigationEmailTemplate(params: {
     `Prioridad: ${priority}`,
     `Categoría: ${category}`,
     `Sede: ${locationName} (${locationCode})`,
-    assetTag ? `Activo: ${assetTag} ${assetBrand || ''} ${assetModel || ''}`.trim() : '',
+    assetTag
+      ? `Activo: ${[assetTag, assetBrand, assetModel].filter(Boolean).join(' ')}${assetType ? ` | Tipo: ${assetType}` : ''}${assetSerial ? ` | Serie: ${assetSerial}` : ''}`
+      : '',
     ``,
     `Solicitante: ${requesterName}`,
     `Asignado a: ${assignedAgentName || 'Sin asignar'}`,

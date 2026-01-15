@@ -35,11 +35,46 @@ type Asset = {
   status: string
   assigned_to: string | null
   assigned_to_name: string | null
+  location_id?: string | null
   location_code?: string | null
   location_name?: string | null
 }
 
-export default function TicketCreateForm({ categories: initialCategories }: { categories: CategoryRow[] }) {
+type TicketCreateFormProps = {
+  categories: CategoryRow[]
+  initialServiceArea?: Exclude<TicketServiceArea, 'beo'>
+  lockServiceArea?: boolean
+}
+
+// Colores por área de servicio
+const areaThemes = {
+  it: {
+    primary: 'blue',
+    accent: 'indigo',
+    bgCard: 'from-blue-50 to-indigo-50',
+    borderCard: 'border-blue-200',
+    textPrimary: 'text-blue-900',
+    textSecondary: 'text-blue-700',
+    bgIcon: 'bg-blue-100',
+    iconColor: 'text-blue-600',
+  },
+  maintenance: {
+    primary: 'amber',
+    accent: 'orange',
+    bgCard: 'from-amber-50 to-orange-50',
+    borderCard: 'border-amber-200',
+    textPrimary: 'text-amber-900',
+    textSecondary: 'text-amber-700',
+    bgIcon: 'bg-amber-100',
+    iconColor: 'text-amber-600',
+  },
+} as const
+
+export default function TicketCreateForm({
+  categories: initialCategories,
+  initialServiceArea,
+  lockServiceArea,
+}: TicketCreateFormProps) {
   const router = useRouter()
   const supabase = createSupabaseBrowserClient()
   const [categories, setCategories] = useState<CategoryRow[]>(initialCategories)
@@ -60,12 +95,18 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
   const [requesterId, setRequesterId] = useState<string>('')
   const [canCreateForOthers, setCanCreateForOthers] = useState(false)
+  const [isAdminOrSupervisor, setIsAdminOrSupervisor] = useState(false)
+  const [isAdmin, setIsAdmin] = useState(false)
   const [loadingUsers, setLoadingUsers] = useState(false)
   const [usersError, setUsersError] = useState<string | null>(null)
   
   // Asset selection (optional)
   const [assets, setAssets] = useState<Asset[]>([])
   const [assetId, setAssetId] = useState<string>('')
+  const [assetsLoaded, setAssetsLoaded] = useState(false)
+  const [assetsLoadError, setAssetsLoadError] = useState<string | null>(null)
+  const [userLocationId, setUserLocationId] = useState<string | null>(null)
+  const [userLocationIds, setUserLocationIds] = useState<string[]>([])
   
   // Modal states (category creation)
   const [showModal, setShowModal] = useState(false)
@@ -83,6 +124,11 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
 
   const priority = useMemo(() => computePriority({ impact, urgency }), [impact, urgency])
 
+  useEffect(() => {
+    if (!initialServiceArea) return
+    setServiceArea(initialServiceArea)
+  }, [initialServiceArea])
+
   // Load users and check if current user can create tickets for others
   useEffect(() => {
     async function loadData() {
@@ -92,12 +138,38 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
       setCurrentUserId(user.id)
       setRequesterId(user.id) // Default to self
 
-      // Check if user is agent/supervisor/admin
+      // Check if user is agent/supervisor/admin and get location
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role')
+        .select('role, location_id')
         .eq('id', user.id)
         .single()
+
+      // Guardar location del usuario para filtrar activos de mantenimiento
+      if (profile?.location_id) {
+        setUserLocationId(profile.location_id)
+      }
+
+      // Admin puede ver todos los activos de todas las sedes
+      if (profile?.role === 'admin') {
+        setIsAdmin(true)
+        setIsAdminOrSupervisor(true)
+      }
+      // Supervisor puede ver activos de sus sedes asignadas
+      else if (profile?.role === 'supervisor') {
+        setIsAdminOrSupervisor(true)
+        // Obtener sedes asignadas al supervisor
+        const { data: userLocs } = await supabase
+          .from('user_locations')
+          .select('location_id')
+          .eq('user_id', user.id)
+        
+        const locationIds = userLocs?.map(ul => ul.location_id).filter(Boolean) || []
+        if (profile.location_id && !locationIds.includes(profile.location_id)) {
+          locationIds.push(profile.location_id)
+        }
+        setUserLocationIds(locationIds)
+      }
 
       if (profile && ['agent_l1', 'agent_l2', 'supervisor', 'admin'].includes(profile.role)) {
         setCanCreateForOthers(true)
@@ -128,6 +200,9 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
       }
 
       // Load available assets (only operational ones) with location info
+      // Filtrar según área:
+      // - IT: Solo activos asignados al usuario actual
+      // - Mantenimiento: Todos los activos de la sede del usuario
       const { data: assetsData, error: assetsError } = await supabase
         .from('assets')
         .select('id, asset_tag, asset_type, brand, model, status, assigned_to, location_id, asset_location:locations!location_id(code, name)')
@@ -137,6 +212,9 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
 
       if (assetsError) {
         console.error('Error cargando assets:', assetsError)
+        setAssetsLoadError(assetsError.message)
+        setAssetsLoaded(true)
+        return
       }
 
       if (assetsData && assetsData.length > 0) {
@@ -153,8 +231,15 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
               assigned_to_name = profile?.full_name || null
             }
             return {
-              ...asset,
+              id: asset.id,
+              asset_tag: asset.asset_tag,
+              asset_type: asset.asset_type,
+              brand: asset.brand,
+              model: asset.model,
+              status: asset.status,
+              assigned_to: asset.assigned_to,
               assigned_to_name,
+              location_id: asset.location_id,
               location_code: asset.asset_location?.code ?? null,
               location_name: asset.asset_location?.name ?? null,
             }
@@ -162,6 +247,9 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
         )
         setAssets(assetsWithNames)
       }
+
+      setAssetsLoadError(null)
+      setAssetsLoaded(true)
     }
     loadData()
   }, [supabase])
@@ -203,11 +291,48 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
 
   const hasRootsForSelectedArea = roots.length > 0
 
+  // Filtrar activos según área de servicio y rol:
+  // - Admin: Ve todos los activos de la categoría seleccionada (todas las sedes)
+  // - Supervisor: Ve activos de la categoría seleccionada solo de sus sedes asignadas
+  // - Usuario normal IT: Solo activos de IT asignados a él
+  // - Usuario normal Mantenimiento: Activos de mantenimiento de su sede
   const filteredAssets = useMemo(() => {
-    if (!serviceArea) return []
-    if (serviceArea === 'it') return assets.filter((a) => isITAsset(a.asset_type))
-    return assets.filter((a) => !isITAsset(a.asset_type))
-  }, [assets, serviceArea])
+    if (!serviceArea || !currentUserId) return []
+    
+    // Admin ve todos los activos del área seleccionada (todas las sedes)
+    if (isAdmin) {
+      if (serviceArea === 'it') {
+        return assets.filter((a) => isITAsset(a.asset_type))
+      }
+      return assets.filter((a) => !isITAsset(a.asset_type))
+    }
+    
+    // Supervisor ve activos del área seleccionada de sus sedes asignadas
+    if (isAdminOrSupervisor && userLocationIds.length > 0) {
+      if (serviceArea === 'it') {
+        return assets.filter((a) => 
+          isITAsset(a.asset_type) && a.location_id && userLocationIds.includes(a.location_id)
+        )
+      }
+      return assets.filter((a) => 
+        !isITAsset(a.asset_type) && a.location_id && userLocationIds.includes(a.location_id)
+      )
+    }
+    
+    // Usuarios normales tienen restricciones
+    if (serviceArea === 'it') {
+      // IT: Solo activos de IT asignados al usuario actual
+      return assets.filter((a) => 
+        isITAsset(a.asset_type) && a.assigned_to === currentUserId
+      )
+    }
+    
+    // Mantenimiento: Activos de mantenimiento de la sede del usuario
+    if (!userLocationId) return []
+    return assets.filter((a) => 
+      !isITAsset(a.asset_type) && a.location_id === userLocationId
+    )
+  }, [assets, serviceArea, currentUserId, userLocationId, userLocationIds, isAdmin, isAdminOrSupervisor])
 
   const l2Options = useMemo(() => {
     const filtered = categories.filter((c) => c.parent_id === categoryL1)
@@ -432,6 +557,9 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
     setShowModal(true)
   }
 
+  // Obtener tema actual según área seleccionada
+  const currentTheme = serviceArea ? areaThemes[serviceArea] : null
+
   return (
     <>
       <form onSubmit={onSubmit} className="space-y-6">
@@ -439,8 +567,8 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
         <div className="card shadow-lg border-0">
           <div className="card-body">
             <div className="flex items-center gap-2 mb-4">
-              <div className="p-2 bg-purple-100 rounded-lg">
-                <svg className="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <div className={`p-2 rounded-lg ${currentTheme?.bgIcon || 'bg-purple-100'}`}>
+                <svg className={`w-5 h-5 ${currentTheme?.iconColor || 'text-purple-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                 </svg>
               </div>
@@ -450,60 +578,94 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
               </div>
             </div>
 
-            <div className="mb-4">
-              <label className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Área de servicio</label>
-              <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
-                <div className="join w-full sm:w-auto">
-                  <button
-                    type="button"
-                    className={`btn btn-sm join-item ${serviceArea === 'it' ? 'btn-active' : ''}`}
-                    onClick={() => {
-                      setServiceArea('it')
-                      setCategoryL1('')
-                      setCategoryL2('')
-                      setCategoryL3('')
-                      setAssetId('')
-                    }}
-                  >
-                    IT
-                  </button>
-                  <button
-                    type="button"
-                    className={`btn btn-sm join-item ${serviceArea === 'maintenance' ? 'btn-active' : ''}`}
-                    onClick={() => {
-                      setServiceArea('maintenance')
-                      setCategoryL1('')
-                      setCategoryL2('')
-                      setCategoryL3('')
-                      setAssetId('')
-                    }}
-                  >
-                    Mantenimiento
-                  </button>
-                </div>
-                <p className="text-xs text-gray-600">
-                  Define a qué equipo se enruta el ticket.
-                </p>
-              </div>
-
-              {!!serviceArea && !hasRootsForSelectedArea && (
-                <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
-                  No hay categorías configuradas para <span className="font-semibold">{serviceArea === 'maintenance' ? 'Mantenimiento' : 'IT'}</span>.
-                  <span className="block">Un admin debe crear la categoría raíz y subcategorías (ej.: raíz “Mantenimiento”).</span>
-                  {serviceArea === 'maintenance' && (
-                    <div className="mt-2">
-                      <button
-                        type="button"
-                        className="btn btn-xs"
-                        onClick={() => openPrefilledRootCategory('Mantenimiento')}
-                      >
-                        Crear categoría raíz “Mantenimiento”
-                      </button>
+            {!lockServiceArea && (
+              <div className="mb-4">
+                <label className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Área de servicio</label>
+                <div className="mt-2 grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Área de servicio">
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={serviceArea === 'it'}
+                  className={
+                    `w-full rounded-lg border px-4 py-3 text-left transition ` +
+                    (serviceArea === 'it'
+                      ? 'border-blue-600 bg-blue-50'
+                      : 'border-gray-200 bg-white hover:bg-gray-50')
+                  }
+                  onClick={() => {
+                    setServiceArea('it')
+                    setCategoryL1('')
+                    setCategoryL2('')
+                    setCategoryL3('')
+                    setAssetId('')
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-md bg-blue-100 p-2">
+                      <svg className="h-5 w-5 text-blue-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1-1h-1l2.25-3m3.75-2a3 3 0 10-6 0 3 3 0 006 0zm0 0a7.5 7.5 0 103.75 6.5" />
+                      </svg>
                     </div>
-                  )}
+                    <div>
+                      <div className="text-sm font-semibold text-gray-900">IT</div>
+                      <div className="text-xs text-gray-600">Hardware, software, redes, accesos</div>
+                    </div>
+                  </div>
+                </button>
+
+                <button
+                  type="button"
+                  role="radio"
+                  aria-checked={serviceArea === 'maintenance'}
+                  className={
+                    `w-full rounded-lg border px-4 py-3 text-left transition ` +
+                    (serviceArea === 'maintenance'
+                      ? 'border-orange-600 bg-orange-50'
+                      : 'border-gray-200 bg-white hover:bg-gray-50')
+                  }
+                  onClick={() => {
+                    setServiceArea('maintenance')
+                    setCategoryL1('')
+                    setCategoryL2('')
+                    setCategoryL3('')
+                    setAssetId('')
+                  }}
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="rounded-md bg-orange-100 p-2">
+                      <svg className="h-5 w-5 text-orange-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M14.7 6.3a1 1 0 011.4 0l1.6 1.6a1 1 0 010 1.4l-7.9 7.9a2 2 0 01-1.1.6l-3.1.6.6-3.1a2 2 0 01.6-1.1l7.9-7.9z" />
+                      </svg>
+                    </div>
+                    <div>
+                      <div className="text-sm font-semibold text-gray-900">Mantenimiento</div>
+                      <div className="text-xs text-gray-600">Infraestructura, HVAC, plomería, electricidad</div>
+                    </div>
+                  </div>
+                </button>
                 </div>
-              )}
-            </div>
+
+                <p className="mt-2 text-xs text-gray-600">Primero elige el área; luego categoría y activo (si aplica).</p>
+
+                {!!serviceArea && !hasRootsForSelectedArea && (
+                  <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                    No hay categorías configuradas para <span className="font-semibold">{serviceArea === 'maintenance' ? 'Mantenimiento' : 'IT'}</span>.
+                    <span className="block">Un admin debe crear la categoría raíz y subcategorías (ej.: raíz “Mantenimiento”).</span>
+                    {serviceArea === 'maintenance' && (
+                      <div className="mt-2">
+                        <button
+                          type="button"
+                          className="btn btn-xs"
+                          onClick={() => openPrefilledRootCategory('Mantenimiento')}
+                        >
+                          Crear categoría raíz “Mantenimiento”
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            )}
 
             <div className="grid gap-3 sm:grid-cols-3">
             <div>
@@ -684,32 +846,58 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
           </div>
         )}
 
-        {/* Selector de activo (opcional) */}
-        {assets.length > 0 && (
+        {/* Selector de activo (opcional) - con tema dinámico */}
+        {
           <div className="card shadow-lg border-0 overflow-hidden">
-            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border-b border-emerald-200 px-6 py-4">
+            <div className={`bg-gradient-to-br ${serviceArea === 'it' ? 'from-blue-50 to-indigo-50 border-blue-200' : serviceArea === 'maintenance' ? 'from-amber-50 to-orange-50 border-amber-200' : 'from-emerald-50 to-teal-50 border-emerald-200'} border-b px-6 py-4`}>
               <div className="flex items-center gap-3">
-                <div className="p-2 bg-emerald-100 rounded-lg">
-                  <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <div className={`p-2 rounded-lg ${serviceArea === 'it' ? 'bg-blue-100' : serviceArea === 'maintenance' ? 'bg-amber-100' : 'bg-emerald-100'}`}>
+                  <svg className={`w-5 h-5 ${serviceArea === 'it' ? 'text-blue-600' : serviceArea === 'maintenance' ? 'text-amber-600' : 'text-emerald-600'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
                   </svg>
                 </div>
                 <div>
-                  <h3 className="text-sm font-semibold text-emerald-900 uppercase tracking-wider">Activo relacionado</h3>
-                  <p className="text-xs text-emerald-700">
-                    Opcional: vincula este ticket con un activo de {serviceArea === 'maintenance' ? 'Mantenimiento' : 'IT'}
+                  <h3 className={`text-sm font-semibold uppercase tracking-wider ${serviceArea === 'it' ? 'text-blue-900' : serviceArea === 'maintenance' ? 'text-amber-900' : 'text-emerald-900'}`}>
+                    Activo relacionado {isAdmin 
+                      ? (serviceArea === 'it' ? '(IT - todas las sedes)' : serviceArea === 'maintenance' ? '(Mantenimiento - todas las sedes)' : '')
+                      : isAdminOrSupervisor
+                        ? (serviceArea === 'it' ? '(IT - tus sedes)' : serviceArea === 'maintenance' ? '(Mantenimiento - tus sedes)' : '')
+                        : (serviceArea === 'it' ? '(IT - asignados a ti)' : serviceArea === 'maintenance' ? '(Mantenimiento - tu sede)' : '')}
+                  </h3>
+                  <p className={`text-xs ${serviceArea === 'it' ? 'text-blue-700' : serviceArea === 'maintenance' ? 'text-amber-700' : 'text-emerald-700'}`}>
+                    {isAdmin 
+                      ? 'Como admin puedes seleccionar cualquier activo de cualquier sede'
+                      : isAdminOrSupervisor 
+                        ? 'Como supervisor puedes seleccionar activos de tus sedes asignadas'
+                        : serviceArea === 'it' 
+                          ? 'Solo tus equipos de cómputo asignados' 
+                          : serviceArea === 'maintenance' 
+                            ? 'Equipos de infraestructura de tu sede' 
+                            : 'Selecciona un área para ver activos'}
                   </p>
                 </div>
               </div>
             </div>
             <div className="card-body">
-              {!serviceArea ? (
+              {!assetsLoaded ? (
+                <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                  Cargando activos…
+                </div>
+              ) : assetsLoadError ? (
+                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                  No se pudieron cargar activos: {assetsLoadError}
+                </div>
+              ) : !serviceArea ? (
                 <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
                   Selecciona primero el área (IT / Mantenimiento) para ver activos disponibles.
                 </div>
               ) : filteredAssets.length === 0 ? (
-                <div className="rounded-md border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-yellow-700">
-                  No hay activos disponibles para {serviceArea === 'maintenance' ? 'Mantenimiento' : 'IT'}.
+                <div className={`rounded-md border px-3 py-2 text-sm ${serviceArea === 'it' ? 'border-blue-200 bg-blue-50 text-blue-700' : 'border-amber-200 bg-amber-50 text-amber-700'}`}>
+                  {isAdminOrSupervisor
+                    ? `No hay activos de ${serviceArea === 'it' ? 'IT' : 'mantenimiento'} registrados en el sistema.`
+                    : serviceArea === 'it' 
+                      ? 'No tienes equipos de IT asignados. Si necesitas reportar un problema con un equipo, contacta a tu supervisor.'
+                      : 'No hay activos de mantenimiento registrados en tu sede.'}
                 </div>
               ) : (
                 <select
@@ -733,7 +921,7 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
               )}
             </div>
           </div>
-        )}
+        }
 
         {/* Card de información del ticket */}
         <div className="card shadow-lg border-0">

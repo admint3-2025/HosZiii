@@ -130,6 +130,7 @@ export default function DisposalApprovalPanel({ requests }: Props) {
                   <div className="flex items-start gap-4">
                     {/* Imagen */}
                     {snapshot?.image_url && (
+                      // eslint-disable-next-line @next/next/no-img-element
                       <img 
                         src={snapshot.image_url} 
                         alt={snapshot.asset_tag}

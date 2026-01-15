@@ -1,4 +1,5 @@
 import { redirect } from 'next/navigation'
+import Image from 'next/image'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import LoginForm from './ui/LoginForm'
 
@@ -28,10 +29,13 @@ export default async function LoginPage() {
 
         <div className="relative z-10">
           <div className="flex items-center gap-4">
-            <img
+            <Image
               src="https://integrational3.com.mx/logorigen/ZIII%20logo.png"
               alt="ZIII HoS"
+              width={56}
+              height={56}
               className="h-14 w-14 object-contain"
+              unoptimized
             />
             <span className="inline-flex items-center gap-2 rounded-full bg-emerald-500/10 px-4 py-2 text-xs font-semibold tracking-wider text-emerald-200 border border-emerald-500/20">
               <span className="h-2 w-2 rounded-full bg-emerald-400" />
@@ -117,7 +121,14 @@ export default async function LoginPage() {
       <section className="flex-1 flex items-center justify-center p-6 lg:p-12 bg-slate-50">
         <div className="w-full max-w-md">
           <div className="flex flex-col items-center">
-            <img src="https://integrational3.com.mx/logorigen/ZIII%20logo.png" alt="ZIII HoS" className="h-16 w-16 object-contain" />
+            <Image
+              src="https://integrational3.com.mx/logorigen/ZIII%20logo.png"
+              alt="ZIII HoS"
+              width={64}
+              height={64}
+              className="h-16 w-16 object-contain"
+              unoptimized
+            />
             <h2 className="mt-6 text-xl font-bold text-slate-900">Bienvenido a ZIII HoS</h2>
             <p className="mt-1 text-sm text-slate-500">Plataforma integral para gestión hotelera corporativa</p>
           </div>

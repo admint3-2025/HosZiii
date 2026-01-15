@@ -142,7 +142,7 @@ export function StatCard({
     rose: 'from-rose-500 to-pink-600 text-rose-600 bg-rose-50',
   }
   
-  const [gradientColors, textColor, bgColor] = colors[color].split(' ')
+  const [, textColor, bgColor] = colors[color].split(' ')
   
   return (
     <div className="bg-white rounded-xl border border-slate-200/80 p-4 hover:shadow-md transition-shadow">

@@ -284,11 +284,8 @@ function AttachmentPreview({ attachment }: { attachment: Attachment }) {
   }
 
   return (
-    <img
-      src={signedUrl}
-      alt={attachment.file_name}
-      className="w-full h-full object-cover"
-    />
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={signedUrl} alt={attachment.file_name} className="w-full h-full object-cover" />
   )
 }
 
@@ -319,10 +316,7 @@ function ImagePreviewModal({ attachment }: { attachment: Attachment }) {
   }
 
   return (
-    <img
-      src={signedUrl}
-      alt={attachment.file_name}
-      className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl"
-    />
+    // eslint-disable-next-line @next/next/no-img-element
+    <img src={signedUrl} alt={attachment.file_name} className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl" />
   )
 }

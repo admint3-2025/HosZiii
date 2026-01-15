@@ -17,35 +17,37 @@ export default function KBSuggestions({
   ticketId
 }: KBSuggestionsProps) {
   const [articles, setArticles] = useState<KBArticle[]>([])
-  const [loading, setLoading] = useState(false)
   const [selectedArticle, setSelectedArticle] = useState<KBArticle | null>(null)
   const [feedbackSent, setFeedbackSent] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
-    if (categoryLevel1) {
-      loadSuggestions()
-    } else {
-      setArticles([])
+    let cancelled = false
+
+    async function loadSuggestions() {
+      if (!categoryLevel1) {
+        setArticles([])
+        return
+      }
+
+      const result = await searchKBArticlesByCategory(categoryLevel1, categoryLevel2, categoryLevel3)
+
+      if (cancelled) return
+
+      if (result.success && result.articles) {
+        setArticles(result.articles.slice(0, 3)) // Top 3
+      } else {
+        setArticles([])
+      }
+    }
+
+    void loadSuggestions()
+
+    return () => {
+      cancelled = true
     }
   }, [categoryLevel1, categoryLevel2, categoryLevel3])
 
-  async function loadSuggestions() {
-    if (!categoryLevel1) return
-    
-    setLoading(true)
-    const result = await searchKBArticlesByCategory(
-      categoryLevel1,
-      categoryLevel2,
-      categoryLevel3
-    )
-    setLoading(false)
-
-    if (result.success && result.articles) {
-      setArticles(result.articles.slice(0, 3)) // Top 3
-    }
-  }
-
-  async function handleArticleClick(article: KBArticle) {
+  function handleArticleClick(article: KBArticle) {
     setSelectedArticle(article)
   }
 

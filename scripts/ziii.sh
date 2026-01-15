@@ -78,6 +78,8 @@ cd "$RUN_DIR"
 cmd="${1:-}"
 shift || true
 
+NEXT_BIN=(node node_modules/next/dist/bin/next)
+
 case "$cmd" in
   ""|help|-h|--help)
     print_help
@@ -110,7 +112,7 @@ case "$cmd" in
           done
         ) &
         sync_pid=$!
-        npm run dev -- "$@"
+        "${NEXT_BIN[@]}" dev "$@"
         kill "$sync_pid" >/dev/null 2>&1 || true
         wait "$sync_pid" >/dev/null 2>&1 || true
         exit 0
@@ -119,10 +121,10 @@ case "$cmd" in
         echo "[ziii] Recomendado: abrir VS Code en $RUN_DIR para dev con hot-reload." >&2
       fi
     fi
-    exec npm run dev -- "$@"
+    exec "${NEXT_BIN[@]}" dev "$@"
     ;;
   build)
-    exec npm run build -- "$@"
+    exec "${NEXT_BIN[@]}" build "$@"
     ;;
   start)
     # next start requires a completed build in the *same* RUN_DIR.
@@ -130,12 +132,12 @@ case "$cmd" in
     # get runtime ENOENT errors like `.next/server/webpack-runtime.js` missing.
     if [[ ! -f ".next/server/webpack-runtime.js" ]]; then
       echo "[ziii] Build output faltante en: $RUN_DIR/.next (ejecutando build primero)" >&2
-      npm run build
+      "${NEXT_BIN[@]}" build
     fi
-    exec npm run start -- "$@"
+    exec "${NEXT_BIN[@]}" start "$@"
     ;;
   lint)
-    exec npm run lint -- "$@"
+    exec "${NEXT_BIN[@]}" lint "$@"
     ;;
   *)
     echo "Comando no reconocido: $cmd" >&2

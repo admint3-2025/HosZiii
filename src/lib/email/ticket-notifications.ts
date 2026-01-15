@@ -511,14 +511,6 @@ export async function notifyTicketEscalated(data: TicketNotificationData) {
     // Notificar al solicitante
     const { data: requester } = await supabase.auth.admin.getUserById(data.requesterId)
     if (requester.user?.email && requester.user.email !== specialist.user?.email) {
-      const { data: requesterProfile } = await supabase
-        .from('profiles')
-        .select('full_name')
-        .eq('id', data.requesterId)
-        .single()
-
-      const requesterName = requesterProfile?.full_name || requester.user.email
-
       const { data: specialistProfile } = await supabase
         .from('profiles')
         .select('full_name')

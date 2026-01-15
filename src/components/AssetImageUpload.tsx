@@ -102,6 +102,7 @@ export default function AssetImageUpload({
       {previewUrl ? (
         <div className="relative">
           <div className="relative w-full h-48 bg-gray-100 rounded-lg overflow-hidden border-2 border-gray-200">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
               src={previewUrl}
               alt="Imagen del activo"

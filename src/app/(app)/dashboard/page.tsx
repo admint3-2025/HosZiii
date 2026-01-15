@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getLocationFilter } from '@/lib/supabase/locations'
 import { unstable_noStore as noStore } from 'next/cache'
+import Link from 'next/link'
 import StatusChart from './ui/StatusChart'
 import PriorityChart from './ui/PriorityChart'
 import TrendChart from './ui/TrendChart'
@@ -23,14 +24,22 @@ export default async function DashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
   const { data: profile } = user ? await supabase
     .from('profiles')
-    .select('role,department')
+    .select('role,department,asset_category')
     .eq('id', user.id)
     .single() : { data: null }
 
   const isAdminOrSupervisor = profile?.role === 'admin' || profile?.role === 'supervisor'
+  const isAgent = profile?.role === 'agent_l1' || profile?.role === 'agent_l2'
+  
+  // Inferir área de servicio: primero por asset_category (explícito), luego por departamento
   const inferredServiceArea = (() => {
+    // Si tiene asset_category explícito, usarlo
+    if (profile?.asset_category === 'IT') return 'it'
+    if (profile?.asset_category === 'MAINTENANCE') return 'maintenance'
+    
+    // Fallback: inferir por departamento
     const dept = (profile?.department ?? '').toLowerCase()
-    if (dept.includes('mantenim')) return 'maintenance'
+    if (dept.includes('mantenim') || dept.includes('hvac') || dept.includes('infraestructura')) return 'maintenance'
     return 'it'
   })()
 
@@ -53,13 +62,15 @@ export default async function DashboardPage() {
     return query.eq('location_id', 'none')
   }
 
-  // En dashboard, para supervisor/admin mostramos vista operativa (cola) sin mezclar solicitudes propias.
+  // En dashboard, para supervisor/agentes mostramos vista operativa filtrada por área de servicio.
+  // Admins ven todo, supervisores y agentes solo su área (IT o Mantenimiento)
   const applyOperationalScope = (query: any) => {
     let q = query
     if (user?.id && isAdminOrSupervisor) {
       q = q.neq('requester_id', user.id)
     }
-    if (profile?.role === 'supervisor') {
+    // Supervisores y agentes solo ven tickets de su área de servicio
+    if (profile?.role === 'supervisor' || isAgent) {
       q = q.eq('service_area', inferredServiceArea)
     }
     return q
@@ -133,12 +144,12 @@ export default async function DashboardPage() {
     return `${year}-${month}-${day}`
   })
 
-  const { data: trendData, error: trendError } = await applyFilter(
+  const { data: trendData, error: trendError } = await applyOperationalScope(applyFilter(
     supabase
       .from('tickets')
       .select('created_at')
       .gte('created_at', last7Days[0])
-  )
+  ))
   if (trendError) dashboardErrors.push(trendError.message)
 
   const trendCountMap = new Map<string, number>()
@@ -226,26 +237,53 @@ export default async function DashboardPage() {
   if (user) {
     const { data: profileForStats } = await supabase
       .from('profiles')
-      .select('role, location_id')
+      .select('role, location_id, asset_category')
       .eq('id', user.id)
       .single()
 
     if (isAdminOrSupervisor) {
-      // Si es admin, ve todas las sedes. Si es supervisor, solo sus sedes asignadas
-      let statsQuery = supabase
-        .from('location_incident_stats')
-        .select('*')
-      
-      let shouldExecuteQuery = true
-      
-      if (profileForStats?.role === 'supervisor') {
+      // Admin usa la vista original, supervisor usa consulta manual filtrada
+      if (profileForStats?.role === 'admin') {
+        // Admin: usar vista location_incident_stats (ve todas las sedes)
+        const { data: statsData, error: statsError } = await supabase
+          .from('location_incident_stats')
+          .select('*')
+
+        if (statsError) {
+          dashboardErrors.push(statsError.message)
+        } else {
+          locationStats = (statsData ?? []).map(s => ({
+            location_id: s.location_id,
+            location_code: s.location_code,
+            location_name: s.location_name,
+            total_tickets: s.total_tickets ?? 0,
+            open_tickets: s.open_tickets ?? 0,
+            closed_tickets: s.closed_tickets ?? 0,
+            avg_resolution_days: s.avg_resolution_days ?? 0
+          }))
+        }
+      } else {
+        // Supervisor: consulta manual filtrando por service_area
+        let ticketsQuery = supabase
+          .from('tickets')
+          .select('location_id, status')
+          .is('deleted_at', null)
+        
+        // Aplicar filtro de service_area para supervisores
+        if (inferredServiceArea) {
+          ticketsQuery = ticketsQuery.eq('service_area', inferredServiceArea)
+        }
+        
+        let shouldExecuteQuery = true
+        let locationIds: string[] = []
+        
         // Obtener las sedes asignadas al supervisor
-        const { data: userLocs, error: userLocsError } = await supabase
+        const { data: userLocs } = await supabase
           .from('user_locations')
           .select('location_id')
           .eq('user_id', user.id)
         
-        const locationIds = userLocs?.map(ul => ul.location_id).filter(Boolean) || []
+        locationIds = userLocs?.map(ul => ul.location_id).filter(Boolean) || []
         
         // Incluir también la location_id del perfil si existe
         if (profileForStats?.location_id && !locationIds.includes(profileForStats.location_id)) {
@@ -254,25 +292,62 @@ export default async function DashboardPage() {
         
         // Filtrar por las sedes del supervisor
         if (locationIds.length > 0) {
-          statsQuery = statsQuery.in('location_id', locationIds)
+          ticketsQuery = ticketsQuery.in('location_id', locationIds)
         } else {
-          // Si no tiene sedes asignadas, no mostrar nada
           shouldExecuteQuery = false
           locationStats = []
         }
-      }
 
-      if (shouldExecuteQuery) {
-        const { data: statsData, error: statsError } = await statsQuery
+        if (shouldExecuteQuery) {
+          const { data: ticketsData, error: ticketsError } = await ticketsQuery
 
-        if (statsError) {
-          dashboardErrors.push(statsError.message)
-        } else {
-          locationStats = statsData ?? []
+          if (ticketsError) {
+            dashboardErrors.push(ticketsError.message)
+          } else if (ticketsData) {
+            // Agrupar tickets por ubicación
+            const locationMap = new Map<string, { total: number; open: number; closed: number }>()
+            
+            ticketsData.forEach(ticket => {
+              const locId = ticket.location_id
+              if (!locId) return
+              
+              if (!locationMap.has(locId)) {
+                locationMap.set(locId, { total: 0, open: 0, closed: 0 })
+              }
+              const loc = locationMap.get(locId)!
+              loc.total++
+              if (ticket.status === 'CLOSED') {
+                loc.closed++
+              } else {
+                loc.open++
+              }
+            })
+            
+            // Obtener nombres de ubicaciones
+            const uniqueLocationIds = Array.from(locationMap.keys())
+            if (uniqueLocationIds.length > 0) {
+              const { data: locationsData } = await supabase
+                .from('locations')
+                .select('id, code, name')
+                .in('id', uniqueLocationIds)
+              
+              const locNameMap = new Map(locationsData?.map(l => [l.id, { code: l.code, name: l.name }]) || [])
+              
+              locationStats = Array.from(locationMap.entries()).map(([locId, stats]) => ({
+                location_id: locId,
+                location_code: locNameMap.get(locId)?.code || 'N/A',
+                location_name: locNameMap.get(locId)?.name || 'Desconocida',
+                total_tickets: stats.total,
+                open_tickets: stats.open,
+                closed_tickets: stats.closed,
+                avg_resolution_days: 0
+              })).sort((a, b) => b.total_tickets - a.total_tickets)
+            }
+          }
         }
-      }
-    }
-  }
+      } // end else supervisor
+    } // end isAdminOrSupervisor
+  } // end if user
 
   // Activos asignados al usuario actual
   let assignedAssets: any[] = []
@@ -337,18 +412,27 @@ export default async function DashboardPage() {
               </div>
               
               <div className="flex items-center gap-3">
-                {/* Botón principal */}
-                <a
-                  href="/tickets/new"
-                  target="_blank"
-                  rel="noopener noreferrer"
+                <Link
+                  href="/tickets/new?area=it"
                   className="group relative flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl font-bold text-sm transition-all shadow-lg hover:shadow-xl hover:shadow-indigo-500/25 hover:scale-[1.02]"
+                  aria-label="Crear ticket IT"
                 >
                   <svg className="w-4 h-4 group-hover:rotate-90 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
                   </svg>
-                  <span>Crear Ticket</span>
-                </a>
+                  <span>Ticket IT</span>
+                </Link>
+
+                <Link
+                  href="/tickets/new?area=maintenance"
+                  className="group relative flex items-center gap-2 px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold text-sm transition-all shadow-lg hover:shadow-xl hover:shadow-orange-500/25 hover:scale-[1.02]"
+                  aria-label="Crear ticket de Mantenimiento"
+                >
+                  <svg className="w-4 h-4 group-hover:rotate-90 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
+                  </svg>
+                  <span>Ticket Mtto</span>
+                </Link>
                 
                 {/* Indicador de estado */}
                 <div className="hidden lg:flex items-center gap-2 px-3 py-2 bg-slate-800/60 backdrop-blur-sm rounded-xl border border-slate-700/50">
@@ -441,7 +525,7 @@ export default async function DashboardPage() {
               <span className="text-xs font-bold text-emerald-700">Todas las ubicaciones</span>
             </div>
           </div>
-          <LocationStatsTable rows={locationStats} />
+          <LocationStatsTable rows={locationStats} serviceArea={inferredServiceArea} userRole={profile?.role ?? null} />
         </div>
       )}
 

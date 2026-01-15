@@ -2,7 +2,6 @@
 
 import { useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
-import AttachmentUploader from '@/components/AttachmentUploader'
 
 type Location = {
   id: string

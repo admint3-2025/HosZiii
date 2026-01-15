@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import Image from 'next/image'
 
 export default function Footer() {
   const currentYear = new Date().getFullYear()
@@ -10,10 +11,13 @@ export default function Footer() {
         <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 text-xs">
           {/* Logo compacto */}
           <div className="flex items-center gap-2">
-            <img
+            <Image
               src="https://integrational3.com.mx/logorigen/ZIII%20logo.png"
               alt="ZIII"
+              width={120}
+              height={32}
               className="h-6 sm:h-8 w-auto"
+              unoptimized
             />
             <div className="border-l border-slate-300 pl-2">
               <div className="font-bold text-gray-900 font-[family-name:var(--font-orbitron)] text-[10px] sm:text-xs">
