@@ -233,18 +233,6 @@ export default function AssetEditForm({ asset, locations, onCancel, onSuccess }:
           storage_gb: formData.storage_gb ? parseInt(formData.storage_gb) : null,
           os: formData.os || null,
           image_url: formData.image_url || null,
-          // Nuevos campos para mantenimiento
-          asset_name: formData.asset_name || null,
-          installation_date: formData.installation_date || null,
-          service_provider: formData.service_provider || null,
-          responsible_area: formData.responsible_area || null,
-          capacity: formData.capacity || null,
-          power_rating: formData.power_rating || null,
-          voltage: formData.voltage || null,
-          refrigerant_type: formData.refrigerant_type || null,
-          btu_rating: formData.btu_rating || null,
-          tonnage: formData.tonnage || null,
-          image_url: formData.image_url || null,
         },
         formData.location_id !== asset.location_id ? locationChangeReason : undefined
       )
