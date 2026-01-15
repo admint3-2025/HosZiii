@@ -252,7 +252,6 @@ export default function AppShellClient({
       roles: ['admin', 'supervisor', 'agent_l1', 'agent_l2'],
     },
     { id: 'hd_audit', label: 'Auditoría', icon: 'Audit', href: '/audit', roles: ['admin'] },
-    { id: 'hd_assets', label: 'Activos', icon: 'Assets', href: '/admin/assets', roles: ['admin', 'supervisor'] },
     { id: 'hd_profile', label: 'Mi Perfil', icon: 'User', href: '/profile' },
   ]
 
@@ -266,6 +265,7 @@ export default function AppShellClient({
       items: [
         { id: 'admin_users', label: 'Usuarios', icon: 'Users', href: '/admin/users', roles: ['admin'] },
         { id: 'admin_locations', label: 'Ubicaciones', icon: 'Location', href: '/admin/locations', roles: ['admin'] },
+        { id: 'admin_assets', label: 'Activos', icon: 'Assets', href: '/admin/assets', roles: ['admin', 'supervisor'] },
       ],
     },
   ]
