@@ -180,22 +180,41 @@ export default function BrandSelector({
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Categoría (Opcional)
                 </label>
-                <select
+                <input
+                  type="text"
+                  list="category-suggestions"
                   value={newBrandCategory}
                   onChange={(e) => setNewBrandCategory(e.target.value)}
+                  placeholder="Escribe o selecciona una categoría..."
                   className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                >
-                  <option value="">Seleccionar categoría...</option>
-                  <option value="Computadoras">Computadoras</option>
-                  <option value="Impresoras">Impresoras</option>
-                  <option value="Almacenamiento">Almacenamiento</option>
-                  <option value="Componentes">Componentes</option>
-                  <option value="Periféricos">Periféricos</option>
-                  <option value="Audio">Audio</option>
-                  <option value="Redes">Redes</option>
-                  <option value="Monitores">Monitores</option>
-                </select>
-                <p className="text-xs text-gray-500 mt-1">Categoría del producto</p>
+                />
+                <datalist id="category-suggestions">
+                  <option value="Computadoras" />
+                  <option value="Impresoras" />
+                  <option value="Almacenamiento" />
+                  <option value="Componentes" />
+                  <option value="Periféricos" />
+                  <option value="Audio" />
+                  <option value="Redes" />
+                  <option value="Monitores" />
+                  <option value="Aire Acondicionado" />
+                  <option value="Ventilación" />
+                  <option value="Refrigeración" />
+                  <option value="Calefacción" />
+                  <option value="Electrodomésticos Cocina" />
+                  <option value="Equipos de Lavandería" />
+                  <option value="Refrigeradores" />
+                  <option value="Plomería" />
+                  <option value="Eléctrico" />
+                  <option value="Generadores" />
+                  <option value="Elevadores" />
+                  <option value="Seguridad" />
+                  <option value="Mobiliario" />
+                  <option value="Limpieza" />
+                  <option value="Vehículos" />
+                  <option value="General" />
+                </datalist>
+                <p className="text-xs text-gray-500 mt-1">Escribe o selecciona la categoría del producto</p>
               </div>
 
               <div className="flex gap-2 pt-2">
