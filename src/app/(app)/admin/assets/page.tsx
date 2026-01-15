@@ -16,15 +16,17 @@ export default async function AssetsPage({
   let userRole = 'user'
   let userLocations: any[] = []
   let canManageAllAssets = false
+  let userAssetCategory: string | null = null
   
   if (user) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role, can_manage_assets')
+      .select('role, can_manage_assets, asset_category')
       .eq('id', user.id)
       .single()
     userRole = profile?.role || 'user'
     canManageAllAssets = profile?.can_manage_assets || false
+    userAssetCategory = profile?.asset_category || null
     
     // Si no es admin y no tiene permiso global de activos, obtener sus sedes asignadas
     if (userRole !== 'admin' && !canManageAllAssets) {
@@ -39,6 +41,10 @@ export default async function AssetsPage({
     }
   }
   
+  // Definir tipos de activos por categoría
+  const IT_ASSET_TYPES = ['DESKTOP', 'LAPTOP', 'TABLET', 'PHONE', 'MONITOR', 'PRINTER', 'SCANNER', 'SERVER', 'UPS', 'PROJECTOR']
+  const MAINTENANCE_ASSET_TYPES = ['AIR_CONDITIONING', 'HVAC_SYSTEM', 'BOILER', 'REFRIGERATOR', 'KITCHEN_EQUIPMENT', 'WASHING_MACHINE', 'DRYER', 'WATER_HEATER', 'PUMP', 'GENERATOR', 'ELEVATOR', 'FURNITURE', 'FIXTURE', 'CLEANING_EQUIPMENT', 'SECURITY_SYSTEM', 'FIRE_SYSTEM', 'PLUMBING', 'ELECTRICAL', 'LIGHTING', 'VEHICLE', 'OTHER']
+
   // Siempre usar admin client para evitar problemas con RLS
   // Aplicaremos el filtro de sedes manualmente según los permisos
   const dbClient = createSupabaseAdminClient()
@@ -87,6 +93,13 @@ export default async function AssetsPage({
     }
   }
   // Si es admin o tiene can_manage_assets=true, ve TODOS los activos (sin filtro adicional)
+
+  // FILTRAR POR CATEGORÍA DE ACTIVOS DEL USUARIO
+  // Si el usuario tiene una categoría asignada (IT o MAINTENANCE), filtrar
+  if (userAssetCategory && userRole !== 'admin') {
+    const allowedTypes = userAssetCategory === 'IT' ? IT_ASSET_TYPES : MAINTENANCE_ASSET_TYPES
+    query = query.in('asset_type', allowedTypes)
+  }
 
   // Aplicar filtros
   if (params.search) {
@@ -174,13 +187,27 @@ export default async function AssetsPage({
     console.log('[AssetsPage] Pending disposals:', pendingDisposalRequests.length)
   }
 
+  // Determinar el subtítulo basado en la categoría del usuario
+  const getSubtitle = () => {
+    if (userRole === 'admin' || !userAssetCategory) {
+      return 'Administra el inventario de activos de la organización'
+    }
+    if (userAssetCategory === 'IT') {
+      return 'Administra el inventario de equipos de TI'
+    }
+    if (userAssetCategory === 'MAINTENANCE') {
+      return 'Administra el inventario de equipos de Mantenimiento'
+    }
+    return 'Administra el inventario de activos'
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
       <div className="flex justify-between items-center">
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Gestión de Activos</h1>
-          <p className="text-sm text-gray-600 mt-1">Administra el inventario de equipos de TI</p>
+          <p className="text-sm text-gray-600 mt-1">{getSubtitle()}</p>
           {userRole !== 'admin' && userLocations.length > 0 && (
             <div className="mt-2 flex items-center gap-2 text-xs">
               <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

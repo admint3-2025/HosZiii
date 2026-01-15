@@ -33,6 +33,7 @@ type UserRow = {
   location_name: string | null
   location_codes: string[]
   location_names: string[]
+  asset_category: string | null
   can_view_beo: boolean | null
   can_manage_assets: boolean | null
 }
@@ -66,6 +67,7 @@ export default function UserList() {
   const [editBuilding, setEditBuilding] = useState('')
   const [editFloor, setEditFloor] = useState('')
   const [editLocationIds, setEditLocationIds] = useState<string[]>([])
+  const [editAssetCategory, setEditAssetCategory] = useState<string>('')
   const [editCanViewBeo, setEditCanViewBeo] = useState(false)
   const [editCanManageAssets, setEditCanManageAssets] = useState(false)
 
@@ -158,6 +160,7 @@ export default function UserList() {
     setEditPosition(u.position ?? '')
     setEditBuilding(u.building ?? '')
     setEditFloor(u.floor ?? '')
+    setEditAssetCategory(u.asset_category ?? '')
     setEditCanViewBeo(u.can_view_beo ?? false)
     setEditCanManageAssets(u.can_manage_assets ?? false)
     
@@ -199,6 +202,7 @@ export default function UserList() {
           building: editBuilding.trim(),
           floor: editFloor.trim(),
           location_ids: editLocationIds,
+          asset_category: editAssetCategory || null,
           can_view_beo: editCanViewBeo,
           can_manage_assets: editCanManageAssets,
         }),
@@ -578,6 +582,22 @@ export default function UserList() {
                                 label="Sedes asignadas"
                                 helpText="Selecciona una o más sedes"
                               />
+                            </div>
+
+                            <div className="md:col-span-2">
+                              <label className="block text-[11px] font-medium text-gray-700 mb-1">Categoría de activos</label>
+                              <select 
+                                className="select text-xs" 
+                                value={editAssetCategory} 
+                                onChange={(e) => setEditAssetCategory(e.target.value)}
+                              >
+                                <option value="">Sin restricción (todos)</option>
+                                <option value="IT">IT - Tecnología</option>
+                                <option value="MAINTENANCE">Mantenimiento</option>
+                              </select>
+                              <div className="mt-1 text-[10px] text-gray-500">
+                                Define qué tipos de activos puede gestionar
+                              </div>
                             </div>
 
                             <div>

@@ -41,6 +41,7 @@ export default function UserCreateForm() {
   const [locationId, setLocationId] = useState<string>('')
   const [locationIds, setLocationIds] = useState<string[]>([]) // Múltiples sedes
   const [locations, setLocations] = useState<Location[]>([])
+  const [assetCategory, setAssetCategory] = useState<string>('')
   const [canViewBeo, setCanViewBeo] = useState(false)
   const [canManageAssets, setCanManageAssets] = useState(false)
   const [invite, setInvite] = useState(true)
@@ -93,6 +94,7 @@ export default function UserCreateForm() {
           floor: floor.trim(),
           position: position.trim(),
           location_ids: locationIds.length > 0 ? locationIds : [],
+          asset_category: assetCategory || null,
           can_view_beo: canViewBeo,
           can_manage_assets: canManageAssets,
           invite,
@@ -117,6 +119,7 @@ export default function UserCreateForm() {
       setFloor('')
       setPosition('')
       setLocationIds([])
+      setAssetCategory('')
       setCanViewBeo(false)
       setCanManageAssets(false)
       setInvite(true)
@@ -237,6 +240,22 @@ export default function UserCreateForm() {
               label="Sedes asignadas"
               helpText="Selecciona una o más sedes para este usuario"
             />
+          </div>
+
+          <div className="sm:col-span-2">
+            <label className="block text-[11px] font-medium text-gray-700">Categoría de activos</label>
+            <select 
+              className="select mt-1" 
+              value={assetCategory} 
+              onChange={(e) => setAssetCategory(e.target.value)}
+            >
+              <option value="">Sin restricción (acceso a todos)</option>
+              <option value="IT">IT - Tecnología</option>
+              <option value="MAINTENANCE">Mantenimiento</option>
+            </select>
+            <div className="mt-1 text-[10px] text-gray-500">
+              Define qué tipos de activos puede ver y gestionar este usuario (supervisores/técnicos)
+            </div>
           </div>
 
           {/* Permisos especiales agrupados */}

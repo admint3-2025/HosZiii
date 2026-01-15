@@ -39,7 +39,7 @@ export async function GET() {
 
   const { data: profiles, error: profErr } = await admin
     .from('profiles')
-    .select('id,full_name,role,department,phone,building,floor,position,supervisor_id,location_id,can_view_beo,can_manage_assets,locations(code,name)')
+    .select('id,full_name,role,department,phone,building,floor,position,supervisor_id,location_id,asset_category,can_view_beo,can_manage_assets,locations(code,name)')
     .in('id', ids)
 
   if (profErr) return new Response(profErr.message, { status: 500 })
@@ -96,6 +96,7 @@ export async function GET() {
       location_name: (p?.locations as any)?.name ?? null,
       location_codes: userLocs.map(l => l.code),
       location_names: userLocs.map(l => l.name),
+      asset_category: (p?.asset_category as any) ?? null,
       can_view_beo: (p?.can_view_beo as any) ?? false,
       can_manage_assets: (p?.can_manage_assets as any) ?? false,
     }
@@ -131,6 +132,7 @@ export async function POST(request: Request) {
   const floor = typeof body?.floor === 'string' ? body.floor.trim() : ''
   const position = typeof body?.position === 'string' ? body.position.trim() : ''
   const locationIds = Array.isArray(body?.location_ids) ? body.location_ids.filter((id: unknown) => typeof id === 'string') : []
+  const assetCategory = typeof body?.asset_category === 'string' && body.asset_category.trim() !== '' ? body.asset_category.trim() : null
   const canViewBeo = Boolean(body?.can_view_beo)
   const canManageAssets = Boolean(body?.can_manage_assets)
   const invite = body?.invite !== false
@@ -177,6 +179,7 @@ export async function POST(request: Request) {
     floor: floor || null,
     position: position || null,
     location_id: locationIds[0] || null, // Sede principal (retrocompatibilidad)
+    asset_category: assetCategory,
     can_view_beo: canViewBeo,
     can_manage_assets: canManageAssets,
   })

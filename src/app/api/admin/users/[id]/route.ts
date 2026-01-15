@@ -110,6 +110,13 @@ export async function PATCH(
     updates.can_manage_assets = Boolean(body.can_manage_assets)
   }
 
+  if (body?.asset_category !== undefined) {
+    const assetCategory = typeof body.asset_category === 'string' && body.asset_category.trim() !== '' 
+      ? body.asset_category.trim() 
+      : null
+    updates.asset_category = assetCategory
+  }
+
   if (Object.keys(updates).length > 0) {
     const { error } = await admin.from('profiles').update(updates).eq('id', id)
     if (error) return new Response(error.message, { status: 400 })
@@ -137,6 +144,7 @@ export async function PATCH(
         floor: body?.floor,
         position: body?.position,
         location_ids: body?.location_ids,
+        asset_category: body?.asset_category,
         can_view_beo: body?.can_view_beo,
         can_manage_assets: body?.can_manage_assets,
         active: body?.active,
