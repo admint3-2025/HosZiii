@@ -252,7 +252,6 @@ export default function AppShellClient({
       roles: ['admin', 'supervisor', 'agent_l1', 'agent_l2'],
     },
     { id: 'hd_audit', label: 'Auditoría', icon: 'Audit', href: '/audit', roles: ['admin'] },
-    { id: 'hd_profile', label: 'Mi Perfil', icon: 'User', href: '/profile' },
   ]
 
   const topMenu: MenuSection[] = [

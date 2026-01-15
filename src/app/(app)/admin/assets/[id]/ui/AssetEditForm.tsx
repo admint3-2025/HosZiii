@@ -10,6 +10,13 @@ import ComboboxInput, {
   STORAGE_SUGGESTIONS,
   OS_SUGGESTIONS,
 } from '@/components/ComboboxInput'
+import BrandSelector from '@/components/BrandSelector'
+import DepartmentSelector from '@/components/DepartmentSelector'
+import {
+  getAssetFieldsForType,
+  getAssetTypesByCategory,
+  type AssetFieldConfig,
+} from '@/lib/assets/asset-fields'
 
 type Location = {
   id: string
@@ -37,6 +44,17 @@ type Asset = {
   storage_gb: number | null
   os: string | null
   image_url: string | null
+  // Nuevos campos para mantenimiento
+  asset_name?: string | null
+  installation_date?: string | null
+  service_provider?: string | null
+  responsible_area?: string | null
+  capacity?: string | null
+  power_rating?: string | null
+  voltage?: string | null
+  refrigerant_type?: string | null
+  btu_rating?: string | null
+  tonnage?: string | null
 }
 
 type AssetEditFormProps = {
@@ -47,6 +65,7 @@ type AssetEditFormProps = {
 }
 
 export default function AssetEditForm({ asset, locations, onCancel, onSuccess }: AssetEditFormProps) {
+  const [selectedCategory, setSelectedCategory] = useState('IT')
   const [formData, setFormData] = useState({
     asset_tag: asset.asset_tag,
     asset_type: asset.asset_type,
@@ -66,6 +85,17 @@ export default function AssetEditForm({ asset, locations, onCancel, onSuccess }:
     storage_gb: asset.storage_gb?.toString() || '',
     os: asset.os || '',
     image_url: asset.image_url || '',
+    // Nuevos campos para mantenimiento
+    asset_name: asset.asset_name || '',
+    installation_date: asset.installation_date || '',
+    service_provider: asset.service_provider || '',
+    responsible_area: asset.responsible_area || '',
+    capacity: asset.capacity || '',
+    power_rating: asset.power_rating || '',
+    voltage: asset.voltage || '',
+    refrigerant_type: asset.refrigerant_type || '',
+    btu_rating: asset.btu_rating || '',
+    tonnage: asset.tonnage || '',
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [showLocationChangeModal, setShowLocationChangeModal] = useState(false)
@@ -75,9 +105,31 @@ export default function AssetEditForm({ asset, locations, onCancel, onSuccess }:
   const [selectedNotifyUsers, setSelectedNotifyUsers] = useState<string[]>([])
   const [additionalEmails, setAdditionalEmails] = useState('')
   const [loadingUsers, setLoadingUsers] = useState(false)
+  const [dynamicFields, setDynamicFields] = useState<Record<string, string>>({})
 
   const [assignees, setAssignees] = useState<Array<{ id: string; name: string; email: string; location?: string }>>([])
   const [loadingAssignees, setLoadingAssignees] = useState(false)
+
+  // Inicializar categoría seleccionada según el tipo del activo
+  useEffect(() => {
+    const categoriesMap = getAssetTypesByCategory()
+    for (const [category, types] of Object.entries(categoriesMap)) {
+      if (types.some(t => t.value === asset.asset_type)) {
+        setSelectedCategory(category)
+        break
+      }
+    }
+  }, [asset.asset_type])
+
+  // Actualizar campos dinámicos cuando cambia el tipo
+  useEffect(() => {
+    const fields = getAssetFieldsForType(formData.asset_type)
+    const newDynamicFields: Record<string, string> = {}
+    fields.forEach(field => {
+      newDynamicFields[field.name] = (formData as any)[field.name] || ''
+    })
+    setDynamicFields(newDynamicFields)
+  }, [formData.asset_type])
 
   useEffect(() => {
     const loadAssignees = async () => {
@@ -181,6 +233,18 @@ export default function AssetEditForm({ asset, locations, onCancel, onSuccess }:
           storage_gb: formData.storage_gb ? parseInt(formData.storage_gb) : null,
           os: formData.os || null,
           image_url: formData.image_url || null,
+          // Nuevos campos para mantenimiento
+          asset_name: formData.asset_name || null,
+          installation_date: formData.installation_date || null,
+          service_provider: formData.service_provider || null,
+          responsible_area: formData.responsible_area || null,
+          capacity: formData.capacity || null,
+          power_rating: formData.power_rating || null,
+          voltage: formData.voltage || null,
+          refrigerant_type: formData.refrigerant_type || null,
+          btu_rating: formData.btu_rating || null,
+          tonnage: formData.tonnage || null,
+          image_url: formData.image_url || null,
         },
         formData.location_id !== asset.location_id ? locationChangeReason : undefined
       )
@@ -271,7 +335,29 @@ export default function AssetEditForm({ asset, locations, onCancel, onSuccess }:
                 />
               </div>
 
-              {/* Tipo */}
+              {/* Categoría */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Categoría <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => {
+                    setSelectedCategory(e.target.value)
+                    const categoryTypes = getAssetTypesByCategory()[e.target.value]
+                    if (categoryTypes && categoryTypes.length > 0) {
+                      setFormData({ ...formData, asset_type: categoryTypes[0].value })
+                    }
+                  }}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  {Object.keys(getAssetTypesByCategory()).map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
+              </div>
               <div>
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Tipo de Activo <span className="text-red-500">*</span>
@@ -282,17 +368,12 @@ export default function AssetEditForm({ asset, locations, onCancel, onSuccess }:
                   required
                   className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
-                  <option value="DESKTOP">Desktop</option>
-                  <option value="LAPTOP">Laptop</option>
-                  <option value="PRINTER">Impresora</option>
-                  <option value="SCANNER">Escáner</option>
-                  <option value="MONITOR">Monitor</option>
-                  <option value="PHONE">Teléfono</option>
-                  <option value="TABLET">Tablet</option>
-                  <option value="SERVER">Servidor</option>
-                  <option value="NETWORK_DEVICE">Dispositivo de Red</option>
-                  <option value="PERIPHERAL">Periférico</option>
-                  <option value="OTHER">Otro</option>
+                  <option value="">Seleccionar tipo</option>
+                  {(getAssetTypesByCategory()[selectedCategory] || []).map((type) => (
+                    <option key={type.value} value={type.value}>
+                      {type.label}
+                    </option>
+                  ))}
                 </select>
               </div>
 
@@ -372,12 +453,11 @@ export default function AssetEditForm({ asset, locations, onCancel, onSuccess }:
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Marca
                 </label>
-                <input
-                  type="text"
+                <BrandSelector
                   value={formData.brand}
-                  onChange={(e) => setFormData({ ...formData, brand: e.target.value })}
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Ej: Dell, HP, Lenovo"
+                  onChange={(value) => setFormData({ ...formData, brand: value })}
+                  placeholder="Selecciona una marca"
+                  allowCreate={true}
                 />
               </div>
 
@@ -386,12 +466,11 @@ export default function AssetEditForm({ asset, locations, onCancel, onSuccess }:
                 <label className="block text-sm font-medium text-gray-700 mb-1.5">
                   Departamento
                 </label>
-                <input
-                  type="text"
+                <DepartmentSelector
                   value={formData.department}
-                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
-                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  placeholder="Ej: TI, Contabilidad"
+                  onChange={(value) => setFormData({ ...formData, department: value })}
+                  placeholder="Selecciona un departamento"
+                  allowCreate={true}
                 />
               </div>
 
@@ -466,7 +545,61 @@ export default function AssetEditForm({ asset, locations, onCancel, onSuccess }:
           </div>
         </div>
 
-        {/* Especificaciones Técnicas (solo para PC/Laptop) */}
+        {/* Campos Dinámicos según el tipo de activo */}
+        {getAssetFieldsForType(formData.asset_type).length > 0 && (
+          <div className="card shadow-sm border border-slate-200">
+            <div className="card-body p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                Especificaciones de {formData.asset_type}
+              </h2>
+              
+              <div className="grid gap-4 md:grid-cols-2">
+                {getAssetFieldsForType(formData.asset_type).map((field: AssetFieldConfig) => (
+                  <div key={field.name}>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                      {field.label}
+                      {field.required && <span className="text-red-500">*</span>}
+                    </label>
+                    {field.type === 'text' || field.type === 'number' ? (
+                      <input
+                        type={field.type}
+                        value={(formData as any)[field.name] || ''}
+                        onChange={(e) => setFormData({ ...formData, [field.name]: e.target.value })}
+                        placeholder={field.placeholder}
+                        required={field.required}
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    ) : field.type === 'date' ? (
+                      <input
+                        type="date"
+                        value={(formData as any)[field.name] || ''}
+                        onChange={(e) => setFormData({ ...formData, [field.name]: e.target.value })}
+                        required={field.required}
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      />
+                    ) : field.type === 'select' && field.options ? (
+                      <select
+                        value={(formData as any)[field.name] || ''}
+                        onChange={(e) => setFormData({ ...formData, [field.name]: e.target.value })}
+                        required={field.required}
+                        className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                      >
+                        <option value="">Seleccionar...</option>
+                        {field.options.map((opt) => (
+                          <option key={opt.value} value={opt.value}>
+                            {opt.label}
+                          </option>
+                        ))}
+                      </select>
+                    ) : null}
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Especificaciones Técnicas (solo para PC/Laptop - LEGACY) */}
         {(formData.asset_type === 'DESKTOP' || formData.asset_type === 'LAPTOP') && (
           <div className="card shadow-sm border border-slate-200">
             <div className="card-body p-6">
