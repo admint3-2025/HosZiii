@@ -9,6 +9,11 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import AssetEditForm from './AssetEditForm'
 import DisposalRequestModal from './DisposalRequestModal'
+import {
+  getAssetFieldsForType,
+  getAssetTypesByCategory,
+  isITAsset,
+} from '@/lib/assets/asset-fields'
 
 type Location = {
   id: string
@@ -49,6 +54,17 @@ type Asset = {
   storage_gb: number | null
   os: string | null
   image_url: string | null
+  // Nuevos campos para mantenimiento
+  asset_name?: string | null
+  installation_date?: string | null
+  service_provider?: string | null
+  responsible_area?: string | null
+  capacity?: string | null
+  power_rating?: string | null
+  voltage?: string | null
+  refrigerant_type?: string | null
+  btu_rating?: string | null
+  tonnage?: string | null
 }
 
 type AssetStats = {
@@ -770,11 +786,20 @@ export default function AssetDetailView({
               {asset.image_url && (
                 <div className="flex flex-col">
                   <div className="bg-gray-50 rounded-lg border-2 border-gray-200 p-4 flex items-center justify-center" style={{ minHeight: '320px' }}>
-                    <img
-                      src={asset.image_url}
-                      alt={`Imagen de ${asset.asset_tag}`}
-                      className="max-w-full max-h-80 object-contain rounded"
-                    />
+                    <a
+                      href={asset.image_url}
+                      target="_blank"
+                      rel="noreferrer"
+                      className="w-full flex items-center justify-center"
+                      aria-label="Abrir imagen del activo en tamaño real"
+                      title="Abrir imagen en tamaño real"
+                    >
+                      <img
+                        src={asset.image_url}
+                        alt={`Imagen de ${asset.asset_tag}`}
+                        className="max-w-full max-h-80 object-contain rounded cursor-zoom-in"
+                      />
+                    </a>
                   </div>
                   <p className="text-sm text-gray-600 text-center mt-3">
                     <svg className="w-4 h-4 inline mr-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -1018,6 +1043,7 @@ export default function AssetDetailView({
         </div>
       </div>
 
+      {/* Especificaciones Técnicas IT (Desktop/Laptop con campos legacy) */}
       {(asset.asset_type === 'DESKTOP' || asset.asset_type === 'LAPTOP') &&
        (asset.processor || asset.ram_gb || asset.storage_gb || asset.os) && (
         <div className="card shadow-sm border border-slate-200">
@@ -1066,6 +1092,74 @@ export default function AssetDetailView({
           </div>
         </div>
       )}
+
+      {/* Especificaciones Dinámicas por Tipo de Activo */}
+      {(() => {
+        const specificFields = getAssetFieldsForType(asset.asset_type)
+        const hasVisibleFields = specificFields.some(field => {
+          const value = (asset as any)[field.name]
+          return value !== null && value !== undefined && value !== ''
+        })
+
+        if (!hasVisibleFields) return null
+
+        // Obtener label del tipo de activo
+        const allTypes = getAssetTypesByCategory()
+        let typeLabel = asset.asset_type.replace(/_/g, ' ')
+        Object.values(allTypes).forEach(categoryTypes => {
+          const type = categoryTypes.find(t => t.value === asset.asset_type)
+          if (type) typeLabel = type.label
+        })
+
+        return (
+          <div className="card shadow-sm border border-slate-200">
+            <div className="card-body p-4">
+              <div className="flex items-center gap-2 mb-3">
+                <svg className="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+                </svg>
+                <h2 className="text-base font-semibold text-gray-900">Especificaciones de {typeLabel}</h2>
+              </div>
+
+              <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
+                {specificFields.map(field => {
+                  const value = (asset as any)[field.name]
+                  if (!value) return null
+
+                  const formatValue = () => {
+                    if (field.type === 'date') {
+                      return new Date(value).toLocaleDateString('es-ES', {
+                        day: '2-digit',
+                        month: 'short',
+                        year: 'numeric'
+                      })
+                    }
+                    return value
+                  }
+
+                  // Campos importantes en ancho completo
+                  const isFullWidth = ['asset_name', 'refrigerant_type'].includes(field.name)
+
+                  return (
+                    <div key={field.name} className={isFullWidth ? 'col-span-2' : ''}>
+                      <dt className="text-xs font-medium text-gray-600">{field.label}</dt>
+                      <dd className="text-sm text-gray-900">
+                        {isFullWidth ? (
+                          <span className="font-mono bg-slate-50 px-2 py-1 rounded block">
+                            {formatValue()}
+                          </span>
+                        ) : (
+                          <span className="font-semibold">{formatValue()}</span>
+                        )}
+                      </dd>
+                    </div>
+                  )
+                })}
+              </dl>
+            </div>
+          </div>
+        )
+      })()}
 
       {asset.notes && (
         <div className="card shadow-sm border border-slate-200">

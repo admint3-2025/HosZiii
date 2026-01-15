@@ -11,6 +11,12 @@ import {
   RAM_SUGGESTIONS,
   STORAGE_SUGGESTIONS,
 } from '@/components/ComboboxInput'
+import {
+  getAssetFieldsForType,
+  getAssetTypesByCategory,
+  isITAsset,
+  type AssetFieldConfig,
+} from '@/lib/assets/asset-fields'
 
 type Location = {
   id: string
@@ -29,6 +35,7 @@ export default function AssetCreateForm({ locations, canManageAllAssets, userRol
   const [processorSuggestions, setProcessorSuggestions] = useState<string[]>([])
   const [osSuggestions, setOsSuggestions] = useState<string[]>([])
   const [isLoadingCatalogs, setIsLoadingCatalogs] = useState(true)
+  const [selectedCategory, setSelectedCategory] = useState('IT')
   
   const [formData, setFormData] = useState({
     asset_tag: '',
@@ -48,8 +55,30 @@ export default function AssetCreateForm({ locations, canManageAllAssets, userRol
     storage_gb: '',
     os: '',
     image_url: '',
+    // Nuevos campos para mantenimiento
+    asset_name: '',
+    installation_date: '',
+    service_provider: '',
+    responsible_area: '',
+    capacity: '',
+    power_rating: '',
+    voltage: '',
+    refrigerant_type: '',
+    btu_rating: '',
+    tonnage: '',
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [dynamicFields, setDynamicFields] = useState<Record<string, string>>({})
+
+  // Actualizar campos dinámicos cuando cambia el tipo
+  useEffect(() => {
+    const fields = getAssetFieldsForType(formData.asset_type)
+    const newDynamicFields: Record<string, string> = {}
+    fields.forEach(field => {
+      newDynamicFields[field.name] = (formData as any)[field.name] || ''
+    })
+    setDynamicFields(newDynamicFields)
+  }, [formData.asset_type])
 
   // Cargar catálogos desde la base de datos
   useEffect(() => {
@@ -123,6 +152,17 @@ export default function AssetCreateForm({ locations, canManageAllAssets, userRol
         os: formData.os || null,
         image_url: formData.image_url || null,
         created_by: user?.id || null,
+        // Nuevos campos para mantenimiento
+        asset_name: formData.asset_name || null,
+        installation_date: formData.installation_date || null,
+        service_provider: formData.service_provider || null,
+        responsible_area: formData.responsible_area || null,
+        capacity: formData.capacity || null,
+        power_rating: formData.power_rating || null,
+        voltage: formData.voltage || null,
+        refrigerant_type: formData.refrigerant_type || null,
+        btu_rating: formData.btu_rating || null,
+        tonnage: formData.tonnage || null,
       })
       .select()
       .single()
@@ -187,6 +227,31 @@ export default function AssetCreateForm({ locations, canManageAllAssets, userRol
             {/* Tipo */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Categoría <span className="text-red-500">*</span>
+              </label>
+              <select
+                value={selectedCategory}
+                onChange={(e) => {
+                  setSelectedCategory(e.target.value)
+                  // Reset asset type when changing category
+                  const categoryTypes = getAssetTypesByCategory()[e.target.value]
+                  if (categoryTypes && categoryTypes.length > 0) {
+                    setFormData({ ...formData, asset_type: categoryTypes[0].value })
+                  }
+                }}
+                className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                {Object.keys(getAssetTypesByCategory()).map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            {/* Tipo de Activo */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
                 Tipo de Activo <span className="text-red-500">*</span>
               </label>
               <select
@@ -195,17 +260,11 @@ export default function AssetCreateForm({ locations, canManageAllAssets, userRol
                 required
                 className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
-                <option value="DESKTOP">Desktop</option>
-                <option value="LAPTOP">Laptop</option>
-                <option value="PRINTER">Impresora</option>
-                <option value="SCANNER">Escáner</option>
-                <option value="MONITOR">Monitor</option>
-                <option value="PHONE">Teléfono</option>
-                <option value="TABLET">Tablet</option>
-                <option value="SERVER">Servidor</option>
-                <option value="NETWORK_DEVICE">Dispositivo de Red</option>
-                <option value="PERIPHERAL">Periférico</option>
-                <option value="OTHER">Otro</option>
+                {getAssetTypesByCategory()[selectedCategory]?.map((type) => (
+                  <option key={type.value} value={type.value}>
+                    {type.label}
+                  </option>
+                ))}
               </select>
             </div>
 
@@ -345,130 +404,102 @@ export default function AssetCreateForm({ locations, canManageAllAssets, userRol
         </div>
       </div>
 
-      {/* Especificaciones Técnicas (solo para PC/Laptop) */}
-      {(formData.asset_type === 'DESKTOP' || formData.asset_type === 'LAPTOP') && (
-        <div className="card shadow-sm border border-slate-200">
-          <div className="card-body p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Especificaciones Técnicas</h2>
-            
-            {isLoadingCatalogs ? (
-              <div className="flex items-center justify-center py-8">
-                <svg className="animate-spin h-6 w-6 text-blue-600" fill="none" viewBox="0 0 24 24">
-                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-                </svg>
-                <span className="ml-2 text-sm text-gray-600">Cargando catálogos...</span>
+      {/* Especificaciones Específicas por Tipo de Activo */}
+      {(() => {
+        const specificFields = getAssetFieldsForType(formData.asset_type)
+        if (specificFields.length === 0) return null
+
+        const renderField = (field: AssetFieldConfig) => {
+          const value = (formData as any)[field.name] || ''
+          const handleChange = (newValue: string) => {
+            setFormData({ ...formData, [field.name]: newValue })
+          }
+
+          switch (field.type) {
+            case 'date':
+              return (
+                <div key={field.name}>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    {field.label} {field.required && <span className="text-red-500">*</span>}
+                  </label>
+                  <input
+                    type="date"
+                    value={value}
+                    onChange={(e) => handleChange(e.target.value)}
+                    required={field.required}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              )
+            case 'number':
+              return (
+                <div key={field.name}>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    {field.label} {field.required && <span className="text-red-500">*</span>}
+                  </label>
+                  <input
+                    type="number"
+                    value={value}
+                    onChange={(e) => handleChange(e.target.value)}
+                    required={field.required}
+                    placeholder={field.placeholder}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              )
+            case 'select':
+              return (
+                <div key={field.name}>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    {field.label} {field.required && <span className="text-red-500">*</span>}
+                  </label>
+                  <select
+                    value={value}
+                    onChange={(e) => handleChange(e.target.value)}
+                    required={field.required}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  >
+                    <option value="">Seleccionar...</option>
+                    {field.options?.map((opt) => (
+                      <option key={opt.value} value={opt.value}>
+                        {opt.label}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )
+            default:
+              return (
+                <div key={field.name}>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                    {field.label} {field.required && <span className="text-red-500">*</span>}
+                  </label>
+                  <input
+                    type="text"
+                    value={value}
+                    onChange={(e) => handleChange(e.target.value)}
+                    required={field.required}
+                    placeholder={field.placeholder}
+                    className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                  />
+                </div>
+              )
+          }
+        }
+
+        return (
+          <div className="card shadow-sm border border-slate-200">
+            <div className="card-body p-6">
+              <h2 className="text-lg font-semibold text-gray-900 mb-4">
+                Especificaciones de {getAssetTypesByCategory()[selectedCategory]?.find(t => t.value === formData.asset_type)?.label || 'Activo'}
+              </h2>
+              <div className="grid gap-4 md:grid-cols-2">
+                {specificFields.map(renderField)}
               </div>
-            ) : (
-              <>
-                <div className="grid gap-4 md:grid-cols-2">
-                  {/* Procesador */}
-                  <ComboboxWithAdd
-                    id="processor"
-                    label="Procesador"
-                    value={formData.processor}
-                    onChange={(value) => setFormData({ ...formData, processor: value })}
-                    suggestions={processorSuggestions}
-                    placeholder="Buscar o escribir procesador..."
-                    allowAdd={userRole === 'admin' || userRole === 'supervisor'}
-                    tableName="asset_processors"
-                    onSuggestionsUpdate={setProcessorSuggestions}
-                  />
-
-                  {/* Memoria RAM */}
-                  <ComboboxWithAdd
-                    id="ram_gb"
-                    label="Memoria RAM (GB)"
-                    value={formData.ram_gb}
-                    onChange={(value) => setFormData({ ...formData, ram_gb: value })}
-                    suggestions={RAM_SUGGESTIONS}
-                    placeholder="Buscar o escribir..."
-                    type="number"
-                    min="1"
-                  />
-
-                  {/* Almacenamiento */}
-                  <ComboboxWithAdd
-                    id="storage_gb"
-                    label="Almacenamiento (GB)"
-                    value={formData.storage_gb}
-                    onChange={(value) => setFormData({ ...formData, storage_gb: value })}
-                    suggestions={STORAGE_SUGGESTIONS}
-                    placeholder="Buscar o escribir..."
-                    type="number"
-                    min="1"
-                  />
-
-                  {/* Sistema Operativo */}
-                  <ComboboxWithAdd
-                    id="os"
-                    label="Sistema Operativo"
-                    value={formData.os}
-                    onChange={(value) => setFormData({ ...formData, os: value })}
-                    suggestions={osSuggestions}
-                    placeholder="Buscar o escribir S.O..."
-                    allowAdd={userRole === 'admin' || userRole === 'supervisor'}
-                    tableName="asset_operating_systems"
-                    onSuggestionsUpdate={setOsSuggestions}
-                  />
-                </div>
-
-                {/* Info sobre catálogos */}
-                <div className="mt-4 space-y-3">
-                  {/* Estado de catálogos */}
-                  <div className="p-3 bg-gray-50 border border-gray-200 rounded-lg">
-                    <div className="flex items-start gap-2">
-                      <svg className="w-4 h-4 text-gray-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <div className="text-xs text-gray-700">
-                        <p className="font-semibold mb-1">Estado de catálogos:</p>
-                        <ul className="list-disc list-inside space-y-0.5">
-                          <li>Procesadores cargados: <strong>{processorSuggestions.length}</strong></li>
-                          <li>Sistemas operativos cargados: <strong>{osSuggestions.length}</strong></li>
-                          <li>Tu rol: <strong>{userRole}</strong></li>
-                          {(userRole === 'admin' || userRole === 'supervisor') && (
-                            <li className="text-green-700 font-medium">✓ Puedes agregar nuevos elementos</li>
-                          )}
-                          {userRole !== 'admin' && userRole !== 'supervisor' && (
-                            <li className="text-amber-700 font-medium">⚠ Solo admin/supervisor pueden agregar elementos</li>
-                          )}
-                        </ul>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Instrucciones */}
-                  <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                    <div className="flex items-start gap-2">
-                      <svg className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                      </svg>
-                      <div className="text-xs text-blue-800">
-                        <p className="font-semibold mb-1">Cómo agregar nuevos elementos:</p>
-                        <ol className="list-decimal list-inside space-y-1">
-                          <li>Selecciona tipo de activo: <strong>Desktop</strong> o <strong>Laptop</strong></li>
-                          <li>En Procesador o Sistema Operativo, escribe un valor nuevo</li>
-                          <li>Si no existe en la lista, aparecerá un botón <strong>&quot;Agregar al catálogo&quot;</strong></li>
-                          <li>Haz clic en el botón para agregarlo permanentemente</li>
-                          <li>El nuevo elemento queda disponible para todos los usuarios</li>
-                        </ol>
-                        {processorSuggestions.length === 0 && (
-                          <div className="mt-2 p-2 bg-red-50 border border-red-200 rounded">
-                            <p className="font-bold text-red-700">⚠️ ATENCIÓN: No se cargaron procesadores</p>
-                            <p className="mt-1">Esto indica que la migración SQL no se ejecutó en Supabase.</p>
-                            <p className="mt-1">Ejecuta: <code className="bg-red-100 px-1 py-0.5 rounded">supabase/migration-add-asset-catalogs.sql</code></p>
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  </div>
-                </div>
-              </>
-            )}
+            </div>
           </div>
-        </div>
-      )}
+        )
+      })()}
 
       {/* Notas */}
       <div className="card shadow-sm border border-slate-200">
