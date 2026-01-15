@@ -1,8 +1,11 @@
 -- Fix: Corregir trigger generate_asset_code para evitar error "missing FROM-clause entry for table 'new'"
 -- El problema está en la referencia a NEW.location_id dentro de un SELECT en el COALESCE
 
--- 1. Recrear función generate_asset_code con variables locales
-CREATE OR REPLACE FUNCTION generate_asset_code()
+-- 1. Recrear función generate_asset_code con parámetros (NO puede usar NEW)
+DROP FUNCTION IF EXISTS generate_asset_code();
+DROP FUNCTION IF EXISTS generate_asset_code(text, uuid);
+
+CREATE OR REPLACE FUNCTION generate_asset_code(p_asset_type text, p_location_id uuid)
 RETURNS TEXT AS $$
 DECLARE
   new_code TEXT;
@@ -12,7 +15,7 @@ DECLARE
   attempts INT := 0;
 BEGIN
   -- Mapeo de tipo a prefijo
-  type_prefix := CASE NEW.asset_type
+  type_prefix := CASE p_asset_type
     WHEN 'DESKTOP' THEN 'DESK'
     WHEN 'LAPTOP' THEN 'LAPT'
     WHEN 'MONITOR' THEN 'MONI'
@@ -31,7 +34,7 @@ BEGIN
   -- Obtener código de ubicación FUERA del loop
   SELECT code INTO location_code 
   FROM locations 
-  WHERE id = NEW.location_id 
+  WHERE id = p_location_id 
   LIMIT 1;
   
   -- Si no hay ubicación, usar placeholder
@@ -67,7 +70,7 @@ CREATE OR REPLACE FUNCTION assign_asset_code_trigger()
 RETURNS TRIGGER AS $$
 BEGIN
   IF NEW.asset_code IS NULL THEN
-    NEW.asset_code := generate_asset_code();
+    NEW.asset_code := generate_asset_code(NEW.asset_type::text, NEW.location_id);
   END IF;
   RETURN NEW;
 END;
