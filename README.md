@@ -40,3 +40,20 @@ También puedes correrlo con un solo comando:
    - `NEXT_PUBLIC_SUPABASE_URL`
    - `NEXT_PUBLIC_SUPABASE_ANON_KEY`
 4. Deploy.
+
+## 5) Deploy (Alpine/OpenRC on-prem)
+Si tu workspace vive en un filesystem sin symlinks (típico bajo `/media`), usa siempre `./scripts/ziii.sh`.
+
+### Build
+```bash
+./scripts/ziii.sh install
+./scripts/ziii.sh build
+```
+
+### Deploy a /opt/helpdesk + restart servicio
+En el servidor (como root):
+```bash
+DEPLOY_DIR=/opt/helpdesk PORT=32123 ./scripts/deploy-alpine.sh
+```
+
+El servicio OpenRC lee overrides desde `/etc/conf.d/helpdesk` (ruta/puerto/usuario).

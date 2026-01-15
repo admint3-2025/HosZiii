@@ -206,7 +206,6 @@ export async function notifyTicketAssigned(data: TicketNotificationData) {
     const ticketUrl = `${baseUrl}/tickets/${data.ticketId}`
     const assetInfo = await fetchTicketAssetInfo(supabase, data.ticketId)
     const serviceLabel = getServiceLabelForTicketCategory(inferTicketAssetCategory(assetInfo?.assetType))
-    const serviceLabel = getServiceLabelForTicketCategory(inferTicketAssetCategory(assetInfo?.assetType))
 
     const template = ticketAssignedEmailTemplate({
       ticketNumber: data.ticketNumber,
@@ -286,6 +285,7 @@ export async function notifyTicketStatusChanged(data: TicketNotificationData) {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const ticketUrl = `${baseUrl}/tickets/${data.ticketId}`
     const assetInfo = await fetchTicketAssetInfo(supabase, data.ticketId)
+    const serviceLabel = getServiceLabelForTicketCategory(inferTicketAssetCategory(assetInfo?.assetType))
 
     // Obtener quien hizo el cambio
     let changedBy = 'Sistema'

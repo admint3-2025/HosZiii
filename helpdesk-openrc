@@ -3,10 +3,11 @@
 name="helpdesk"
 description="ZIII HoS Next.js Application"
 
-directory="/opt/helpdesk"
-command="/usr/bin/node"
-command_args="node_modules/.bin/next start -p 32123"
-command_user="node"
+# Allow overrides from /etc/conf.d/helpdesk (recommended)
+directory="${directory:-/opt/helpdesk}"
+command="${command:-/usr/bin/node}"
+command_args="${command_args:-node_modules/next/dist/bin/next start -p 32123}"
+command_user="${command_user:-node}"
 command_background="yes"
 
 pidfile="/run/${RC_SVCNAME}.pid"

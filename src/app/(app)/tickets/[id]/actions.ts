@@ -759,6 +759,8 @@ export async function requestEscalation(ticketId: string, reason: string) {
   try {
     console.log('[requestEscalation] Iniciando solicitud...')
 
+    const { createSupabaseAdminClient } = await import('@/lib/supabase/admin')
+    const adminClient = createSupabaseAdminClient()
     const ticketCategory = await fetchTicketAssetCategory(adminClient as any, ticketId)
     
     // Registrar comentario en el ticket (auditoría)
@@ -777,8 +779,6 @@ export async function requestEscalation(ticketId: string, reason: string) {
     console.log('[requestEscalation] Comentario creado exitosamente')
 
     // Enviar notificación a cada supervisor de la sede
-    const { createSupabaseAdminClient } = await import('@/lib/supabase/admin')
-    const adminClient = createSupabaseAdminClient()
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const ticketUrl = `${baseUrl}/tickets/${ticketId}`
     const locationName = (ticket.locations as any)?.name || 'la sede'
