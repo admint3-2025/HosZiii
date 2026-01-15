@@ -20,6 +20,22 @@ export default async function DashboardPage() {
 
   const dashboardErrors: string[] = []
 
+  const { data: { user } } = await supabase.auth.getUser()
+  const { data: profile } = user ? await supabase
+    .from('profiles')
+    .select('role,department')
+    .eq('id', user.id)
+    .single() : { data: null }
+
+  const isAdminOrSupervisor = profile?.role === 'admin' || profile?.role === 'supervisor'
+  const inferredServiceArea = (() => {
+    const dept = (profile?.department ?? '').toLowerCase()
+    if (dept.includes('mantenim')) return 'maintenance'
+    return 'it'
+  })()
+
+  const ticketsIndexHref = isAdminOrSupervisor ? '/tickets?view=queue' : '/tickets?view=mine'
+
   // Obtener filtro de ubicación (null si es admin, array de location_ids si no lo es)
   const locationFilter = await getLocationFilter()
 
@@ -37,13 +53,25 @@ export default async function DashboardPage() {
     return query.eq('location_id', 'none')
   }
 
+  // En dashboard, para supervisor/admin mostramos vista operativa (cola) sin mezclar solicitudes propias.
+  const applyOperationalScope = (query: any) => {
+    let q = query
+    if (user?.id && isAdminOrSupervisor) {
+      q = q.neq('requester_id', user.id)
+    }
+    if (profile?.role === 'supervisor') {
+      q = q.eq('service_area', inferredServiceArea)
+    }
+    return q
+  }
+
   // KPIs principales
   const [openRes, closedRes, escalatedRes, assignedRes, totalRes] = await Promise.all([
-    applyFilter(supabase.from('tickets').select('id', { count: 'exact', head: true }).is('deleted_at', null).in('status', [...OPEN_STATUSES])),
-    applyFilter(supabase.from('tickets').select('id', { count: 'exact', head: true }).is('deleted_at', null).in('status', ['CLOSED'])),
-    applyFilter(supabase.from('tickets').select('id', { count: 'exact', head: true }).is('deleted_at', null).eq('support_level', 2)),
-    applyFilter(supabase.from('tickets').select('id', { count: 'exact', head: true }).is('deleted_at', null).not('assigned_agent_id', 'is', null)),
-    applyFilter(supabase.from('tickets').select('id', { count: 'exact', head: true }).is('deleted_at', null)),
+    applyOperationalScope(applyFilter(supabase.from('tickets').select('id', { count: 'exact', head: true }).is('deleted_at', null).in('status', [...OPEN_STATUSES]))),
+    applyOperationalScope(applyFilter(supabase.from('tickets').select('id', { count: 'exact', head: true }).is('deleted_at', null).in('status', ['CLOSED']))),
+    applyOperationalScope(applyFilter(supabase.from('tickets').select('id', { count: 'exact', head: true }).is('deleted_at', null).eq('support_level', 2))),
+    applyOperationalScope(applyFilter(supabase.from('tickets').select('id', { count: 'exact', head: true }).is('deleted_at', null).not('assigned_agent_id', 'is', null))),
+    applyOperationalScope(applyFilter(supabase.from('tickets').select('id', { count: 'exact', head: true }).is('deleted_at', null))),
   ])
 
   ;[openRes, closedRes, escalatedRes, assignedRes, totalRes].forEach((r) => {
@@ -57,12 +85,12 @@ export default async function DashboardPage() {
   const total = totalRes.count ?? 0
 
   // Distribución por estado
-  const { data: statusData, error: statusError } = await applyFilter(
+  const { data: statusData, error: statusError } = await applyOperationalScope(applyFilter(
     supabase
       .from('tickets')
       .select('status')
       .is('deleted_at', null)
-  )
+  ))
   if (statusError) dashboardErrors.push(statusError.message)
 
   const statusCounts = (statusData ?? []).reduce((acc: Record<string, number>, t: { status: string }) => {
@@ -76,12 +104,12 @@ export default async function DashboardPage() {
   }))
 
   // Distribución por prioridad
-  const { data: priorityData, error: priorityError } = await applyFilter(
+  const { data: priorityData, error: priorityError } = await applyOperationalScope(applyFilter(
     supabase
       .from('tickets')
       .select('priority')
       .is('deleted_at', null)
-  )
+  ))
   if (priorityError) dashboardErrors.push(priorityError.message)
 
   const priorityCounts = (priorityData ?? []).reduce((acc: Record<number, number>, t: { priority: number }) => {
@@ -133,14 +161,14 @@ export default async function DashboardPage() {
   }))
 
   // Tickets recientes
-  const { data: rawRecentTickets, error: recentError } = await applyFilter(
+  const { data: rawRecentTickets, error: recentError } = await applyOperationalScope(applyFilter(
     supabase
       .from('tickets')
       .select('id,ticket_number,title,status,priority,created_at')
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
       .limit(5)
-  )
+  ))
   if (recentError) dashboardErrors.push(recentError.message)
 
   const recentTickets = (rawRecentTickets ?? []).sort((
@@ -161,13 +189,13 @@ export default async function DashboardPage() {
   })
 
   // Métricas de aging por estado
-  const { data: agingData, error: agingError } = await applyFilter(
+  const { data: agingData, error: agingError } = await applyOperationalScope(applyFilter(
     supabase
       .from('tickets')
       .select('status,created_at,updated_at,ticket_number')
       .is('deleted_at', null)
       .in('status', [...OPEN_STATUSES])
-  )
+  ))
   if (agingError) dashboardErrors.push(agingError.message)
 
   const now = new Date()
@@ -194,18 +222,13 @@ export default async function DashboardPage() {
     .sort((a, b) => b.avgDays - a.avgDays)
 
   // Estadísticas por sede (solo para admin/supervisor; RLS protege el resto)
-  const { data: { user } } = await supabase.auth.getUser()
   let locationStats: any[] = []
-  let isAdminOrSupervisor = false
-
   if (user) {
-    const { data: profile } = await supabase
+    const { data: profileForStats } = await supabase
       .from('profiles')
       .select('role, location_id')
       .eq('id', user.id)
       .single()
-
-    isAdminOrSupervisor = profile?.role === 'admin' || profile?.role === 'supervisor'
 
     if (isAdminOrSupervisor) {
       // Si es admin, ve todas las sedes. Si es supervisor, solo sus sedes asignadas
@@ -215,7 +238,7 @@ export default async function DashboardPage() {
       
       let shouldExecuteQuery = true
       
-      if (profile?.role === 'supervisor') {
+      if (profileForStats?.role === 'supervisor') {
         // Obtener las sedes asignadas al supervisor
         const { data: userLocs, error: userLocsError } = await supabase
           .from('user_locations')
@@ -225,8 +248,8 @@ export default async function DashboardPage() {
         const locationIds = userLocs?.map(ul => ul.location_id).filter(Boolean) || []
         
         // Incluir también la location_id del perfil si existe
-        if (profile.location_id && !locationIds.includes(profile.location_id)) {
-          locationIds.push(profile.location_id)
+        if (profileForStats?.location_id && !locationIds.includes(profileForStats.location_id)) {
+          locationIds.push(profileForStats.location_id)
         }
         
         // Filtrar por las sedes del supervisor
@@ -448,7 +471,7 @@ export default async function DashboardPage() {
           <AssignedAssets assets={assignedAssets} />
         </div>
         <div className="mt-4">
-          <RecentTickets tickets={recentTickets ?? []} />
+          <RecentTickets tickets={recentTickets ?? []} ticketsIndexHref={ticketsIndexHref} />
         </div>
       </div>
 

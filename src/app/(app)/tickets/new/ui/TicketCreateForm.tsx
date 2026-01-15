@@ -3,7 +3,9 @@
 import { useMemo, useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
+import { isITAsset } from '@/lib/assets/asset-fields'
 import { computePriority } from '@/lib/tickets/priority'
+import { inferServiceAreaFromCategoryPath, type TicketServiceArea } from '@/lib/tickets/service-area'
 import { createTicket } from '../actions'
 import AttachmentUploader from '@/components/AttachmentUploader'
 import { uploadTicketAttachment } from '@/lib/storage/attachments'
@@ -43,6 +45,7 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
   const [categories, setCategories] = useState<CategoryRow[]>(initialCategories)
   const [title, setTitle] = useState('')
   const [description, setDescription] = useState('')
+  const [serviceArea, setServiceArea] = useState<'' | Exclude<TicketServiceArea, 'beo'>>('')
   const [categoryL1, setCategoryL1] = useState<string>('')
   const [categoryL2, setCategoryL2] = useState<string>('')
   const [categoryL3, setCategoryL3] = useState<string>('')
@@ -163,8 +166,32 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
     loadData()
   }, [supabase])
 
+  const rootServiceAreas = useMemo(() => {
+    const areas = new Set<Exclude<TicketServiceArea, 'beo'>>()
+    for (const category of categories) {
+      if (category.parent_id !== null) continue
+
+      const area = inferServiceAreaFromCategoryPath(category.name)
+      if (area === 'beo') continue
+      areas.add(area)
+    }
+    return areas
+  }, [categories])
+
+  useEffect(() => {
+    if (serviceArea) return
+    if (rootServiceAreas.size !== 1) return
+    const [only] = Array.from(rootServiceAreas)
+    setServiceArea(only)
+  }, [rootServiceAreas, serviceArea])
+
   const roots = useMemo(() => {
-    const filtered = categories.filter((c) => c.parent_id === null)
+    let filtered = categories.filter((c) => c.parent_id === null)
+
+    if (serviceArea) {
+      filtered = filtered.filter((c) => inferServiceAreaFromCategoryPath(c.name) === serviceArea)
+    }
+
     // Eliminar duplicados por ID
     const seen = new Set<string>()
     return filtered.filter((c) => {
@@ -172,7 +199,15 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
       seen.add(c.id)
       return true
     })
-  }, [categories])
+  }, [categories, serviceArea])
+
+  const hasRootsForSelectedArea = roots.length > 0
+
+  const filteredAssets = useMemo(() => {
+    if (!serviceArea) return []
+    if (serviceArea === 'it') return assets.filter((a) => isITAsset(a.asset_type))
+    return assets.filter((a) => !isITAsset(a.asset_type))
+  }, [assets, serviceArea])
 
   const l2Options = useMemo(() => {
     const filtered = categories.filter((c) => c.parent_id === categoryL1)
@@ -207,6 +242,11 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
+
+    if (!serviceArea) {
+      setError('Debes seleccionar si el ticket es para IT o para Mantenimiento.')
+      return
+    }
     
     // Validar que si el usuario puede crear para otros, DEBE seleccionar un solicitante
     if (canCreateForOthers && !requesterId) {
@@ -226,6 +266,7 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
     const ticketInput = {
       title,
       description,
+      service_area: serviceArea || undefined,
       category_id: selectedCategoryId,
       impact,
       urgency,
@@ -385,6 +426,12 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
     setShowModal(true)
   }
 
+  function openPrefilledRootCategory(name: string) {
+    setNewCategoryLevel(1)
+    setNewCategoryName(name)
+    setShowModal(true)
+  }
+
   return (
     <>
       <form onSubmit={onSubmit} className="space-y-6">
@@ -402,6 +449,62 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
                 <p className="text-xs text-gray-600">Selección jerárquica de la categoría del ticket</p>
               </div>
             </div>
+
+            <div className="mb-4">
+              <label className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Área de servicio</label>
+              <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                <div className="join w-full sm:w-auto">
+                  <button
+                    type="button"
+                    className={`btn btn-sm join-item ${serviceArea === 'it' ? 'btn-active' : ''}`}
+                    onClick={() => {
+                      setServiceArea('it')
+                      setCategoryL1('')
+                      setCategoryL2('')
+                      setCategoryL3('')
+                      setAssetId('')
+                    }}
+                  >
+                    IT
+                  </button>
+                  <button
+                    type="button"
+                    className={`btn btn-sm join-item ${serviceArea === 'maintenance' ? 'btn-active' : ''}`}
+                    onClick={() => {
+                      setServiceArea('maintenance')
+                      setCategoryL1('')
+                      setCategoryL2('')
+                      setCategoryL3('')
+                      setAssetId('')
+                    }}
+                  >
+                    Mantenimiento
+                  </button>
+                </div>
+                <p className="text-xs text-gray-600">
+                  Define a qué equipo se enruta el ticket.
+                </p>
+              </div>
+
+              {!!serviceArea && !hasRootsForSelectedArea && (
+                <div className="mt-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800">
+                  No hay categorías configuradas para <span className="font-semibold">{serviceArea === 'maintenance' ? 'Mantenimiento' : 'IT'}</span>.
+                  <span className="block">Un admin debe crear la categoría raíz y subcategorías (ej.: raíz “Mantenimiento”).</span>
+                  {serviceArea === 'maintenance' && (
+                    <div className="mt-2">
+                      <button
+                        type="button"
+                        className="btn btn-xs"
+                        onClick={() => openPrefilledRootCategory('Mantenimiento')}
+                      >
+                        Crear categoría raíz “Mantenimiento”
+                      </button>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+
             <div className="grid gap-3 sm:grid-cols-3">
             <div>
               <div className="flex items-center justify-between mb-2">
@@ -427,7 +530,8 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
                   setCategoryL2('')
                   setCategoryL3('')
                 }}
-                required
+                disabled={!serviceArea}
+                required={!!serviceArea}
               >
                 <option value="">Seleccionar…</option>
                 {roots.map((c) => (
@@ -463,7 +567,7 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
                   setCategoryL2(next)
                   setCategoryL3('')
                 }}
-                disabled={!categoryL1 || l2Options.length === 0}
+                disabled={!serviceArea || !categoryL1 || l2Options.length === 0}
                 required={!!categoryL1 && l2Options.length > 0}
               >
                 <option value="">Seleccionar…</option>
@@ -496,7 +600,7 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
                 className="select"
                 value={categoryL3}
                 onChange={(e) => setCategoryL3(e.target.value)}
-                disabled={!categoryL2 || l3Options.length === 0}
+                disabled={!serviceArea || !categoryL2 || l3Options.length === 0}
                 required={!!categoryL2 && l3Options.length > 0}
               >
                 <option value="">Seleccionar…</option>
@@ -592,29 +696,41 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
                 </div>
                 <div>
                   <h3 className="text-sm font-semibold text-emerald-900 uppercase tracking-wider">Activo relacionado</h3>
-                  <p className="text-xs text-emerald-700">Opcional: vincula este ticket con un activo de TI</p>
+                  <p className="text-xs text-emerald-700">
+                    Opcional: vincula este ticket con un activo de {serviceArea === 'maintenance' ? 'Mantenimiento' : 'IT'}
+                  </p>
                 </div>
               </div>
             </div>
             <div className="card-body">
-              <select
-                className="select w-full text-sm"
-                name="assetId"
-                value={assetId}
-                onChange={(e) => setAssetId(e.target.value)}
-              >
-                <option value="">-- Ninguno --</option>
-                {assets.map((asset) => (
-                  <option key={asset.id} value={asset.id}>
-                    {asset.asset_tag} - {asset.asset_type}
-                    {asset.brand && ` ${asset.brand}`}
-                    {asset.model && ` ${asset.model}`}
-                    {asset.location_name && ` • ${asset.location_name}`}
-                    {asset.assigned_to_name && ` | Asignado a: ${asset.assigned_to_name}`}
-                    {asset.status === 'MAINTENANCE' && ' [En mantenimiento]'}
-                  </option>
-                ))}
-              </select>
+              {!serviceArea ? (
+                <div className="rounded-md border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700">
+                  Selecciona primero el área (IT / Mantenimiento) para ver activos disponibles.
+                </div>
+              ) : filteredAssets.length === 0 ? (
+                <div className="rounded-md border border-yellow-200 bg-yellow-50 px-3 py-2 text-sm text-yellow-700">
+                  No hay activos disponibles para {serviceArea === 'maintenance' ? 'Mantenimiento' : 'IT'}.
+                </div>
+              ) : (
+                <select
+                  className="select w-full text-sm"
+                  name="assetId"
+                  value={assetId}
+                  onChange={(e) => setAssetId(e.target.value)}
+                >
+                  <option value="">-- Ninguno --</option>
+                  {filteredAssets.map((asset) => (
+                    <option key={asset.id} value={asset.id}>
+                      {asset.asset_tag} - {asset.asset_type}
+                      {asset.brand && ` ${asset.brand}`}
+                      {asset.model && ` ${asset.model}`}
+                      {asset.location_name && ` • ${asset.location_name}`}
+                      {asset.assigned_to_name && ` | Asignado a: ${asset.assigned_to_name}`}
+                      {asset.status === 'MAINTENANCE' && ' [En mantenimiento]'}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
           </div>
         )}

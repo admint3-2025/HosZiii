@@ -25,6 +25,8 @@ export default function TicketFilters({
   const router = useRouter()
   const searchParams = useSearchParams()
   const [isPending, startTransition] = useTransition()
+
+  const view = searchParams.get('view') || ''
   
   const [search, setSearch] = useState(searchParams.get('search') || '')
   const [status, setStatus] = useState(searchParams.get('status') || '')
@@ -35,6 +37,7 @@ export default function TicketFilters({
 
   const handleFilter = () => {
     const params = new URLSearchParams()
+    if (view) params.set('view', view)
     if (search) params.set('search', search)
     if (status) params.set('status', status)
     if (priority) params.set('priority', priority)
@@ -55,7 +58,7 @@ export default function TicketFilters({
     setCategory('')
     setLocation('')
     startTransition(() => {
-      router.push('/tickets')
+      router.push(view ? `/tickets?view=${encodeURIComponent(view)}` : '/tickets')
     })
   }
 

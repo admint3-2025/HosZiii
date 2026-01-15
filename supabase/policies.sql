@@ -67,6 +67,49 @@ as $$
   );
 $$;
 
+-- Map current user profile.department -> ticket service area
+create or replace function current_service_area()
+returns text
+language sql
+stable
+security definer
+set search_path = public
+set row_security = off
+as $$
+  select
+    case
+      when lower(coalesce(p.department, '')) like '%mantenim%' then 'maintenance'
+      else 'it'
+    end
+  from profiles p
+  where p.id = auth.uid();
+$$;
+
+-- Centralize ticket access rules so related tables (comments/history) stay consistent
+create or replace function can_access_ticket(ticket_id uuid)
+returns boolean
+language sql
+stable
+security definer
+set search_path = public
+set row_security = off
+as $$
+  select exists(
+    select 1
+    from tickets t
+    join profiles p on p.id = auth.uid()
+    where t.id = can_access_ticket.ticket_id
+      and (
+        (t.deleted_at is null and t.requester_id = auth.uid())
+        or (t.deleted_at is null and t.assigned_agent_id = auth.uid())
+        or (t.deleted_at is null and p.role = 'admin')
+        or (t.deleted_at is null and p.role = 'supervisor' and t.service_area = current_service_area())
+        or (t.deleted_at is null and p.role in ('agent_l1','agent_l2') and (t.requester_id = auth.uid() or t.assigned_agent_id = auth.uid()))
+        or (t.deleted_at is not null and p.role in ('auditor','supervisor','admin'))
+      )
+  );
+$$;
+
 -- profiles
 drop policy if exists "profiles_select_own" on profiles;
 create policy "profiles_select_own" on profiles
@@ -144,9 +187,14 @@ for select
 to authenticated
 using (
   deleted_at is null
-  and exists(
-    select 1 from profiles p
-    where p.id = auth.uid() and p.role in ('supervisor','admin')
+  and (
+    is_admin()
+    or exists(
+      select 1 from profiles p
+      where p.id = auth.uid()
+        and p.role = 'supervisor'
+        and tickets.service_area = current_service_area()
+    )
   )
 );
 
@@ -187,9 +235,12 @@ to authenticated
 using (
   deleted_at is null
   and (
-    exists(
+    is_admin()
+    or exists(
       select 1 from profiles p
-      where p.id = auth.uid() and p.role in ('supervisor','admin')
+      where p.id = auth.uid()
+        and p.role = 'supervisor'
+        and tickets.service_area = current_service_area()
     )
     or (
       exists(
@@ -203,9 +254,12 @@ using (
 with check (
   deleted_at is null
   and (
-    exists(
+    is_admin()
+    or exists(
       select 1 from profiles p
-      where p.id = auth.uid() and p.role in ('supervisor','admin')
+      where p.id = auth.uid()
+        and p.role = 'supervisor'
+        and tickets.service_area = current_service_area()
     )
     or (
       exists(
@@ -223,13 +277,14 @@ drop policy if exists "tickets_soft_delete_agents" on tickets;
 create policy "tickets_soft_delete_agents" on tickets
 for update
 to authenticated
-using (deleted_at is null and is_agent())
+using (deleted_at is null and is_agent() and can_access_ticket(id))
 with check (
   deleted_at is not null
   and deleted_by = auth.uid()
   and deleted_reason is not null
   and length(trim(deleted_reason)) > 0
   and is_agent()
+  and can_access_ticket(id)
 );
 
 -- ticket_comments
@@ -238,12 +293,7 @@ create policy "ticket_comments_select" on ticket_comments
 for select
 to authenticated
 using (
-  exists(
-    select 1 from tickets t
-    where t.id = ticket_comments.ticket_id
-      and t.deleted_at is null
-      and (t.requester_id = auth.uid() or is_agent())
-  )
+  can_access_ticket(ticket_comments.ticket_id)
 );
 
 drop policy if exists "ticket_comments_insert" on ticket_comments;
@@ -252,12 +302,7 @@ for insert
 to authenticated
 with check (
   author_id = auth.uid()
-  and exists(
-    select 1 from tickets t
-    where t.id = ticket_comments.ticket_id
-      and t.deleted_at is null
-      and (t.requester_id = auth.uid() or is_agent())
-  )
+  and can_access_ticket(ticket_comments.ticket_id)
 );
 
 -- ticket_status_history
@@ -266,19 +311,23 @@ create policy "ticket_status_history_select" on ticket_status_history
 for select
 to authenticated
 using (
-  exists(
-    select 1 from tickets t
-    where t.id = ticket_status_history.ticket_id
-      and t.deleted_at is null
-      and (t.requester_id = auth.uid() or is_agent())
-  )
+  can_access_ticket(ticket_status_history.ticket_id)
 );
 
 drop policy if exists "ticket_status_history_insert_agents" on ticket_status_history;
 create policy "ticket_status_history_insert_agents" on ticket_status_history
 for insert
 to authenticated
-with check (is_agent() and actor_id = auth.uid());
+with check (
+  is_agent()
+  and actor_id = auth.uid()
+  and can_access_ticket(ticket_status_history.ticket_id)
+  and exists(
+    select 1 from tickets t
+    where t.id = ticket_status_history.ticket_id
+      and t.deleted_at is null
+  )
+);
 
 -- audit_log
 drop policy if exists "audit_log_select_auditor" on audit_log;

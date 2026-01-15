@@ -3,6 +3,34 @@ set -euo pipefail
 
 ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 
+print_help() {
+  cat >&2 <<'EOF'
+Uso: ./scripts/ziii.sh <comando>
+
+Comandos:
+  workdir   Muestra el directorio real donde se ejecuta (shadow workdir si aplica)
+  install   Instala dependencias (npm install) en el workdir correcto
+  dev       Arranca desarrollo (next dev) en el workdir correcto
+  build     Compila producción (next build) en el workdir correcto
+  start     Arranca producción (next start) en el workdir correcto (auto-build si falta .next)
+  lint      Ejecuta lint en el workdir correcto
+  help      Muestra esta ayuda
+
+Regla de oro (para evitar confusiones):
+  NO uses "npm run dev/build/start" directamente.
+  SIEMPRE usa: ./scripts/ziii.sh dev|build|start
+
+Ejemplos típicos:
+  ./scripts/ziii.sh install
+  ./scripts/ziii.sh dev
+  ./scripts/ziii.sh build
+  ./scripts/ziii.sh start
+
+Tips:
+  - Puedes fijar el workdir: export ZIII_WORKDIR=/ruta/estable
+EOF
+}
+
 supports_symlinks() {
   local test_dir
   test_dir="$(mktemp -d "${ROOT_DIR%/}/.symlink-test.XXXXXX")"
@@ -51,6 +79,13 @@ cmd="${1:-}"
 shift || true
 
 case "$cmd" in
+  ""|help|-h|--help)
+    print_help
+    exit 0
+    ;;
+esac
+
+case "$cmd" in
   workdir)
     echo "$RUN_DIR"
     exit 0
@@ -90,14 +125,21 @@ case "$cmd" in
     exec npm run build -- "$@"
     ;;
   start)
+    # next start requires a completed build in the *same* RUN_DIR.
+    # If the user built elsewhere (or the build output was cleaned), we can
+    # get runtime ENOENT errors like `.next/server/webpack-runtime.js` missing.
+    if [[ ! -f ".next/server/webpack-runtime.js" ]]; then
+      echo "[ziii] Build output faltante en: $RUN_DIR/.next (ejecutando build primero)" >&2
+      npm run build
+    fi
     exec npm run start -- "$@"
     ;;
   lint)
     exec npm run lint -- "$@"
     ;;
   *)
-    echo "Uso: $(basename "$0") {workdir|install|dev|build|start|lint}" >&2
-    echo "Tip: export ZIII_WORKDIR=... para fijar un workdir" >&2
+    echo "Comando no reconocido: $cmd" >&2
+    print_help
     exit 2
     ;;
 esac

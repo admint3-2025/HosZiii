@@ -4,10 +4,12 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { notifyTicketCreated } from '@/lib/email/ticket-notifications'
 import { getCategoryPathLabel } from '@/lib/categories/path'
+import { inferServiceAreaFromCategoryPath, type TicketServiceArea } from '@/lib/tickets/service-area'
 
 type CreateTicketInput = {
   title: string
   description: string
+  service_area?: TicketServiceArea
   category_id: string | null
   impact: number
   urgency: number
@@ -52,6 +54,10 @@ export async function createTicket(input: CreateTicketInput) {
   }
 
   // Insert ticket with NEW status
+  // Compute category path once (used for service_area + notification)
+  const { data: categories } = await supabase.from('categories').select('id,name,parent_id')
+  const categoryPath = getCategoryPathLabel(categories ?? [], input.category_id)
+
   const ticketData: any = {
     title: input.title,
     description: input.description,
@@ -62,6 +68,7 @@ export async function createTicket(input: CreateTicketInput) {
     status: 'NEW',
     support_level: input.support_level,
     location_id: requesterProfile.location_id,
+    service_area: input.service_area ?? inferServiceAreaFromCategoryPath(categoryPath),
   }
 
   // If requester_id is provided, use it (agent creating for another user)
@@ -145,10 +152,6 @@ export async function createTicket(input: CreateTicketInput) {
       console.log('[Ticket Create] ✅ Asset_id guardado correctamente en el insert')
     }
   }
-
-  // Get category path for notification
-  const { data: categories } = await supabase.from('categories').select('id,name,parent_id')
-  const categoryPath = getCategoryPathLabel(categories ?? [], ticket.category_id)
 
   // Send notification (await to ensure it's attempted, but don't block on failure)
   try {

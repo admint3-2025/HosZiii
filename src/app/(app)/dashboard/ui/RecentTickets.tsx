@@ -11,7 +11,13 @@ type Ticket = {
   created_at: string
 }
 
-export default function RecentTickets({ tickets }: { tickets: Ticket[] }) {
+export default function RecentTickets({
+  tickets,
+  ticketsIndexHref,
+}: {
+  tickets: Ticket[]
+  ticketsIndexHref: string
+}) {
   return (
     <div className="card shadow-lg border-0">
       <div className="card-body">
@@ -28,7 +34,7 @@ export default function RecentTickets({ tickets }: { tickets: Ticket[] }) {
             </div>
           </div>
           <Link
-            href="/tickets"
+            href={ticketsIndexHref}
             className="text-xs font-medium text-purple-600 hover:text-purple-700 flex items-center gap-1 transition-colors"
           >
             Ver todos

@@ -236,12 +236,18 @@ export default function AppShellClient({
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({})
   
-  const isActive = (href: string) => pathname === href || pathname.startsWith(href + '/')
+  const isActive = (href: string) => {
+    const pathOnly = href.split('?')[0]
+    return pathname === pathOnly || pathname.startsWith(pathOnly + '/')
+  }
 
   // Links existentes de Helpdesk (se muestran dentro de "Mesa de Ayuda")
   const helpdeskItems: MenuSection['items'] = [
     { id: 'hd_dashboard', label: 'Dashboard', icon: 'Dashboard', href: '/dashboard' },
-    { id: 'hd_tickets', label: 'Mis Tickets', icon: 'Ticket', href: '/tickets' },
+    { id: 'hd_tickets_mine', label: 'Mis Tickets', icon: 'Ticket', href: '/tickets?view=mine' },
+    ...(userData.role === 'admin' || userData.role === 'supervisor'
+      ? ([{ id: 'hd_tickets_queue', label: 'Bandeja', icon: 'BarChart', href: '/tickets?view=queue', roles: ['admin', 'supervisor'] }] as MenuSection['items'])
+      : []),
     { id: 'hd_beo', label: 'Eventos (BEO)', icon: 'Calendar', href: '/beo/dashboard', requireBeo: true },
     { id: 'hd_reports', label: 'Reportes', icon: 'Reports', href: '/reports' },
     {

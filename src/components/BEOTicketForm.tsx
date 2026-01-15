@@ -124,6 +124,7 @@ ${formData.description.trim() ? `\n**Notas adicionales:**\n${formData.descriptio
           urgency: 2,
           priority: 2, // Prioridad MEDIA (1=LOW, 2=MEDIUM, 3=HIGH, 4=CRITICAL)
           status: 'NEW',
+          service_area: 'beo',
           requester_id: requesterId,
           location_id: formData.location_id || null,
           is_beo: true,

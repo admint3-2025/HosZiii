@@ -12,6 +12,10 @@ export default function MobileSidebar({ userData }: { userData: UserData }) {
   const pathname = usePathname()
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/")
 
+  const ticketsHref = (userData.role === 'admin' || userData.role === 'supervisor')
+    ? '/tickets?view=queue'
+    : '/tickets?view=mine'
+
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 shadow-2xl z-[9999]">
       <div className="flex items-center justify-around px-2 py-2">
@@ -44,7 +48,7 @@ export default function MobileSidebar({ userData }: { userData: UserData }) {
         </Link>
 
         <Link
-          href="/tickets"
+          href={ticketsHref}
           className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl min-w-[56px] transition-all ${
             isActive("/tickets") 
               ? "bg-white/10 text-indigo-400" 

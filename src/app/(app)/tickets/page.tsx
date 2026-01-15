@@ -9,7 +9,7 @@ import TicketFilters from './ui/TicketFilters'
 export default async function TicketsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ search?: string; status?: string; priority?: string; level?: string; category?: string; location?: string }>
+  searchParams: Promise<{ view?: string; search?: string; status?: string; priority?: string; level?: string; category?: string; location?: string }>
 }) {
   const supabase = await createSupabaseServerClient()
   const params = await searchParams
@@ -18,11 +18,32 @@ export default async function TicketsPage({
   const { data: { user } } = await supabase.auth.getUser()
   const { data: profile } = user ? await supabase
     .from('profiles')
-    .select('department')
+    .select('department,role')
     .eq('id', user.id)
     .single() : { data: null }
   
   const isVentasDept = profile?.department?.toLowerCase().includes('ventas')
+
+  const canViewQueue = profile?.role === 'supervisor' || profile?.role === 'admin'
+  const requestedView = params.view
+  const defaultView = canViewQueue ? 'queue' : 'mine'
+  const view = (requestedView === 'queue' || requestedView === 'mine')
+    ? (requestedView === 'queue' && !canViewQueue ? 'mine' : requestedView)
+    : defaultView
+
+  const inferredServiceArea = (() => {
+    const dept = (profile?.department ?? '').toLowerCase()
+    if (dept.includes('mantenim')) return 'maintenance'
+    return 'it'
+  })()
+
+  const viewBadge = (() => {
+    const areaLabel = inferredServiceArea === 'maintenance' ? 'Mantenimiento' : 'IT'
+    if (view === 'mine') return { label: 'Mis tickets', sub: null }
+    if (profile?.role === 'supervisor') return { label: 'Bandeja', sub: areaLabel }
+    if (profile?.role === 'admin') return { label: 'Bandeja', sub: 'Todas' }
+    return { label: 'Bandeja', sub: null }
+  })()
   
   // Obtener filtro de ubicación
   const locationFilter = await getLocationFilter()
@@ -45,6 +66,27 @@ export default async function TicketsPage({
   }
 
   // Aplicar filtros
+  if (view === 'mine') {
+    if (user?.id) {
+      query = query.eq('requester_id', user.id)
+    } else {
+      // Sin usuario: no mostrar tickets
+      query = query.eq('id', 'none')
+    }
+  }
+
+  if (view === 'queue') {
+    if (user?.id) {
+      // Evita mezclar solicitudes propias dentro de la cola operativa
+      query = query.neq('requester_id', user.id)
+    }
+
+    if (profile?.role === 'supervisor') {
+      // Asegura que la cola sea solo del área del supervisor
+      query = query.eq('service_area', inferredServiceArea)
+    }
+  }
+
   if (params.search) {
     const searchTerm = params.search.toLowerCase()
     // Buscar en ticket_number, título o descripción
@@ -115,6 +157,12 @@ export default async function TicketsPage({
                 </svg>
               </div>
               <h1 className="text-xl font-bold text-white">Tickets</h1>
+              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold text-white ring-1 ring-white/20">
+                <span>{viewBadge.label}</span>
+                {viewBadge.sub ? (
+                  <span className="text-white/80">· {viewBadge.sub}</span>
+                ) : null}
+              </span>
             </div>
             <p className="text-blue-100 text-xs">Gestiona y da seguimiento a todas las solicitudes de soporte</p>
           </div>
@@ -141,6 +189,48 @@ export default async function TicketsPage({
             )}
           </div>
         </div>
+      </div>
+
+      <div className="inline-flex items-center rounded-xl border border-slate-200 bg-white/80 p-1 shadow-sm">
+        <Link
+          href={`/tickets?${(() => {
+            const sp = new URLSearchParams()
+            for (const [k, v] of Object.entries(params)) {
+              if (k === 'view') continue
+              if (typeof v === 'string' && v.length > 0) sp.set(k, v)
+            }
+            sp.set('view', 'mine')
+            return sp.toString()
+          })()}`}
+          className={
+            view === 'mine'
+              ? 'px-4 py-2 rounded-lg text-sm font-semibold bg-indigo-600 text-white shadow'
+              : 'px-4 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-white'
+          }
+        >
+          Mis tickets
+        </Link>
+
+        {canViewQueue && (
+          <Link
+            href={`/tickets?${(() => {
+              const sp = new URLSearchParams()
+              for (const [k, v] of Object.entries(params)) {
+                if (k === 'view') continue
+                if (typeof v === 'string' && v.length > 0) sp.set(k, v)
+              }
+              sp.set('view', 'queue')
+              return sp.toString()
+            })()}`}
+            className={
+              view === 'queue'
+                ? 'px-4 py-2 rounded-lg text-sm font-semibold bg-indigo-600 text-white shadow'
+                : 'px-4 py-2 rounded-lg text-sm font-medium text-slate-700 hover:bg-white'
+            }
+          >
+            Bandeja
+          </Link>
+        )}
       </div>
 
       {error ? (
