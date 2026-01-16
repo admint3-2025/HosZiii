@@ -253,7 +253,7 @@ export default function AppShellClient({
       ? ([{ id: 'hd_tickets_queue', label: 'Bandeja', icon: 'BarChart', href: '/tickets?view=queue', roles: ['admin', 'supervisor'] }] as MenuSection['items'])
       : []),
     { id: 'hd_beo', label: 'Eventos (BEO)', icon: 'Calendar', href: '/beo/dashboard', requireBeo: true },
-    { id: 'hd_reports', label: 'Reportes', icon: 'Reports', href: '/reports' },
+    // reportes moved to Administración section
     {
       id: 'hd_knowledge',
       label: 'Base de Conocimientos',
@@ -275,6 +275,7 @@ export default function AppShellClient({
         { id: 'admin_users', label: 'Usuarios', icon: 'Users', href: '/admin/users', roles: ['admin'] },
         { id: 'admin_locations', label: 'Ubicaciones', icon: 'Location', href: '/admin/locations', roles: ['admin'] },
         { id: 'admin_login_audits', label: 'Registro de sesiones', icon: 'Audit', href: '/admin/login-audits', roles: ['admin'] },
+        { id: 'admin_reports', label: 'Reportes', icon: 'Reports', href: '/reports', roles: ['admin'] },
         { id: 'admin_assets', label: 'Activos', icon: 'Assets', href: '/admin/assets', roles: ['admin', 'supervisor'] },
       ],
     },
