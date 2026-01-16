@@ -47,6 +47,16 @@ const ROLE_LABEL: Record<Role, string> = {
   admin: 'Administrador',
 }
 
+const CATEGORY_LABEL: Record<string, string> = {
+  IT: 'IT - Tecnología',
+  MAINTENANCE: 'Mantenimiento',
+}
+
+function getCategoryLabel(cat?: string | null) {
+  if (!cat) return null
+  return CATEGORY_LABEL[cat] ?? cat
+}
+
 function isActive(user: UserRow) {
   if (!user.banned_until) return true
   const until = new Date(user.banned_until).getTime()
@@ -411,6 +421,7 @@ export default function UserList() {
               <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">Rol</th>
               <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">Acceso BEO</th>
               <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">Gestión Activos</th>
+              <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">Categoría</th>
               <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">Estado</th>
               <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">Acciones</th>
             </tr>
@@ -472,7 +483,7 @@ export default function UserList() {
 
                     <td className="px-3 py-2">
                       <div className="flex items-center">
-                        {u.can_manage_assets ? (
+                          {u.can_manage_assets ? (
                           <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100 border border-emerald-300">
                             <svg className="w-4 h-4 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -483,6 +494,18 @@ export default function UserList() {
                         )}
                       </div>
                     </td>
+
+                      <td className="px-3 py-2">
+                        <div className="text-xs">
+                          {getCategoryLabel(u.asset_category) ? (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-800 border border-slate-200">
+                              {getCategoryLabel(u.asset_category)}
+                            </span>
+                          ) : (
+                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-50 text-slate-600 border border-slate-100">Todos</span>
+                          )}
+                        </div>
+                      </td>
 
                     <td className="px-3 py-2">
                       <span
@@ -524,7 +547,7 @@ export default function UserList() {
                   {/* Fila expandida para edición */}
                   {editing && (
                     <tr key={`${u.id}-edit`} className="bg-white border-l-4 border-blue-500">
-                      <td colSpan={7} className="px-3 py-4">
+                      <td colSpan={9} className="px-3 py-4">
                         <div className="space-y-3">
                           <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -710,7 +733,7 @@ export default function UserList() {
 
             {sorted.length === 0 ? (
               <tr>
-                <td className="px-3 py-8 text-center text-gray-500 text-xs" colSpan={7}>
+                <td className="px-3 py-8 text-center text-gray-500 text-xs" colSpan={9}>
                   {busy ? 'Cargando…' : 'No hay usuarios'}
                 </td>
               </tr>
