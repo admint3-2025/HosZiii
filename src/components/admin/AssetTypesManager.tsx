@@ -5,18 +5,24 @@ import React, { useEffect, useState } from 'react'
 export default function AssetTypesManager() {
   const [types, setTypes] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
+  const [isAdmin, setIsAdmin] = useState<boolean | null>(null)
+   const [error, setError] = useState<string | null>(null)
   const [value, setValue] = useState('')
   const [label, setLabel] = useState('')
   const [category, setCategory] = useState('IT')
+  const [createError, setCreateError] = useState<string | null>(null)
+  const [createSuccess, setCreateSuccess] = useState<string | null>(null)
 
   async function load() {
     setLoading(true)
+     setError(null)
     try {
       const res = await fetch('/api/admin/asset-types')
       const data = await res.json()
       setTypes(data.assetTypes || [])
     } catch (e) {
       console.error(e)
+       setError(String(e))
     } finally {
       setLoading(false)
     }
@@ -24,8 +30,23 @@ export default function AssetTypesManager() {
 
   useEffect(() => { load() }, [])
 
+  useEffect(() => {
+    // quick permission check: only admins can list users (endpoint protected)
+    async function checkAdmin() {
+      try {
+        const res = await fetch('/api/admin/users')
+        setIsAdmin(res.ok)
+      } catch (e) {
+        setIsAdmin(false)
+      }
+    }
+    checkAdmin()
+  }, [])
+
   async function handleCreate(e: React.FormEvent) {
     e.preventDefault()
+    setCreateError(null)
+    setCreateSuccess(null)
     try {
       const res = await fetch('/api/admin/asset-types', {
         method: 'POST',
@@ -36,11 +57,16 @@ export default function AssetTypesManager() {
         setValue('')
         setLabel('')
         load()
+        setCreateSuccess('Tipo creado correctamente')
       } else {
-        console.error('create failed', await res.text())
+        const txt = await res.text().catch(() => '')
+        if (res.status === 403) setCreateError('No autorizado: se requiere rol admin para crear tipos')
+        else setCreateError(`Error creando tipo: ${res.status} ${txt}`)
+        console.error('create failed', res.status, txt)
       }
     } catch (err) {
       console.error(err)
+      setCreateError(String(err))
     }
   }
 
@@ -74,22 +100,30 @@ export default function AssetTypesManager() {
         )}
       </div>
 
-      <form onSubmit={handleCreate} className="grid grid-cols-3 gap-2">
-        <input className="input" placeholder="value (ej. NEW_TYPE)" value={value} onChange={e => setValue(e.target.value)} required />
-        <input className="input" placeholder="Label" value={label} onChange={e => setLabel(e.target.value)} required />
-        <select className="select" value={category} onChange={e => setCategory(e.target.value)}>
-          <option value="IT">IT</option>
-          <option value="HVAC">HVAC</option>
-          <option value="Lavandería">Lavandería</option>
-          <option value="Plomería">Plomería</option>
-          <option value="Cocina/Minibar">Cocina/Minibar</option>
-          <option value="Housekeeping">Housekeeping</option>
-          <option value="General">General</option>
-        </select>
-        <div className="col-span-3 text-right">
-          <button className="btn btn-primary" type="submit">Crear tipo</button>
-        </div>
-      </form>
+      <div className="pt-4">
+        <h4 className="text-sm font-medium">Crear Tipo de activo</h4>
+        <form onSubmit={handleCreate} className="grid grid-cols-3 gap-2 mt-2">
+          <input className="input" placeholder="value (ej. NEW_TYPE)" value={value} onChange={e => setValue(e.target.value)} required disabled={isAdmin === false} />
+          <input className="input" placeholder="Label" value={label} onChange={e => setLabel(e.target.value)} required disabled={isAdmin === false} />
+          <select className="select" value={category} onChange={e => setCategory(e.target.value)} disabled={isAdmin === false}>
+            <option value="IT">IT</option>
+            <option value="HVAC">HVAC</option>
+            <option value="Lavandería">Lavandería</option>
+            <option value="Plomería">Plomería</option>
+            <option value="Cocina/Minibar">Cocina/Minibar</option>
+            <option value="Housekeeping">Housekeeping</option>
+            <option value="General">General</option>
+          </select>
+          <div className="col-span-3 text-right">
+            <button className="btn btn-primary" type="submit">Crear tipo</button>
+          </div>
+          {isAdmin === false && (
+            <div className="col-span-3 text-sm text-slate-500">Nota: no pareces administrador; si recibes "No autorizado" al crear, verifica tu sesión.</div>
+          )}
+          {createSuccess && <div className="col-span-3 text-sm text-emerald-600">{createSuccess}</div>}
+          {createError && <div className="col-span-3 text-sm text-rose-600">{createError}</div>}
+        </form>
+      </div>
     </div>
   )
 }

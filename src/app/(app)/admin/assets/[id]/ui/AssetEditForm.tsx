@@ -12,11 +12,8 @@ import ComboboxInput, {
 } from '@/components/ComboboxInput'
 import BrandSelector from '@/components/BrandSelector'
 import DepartmentSelector from '@/components/DepartmentSelector'
-import {
-  getAssetFieldsForType,
-  getAssetTypesByCategory,
-  type AssetFieldConfig,
-} from '@/lib/assets/asset-fields'
+import { getAssetFieldsForType, type AssetFieldConfig } from '@/lib/assets/asset-fields'
+import { useAssetTypes } from '@/lib/hooks/useAssetTypes'
 
 type Location = {
   id: string
@@ -112,7 +109,7 @@ export default function AssetEditForm({ asset, locations, onCancel, onSuccess }:
 
   // Inicializar categoría seleccionada según el tipo del activo
   useEffect(() => {
-    const categoriesMap = getAssetTypesByCategory()
+    const { categories: categoriesMap } = useAssetTypes()
     for (const [category, types] of Object.entries(categoriesMap)) {
       if (types.some(t => t.value === asset.asset_type)) {
         setSelectedCategory(category)

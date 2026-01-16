@@ -11,12 +11,8 @@ import {
   RAM_SUGGESTIONS,
   STORAGE_SUGGESTIONS,
 } from '@/components/ComboboxInput'
-import {
-  getAssetFieldsForType,
-  getAssetTypesByCategory,
-  isITAsset,
-  type AssetFieldConfig,
-} from '@/lib/assets/asset-fields'
+import { getAssetFieldsForType, isITAsset, type AssetFieldConfig } from '@/lib/assets/asset-fields'
+import { useAssetTypes } from '@/lib/hooks/useAssetTypes'
 
 type Location = {
   id: string
@@ -35,12 +31,18 @@ export default function AssetCreateForm({ locations, canManageAllAssets, userRol
   const [processorSuggestions, setProcessorSuggestions] = useState<string[]>([])
   const [osSuggestions, setOsSuggestions] = useState<string[]>([])
   const [isLoadingCatalogs, setIsLoadingCatalogs] = useState(true)
-  const [selectedCategory, setSelectedCategory] = useState('IT')
+  const [selectedCategory, setSelectedCategory] = useState('')
+  const { categories: typesByCategory } = useAssetTypes()
+  const [showCreateType, setShowCreateType] = useState(false)
+  const [newTypeLabel, setNewTypeLabel] = useState('')
+  const [newTypeCategory, setNewTypeCategory] = useState('')
+  const [creatingType, setCreatingType] = useState(false)
+  const [createTypeError, setCreateTypeError] = useState<string | null>(null)
   
   const [formData, setFormData] = useState({
     asset_tag: '',
-    asset_type: 'DESKTOP',
-    status: 'OPERATIONAL',
+    asset_type: '',
+    status: '',
     serial_number: '',
     model: '',
     brand: '',
@@ -227,45 +229,113 @@ export default function AssetCreateForm({ locations, canManageAllAssets, userRol
             {/* Tipo */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Categoría <span className="text-red-500">*</span>
-              </label>
-              <select
-                value={selectedCategory}
-                onChange={(e) => {
-                  setSelectedCategory(e.target.value)
-                  // Reset asset type when changing category
-                  const categoryTypes = getAssetTypesByCategory()[e.target.value]
-                  if (categoryTypes && categoryTypes.length > 0) {
-                    setFormData({ ...formData, asset_type: categoryTypes[0].value })
-                  }
-                }}
-                className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-              >
-                {Object.keys(getAssetTypesByCategory()).map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
-                ))}
-              </select>
+                  Categoría <span className="text-red-500">*</span>
+                </label>
+                <select
+                  value={selectedCategory}
+                  onChange={(e) => {
+                    setSelectedCategory(e.target.value)
+                    // Do not preselect asset type; let the user choose explicitly
+                    setFormData({ ...formData, asset_type: '' })
+                  }}
+                  className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                >
+                  <option value="">Seleccionar categoría...</option>
+                  {Object.keys(typesByCategory).map((category) => (
+                    <option key={category} value={category}>
+                      {category}
+                    </option>
+                  ))}
+                </select>
             </div>
 
             {/* Tipo de Activo */}
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                Tipo de Activo <span className="text-red-500">*</span>
-              </label>
+              <div className="flex items-center justify-between">
+                <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                  Tipo de Activo <span className="text-red-500">*</span>
+                </label>
+                <div>
+                  <button
+                    type="button"
+                    className="text-sm text-blue-600 hover:underline"
+                    onClick={() => {
+                      setShowCreateType((s) => {
+                        const next = !s
+                        if (next) setNewTypeCategory(selectedCategory || '')
+                        return next
+                      })
+                    }}
+                    disabled={userRole !== 'admin'}
+                    title={userRole !== 'admin' ? 'Solo administradores' : 'Crear nuevo tipo de activo'}
+                  >
+                    Crear tipo
+                  </button>
+                </div>
+              </div>
               <select
                 value={formData.asset_type}
                 onChange={(e) => setFormData({ ...formData, asset_type: e.target.value })}
                 required
                 className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
               >
-                {getAssetTypesByCategory()[selectedCategory]?.map((type) => (
+                <option value="">Seleccionar tipo...</option>
+                {typesByCategory[selectedCategory]?.map((type) => (
                   <option key={type.value} value={type.value}>
                     {type.label}
                   </option>
                 ))}
               </select>
+
+              {showCreateType && (
+                <div className="mt-2 p-3 border rounded bg-gray-50">
+                  <div>
+                    <div className="grid gap-2 md:grid-cols-3">
+                      <input className="input" placeholder="Etiqueta" value={newTypeLabel} onChange={e => setNewTypeLabel(e.target.value)} required />
+                      <select className="select" value={newTypeCategory} onChange={e => setNewTypeCategory(e.target.value)}>
+                        <option value="">Seleccionar categoría...</option>
+                        {Object.keys(typesByCategory).map(cat => (
+                          <option key={cat} value={cat}>{cat}</option>
+                        ))}
+                      </select>
+                    </div>
+                    <div className="mt-2 text-right">
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        disabled={creatingType}
+                        onClick={async () => {
+                          setCreateTypeError(null)
+                          if (!newTypeLabel) {
+                            setCreateTypeError('Complete la etiqueta')
+                            return
+                          }
+                          setCreatingType(true)
+                          try {
+                            const res = await fetch('/api/admin/asset-types', {
+                              method: 'POST',
+                              headers: { 'Content-Type': 'application/json' },
+                              body: JSON.stringify({ value: newTypeLabel.toUpperCase().replace(/\s+/g,'_'), label: newTypeLabel, category: newTypeCategory || 'General' })
+                            })
+                            if (!res.ok) {
+                              const txt = await res.text().catch(() => '')
+                              throw new Error(`${res.status} ${txt}`)
+                            }
+                            window.location.reload()
+                          } catch (err: any) {
+                            console.error('create type failed', err)
+                            setCreateTypeError(String(err.message || err))
+                            setCreatingType(false)
+                          }
+                        }}
+                      >
+                        {creatingType ? 'Creando...' : 'Crear y actualizar'}
+                      </button>
+                    </div>
+                    {createTypeError && <div className="text-sm text-rose-600 mt-2">{createTypeError}</div>}
+                  </div>
+                </div>
+              )}
             </div>
 
             {/* Estado */}
@@ -491,7 +561,7 @@ export default function AssetCreateForm({ locations, canManageAllAssets, userRol
           <div className="card shadow-sm border border-slate-200">
             <div className="card-body p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">
-                Especificaciones de {getAssetTypesByCategory()[selectedCategory]?.find(t => t.value === formData.asset_type)?.label || 'Activo'}
+                Especificaciones de {typesByCategory?.[selectedCategory]?.find(t => t.value === formData.asset_type)?.label || 'Activo'}
               </h2>
               <div className="grid gap-4 md:grid-cols-2">
                 {specificFields.map(renderField)}
