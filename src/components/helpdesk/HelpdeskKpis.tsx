@@ -67,8 +67,8 @@ export default function HelpdeskKpis() {
       <div className="bg-white rounded-2xl p-4 shadow-sm border border-slate-100">
         <h4 className="text-sm font-semibold text-slate-600 uppercase">Incumplimientos SLA</h4>
         <div className="mt-3">
-          <div className="text-2xl font-bold text-rose-600">{sla.length}</div>
-          <div className="text-xs text-slate-500 mt-1">Críticos {'>'} 48h</div>
+            <div className="text-2xl font-bold text-rose-600">{sla.length}</div>
+            <div className="text-xs text-slate-500 mt-1">Críticos > 48h</div>
 
           <ul className="mt-3 space-y-2 text-sm">
             {sla.slice(0, 5).map((t: any) => (
