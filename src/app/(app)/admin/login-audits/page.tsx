@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
+import ClientDate from '@/components/ClientDate'
 
 type Row = {
   id: string
@@ -97,7 +98,7 @@ export default async function Page({ searchParams }: { searchParams: any }) {
             {rows.map((r) => (
               <tr key={r.id} className="border-t last:border-b">
                 <td className="px-4 py-3 align-top">
-                  {new Date(r.created_at).toLocaleString()}
+                  <ClientDate iso={r.created_at} />
                 </td>
                 <td className="px-4 py-3 align-top">
                   {r.user_id ? (

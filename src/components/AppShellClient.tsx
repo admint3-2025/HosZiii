@@ -698,9 +698,9 @@ export default function AppShellClient({
                       <span className="text-slate-600">•</span>
                       <div
                         className="text-[11px] font-medium text-slate-300 leading-tight truncate min-w-0 uppercase tracking-wide"
-                        title={`IP: ${clientIp}`}
+                        title={`IP: ${clientIp.replace?.(/^::ffff:/i, '')}`}
                       >
-                        {clientIp}
+                        {clientIp.replace?.(/^::ffff:/i, '')}
                       </div>
                     </>
                   )}
