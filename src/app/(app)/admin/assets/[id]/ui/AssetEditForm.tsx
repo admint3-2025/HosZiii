@@ -103,20 +103,20 @@ export default function AssetEditForm({ asset, locations, onCancel, onSuccess }:
   const [additionalEmails, setAdditionalEmails] = useState('')
   const [loadingUsers, setLoadingUsers] = useState(false)
   const [dynamicFields, setDynamicFields] = useState<Record<string, string>>({})
+  const { categories: categoriesMap } = useAssetTypes()
 
   const [assignees, setAssignees] = useState<Array<{ id: string; name: string; email: string; location?: string }>>([])
   const [loadingAssignees, setLoadingAssignees] = useState(false)
 
   // Inicializar categoría seleccionada según el tipo del activo
   useEffect(() => {
-    const { categories: categoriesMap } = useAssetTypes()
-    for (const [category, types] of Object.entries(categoriesMap)) {
-      if (types.some(t => t.value === asset.asset_type)) {
+    for (const [category, types] of Object.entries(categoriesMap || {})) {
+      if (types.some((t: any) => t.value === asset.asset_type)) {
         setSelectedCategory(category)
         break
       }
     }
-  }, [asset.asset_type])
+  }, [asset.asset_type, categoriesMap])
 
   // Actualizar campos dinámicos cuando cambia el tipo
   useEffect(() => {
@@ -329,14 +329,14 @@ export default function AssetEditForm({ asset, locations, onCancel, onSuccess }:
                   value={selectedCategory}
                   onChange={(e) => {
                     setSelectedCategory(e.target.value)
-                    const categoryTypes = getAssetTypesByCategory()[e.target.value]
+                    const categoryTypes = (categoriesMap || {})[e.target.value]
                     if (categoryTypes && categoryTypes.length > 0) {
                       setFormData({ ...formData, asset_type: categoryTypes[0].value })
                     }
                   }}
                   className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
-                  {Object.keys(getAssetTypesByCategory()).map((category) => (
+                  {Object.keys(categoriesMap || {}).map((category) => (
                     <option key={category} value={category}>
                       {category}
                     </option>
@@ -354,7 +354,7 @@ export default function AssetEditForm({ asset, locations, onCancel, onSuccess }:
                   className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
                   <option value="">Seleccionar tipo</option>
-                  {(getAssetTypesByCategory()[selectedCategory] || []).map((type) => (
+                  {((categoriesMap || {})[selectedCategory] || []).map((type: any) => (
                     <option key={type.value} value={type.value}>
                       {type.label}
                     </option>

@@ -118,7 +118,7 @@ export default function AssetTypesManager() {
             <button className="btn btn-primary" type="submit">Crear tipo</button>
           </div>
           {isAdmin === false && (
-            <div className="col-span-3 text-sm text-slate-500">Nota: no pareces administrador; si recibes "No autorizado" al crear, verifica tu sesión.</div>
+            <div className="col-span-3 text-sm text-slate-500">Nota: no pareces administrador; si recibes &quot;No autorizado&quot; al crear, verifica tu sesión.</div>
           )}
           {createSuccess && <div className="col-span-3 text-sm text-emerald-600">{createSuccess}</div>}
           {createError && <div className="col-span-3 text-sm text-rose-600">{createError}</div>}
