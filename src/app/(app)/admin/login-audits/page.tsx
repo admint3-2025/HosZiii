@@ -1,4 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
 
 type Row = {
@@ -46,6 +47,35 @@ export default async function Page({ searchParams }: { searchParams: any }) {
 
   const rows: Row[] = (data as any) || []
 
+  // Enriquecer con información de perfiles (nombre y email)
+  const userIds = Array.from(new Set(rows.map((r) => r.user_id).filter(Boolean))) as string[]
+  let profilesMap: Record<string, { full_name?: string | null; email?: string | null }> = {}
+  if (userIds.length > 0) {
+    const { data: profs } = await supabase.from('profiles').select('id, full_name, email').in('id', userIds)
+    ;(profs || []).forEach((p: any) => {
+      profilesMap[p.id] = { full_name: p.full_name, email: p.email }
+    })
+  }
+
+  // Para userIds que no tengan perfil, intentar obtener email desde auth (admin)
+  const missing = userIds.filter((id) => !profilesMap[id])
+  if (missing.length > 0) {
+    try {
+      const admin = createSupabaseAdminClient()
+      for (const id of missing) {
+        try {
+          const { data: authUser } = await admin.auth.admin.getUserById(id)
+          const email = authUser?.email || authUser?.user?.email || null
+          if (email) profilesMap[id] = { email }
+        } catch {
+          // ignore per-user errors
+        }
+      }
+    } catch {
+      // if admin client not available, skip silently
+    }
+  }
+
   return (
     <div className="p-6">
       <div className="flex items-center justify-between mb-6">
@@ -58,7 +88,7 @@ export default async function Page({ searchParams }: { searchParams: any }) {
           <thead className="bg-slate-50 text-slate-600">
             <tr>
               <th className="px-4 py-3 text-left">Fecha</th>
-              <th className="px-4 py-3 text-left">Usuario ID</th>
+              <th className="px-4 py-3 text-left">Usuario</th>
               <th className="px-4 py-3 text-left">IP</th>
               <th className="px-4 py-3 text-left">User Agent</th>
             </tr>
@@ -70,9 +100,17 @@ export default async function Page({ searchParams }: { searchParams: any }) {
                   {new Date(r.created_at).toLocaleString()}
                 </td>
                 <td className="px-4 py-3 align-top">
-                  {r.user_id ? <Link href={`/admin/users/${r.user_id}`} className="text-indigo-600 hover:underline">{r.user_id}</Link> : '—'}
+                  {r.user_id ? (
+                    <Link href={`/admin/users/${r.user_id}`} className="text-indigo-600 hover:underline">
+                      {profilesMap[r.user_id]?.full_name
+                        || profilesMap[r.user_id]?.email
+                        || r.user_id}
+                    </Link>
+                  ) : (
+                    '—'
+                  )}
                 </td>
-                <td className="px-4 py-3 align-top">{r.ip || '—'}</td>
+                <td className="px-4 py-3 align-top">{(r.ip || '—').replace?.(/^::ffff:/, '') || '—'}</td>
                 <td className="px-4 py-3 align-top truncate max-w-[480px]">{r.user_agent || '—'}</td>
               </tr>
             ))}
