@@ -90,7 +90,7 @@ const MOCK_STATS: Stat[] = [
     history: [96, 95, 95, 94, 93, 94, 94],
   },
   {
-    label: 'Críticos {'>'} 48h',
+    label: 'Críticos > 48h',
     value: '8',
     trend: '-2',
     status: 'positive',
