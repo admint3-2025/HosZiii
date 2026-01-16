@@ -1,6 +1,7 @@
 'use client'
 
 import React, { useId, useMemo, useState } from 'react'
+import HelpdeskKpis from '@/components/helpdesk/HelpdeskKpis'
 import {
   AlertTriangle,
   CalendarDays,
@@ -89,7 +90,7 @@ const MOCK_STATS: Stat[] = [
     history: [96, 95, 95, 94, 93, 94, 94],
   },
   {
-    label: 'Críticos > 48h',
+    label: 'Críticos {'>'} 48h',
     value: '8',
     trend: '-2',
     status: 'positive',
@@ -411,6 +412,10 @@ function DashboardHome({
         {MOCK_STATS.map((stat, idx) => (
           <StatCard key={idx} stat={stat} />
         ))}
+      </div>
+
+      <div className="pt-4">
+        <HelpdeskKpis />
       </div>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

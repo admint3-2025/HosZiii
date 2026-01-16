@@ -39,6 +39,15 @@ export const ASSET_TYPE_CONFIGS: Record<string, AssetTypeConfig> = {
       { name: 'os', label: 'Sistema Operativo', type: 'text', placeholder: 'Windows 11 Pro' },
     ],
   },
+  TABLET: {
+    category: 'IT',
+    fields: [
+      { name: 'brand', label: 'Marca', type: 'text', placeholder: 'Samsung' },
+      { name: 'model', label: 'Modelo', type: 'text', placeholder: 'Galaxy Tab S7' },
+      { name: 'storage_gb', label: 'Almacenamiento (GB)', type: 'number', placeholder: '128' },
+      { name: 'os', label: 'Sistema Operativo', type: 'text', placeholder: 'Android' },
+    ],
+  },
   SERVER: {
     category: 'IT',
     fields: [

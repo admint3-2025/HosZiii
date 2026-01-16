@@ -250,6 +250,15 @@ export default function TicketCreateForm({
 
       setAssetsLoadError(null)
       setAssetsLoaded(true)
+      // DEBUG: log loaded assets and user locations for troubleshooting asset filtering
+      try {
+        // eslint-disable-next-line no-console
+        console.debug('[TicketCreateForm] userLocationId=', profile?.location_id, 'userLocationIds=', userLocationIds)
+        // eslint-disable-next-line no-console
+        console.debug('[TicketCreateForm] assetsLoaded count=', assetsData?.length, 'assets sample=', assetsWithNames?.slice(0,3))
+      } catch (e) {
+        // ignore
+      }
     }
     loadData()
   }, [supabase])
@@ -333,6 +342,20 @@ export default function TicketCreateForm({
       !isITAsset(a.asset_type) && a.location_id === userLocationId
     )
   }, [assets, serviceArea, currentUserId, userLocationId, userLocationIds, isAdmin, isAdminOrSupervisor])
+
+  // DEBUG: monitor filteredAssets changes to help reproduce issue where user sees assets from other sede
+  useEffect(() => {
+    try {
+      // eslint-disable-next-line no-console
+      console.debug('[TicketCreateForm] filteredAssets count=', filteredAssets.length)
+      // eslint-disable-next-line no-console
+      console.debug('[TicketCreateForm] filteredAssets sample=', filteredAssets.slice(0,5).map(a => ({ id: a.id, asset_tag: a.asset_tag, location_id: a.location_id, location_name: a.location_name })))
+      // eslint-disable-next-line no-console
+      console.debug('[TicketCreateForm] flags: isAdmin=', isAdmin, 'isAdminOrSupervisor=', isAdminOrSupervisor, 'serviceArea=', serviceArea)
+    } catch (e) {
+      // ignore
+    }
+  }, [filteredAssets, isAdmin, isAdminOrSupervisor, serviceArea])
 
   const l2Options = useMemo(() => {
     const filtered = categories.filter((c) => c.parent_id === categoryL1)
