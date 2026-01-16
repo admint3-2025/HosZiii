@@ -261,7 +261,7 @@ export default function AppShellClient({
       href: '/admin/knowledge-base',
       roles: ['admin', 'supervisor', 'agent_l1', 'agent_l2'],
     },
-    { id: 'hd_audit', label: 'Auditoría', icon: 'Audit', href: '/audit', roles: ['admin'] },
+    // Auditoría moved out of Mesa de Ayuda into Administración
   ]
 
   const topMenu: MenuSection[] = [
@@ -276,6 +276,7 @@ export default function AppShellClient({
         { id: 'admin_locations', label: 'Ubicaciones', icon: 'Location', href: '/admin/locations', roles: ['admin'] },
         { id: 'admin_assets', label: 'Activos', icon: 'Assets', href: '/admin/assets', roles: ['admin', 'supervisor'] },
         { id: 'admin_reports', label: 'Reportes', icon: 'Reports', href: '/reports', roles: ['admin'] },
+        { id: 'admin_audit', label: 'Auditoría', icon: 'Audit', href: '/audit', roles: ['admin'] },
         { id: 'admin_login_audits', label: 'Registro de sesiones', icon: 'Audit', href: '/admin/login-audits', roles: ['admin'] },
       ],
     },
