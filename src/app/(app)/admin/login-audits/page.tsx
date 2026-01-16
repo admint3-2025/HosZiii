@@ -65,7 +65,7 @@ export default async function Page({ searchParams }: { searchParams: any }) {
       for (const id of missing) {
         try {
           const { data: authUser } = await admin.auth.admin.getUserById(id)
-          const email = authUser?.email || authUser?.user?.email || null
+          const email = authUser?.user?.email || null
           if (email) profilesMap[id] = { email }
         } catch {
           // ignore per-user errors
