@@ -63,6 +63,26 @@ export const ASSET_TYPE_CONFIGS: Record<string, AssetTypeConfig> = {
       { name: 'capacity', label: 'Capacidad', type: 'text', placeholder: '30 ppm' },
     ],
   },
+  SCANNER: {
+    category: 'IT',
+    fields: [
+      { name: 'model', label: 'Modelo', type: 'text', placeholder: 'HP ScanJet 300' },
+    ],
+  },
+  PHONE: {
+    category: 'IT',
+    fields: [
+      { name: 'phone_number', label: 'Número', type: 'text', placeholder: 'Extensión o número' },
+      { name: 'model', label: 'Modelo', type: 'text', placeholder: 'Polycom VVX 411' },
+    ],
+  },
+  NETWORK_DEVICE: {
+    category: 'IT',
+    fields: [
+      { name: 'model', label: 'Modelo', type: 'text', placeholder: 'Cisco 2960' },
+      { name: 'ip_address', label: 'IP', type: 'text', placeholder: '10.0.0.1' },
+    ],
+  },
   MONITOR: {
     category: 'IT',
     fields: [
