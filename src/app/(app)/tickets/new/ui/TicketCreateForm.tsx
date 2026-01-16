@@ -255,7 +255,7 @@ export default function TicketCreateForm({
         // eslint-disable-next-line no-console
         console.debug('[TicketCreateForm] userLocationId=', profile?.location_id, 'userLocationIds=', userLocationIds)
         // eslint-disable-next-line no-console
-        console.debug('[TicketCreateForm] assetsLoaded count=', assetsData?.length, 'assets sample=', assetsWithNames?.slice(0,3))
+        console.debug('[TicketCreateForm] assetsLoaded count=', assetsData?.length, 'assets sample=', assets?.slice(0,3))
       } catch (e) {
         // ignore
       }
