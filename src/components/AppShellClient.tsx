@@ -236,6 +236,7 @@ export default function AppShellClient({
   const pathname = usePathname()
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({})
+  const [clientIp, setClientIp] = useState<string | null>(null)
   
   const isActive = (href: string) => {
     const pathOnly = href.split('?')[0]
@@ -273,6 +274,7 @@ export default function AppShellClient({
       items: [
         { id: 'admin_users', label: 'Usuarios', icon: 'Users', href: '/admin/users', roles: ['admin'] },
         { id: 'admin_locations', label: 'Ubicaciones', icon: 'Location', href: '/admin/locations', roles: ['admin'] },
+        { id: 'admin_login_audits', label: 'Registro de sesiones', icon: 'Audit', href: '/admin/login-audits', roles: ['admin'] },
         { id: 'admin_assets', label: 'Activos', icon: 'Assets', href: '/admin/assets', roles: ['admin', 'supervisor'] },
       ],
     },
@@ -405,6 +407,23 @@ export default function AppShellClient({
     setExpandedMenus((prev) => ({ ...prev, ...nextExpanded }))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [pathname, profile?.role, profile?.can_view_beo])
+
+  useEffect(() => {
+    let mounted = true
+
+    ;(async () => {
+      try {
+        const res = await fetch('/api/my-ip')
+        if (!res.ok) return
+        const data = await res.json()
+        if (mounted && data?.ip && data.ip !== 'unknown') setClientIp(data.ip)
+      } catch (e) {
+        // ignore
+      }
+    })()
+
+    return () => { mounted = false }
+  }, [])
 
   const roleLabel =
     profile?.role === 'admin'
@@ -674,6 +693,17 @@ export default function AppShellClient({
                   >
                     {profile?.position || '—'}
                   </div>
+                  {clientIp && (
+                    <>
+                      <span className="text-slate-600">•</span>
+                      <div
+                        className="text-[11px] font-medium text-slate-300 leading-tight truncate min-w-0 uppercase tracking-wide"
+                        title={`IP: ${clientIp}`}
+                      >
+                        {clientIp}
+                      </div>
+                    </>
+                  )}
                 </div>
               </div>
               {/* Botón Perfil Premium */}
