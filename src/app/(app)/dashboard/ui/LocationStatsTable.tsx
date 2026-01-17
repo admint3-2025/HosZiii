@@ -20,13 +20,7 @@ type TopAgent = {
   avg_resolution_days: number
 }
 
-type Props = {
-  rows: LocationStatsRow[]
-  serviceArea?: 'it' | 'maintenance' | null
-  userRole?: string | null
-}
-
-export default function LocationStatsTable({ rows, serviceArea, userRole }: Props) {
+export default function LocationStatsTable({ rows }: { rows: LocationStatsRow[] }) {
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(
     rows[0]?.location_id ?? null
   )
@@ -62,21 +56,14 @@ export default function LocationStatsTable({ rows, serviceArea, userRole }: Prop
         
         // Tickets cerrados en esta ubicación (histórico completo)
         // Usar closed_by para ver quién cerró el ticket
-        // Filtrar por service_area si el usuario es supervisor (no admin)
-        let ticketsQuery = supabase
+        const { data: tickets, error: ticketsError } = await supabase
           .from('tickets')
           .select('closed_by, created_at, closed_at')
           .eq('location_id', selectedLocationId)
           .eq('status', 'CLOSED')
           .not('closed_by', 'is', null)
           .not('closed_at', 'is', null)
-        
-        // Aplicar filtro de service_area para supervisores
-        if (userRole === 'supervisor' && serviceArea) {
-          ticketsQuery = ticketsQuery.eq('service_area', serviceArea)
-        }
-        
-        const { data: tickets, error: ticketsError } = await ticketsQuery.limit(500)
+          .limit(500)
 
         if (ticketsError) {
           console.error('Error cargando tickets:', ticketsError)
@@ -92,7 +79,7 @@ export default function LocationStatsTable({ rows, serviceArea, userRole }: Prop
         }
 
         // Obtener IDs únicos de agentes (quienes cerraron tickets)
-        const agentIds = [...new Set(tickets.map(t => t.closed_by).filter(id => id))]
+        const agentIds = [...new Set(tickets.map((t: any) => t.closed_by).filter((id: any) => id))]
         
         if (agentIds.length === 0) {
           setTopAgents([])
@@ -110,16 +97,16 @@ export default function LocationStatsTable({ rows, serviceArea, userRole }: Prop
           console.error('Error cargando perfiles:', profilesError)
         }
 
-        const profileMap = new Map((profiles || []).map(p => [p.id, p.full_name]))
+        const profileMap = new Map((profiles || []).map((p: any) => [p.id, p.full_name]))
 
         // Agrupar por agente y calcular métricas
         const agentMap = new Map<string, { name: string; count: number; totalDays: number }>()
         
-        tickets.forEach((ticket) => {
+        tickets.forEach((ticket: any) => {
           const agentId = ticket.closed_by
           if (!agentId) return
           
-          const agentName = profileMap.get(agentId) || 'Sin nombre'
+          const agentName = (profileMap.get(agentId) as string) || 'Sin nombre'
           const createdAt = new Date(ticket.created_at)
           const closedAt = new Date(ticket.closed_at)
           const resolutionDays = Math.max(0, (closedAt.getTime() - createdAt.getTime()) / (1000 * 60 * 60 * 24))
@@ -154,7 +141,7 @@ export default function LocationStatsTable({ rows, serviceArea, userRole }: Prop
     }
 
     loadTopAgents()
-  }, [selectedLocationId, serviceArea, userRole])
+  }, [selectedLocationId])
 
   if (!rows || rows.length === 0) {
     return null

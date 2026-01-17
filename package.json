@@ -7,8 +7,7 @@
     "dev": "./scripts/ziii.sh dev",
     "build": "./scripts/ziii.sh build",
     "start": "./scripts/ziii.sh start",
-    "lint": "./scripts/ziii.sh lint",
-    "install": "./scripts/ziii.sh install"
+    "lint": "./scripts/ziii.sh lint"
   },
   "dependencies": {
     "@supabase/ssr": "^0.6.1",

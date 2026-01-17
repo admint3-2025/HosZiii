@@ -33,7 +33,6 @@ type UserRow = {
   location_name: string | null
   location_codes: string[]
   location_names: string[]
-  asset_category: string | null
   can_view_beo: boolean | null
   can_manage_assets: boolean | null
 }
@@ -45,16 +44,6 @@ const ROLE_LABEL: Record<Role, string> = {
   supervisor: 'Supervisor',
   auditor: 'Auditor',
   admin: 'Administrador',
-}
-
-const CATEGORY_LABEL: Record<string, string> = {
-  IT: 'IT - Tecnología',
-  MAINTENANCE: 'Mantenimiento',
-}
-
-function getCategoryLabel(cat?: string | null) {
-  if (!cat) return null
-  return CATEGORY_LABEL[cat] ?? cat
 }
 
 function isActive(user: UserRow) {
@@ -77,7 +66,6 @@ export default function UserList() {
   const [editBuilding, setEditBuilding] = useState('')
   const [editFloor, setEditFloor] = useState('')
   const [editLocationIds, setEditLocationIds] = useState<string[]>([])
-  const [editAssetCategory, setEditAssetCategory] = useState<string>('')
   const [editCanViewBeo, setEditCanViewBeo] = useState(false)
   const [editCanManageAssets, setEditCanManageAssets] = useState(false)
 
@@ -170,7 +158,6 @@ export default function UserList() {
     setEditPosition(u.position ?? '')
     setEditBuilding(u.building ?? '')
     setEditFloor(u.floor ?? '')
-    setEditAssetCategory(u.asset_category ?? '')
     setEditCanViewBeo(u.can_view_beo ?? false)
     setEditCanManageAssets(u.can_manage_assets ?? false)
     
@@ -182,7 +169,7 @@ export default function UserList() {
         .select('location_id')
         .eq('user_id', u.id)
       
-      const locationIds = userLocs?.map(ul => ul.location_id) ?? []
+      const locationIds = userLocs?.map((ul: { location_id: string }) => ul.location_id) ?? []
       // Si no tiene sedes en user_locations, usar location_id de profiles
       if (locationIds.length === 0 && u.location_id) {
         setEditLocationIds([u.location_id])
@@ -212,7 +199,6 @@ export default function UserList() {
           building: editBuilding.trim(),
           floor: editFloor.trim(),
           location_ids: editLocationIds,
-          asset_category: editAssetCategory || null,
           can_view_beo: editCanViewBeo,
           can_manage_assets: editCanManageAssets,
         }),
@@ -421,7 +407,6 @@ export default function UserList() {
               <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">Rol</th>
               <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">Acceso BEO</th>
               <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">Gestión Activos</th>
-              <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">Categoría</th>
               <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">Estado</th>
               <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">Acciones</th>
             </tr>
@@ -483,7 +468,7 @@ export default function UserList() {
 
                     <td className="px-3 py-2">
                       <div className="flex items-center">
-                          {u.can_manage_assets ? (
+                        {u.can_manage_assets ? (
                           <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100 border border-emerald-300">
                             <svg className="w-4 h-4 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
@@ -494,18 +479,6 @@ export default function UserList() {
                         )}
                       </div>
                     </td>
-
-                      <td className="px-3 py-2">
-                        <div className="text-xs">
-                          {getCategoryLabel(u.asset_category) ? (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-100 text-slate-800 border border-slate-200">
-                              {getCategoryLabel(u.asset_category)}
-                            </span>
-                          ) : (
-                            <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-slate-50 text-slate-600 border border-slate-100">Todos</span>
-                          )}
-                        </div>
-                      </td>
 
                     <td className="px-3 py-2">
                       <span
@@ -547,7 +520,7 @@ export default function UserList() {
                   {/* Fila expandida para edición */}
                   {editing && (
                     <tr key={`${u.id}-edit`} className="bg-white border-l-4 border-blue-500">
-                      <td colSpan={9} className="px-3 py-4">
+                      <td colSpan={7} className="px-3 py-4">
                         <div className="space-y-3">
                           <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -605,22 +578,6 @@ export default function UserList() {
                                 label="Sedes asignadas"
                                 helpText="Selecciona una o más sedes"
                               />
-                            </div>
-
-                            <div className="md:col-span-2">
-                              <label className="block text-[11px] font-medium text-gray-700 mb-1">Categoría de activos</label>
-                              <select 
-                                className="select text-xs" 
-                                value={editAssetCategory} 
-                                onChange={(e) => setEditAssetCategory(e.target.value)}
-                              >
-                                <option value="">Sin restricción (todos)</option>
-                                <option value="IT">IT - Tecnología</option>
-                                <option value="MAINTENANCE">Mantenimiento</option>
-                              </select>
-                              <div className="mt-1 text-[10px] text-gray-500">
-                                Define qué tipos de activos puede gestionar
-                              </div>
                             </div>
 
                             <div>
@@ -733,7 +690,7 @@ export default function UserList() {
 
             {sorted.length === 0 ? (
               <tr>
-                <td className="px-3 py-8 text-center text-gray-500 text-xs" colSpan={9}>
+                <td className="px-3 py-8 text-center text-gray-500 text-xs" colSpan={7}>
                   {busy ? 'Cargando…' : 'No hay usuarios'}
                 </td>
               </tr>

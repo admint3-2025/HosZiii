@@ -2,7 +2,7 @@
  * Utilidades para manejo de ubicaciones/sedes multisede
  */
 
-import { createSupabaseServerClient } from './server'
+import { createSupabaseServerClient, getSafeServerUser } from './server'
 
 export type Location = {
   id: string
@@ -87,10 +87,10 @@ export async function isAdminUser(userId: string): Promise<boolean> {
  * - Si no tiene sedes asignadas: array vacío
  */
 export async function getLocationFilter(): Promise<string[] | null> {
-  const supabase = await createSupabaseServerClient()
-  
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSafeServerUser()
   if (!user) return null
+  
+  const supabase = await createSupabaseServerClient()
   
   // Verificar si es admin
   const { data: profile } = await supabase
@@ -121,7 +121,7 @@ export async function getLocationFilter(): Promise<string[] | null> {
  * Aplica el filtro de ubicación a una query de Supabase
  * Uso: await applyLocationFilter(supabase.from('tickets').select('*'))
  */
-export async function applyLocationFilter(
+export async function applyLocationFilter<T>(
   query: any
 ): Promise<any> {
   const locationIds = await getLocationFilter()

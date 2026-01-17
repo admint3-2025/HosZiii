@@ -19,9 +19,19 @@ export default function LoginForm() {
     setError(null)
     setBusy(true)
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    const { error } = await supabase.auth.signInWithPassword({ email, password })
     setBusy(false)
     if (error) {
+      // Manejo de token corrupto: pedir reintento con cookies limpias.
+      if (
+        error.code === 'refresh_token_already_used' ||
+        error.message?.includes('Invalid Refresh Token') ||
+        error.message?.includes('Already Used')
+      ) {
+        setError('⚠️ Sesión previa inválida. Abre una ventana incógnito o borra cookies del sitio y vuelve a intentar.')
+        return
+      }
+
       // Mejorar mensaje para usuarios desactivados
       if (error.message === 'User is banned' || error.message.includes('banned')) {
         setError('⚠️ Tu cuenta ha sido desactivada. Contacta al administrador para más información.')
@@ -32,26 +42,6 @@ export default function LoginForm() {
       }
       return
     }
-    // Attempt to record login for auditing (best-effort, don't block UX)
-    try {
-      const { data: userData } = await supabase.auth.getUser()
-      const userId = userData?.user?.id || (data as any)?.user?.id || null
-      if (userId) {
-        const payload: any = { userId }
-        try {
-          payload.userAgent = (typeof navigator !== 'undefined' && navigator.userAgent) || null
-        } catch {}
-
-        fetch('/api/auth/record-login', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(payload),
-        }).catch(() => {})
-      }
-    } catch (e) {
-      // ignore
-    }
-
     router.push('/')
     router.refresh()
   }
