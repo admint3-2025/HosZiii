@@ -7,7 +7,7 @@
  * - Otros roles (agentes, requesters): ven datos solo de sus sedes asignadas
  */
 
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseServerClient, getSafeServerUser } from '@/lib/supabase/server'
 
 export type ReportsLocationFilter = {
   shouldFilter: boolean
@@ -17,9 +17,7 @@ export type ReportsLocationFilter = {
 }
 
 export async function getReportsLocationFilter(): Promise<ReportsLocationFilter> {
-  const supabase = await createSupabaseServerClient()
-  
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSafeServerUser()
   
   if (!user) {
     return {
@@ -29,6 +27,8 @@ export async function getReportsLocationFilter(): Promise<ReportsLocationFilter>
       hasFullAccess: false
     }
   }
+
+  const supabase = await createSupabaseServerClient()
 
   // Obtener perfil del usuario
   const { data: profile } = await supabase

@@ -282,7 +282,7 @@ export default async function AllTicketsReportPage() {
                 </p>
               </div>
             </div>
-            <a className="btn btn-secondary" href="/reports/all-tickets/export">
+            <a className="btn btn-secondary" href="/reports/all-tickets/export-csv">
               Descargar CSV
             </a>
           </div>

@@ -9,6 +9,29 @@ export async function middleware(request: NextRequest) {
     return NextResponse.next()
   }
 
+  const { pathname } = request.nextUrl
+
+  const clearAuthCookies = (res: NextResponse) => {
+    const cookies = request.cookies.getAll()
+    for (const c of cookies) {
+      // Limpiar cookies viejas Y nuevas - INCLUIR access/refresh tokens
+      if (c.name.startsWith('sb-') || c.name.startsWith('ziii-session')) {
+        res.cookies.delete(c.name)
+      }
+    }
+  }
+
+  // En /login SIEMPRE limpiamos cookies antes de mostrar la página
+  if (pathname === '/login') {
+    const res = NextResponse.next({
+      request: {
+        headers: request.headers,
+      },
+    })
+    clearAuthCookies(res)
+    return res
+  }
+
   let response = NextResponse.next({
     request: {
       headers: request.headers,
@@ -17,7 +40,7 @@ export async function middleware(request: NextRequest) {
 
   const supabase = createServerClient(url, anonKey, {
     cookieOptions: {
-      name: 'sb-helpdesk-auth',
+      name: 'ziii-session',
     },
     cookies: {
       getAll() {
@@ -32,16 +55,14 @@ export async function middleware(request: NextRequest) {
     },
   })
 
-  // Refresh session if needed
-  const {
-    data: { user: refreshedUser },
-  } = await supabase.auth.getUser()
-
-  const { pathname } = request.nextUrl
+  // NO llamar getUser() - solo verificar si existe la cookie de sesión
+  const sessionCookie = request.cookies.get('ziii-session-access-token') || 
+                        request.cookies.get('ziii-session')
+  const hasSession = !!sessionCookie
 
   // Mantener '/' como URL principal: servir el dashboard (ruta /mantenimiento) sin exponer el path.
   if (pathname === '/') {
-    if (!refreshedUser) {
+    if (!hasSession) {
       const loginUrl = request.nextUrl.clone()
       loginUrl.pathname = '/login'
       return NextResponse.redirect(loginUrl)
@@ -65,10 +86,8 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/audit') ||
     pathname.startsWith('/admin')
   if (isAppRoute) {
-    const {
-      data: { user },
-    } = await supabase.auth.getUser()
-    if (!user) {
+    // Verificar solo la cookie de sesión
+    if (!hasSession) {
       const loginUrl = request.nextUrl.clone()
       loginUrl.pathname = '/login'
       return NextResponse.redirect(loginUrl)
@@ -76,10 +95,19 @@ export async function middleware(request: NextRequest) {
 
     // Admin routes: diferentes niveles de acceso
     if (pathname.startsWith('/admin')) {
+      // Obtener usuario desde la sesión para conocer el id
+      const { data: userData } = await supabase.auth.getUser()
+      const userId = userData?.user?.id
+
+      if (!userId) {
+        const loginUrl = request.nextUrl.clone()
+        loginUrl.pathname = '/login'
+        return NextResponse.redirect(loginUrl)
+      }
       const { data: profile } = await supabase
         .from('profiles')
         .select('role')
-        .eq('id', user.id)
+        .eq('id', userId)
         .single()
 
       // /admin/users solo para admin
@@ -100,10 +128,25 @@ export async function middleware(request: NextRequest) {
 
     // Auditoría para admin y supervisor
     if (pathname.startsWith('/audit')) {
+      // Reusar userId si ya se obtuvo, o solicitarlo ahora
+      let auditUserId: string | undefined
+      try {
+        const { data: ud } = await supabase.auth.getUser()
+        auditUserId = ud?.user?.id
+      } catch {
+        auditUserId = undefined
+      }
+
+      if (!auditUserId) {
+        const loginUrl = request.nextUrl.clone()
+        loginUrl.pathname = '/login'
+        return NextResponse.redirect(loginUrl)
+      }
+
       const { data: profile } = await supabase
         .from('profiles')
         .select('role')
-        .eq('id', user.id)
+        .eq('id', auditUserId)
         .single()
 
       if (profile?.role !== 'admin' && profile?.role !== 'supervisor') {

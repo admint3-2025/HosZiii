@@ -156,7 +156,7 @@ export default async function AuditPage() {
             <div className="flex items-center gap-2">
               <a
                 className="px-2.5 py-1.5 text-[11px] font-semibold rounded-md bg-white/10 text-white border border-white/20 backdrop-blur-sm hover:bg-white/15 transition-colors"
-                href="/audit/export"
+                href="/audit/export-csv"
               >
                 CSV
               </a>

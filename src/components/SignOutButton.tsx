@@ -8,9 +8,23 @@ export default function SignOutButton() {
   const supabase = createSupabaseBrowserClient()
 
   async function signOut() {
-    await supabase.auth.signOut()
-    router.push('/login')
-    router.refresh()
+    try {
+      const { error } = await supabase.auth.signOut()
+      if (error) {
+        if (error.code === 'refresh_token_already_used' || error.message?.includes('refresh token') || error.message?.includes('Already Used')) {
+          alert('⚠️ Tu sesión expiró. Por favor inicia sesión nuevamente.')
+          router.push('/login')
+          router.refresh()
+          return
+        }
+        alert('Error al cerrar sesión: ' + error.message)
+        return
+      }
+      router.push('/login')
+      router.refresh()
+    } catch (e: any) {
+      alert('Error inesperado al cerrar sesión: ' + (e?.message || e))
+    }
   }
 
   return (

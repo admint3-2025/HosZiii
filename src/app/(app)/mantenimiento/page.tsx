@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseServerClient, getSafeServerUser } from '@/lib/supabase/server'
 import { getLocationFilter } from '@/lib/supabase/locations'
 import MantenimientoClient from './MantenimientoClient'
 
@@ -10,13 +10,11 @@ type LocationRow = {
 }
 
 export default async function MantenimientoPage() {
-  const supabase = await createSupabaseServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const user = await getSafeServerUser()
 
   if (!user) redirect('/login')
 
+  const supabase = await createSupabaseServerClient()
   const locationFilter = await getLocationFilter()
   const canViewAll = locationFilter === null
 
