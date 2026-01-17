@@ -250,12 +250,12 @@ export default function UserCreateForm() {
               value={assetCategory} 
               onChange={(e) => setAssetCategory(e.target.value)}
             >
-              <option value="">Sin restricción (acceso a todos)</option>
-              <option value="IT">IT - Tecnología</option>
-              <option value="MAINTENANCE">Mantenimiento</option>
+              <option value="">Todo Activo</option>
+              <option value="IT">IT</option>
+              <option value="Maintenance">Mantenimiento</option>
             </select>
             <div className="mt-1 text-[10px] text-gray-500">
-              Define qué tipos de activos puede ver y gestionar este usuario (supervisores/técnicos)
+              Define qué tipos de activos puede gestionar este usuario
             </div>
           </div>
 

@@ -493,7 +493,7 @@ export default function UserList() {
                             {u.asset_category}
                           </span>
                         ) : u.can_manage_assets ? (
-                          <span className="text-amber-600 text-[10px]">Sin categoría</span>
+                          <span className="text-emerald-600 text-[10px] font-medium">Todo Activo</span>
                         ) : (
                           <span className="text-gray-400 text-[10px]">—</span>
                         )}
@@ -656,7 +656,7 @@ export default function UserList() {
                                     onChange={(e) => setEditAssetCategory(e.target.value)}
                                     className="select select-sm text-xs w-full"
                                   >
-                                    <option value="">Sin categoría específica</option>
+                                    <option value="">Todo Activo</option>
                                     <option value="IT">IT</option>
                                     <option value="Maintenance">Mantenimiento</option>
                                   </select>
