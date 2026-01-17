@@ -483,6 +483,27 @@ export default function AppShellClient({
 
         {/* Navigation */}
         <nav className="flex-1 overflow-y-auto py-4 px-3 space-y-4 custom-scrollbar z-10">
+          {/* Botón Volver al Hub - Siempre visible */}
+          <Link
+            href="/hub"
+            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 hover:border-indigo-500/40 hover:from-indigo-500/20 hover:to-purple-500/20 mb-4"
+            title={!sidebarOpen ? 'Volver al Hub' : undefined}
+          >
+            <svg 
+              className="w-5 h-5 text-indigo-400 group-hover:text-indigo-300 transition-colors flex-shrink-0" 
+              fill="none" 
+              stroke="currentColor" 
+              viewBox="0 0 24 24"
+            >
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+            </svg>
+            {sidebarOpen && (
+              <span className="text-sm font-semibold text-white tracking-wide whitespace-nowrap">
+                Volver al Hub
+              </span>
+            )}
+          </Link>
+
           {topMenu.map((section) => {
             const filteredItems = filterItems(section.items)
             if (filteredItems.length === 0) return null

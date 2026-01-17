@@ -60,7 +60,7 @@ export async function middleware(request: NextRequest) {
                         request.cookies.get('ziii-session')
   const hasSession = !!sessionCookie
 
-  // Mantener '/' como URL principal: servir el dashboard (ruta /mantenimiento) sin exponer el path.
+  // Mantener '/' como URL principal: redirigir al hub
   if (pathname === '/') {
     if (!hasSession) {
       const loginUrl = request.nextUrl.clone()
@@ -68,23 +68,21 @@ export async function middleware(request: NextRequest) {
       return NextResponse.redirect(loginUrl)
     }
 
-    const rewriteUrl = request.nextUrl.clone()
-    rewriteUrl.pathname = '/mantenimiento'
-
-    const rewriteResponse = NextResponse.rewrite(rewriteUrl)
-    // Propagar cookies actualizadas (refresh) al response de rewrite.
-    response.cookies.getAll().forEach((c) => {
-      rewriteResponse.cookies.set(c)
-    })
-
-    return rewriteResponse
+    const hubUrl = request.nextUrl.clone()
+    hubUrl.pathname = '/hub'
+    return NextResponse.redirect(hubUrl)
   }
+
   const isAppRoute =
+    pathname.startsWith('/hub') ||
     pathname.startsWith('/dashboard') ||
     pathname.startsWith('/tickets') ||
     pathname.startsWith('/reports') ||
     pathname.startsWith('/audit') ||
-    pathname.startsWith('/admin')
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/mantenimiento') ||
+    pathname.startsWith('/beo') ||
+    pathname.startsWith('/corporativo')
   if (isAppRoute) {
     // Verificar solo la cookie de sesión
     if (!hasSession) {

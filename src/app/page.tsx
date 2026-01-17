@@ -6,5 +6,5 @@ export default async function HomePage() {
   // El middleware decide acceso real; aquí solo hacemos un enrutamiento simple.
   const cookieStore = await cookies()
   const hasAuthCookie = cookieStore.getAll().some((c) => c.name.startsWith('ziii-session'))
-  redirect(hasAuthCookie ? '/mantenimiento' : '/login')
+  redirect(hasAuthCookie ? '/hub' : '/login')
 }
