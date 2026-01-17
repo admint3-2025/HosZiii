@@ -11,6 +11,7 @@ const ROLES = [
   { value: 'agent_l2', label: 'Técnico (Nivel 2)' },
   { value: 'supervisor', label: 'Supervisor' },
   { value: 'auditor', label: 'Auditor' },
+  { value: 'corporate_admin', label: 'Admin Corporativo' },
   { value: 'admin', label: 'Administrador' },
 ] as const
 

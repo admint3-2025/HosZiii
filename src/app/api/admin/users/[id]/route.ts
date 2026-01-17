@@ -1,7 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 
-type Role = 'requester' | 'agent_l1' | 'agent_l2' | 'supervisor' | 'auditor' | 'admin'
+type Role = 'requester' | 'agent_l1' | 'agent_l2' | 'supervisor' | 'auditor' | 'corporate_admin' | 'admin'
 
 function isValidRole(role: unknown): role is Role {
   return (
@@ -10,6 +10,7 @@ function isValidRole(role: unknown): role is Role {
     role === 'agent_l2' ||
     role === 'supervisor' ||
     role === 'auditor' ||
+    role === 'corporate_admin' ||
     role === 'admin'
   )
 }

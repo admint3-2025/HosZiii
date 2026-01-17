@@ -6,7 +6,7 @@ import PositionSelector from '@/components/PositionSelector'
 import MultiLocationSelector from '@/components/MultiLocationSelector'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 
-type Role = 'requester' | 'agent_l1' | 'agent_l2' | 'supervisor' | 'auditor' | 'admin'
+type Role = 'requester' | 'agent_l1' | 'agent_l2' | 'supervisor' | 'auditor' | 'corporate_admin' | 'admin'
 
 type Location = {
   id: string
@@ -35,6 +35,7 @@ type UserRow = {
   location_names: string[]
   can_view_beo: boolean | null
   can_manage_assets: boolean | null
+  asset_category: string | null
 }
 
 const ROLE_LABEL: Record<Role, string> = {
@@ -43,6 +44,7 @@ const ROLE_LABEL: Record<Role, string> = {
   agent_l2: 'Técnico (Nivel 2)',
   supervisor: 'Supervisor',
   auditor: 'Auditor',
+  corporate_admin: 'Admin Corporativo',
   admin: 'Administrador',
 }
 
@@ -66,6 +68,7 @@ export default function UserList() {
   const [editBuilding, setEditBuilding] = useState('')
   const [editFloor, setEditFloor] = useState('')
   const [editLocationIds, setEditLocationIds] = useState<string[]>([])
+  const [editAssetCategory, setEditAssetCategory] = useState<string>('')
   const [editCanViewBeo, setEditCanViewBeo] = useState(false)
   const [editCanManageAssets, setEditCanManageAssets] = useState(false)
 
@@ -158,6 +161,7 @@ export default function UserList() {
     setEditPosition(u.position ?? '')
     setEditBuilding(u.building ?? '')
     setEditFloor(u.floor ?? '')
+    setEditAssetCategory(u.asset_category ?? '')
     setEditCanViewBeo(u.can_view_beo ?? false)
     setEditCanManageAssets(u.can_manage_assets ?? false)
     
@@ -199,6 +203,7 @@ export default function UserList() {
           building: editBuilding.trim(),
           floor: editFloor.trim(),
           location_ids: editLocationIds,
+          asset_category: editAssetCategory || null,
           can_view_beo: editCanViewBeo,
           can_manage_assets: editCanManageAssets,
         }),
@@ -407,6 +412,7 @@ export default function UserList() {
               <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">Rol</th>
               <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">Acceso BEO</th>
               <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">Gestión Activos</th>
+              <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">Categoría Activos</th>
               <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">Estado</th>
               <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">Acciones</th>
             </tr>
@@ -474,6 +480,20 @@ export default function UserList() {
                               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                             </svg>
                           </span>
+                        ) : (
+                          <span className="text-gray-400 text-[10px]">—</span>
+                        )}
+                      </div>
+                    </td>
+
+                    <td className="px-3 py-2">
+                      <div className="text-gray-900 text-xs">
+                        {u.can_manage_assets && u.asset_category ? (
+                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-orange-100 text-orange-700 border border-orange-300">
+                            {u.asset_category}
+                          </span>
+                        ) : u.can_manage_assets ? (
+                          <span className="text-amber-600 text-[10px]">Sin categoría</span>
                         ) : (
                           <span className="text-gray-400 text-[10px]">—</span>
                         )}
@@ -626,6 +646,29 @@ export default function UserList() {
                                     Puede gestionar inventario y activos
                                   </span>
                                 </label>
+
+                                <div className="pt-2 border-t border-blue-200">
+                                  <label className="text-[11px] font-semibold text-blue-900 uppercase tracking-wide mb-2 block">
+                                    Categoría de Activos Asignada
+                                  </label>
+                                  <select
+                                    value={editAssetCategory}
+                                    onChange={(e) => setEditAssetCategory(e.target.value)}
+                                    className="select select-sm text-xs w-full"
+                                  >
+                                    <option value="">Sin categoría específica</option>
+                                    <option value="IT">IT</option>
+                                    <option value="Maintenance">Mantenimiento</option>
+                                  </select>
+                                  <p className="text-[10px] text-blue-700 mt-1">Define qué categoría de activos puede gestionar este usuario</p>
+                                </div>
+                              </div>
+                            </div>
+
+                            {/* Permisos especiales agrupados */}
+                            <div className="md:col-span-2 p-3 border-2 border-blue-200 bg-blue-50 rounded-lg hidden">
+                              <div className="text-[11px] font-semibold text-blue-900 uppercase tracking-wide mb-2.5">
+                                Permisos Especiales (Redundante - Ver arriba)
                               </div>
                             </div>
                           </div>

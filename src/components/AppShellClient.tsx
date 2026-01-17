@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { usePathname } from 'next/navigation'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo, useCallback } from 'react'
 import SignOutButton from './SignOutButton'
 import NotificationBell from './NotificationBell'
 import { getAvatarInitial } from '@/lib/ui/avatar'
@@ -238,12 +238,31 @@ export default function AppShellClient({
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({})
   const [clientIp, setClientIp] = useState<string | null>(null)
   
-  const isActive = (href: string) => {
-    const pathOnly = href.split('?')[0]
-    return pathname === pathOnly || pathname.startsWith(pathOnly + '/')
-  }
+  const isActive = useCallback(
+    (href: string) => {
+      const pathOnly = href.split('?')[0]
+      return pathname === pathOnly || pathname.startsWith(pathOnly + '/')
+    },
+    [pathname]
+  )
 
-  // Links existentes de Helpdesk (se muestran dentro de "Mesa de Ayuda")
+  // Determinar el módulo actual según la ruta
+  const moduleContext = useMemo(() => {
+    if (pathname.startsWith('/admin')) return 'admin'
+    if (pathname.startsWith('/corporativo')) return 'corporativo'
+    if (
+      pathname.startsWith('/dashboard') ||
+      pathname.startsWith('/tickets') ||
+      pathname.startsWith('/reports') ||
+      pathname.startsWith('/audit') ||
+      pathname.startsWith('/beo')
+    )
+      return 'helpdesk'
+    if (pathname.startsWith('/mantenimiento') || pathname.startsWith('/ama-de-llaves')) return 'operaciones'
+    return null
+  }, [pathname])
+
+  // Menú de Helpdesk
   const helpdeskItems: MenuSection['items'] = [
     { id: 'hd_dashboard', label: 'Dashboard', icon: 'Dashboard', href: '/dashboard' },
     { id: 'hd_tickets_mine', label: 'Mis Tickets', icon: 'Ticket', href: '/tickets?view=mine' },
@@ -253,7 +272,6 @@ export default function AppShellClient({
       ? ([{ id: 'hd_tickets_queue', label: 'Bandeja', icon: 'BarChart', href: '/tickets?view=queue', roles: ['admin', 'supervisor'] }] as MenuSection['items'])
       : []),
     { id: 'hd_beo', label: 'Eventos (BEO)', icon: 'Calendar', href: '/beo/dashboard', requireBeo: true },
-    // reportes moved to Administración section
     {
       id: 'hd_knowledge',
       label: 'Base de Conocimientos',
@@ -261,130 +279,133 @@ export default function AppShellClient({
       href: '/admin/knowledge-base',
       roles: ['admin', 'supervisor', 'agent_l1', 'agent_l2'],
     },
-    // Auditoría moved out of Mesa de Ayuda into Administración
   ]
 
-  const topMenu: MenuSection[] = [
-    {
-      group: 'General',
-      items: [{ id: 'ops_home', label: 'Dashboard', icon: 'Dashboard', href: '/' }],
-    },
-    {
-      group: 'Administración',
-      items: [
-        { id: 'admin_users', label: 'Usuarios', icon: 'Users', href: '/admin/users', roles: ['admin'] },
-        { id: 'admin_locations', label: 'Ubicaciones', icon: 'Location', href: '/admin/locations', roles: ['admin'] },
-        { id: 'admin_assets', label: 'Activos', icon: 'Assets', href: '/admin/assets', roles: ['admin', 'supervisor'] },
-        { id: 'admin_reports', label: 'Reportes', icon: 'Reports', href: '/reports', roles: ['admin'] },
-        { id: 'admin_audit', label: 'Auditoría', icon: 'Audit', href: '/audit', roles: ['admin'] },
-        { id: 'admin_login_audits', label: 'Registro de sesiones', icon: 'Audit', href: '/admin/login-audits', roles: ['admin'] },
-      ],
-    },
-  ]
+  // Menús específicos por módulo
+  const topMenuByModule: Record<string, MenuSection[]> = {
+    helpdesk: [
+      {
+        group: 'Helpdesk',
+        items: helpdeskItems,
+      },
+    ],
+    operaciones: [
+      {
+        group: 'Operaciones',
+        items: [{ id: 'ops_home', label: 'Tablero', icon: 'Dashboard', href: '/mantenimiento' }],
+      },
+    ],
+    corporativo: [
+      {
+        group: 'Corporativo',
+        items: [{ id: 'corp_home', label: 'Dashboard', icon: 'Dashboard', href: '/corporativo/dashboard' }],
+      },
+    ],
+    admin: [
+      {
+        group: 'Administración',
+        items: [
+          { id: 'admin_users', label: 'Usuarios', icon: 'Users', href: '/admin/users', roles: ['admin'] },
+          { id: 'admin_locations', label: 'Ubicaciones', icon: 'Location', href: '/admin/locations', roles: ['admin'] },
+          { id: 'admin_assets', label: 'Activos', icon: 'Assets', href: '/admin/assets', roles: ['admin', 'supervisor'] },
+          { id: 'admin_reports', label: 'Reportes', icon: 'Reports', href: '/reports', roles: ['admin'] },
+          { id: 'admin_audit', label: 'Auditoría', icon: 'Audit', href: '/audit', roles: ['admin'] },
+          { id: 'admin_login_audits', label: 'Registro de sesiones', icon: 'Audit', href: '/admin/login-audits', roles: ['admin'] },
+        ],
+      },
+    ],
+  }
 
-  const collapsibleGroups: { group: string; menus: CollapsibleMenu[] }[] = [
-    {
-      group: 'Front Office',
-      menus: [
-        {
-          id: 'recepcion',
-          label: 'Recepción',
-          icon: 'Bell',
-          items: [
-            { id: 'fo_desk', label: 'Front Desk', icon: 'Bell', href: '/mantenimiento#fo_desk', disabled: true },
-            { id: 'fo_concierge', label: 'Concierge', icon: 'Bell', href: '/mantenimiento#fo_concierge', disabled: true },
-          ],
-        },
-        {
-          id: 'ventas',
-          label: 'Ventas',
-          icon: 'BarChart',
-          items: [
-            { id: 'sales_res', label: 'Reservas', icon: 'BarChart', href: '/mantenimiento#sales_res', disabled: true },
-            { id: 'sales_groups', label: 'Grupos', icon: 'BarChart', href: '/mantenimiento#sales_groups', disabled: true },
-          ],
-        },
-      ],
-    },
-    {
-      group: 'Operación & Mantenimiento',
-      menus: [
-        {
-          id: 'ingenieria',
-          label: 'Ingeniería',
-          icon: 'Wrench',
-          items: [
-            { id: 'eng_tickets', label: 'Ticketera', icon: 'Wrench', href: '/mantenimiento#eng_tickets', disabled: true },
-            { id: 'eng_plan', label: 'Plan Anual', icon: 'Wrench', href: '/mantenimiento#eng_plan', disabled: true },
-          ],
-        },
-        {
-          id: 'housekeeping',
-          label: 'Ama de Llaves',
-          icon: 'Bed',
-          items: [
-            { id: 'hk_rooms', label: 'Tablero Habitaciones', icon: 'Bed', href: '/ama-de-llaves/tablero-habitaciones' },
-            { id: 'hk_plan', label: 'Plan Anual & Proyectos', icon: 'Calendar', href: '/ama-de-llaves/plan-anual' },
-            { id: 'hk_laundry', label: 'Ropería', icon: 'Bed', href: '/ama-de-llaves/roperia' },
-          ],
-        },
-        {
-          id: 'ayb',
-          label: 'A y B',
-          icon: 'Utensils',
-          items: [
-            { id: 'fb_pos', label: 'Puntos Venta', icon: 'Utensils', href: '/mantenimiento#fb_pos', disabled: true },
-            { id: 'fb_kitchen', label: 'Cocina', icon: 'Utensils', href: '/mantenimiento#fb_kitchen', disabled: true },
-          ],
-        },
-        {
-          id: 'helpdesk',
-          label: 'Mesa de Ayuda',
-          icon: 'Ticket',
-          items: helpdeskItems,
-        },
-      ],
-    },
-    {
-      group: 'Corporativo',
-      menus: [
-        {
-          id: 'calidad',
-          label: 'Calidad',
-          icon: 'ShieldCheck',
-          items: [
-            { id: 'qa_audit', label: 'Auditorías', icon: 'ShieldCheck', href: '/mantenimiento#qa_audit', disabled: true },
-            { id: 'qa_guest', label: 'Quejas', icon: 'ShieldCheck', href: '/mantenimiento#qa_guest', disabled: true },
-          ],
-        },
-        {
-          id: 'academia',
-          label: 'Academia',
-          icon: 'GraduationCap',
-          items: [{ id: 'lms_courses', label: 'Cursos', icon: 'GraduationCap', href: '/mantenimiento#lms_courses', disabled: true }],
-        },
-        {
-          id: 'rrhh',
-          label: 'RRHH',
-          icon: 'Briefcase',
-          items: [{ id: 'hr_staff', label: 'Personal', icon: 'Briefcase', href: '/mantenimiento#hr_staff', disabled: true }],
-        },
-      ],
-    },
-  ]
+  const collapsibleByModule: Record<string, { group: string; menus: CollapsibleMenu[] }[]> = {
+    operaciones: [
+      {
+        group: 'Front Office',
+        menus: [
+          {
+            id: 'recepcion',
+            label: 'Recepción',
+            icon: 'Bell',
+            items: [
+              { id: 'fo_desk', label: 'Front Desk', icon: 'Bell', href: '/mantenimiento#fo_desk', disabled: true },
+              { id: 'fo_concierge', label: 'Concierge', icon: 'Bell', href: '/mantenimiento#fo_concierge', disabled: true },
+            ],
+          },
+          {
+            id: 'ventas',
+            label: 'Ventas',
+            icon: 'BarChart',
+            items: [
+              { id: 'sales_res', label: 'Reservas', icon: 'BarChart', href: '/mantenimiento#sales_res', disabled: true },
+              { id: 'sales_groups', label: 'Grupos', icon: 'BarChart', href: '/mantenimiento#sales_groups', disabled: true },
+            ],
+          },
+        ],
+      },
+      {
+        group: 'Operación & Mantenimiento',
+        menus: [
+          {
+            id: 'ingenieria',
+            label: 'Ingeniería',
+            icon: 'Wrench',
+            items: [
+              { id: 'eng_tickets', label: 'Ticketera', icon: 'Wrench', href: '/mantenimiento#eng_tickets', disabled: true },
+              { id: 'eng_plan', label: 'Plan Anual', icon: 'Wrench', href: '/mantenimiento#eng_plan', disabled: true },
+            ],
+          },
+          {
+            id: 'housekeeping',
+            label: 'Ama de Llaves',
+            icon: 'Bed',
+            items: [
+              { id: 'hk_rooms', label: 'Tablero Habitaciones', icon: 'Bed', href: '/ama-de-llaves/tablero-habitaciones' },
+              { id: 'hk_plan', label: 'Plan Anual & Proyectos', icon: 'Calendar', href: '/ama-de-llaves/plan-anual' },
+              { id: 'hk_laundry', label: 'Ropería', icon: 'Bed', href: '/ama-de-llaves/roperia' },
+            ],
+          },
+          {
+            id: 'ayb',
+            label: 'A y B',
+            icon: 'Utensils',
+            items: [
+              { id: 'fb_pos', label: 'Puntos Venta', icon: 'Utensils', href: '/mantenimiento#fb_pos', disabled: true },
+              { id: 'fb_kitchen', label: 'Cocina', icon: 'Utensils', href: '/mantenimiento#fb_kitchen', disabled: true },
+            ],
+          },
+        ],
+      },
+    ],
+    helpdesk: [],
+    corporativo: [],
+    admin: [],
+  }
+
+  const activeTopMenu = useMemo(() => {
+    return moduleContext ? topMenuByModule[moduleContext] || [] : []
+  }, [moduleContext])
+
+  const activeCollapsible = useMemo(() => {
+    return moduleContext ? collapsibleByModule[moduleContext] || [] : []
+  }, [moduleContext])
 
   // Filtrar items según roles y permisos
-  const filterItems = (items: MenuSection['items']) => {
-    return items.filter(item => {
-      if (item.requireBeo && !profile?.can_view_beo) return false
-      if (item.roles && !item.roles.includes(profile?.role || '')) return false
-      return true
-    })
-  }
+  const filterItems = useCallback(
+    (items: MenuSection['items']) => {
+      return items.filter((item) => {
+        if (item.requireBeo && !profile?.can_view_beo) return false
+        if (item.roles && !item.roles.includes(profile?.role || '')) return false
+        return true
+      })
+    },
+    [profile?.can_view_beo, profile?.role]
+  )
 
-  const isAnyActive = (items: (MenuSection['items'][number] & { disabled?: boolean })[]) => {
-    return filterItems(items as any).some((item) => isActive(item.href))
-  }
+  const isAnyActive = useCallback(
+    (items: (MenuSection['items'][number] & { disabled?: boolean })[]) => {
+      return filterItems(items as any).some((item) => isActive(item.href))
+    },
+    [filterItems, isActive]
+  )
 
   const toggleExpanded = (id: string) => {
     setExpandedMenus((prev) => ({
@@ -397,7 +418,7 @@ export default function AppShellClient({
   // Por defecto, todos colapsados (evita que "Mesa de Ayuda" aparezca abierta al iniciar sesión).
   useEffect(() => {
     const nextExpanded: Record<string, boolean> = {}
-    for (const group of collapsibleGroups) {
+    for (const group of activeCollapsible) {
       for (const menu of group.menus) {
         if (isAnyActive(menu.items)) {
           nextExpanded[menu.id] = true
@@ -406,9 +427,21 @@ export default function AppShellClient({
     }
 
     if (Object.keys(nextExpanded).length === 0) return
-    setExpandedMenus((prev) => ({ ...prev, ...nextExpanded }))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pathname, profile?.role, profile?.can_view_beo])
+
+    setExpandedMenus((prev) => {
+      let changed = false
+      const updated = { ...prev }
+
+      for (const [key, value] of Object.entries(nextExpanded)) {
+        if (updated[key] !== value) {
+          updated[key] = value
+          changed = true
+        }
+      }
+
+      return changed ? updated : prev
+    })
+  }, [pathname, profile?.role, profile?.can_view_beo, activeCollapsible, isAnyActive])
 
   useEffect(() => {
     let mounted = true
@@ -430,6 +463,8 @@ export default function AppShellClient({
   const roleLabel =
     profile?.role === 'admin'
       ? 'Admin'
+      : profile?.role === 'corporate_admin'
+        ? 'Admin Corporativo'
       : profile?.role === 'agent_l1'
         ? 'Agente L1'
         : profile?.role === 'agent_l2'
@@ -504,7 +539,7 @@ export default function AppShellClient({
             )}
           </Link>
 
-          {topMenu.map((section) => {
+          {activeTopMenu.map((section) => {
             const filteredItems = filterItems(section.items)
             if (filteredItems.length === 0) return null
 
@@ -531,7 +566,7 @@ export default function AppShellClient({
             )
           })}
 
-          {collapsibleGroups.map((group) => (
+          {activeCollapsible.map((group) => (
             <div key={group.group}>
               {sidebarOpen && (
                 <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 px-3">
