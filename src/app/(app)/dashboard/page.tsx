@@ -525,7 +525,7 @@ export default async function DashboardPage() {
               <span className="text-xs font-bold text-emerald-700">Todas las ubicaciones</span>
             </div>
           </div>
-          <LocationStatsTable rows={locationStats} serviceArea={inferredServiceArea} userRole={profile?.role ?? null} />
+          <LocationStatsTable rows={locationStats} />
         </div>
       )}
 
