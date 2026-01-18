@@ -297,7 +297,7 @@ export default function AssetSpecsClient({ initialAssets, locations, departments
                   <tr key={asset.id} className={hasSpecs ? "hover:bg-gray-50" : "hover:bg-yellow-50 bg-yellow-50/30"}>
                     <td className="px-3 py-3">
                       <Link
-                        href={`/admin/assets/${asset.id}`}
+                        href={`/assets/${asset.id}`}
                         className="block hover:text-blue-600 transition-colors"
                       >
                         <div className="flex items-center gap-2">

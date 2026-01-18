@@ -40,7 +40,7 @@ export async function GET() {
 
   const { data: profiles, error: profErr } = await admin
     .from('profiles')
-    .select('id,full_name,role,department,phone,building,floor,position,supervisor_id,location_id,asset_category,can_view_beo,can_manage_assets,locations(code,name)')
+    .select('id,full_name,role,department,phone,building,floor,position,supervisor_id,location_id,asset_category,allowed_departments,can_view_beo,can_manage_assets,locations(code,name)')
     .in('id', ids)
 
   if (profErr) return new Response(profErr.message, { status: 500 })
@@ -53,10 +53,14 @@ export async function GET() {
     .order('name')
 
   // Cargar sedes de user_locations para cada usuario
-  const { data: userLocations } = await admin
+  const { data: userLocations, error: userLocsErr } = await admin
     .from('user_locations')
     .select('user_id,location_id,locations(code,name)')
     .in('user_id', ids)
+  
+  if (userLocsErr) {
+    console.error('Error cargando user_locations:', userLocsErr)
+  }
 
   // Crear mapa de sedes por usuario
   const userLocationsMap = new Map<string, Array<{code: string, name: string}>>()
@@ -76,7 +80,15 @@ export async function GET() {
 
   const users = authUsers.map((u) => {
     const p = profileMap.get(u.id) as any
-    const userLocs = userLocationsMap.get(u.id) || []
+    let userLocs = userLocationsMap.get(u.id) || []
+    
+    // Fallback: si no hay sedes en user_locations, usar location_id del profile
+    if (userLocs.length === 0 && p?.location_id) {
+      const locationData = locations?.find(loc => loc.id === p.location_id)
+      if (locationData) {
+        userLocs = [{ code: locationData.code, name: locationData.name }]
+      }
+    }
     
     return {
       id: u.id,
@@ -98,6 +110,7 @@ export async function GET() {
       location_codes: userLocs.map(l => l.code),
       location_names: userLocs.map(l => l.name),
       asset_category: (p?.asset_category as any) ?? null,
+      allowed_departments: (p?.allowed_departments as any) ?? null,
       can_view_beo: (p?.can_view_beo as any) ?? false,
       can_manage_assets: (p?.can_manage_assets as any) ?? false,
     }
@@ -134,6 +147,7 @@ export async function POST(request: Request) {
   const position = typeof body?.position === 'string' ? body.position.trim() : ''
   const locationIds = Array.isArray(body?.location_ids) ? body.location_ids.filter((id: unknown) => typeof id === 'string') : []
   const assetCategory = typeof body?.asset_category === 'string' && body.asset_category.trim() !== '' ? body.asset_category.trim() : null
+  const allowedDepartments = Array.isArray(body?.allowed_departments) && body.allowed_departments.length > 0 ? body.allowed_departments : null
   const canViewBeo = Boolean(body?.can_view_beo)
   const canManageAssets = Boolean(body?.can_manage_assets)
   const invite = body?.invite !== false
@@ -181,6 +195,7 @@ export async function POST(request: Request) {
     position: position || null,
     location_id: locationIds[0] || null, // Sede principal (retrocompatibilidad)
     asset_category: assetCategory,
+    allowed_departments: allowedDepartments,
     can_view_beo: canViewBeo,
     can_manage_assets: canManageAssets,
   })

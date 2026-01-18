@@ -159,7 +159,7 @@ export default async function AssetChangesReportPage() {
                     <td className="px-4 py-3">
                       {asset ? (
                         <Link
-                          href={`/admin/assets/${asset.id}`}
+                          href={`/assets/${asset.id}`}
                           className="block hover:text-blue-600 transition-colors"
                         >
                           <div className="font-semibold text-gray-900">{asset.asset_tag}</div>

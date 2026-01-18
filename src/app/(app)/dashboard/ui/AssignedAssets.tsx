@@ -41,7 +41,7 @@ export default function AssignedAssets({ assets }: { assets: AssetRow[] }) {
               <li key={asset.id} className="flex items-center justify-between gap-2 p-2 rounded-lg bg-gray-50 border border-gray-200 hover:bg-emerald-50 hover:border-emerald-300 transition-colors">
                 <div className="min-w-0">
                   <Link
-                    href={`/admin/assets/${asset.id}`}
+                    href={`/assets/${asset.id}`}
                     className="font-semibold text-gray-900 truncate block text-xs"
                   >
                     {asset.asset_tag}

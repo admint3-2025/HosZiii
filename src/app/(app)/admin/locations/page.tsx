@@ -1,19 +1,9 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { redirect } from 'next/navigation'
 import LocationCreateForm from './ui/LocationCreateForm'
 import LocationList from './ui/LocationList'
 
 export default async function AdminLocationsPage() {
-  const supabase = await createSupabaseServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
-
-  if (!user) redirect('/login')
-
-  const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-
-  if (profile?.role !== 'admin') redirect('/dashboard')
+  // La validación de rol está en /admin/layout.tsx
 
   return (
     <main className="p-6 space-y-4">

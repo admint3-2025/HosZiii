@@ -43,7 +43,7 @@ export async function GET(
     const qrData = {
       id: asset.id,
       etiqueta: asset.asset_tag,
-      url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/admin/assets/${id}`
+      url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/assets/${id}`
     }
     const qrCode = await QRCode.toDataURL(JSON.stringify(qrData), {
       errorCorrectionLevel: 'M',

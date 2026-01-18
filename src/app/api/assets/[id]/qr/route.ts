@@ -57,7 +57,7 @@ export async function GET(
       tickets_abiertos: rawStats?.open_tickets ?? 0,
       cambios_sede: rawStats?.location_change_count ?? 0,
       cambios_usuario: rawStats?.assignment_change_count ?? 0,
-      url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/admin/assets/${id}`
+      url: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/assets/${id}`
     }
 
     // Generar QR con todos los datos en formato JSON

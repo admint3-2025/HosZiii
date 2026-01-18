@@ -17,8 +17,8 @@ export default async function CorporativoDashboard() {
     .eq('id', user.id)
     .single()
 
-  // Verificar permisos (admin, supervisor, auditor)
-  if (!profile || !['admin', 'supervisor', 'auditor'].includes(profile.role)) {
+  // Verificar permisos (admin o corporate_admin)
+  if (!profile || !['admin', 'corporate_admin'].includes(profile.role)) {
     redirect('/hub')
   }
 
@@ -57,6 +57,12 @@ export default async function CorporativoDashboard() {
           <p className="text-gray-600 max-w-md mx-auto mb-8">
             El módulo corporativo está actualmente en desarrollo. Pronto estará disponible con las siguientes funcionalidades:
           </p>
+
+          <div className="mb-8">
+            <Link href="/corporativo/inspecciones" className="btn btn-primary">
+              Ir a Inspecciones
+            </Link>
+          </div>
 
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4 max-w-4xl mx-auto text-left">
             <div className="p-4 bg-amber-50 border border-amber-200 rounded-lg">

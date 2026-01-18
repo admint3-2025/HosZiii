@@ -1,8 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { getReportsLocationFilter } from '@/lib/supabase/reports-filter'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-import PageHeader, { SectionTitle, StatCard } from '@/components/ui/PageHeader'
+import PageHeader from '@/components/ui/PageHeader'
 
 export default async function ReportsPage() {
   const supabase = await createSupabaseServerClient()
@@ -13,194 +12,80 @@ export default async function ReportsPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role,asset_category')
     .eq('id', user.id)
     .single()
 
-  const isAdminOrSupervisor = profile?.role === 'admin' || profile?.role === 'supervisor'
-
-  // Obtener filtro de ubicaciones para reportes
-  const locationFilter = await getReportsLocationFilter()
-
-  // Construir queries base con filtro de ubicaciones
-  let ticketsQuery = supabase.from('tickets').select('id', { count: 'exact', head: true })
-  let activeTicketsQuery = supabase.from('tickets').select('id', { count: 'exact', head: true }).is('deleted_at', null)
-  let deletedTicketsQuery = supabase.from('tickets').select('id', { count: 'exact', head: true }).not('deleted_at', 'is', null)
-  let assetsQuery = supabase.from('assets').select('id', { count: 'exact', head: true }).is('deleted_at', null)
+  const isAdmin = profile?.role === 'admin'
+  const isSupervisor = profile?.role === 'supervisor'
+  const isAdminOrSupervisor = isAdmin || isSupervisor
   
-  // Aplicar filtro de ubicación para supervisores sin permiso especial
-  if (locationFilter.shouldFilter && locationFilter.locationIds.length > 0) {
-    ticketsQuery = ticketsQuery.in('location_id', locationFilter.locationIds)
-    activeTicketsQuery = activeTicketsQuery.in('location_id', locationFilter.locationIds)
-    deletedTicketsQuery = deletedTicketsQuery.in('location_id', locationFilter.locationIds)
-    assetsQuery = assetsQuery.in('location_id', locationFilter.locationIds)
-  } else if (locationFilter.shouldFilter && locationFilter.locationIds.length === 0) {
-    // Supervisor sin sedes: no mostrar nada
-    ticketsQuery = ticketsQuery.eq('id', '00000000-0000-0000-0000-000000000000')
-    activeTicketsQuery = activeTicketsQuery.eq('id', '00000000-0000-0000-0000-000000000000')
-    deletedTicketsQuery = deletedTicketsQuery.eq('id', '00000000-0000-0000-0000-000000000000')
-    assetsQuery = assetsQuery.eq('id', '00000000-0000-0000-0000-000000000000')
-  }
+  // Determinar acceso a módulos
+  const canAccessIT = isAdmin || profile?.asset_category === 'IT' || profile?.asset_category === null
+  const canAccessMaintenance = isAdmin || profile?.asset_category === 'MAINTENANCE'
 
-  // Métricas para reportes (con filtro aplicado)
-  const [
-    { count: totalTickets },
-    { count: activeTickets },
-    { count: deletedTickets },
-    { count: auditEvents },
-    { count: totalAssets },
-    { count: assetChanges },
-    { count: disposalRequests },
-  ] = await Promise.all([
-    ticketsQuery,
-    activeTicketsQuery,
-    deletedTicketsQuery,
-    supabase.from('audit_log').select('id', { count: 'exact', head: true }),
-    assetsQuery,
-    supabase.from('asset_changes').select('id', { count: 'exact', head: true }),
-    supabase.from('asset_disposal_requests').select('id', { count: 'exact', head: true }),
-  ])
-
-  const reports = [
+  // Módulos de reportes disponibles
+  const modules = [
     {
-      title: 'Todos los Tickets',
-      description: 'Reporte completo de tickets activos con detalles, filtros y estadísticas',
-      icon: '📊',
-      link: '/reports/all-tickets',
-      count: activeTickets ?? 0,
-      enabled: true,
-      requiresRole: 'all',
+      id: 'helpdesk',
+      title: 'Service Desk IT',
+      description: 'Reportes de tickets, incidentes, activos IT y métricas de soporte técnico',
+      icon: (
+        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+        </svg>
+      ),
+      color: 'from-blue-500 to-indigo-600',
+      bgColor: 'bg-blue-50',
+      borderColor: 'border-blue-200 hover:border-blue-400',
+      textColor: 'text-blue-700',
+      link: '/reports/helpdesk',
+      enabled: canAccessIT,
     },
     {
-      title: 'Tickets Eliminados',
-      description: 'Auditoría completa de tickets eliminados con motivo, responsable y fecha',
-      icon: '🗑️',
-      link: '/reports/deleted-tickets',
-      count: deletedTickets ?? 0,
-      enabled: true,
-      requiresRole: 'supervisor',
+      id: 'maintenance',
+      title: 'Service Desk Mantenimiento',
+      description: 'Reportes de solicitudes, órdenes de trabajo, equipos y métricas de mantenimiento',
+      icon: (
+        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      ),
+      color: 'from-orange-500 to-red-600',
+      bgColor: 'bg-orange-50',
+      borderColor: 'border-orange-200 hover:border-orange-400',
+      textColor: 'text-orange-700',
+      link: '/reports/maintenance',
+      enabled: canAccessMaintenance,
     },
     {
-      title: 'Historial de Auditoría',
-      description: 'Registro completo de todas las acciones en el sistema con enlaces directos',
-      icon: '📋',
+      id: 'audit',
+      title: 'Auditoría General',
+      description: 'Historial de acciones, cambios en el sistema y registro de actividades',
+      icon: (
+        <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+        </svg>
+      ),
+      color: 'from-purple-500 to-violet-600',
+      bgColor: 'bg-purple-50',
+      borderColor: 'border-purple-200 hover:border-purple-400',
+      textColor: 'text-purple-700',
       link: '/audit',
-      count: auditEvents ?? 0,
-      enabled: true,
-      requiresRole: 'admin',
-    },
-    {
-      title: 'Inventario de Activos',
-      description: 'Catálogo completo de activos con filtros por sede, tipo y estado. Exportable a Excel',
-      icon: '💻',
-      link: '/reports/asset-inventory',
-      count: totalAssets ?? 0,
-      enabled: true,
-      requiresRole: 'supervisor',
-    },
-    {
-      title: 'Historial de Activos',
-      description: 'Trazabilidad completa de cambios en activos: ubicación, responsable, specs técnicas',
-      icon: '📝',
-      link: '/reports/asset-changes',
-      count: assetChanges ?? 0,
-      enabled: true,
-      requiresRole: 'admin',
-    },
-    {
-      title: 'Cambios de Ubicación',
-      description: 'Auditoría de traslados de activos entre sedes con justificación y responsable',
-      icon: '🚚',
-      link: '/reports/asset-locations',
-      count: 0,
-      enabled: true,
-      requiresRole: 'admin',
-    },
-    {
-      title: 'Activos por Especificaciones',
-      description: 'Reporte técnico de PCs y Laptops: procesador, RAM, almacenamiento, SO',
-      icon: '🔧',
-      link: '/reports/asset-specs',
-      count: 0,
-      enabled: true,
-      requiresRole: 'supervisor',
-    },
-    {
-      title: 'Bajas de Activos',
-      description: 'Historial de solicitudes de baja: pendientes, aprobadas y rechazadas',
-      icon: '📦',
-      link: '/reports/asset-disposals',
-      count: disposalRequests ?? 0,
-      enabled: true,
-      requiresRole: 'admin',
-    },
-    {
-      title: 'Actividad por Usuario',
-      description: 'Análisis de tickets creados, modificados y cerrados por usuario',
-      icon: '👥',
-      link: '/reports/user-activity',
-      count: 0,
-      enabled: true,
-      requiresRole: 'admin',
-    },
-    {
-      title: 'Tiempos de Resolución',
-      description: 'SLA y métricas de tiempo promedio por prioridad y categoría',
-      icon: '⏱️',
-      link: '/reports/resolution-times',
-      count: 0,
-      enabled: false,
-      requiresRole: 'admin',
-    },
-    {
-      title: 'Cambios de Estado',
-      description: 'Historial completo de transiciones de estado en tickets',
-      icon: '🔄',
-      link: '/reports/state-changes',
-      count: 0,
-      enabled: false,
-      requiresRole: 'admin',
-    },
-    {
-      title: 'Escalamientos N1→N2',
-      description: 'Análisis de tickets escalados a nivel 2 con motivos y tiempos',
-      icon: '📈',
-      link: '/reports/escalations',
-      count: 0,
-      enabled: false,
-      requiresRole: 'admin',
+      enabled: isAdmin,
     },
   ]
 
-  // Filtrar reportes según el rol del usuario
-  const visibleReports = reports.filter(report => {
-    const userRole = profile?.role
-    
-    // Reportes para todos
-    if (report.requiresRole === 'all') {
-      return true
-    }
-    
-    // Reportes solo para admin
-    if (report.requiresRole === 'admin') {
-      return userRole === 'admin'
-    }
-    
-    // Reportes para supervisor y admin
-    if (report.requiresRole === 'supervisor') {
-      return userRole === 'admin' || userRole === 'supervisor'
-    }
-    
-    return false
-  })
+  const visibleModules = modules.filter(m => m.enabled)
 
   return (
-    <main className="space-y-6">
-      {/* Header moderno */}
+    <main className="space-y-8 p-6">
+      {/* Header */}
       <PageHeader
-        title="Reportes"
-        description="Consulta y exportación de datos operativos del sistema"
-        color="purple"
+        title="Centro de Reportes"
+        description="Selecciona el módulo para acceder a sus reportes y métricas"
+        color="admin"
         icon={
           <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
@@ -208,99 +93,60 @@ export default async function ReportsPage() {
         }
       />
 
-      {/* Estadísticas */}
-      <div>
-        <SectionTitle title="Resumen General" subtitle="Métricas del sistema" />
-        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <StatCard
-            label="Total Tickets"
-            value={totalTickets ?? 0}
-            color="blue"
-            icon={
-              <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-              </svg>
-            }
-          />
-          <StatCard
-            label="Tickets Activos"
-            value={activeTickets ?? 0}
-            color="green"
-            icon={
-              <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-              </svg>
-            }
-          />
-          {isAdminOrSupervisor && (
-            <>
-              <StatCard
-                label="Activos IT"
-                value={totalAssets ?? 0}
-                color="purple"
-                icon={
-                  <svg className="w-5 h-5 text-violet-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                  </svg>
-                }
-              />
-              <StatCard
-                label="Eventos Auditoría"
-                value={auditEvents ?? 0}
-                color="orange"
-                icon={
-                  <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                  </svg>
-                }
-              />
-            </>
-          )}
-        </div>
+      {/* Módulos disponibles */}
+      <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+        {visibleModules.map((module) => (
+          <Link
+            key={module.id}
+            href={module.link}
+            className={`group relative overflow-hidden rounded-2xl border-2 ${module.borderColor} ${module.bgColor} p-6 transition-all duration-300 hover:shadow-xl hover:-translate-y-1`}
+          >
+            {/* Gradiente decorativo */}
+            <div className={`absolute top-0 right-0 w-32 h-32 bg-gradient-to-br ${module.color} opacity-10 rounded-full blur-2xl -mr-16 -mt-16 group-hover:opacity-20 transition-opacity`}></div>
+            
+            <div className="relative z-10">
+              {/* Icono */}
+              <div className={`inline-flex p-3 rounded-xl bg-gradient-to-br ${module.color} text-white shadow-lg mb-4`}>
+                {module.icon}
+              </div>
+              
+              {/* Título */}
+              <h3 className={`text-xl font-bold ${module.textColor} mb-2 group-hover:translate-x-1 transition-transform`}>
+                {module.title}
+              </h3>
+              
+              {/* Descripción */}
+              <p className="text-sm text-slate-600 mb-4">
+                {module.description}
+              </p>
+              
+              {/* Indicador de acción */}
+              <div className={`flex items-center gap-2 text-sm font-medium ${module.textColor}`}>
+                <span>Ver reportes</span>
+                <svg className="w-4 h-4 group-hover:translate-x-1 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                </svg>
+              </div>
+            </div>
+          </Link>
+        ))}
       </div>
 
-      {/* Grid de reportes */}
-      <div>
-        <SectionTitle title="Reportes Disponibles" subtitle="Selecciona un reporte para ver detalles" />
-        <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
-          {visibleReports.map((report) => (
-            report.enabled ? (
-              <Link
-                key={report.link}
-                href={report.link}
-                className="bg-white rounded-2xl border border-slate-200/80 p-5 hover:border-indigo-300 hover:shadow-lg hover:shadow-indigo-100/50 transition-all duration-300 group"
-              >
-                <div className="flex items-start gap-4">
-                  <div className="text-3xl group-hover:scale-110 transition-transform">{report.icon}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="font-semibold text-slate-800 group-hover:text-indigo-600 transition-colors">{report.title}</h3>
-                      {report.count > 0 && (
-                        <span className="text-sm font-bold text-indigo-600 bg-indigo-50 px-2 py-0.5 rounded-full">{report.count}</span>
-                      )}
-                    </div>
-                    <p className="text-sm text-slate-500 mt-1.5 line-clamp-2">{report.description}</p>
-                  </div>
-                </div>
-              </Link>
-            ) : (
-              <div
-                key={report.link}
-                className="bg-slate-50 rounded-2xl border border-slate-200 p-5 opacity-60"
-              >
-                <div className="flex items-start gap-4">
-                  <div className="text-3xl grayscale">{report.icon}</div>
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center justify-between gap-2">
-                      <h3 className="font-semibold text-slate-500">{report.title}</h3>
-                      <span className="text-[10px] text-slate-400 bg-slate-200 px-2 py-0.5 rounded-full font-medium">Próximamente</span>
-                    </div>
-                    <p className="text-sm text-slate-400 mt-1.5 line-clamp-2">{report.description}</p>
-                  </div>
-                </div>
-              </div>
-            )
-          ))}
+      {/* Mensaje informativo */}
+      <div className="bg-slate-50 rounded-xl border border-slate-200 p-4">
+        <div className="flex items-start gap-3">
+          <div className="p-2 bg-slate-100 rounded-lg">
+            <svg className="w-5 h-5 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+            </svg>
+          </div>
+          <div>
+            <h4 className="font-semibold text-slate-800 mb-1">Reportes Centralizados</h4>
+            <p className="text-sm text-slate-600">
+              Cada módulo contiene reportes específicos para su área. Los reportes están filtrados según tu rol y permisos asignados.
+              {isAdmin && ' Como administrador, tienes acceso completo a todos los reportes del sistema.'}
+            </p>
+          </div>
         </div>
       </div>
     </main>

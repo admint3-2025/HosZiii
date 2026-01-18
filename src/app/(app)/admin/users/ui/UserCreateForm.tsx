@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react'
 import DepartmentSelector from '@/components/DepartmentSelector'
 import PositionSelector from '@/components/PositionSelector'
 import MultiLocationSelector from '@/components/MultiLocationSelector'
+import InspectionDepartmentsSelector from '@/components/InspectionDepartmentsSelector'
 
 const ROLES = [
   { value: 'requester', label: 'Usuario' },
@@ -43,6 +44,7 @@ export default function UserCreateForm() {
   const [locationIds, setLocationIds] = useState<string[]>([]) // Múltiples sedes
   const [locations, setLocations] = useState<Location[]>([])
   const [assetCategory, setAssetCategory] = useState<string>('')
+  const [allowedDepartments, setAllowedDepartments] = useState<string[]>([])
   const [canViewBeo, setCanViewBeo] = useState(false)
   const [canManageAssets, setCanManageAssets] = useState(false)
   const [invite, setInvite] = useState(true)
@@ -96,6 +98,7 @@ export default function UserCreateForm() {
           position: position.trim(),
           location_ids: locationIds.length > 0 ? locationIds : [],
           asset_category: assetCategory || null,
+          allowed_departments: role === 'corporate_admin' && allowedDepartments.length > 0 ? allowedDepartments : null,
           can_view_beo: canViewBeo,
           can_manage_assets: canManageAssets,
           invite,
@@ -121,6 +124,7 @@ export default function UserCreateForm() {
       setPosition('')
       setLocationIds([])
       setAssetCategory('')
+      setAllowedDepartments([])
       setCanViewBeo(false)
       setCanManageAssets(false)
       setInvite(true)
@@ -259,6 +263,21 @@ export default function UserCreateForm() {
             </div>
           </div>
 
+          {/* Selector de departamentos para inspección (solo para corporate_admin) */}
+          {role === 'corporate_admin' && (
+            <div className="sm:col-span-2 p-3 border-2 border-amber-200 bg-amber-50 rounded-lg">
+              <div className="text-[11px] font-semibold text-amber-900 uppercase tracking-wide mb-2.5">
+                Permisos de Inspección Corporativa
+              </div>
+              <InspectionDepartmentsSelector
+                value={allowedDepartments}
+                onChange={setAllowedDepartments}
+                label="Departamentos que puede inspeccionar"
+                helpText="Sin selección = puede inspeccionar todos los departamentos"
+              />
+            </div>
+          )}
+
           {/* Permisos especiales agrupados */}
           <div className="sm:col-span-2 p-3 border-2 border-blue-200 bg-blue-50 rounded-lg">
             <div className="text-[11px] font-semibold text-blue-900 uppercase tracking-wide mb-2.5">
@@ -283,9 +302,10 @@ export default function UserCreateForm() {
               <label className="flex items-center gap-2 text-xs text-gray-700 cursor-pointer">
                 <input
                   type="checkbox"
-                  className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-2 focus:ring-emerald-500"
+                  className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
                   checked={canManageAssets}
                   onChange={(e) => setCanManageAssets(e.target.checked)}
+                  disabled={role === 'requester' || role === 'auditor' || role === 'corporate_admin'}
                 />
                 <span className="flex items-center gap-1.5">
                   <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

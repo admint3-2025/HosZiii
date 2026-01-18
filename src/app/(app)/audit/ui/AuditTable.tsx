@@ -44,7 +44,7 @@ function formatChanges(metadata: any, entityType: string): string {
 function getResourceLink(entityType: string, entityId: string): string | null {
   switch (entityType) {
     case 'asset':
-      return `/admin/assets/${entityId}`
+      return `/assets/${entityId}`
     case 'ticket':
       return `/tickets/${entityId}`
     case 'user':

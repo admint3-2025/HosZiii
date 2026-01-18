@@ -243,7 +243,7 @@ export default function AssetInventoryClient({
                   <tr key={asset.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <Link
-                        href={`/admin/assets/${asset.id}`}
+                        href={`/assets/${asset.id}`}
                         className="block hover:text-blue-600 transition-colors"
                       >
                         <div className="font-semibold text-gray-900">{asset.asset_tag}</div>

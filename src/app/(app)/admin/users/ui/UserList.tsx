@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState, Fragment } from 'react'
 import DepartmentSelector from '@/components/DepartmentSelector'
 import PositionSelector from '@/components/PositionSelector'
 import MultiLocationSelector from '@/components/MultiLocationSelector'
+import InspectionDepartmentsSelector from '@/components/InspectionDepartmentsSelector'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 
 type Role = 'requester' | 'agent_l1' | 'agent_l2' | 'supervisor' | 'auditor' | 'corporate_admin' | 'admin'
@@ -36,6 +37,7 @@ type UserRow = {
   can_view_beo: boolean | null
   can_manage_assets: boolean | null
   asset_category: string | null
+  allowed_departments: string[] | null
 }
 
 const ROLE_LABEL: Record<Role, string> = {
@@ -69,6 +71,7 @@ export default function UserList() {
   const [editFloor, setEditFloor] = useState('')
   const [editLocationIds, setEditLocationIds] = useState<string[]>([])
   const [editAssetCategory, setEditAssetCategory] = useState<string>('')
+  const [editAllowedDepartments, setEditAllowedDepartments] = useState<string[]>([])
   const [editCanViewBeo, setEditCanViewBeo] = useState(false)
   const [editCanManageAssets, setEditCanManageAssets] = useState(false)
 
@@ -128,29 +131,38 @@ export default function UserList() {
     })
   }, [filtered])
 
-  async function load() {
-    setError(null)
-    setBusy(true)
-    try {
-      const res = await fetch('/api/admin/users', { method: 'GET' })
-      const text = await res.text()
-      if (!res.ok) {
-        setError(text || `Error ${res.status}`)
-        return
+  const handleLoad = useMemo(() => {
+    return async () => {
+      setError(null)
+      setBusy(true)
+      try {
+        const res = await fetch('/api/admin/users?t=' + Date.now(), { 
+          method: 'GET',
+          headers: { 'Cache-Control': 'no-cache' }
+        })
+        const text = await res.text()
+        if (!res.ok) {
+          setError(text || `Error ${res.status}`)
+          return
+        }
+        const json = JSON.parse(text) as { users: UserRow[]; locations: Location[] }
+        setUsers(json.users)
+        setLocations(json.locations || [])
+      } catch (e: any) {
+        setError(e?.message ?? 'Error inesperado')
+      } finally {
+        setBusy(false)
       }
-      const json = JSON.parse(text) as { users: UserRow[]; locations: Location[] }
-      setUsers(json.users)
-      setLocations(json.locations || [])
-    } catch (e: any) {
-      setError(e?.message ?? 'Error inesperado')
-    } finally {
-      setBusy(false)
     }
+  }, [])
+
+  async function load() {
+    return handleLoad()
   }
 
   useEffect(() => {
-    load()
-  }, [])
+    handleLoad()
+  }, [handleLoad])
 
   async function beginEdit(u: UserRow) {
     setEditingId(u.id)
@@ -162,6 +174,7 @@ export default function UserList() {
     setEditBuilding(u.building ?? '')
     setEditFloor(u.floor ?? '')
     setEditAssetCategory(u.asset_category ?? '')
+    setEditAllowedDepartments(u.allowed_departments ?? [])
     setEditCanViewBeo(u.can_view_beo ?? false)
     setEditCanManageAssets(u.can_manage_assets ?? false)
     
@@ -204,6 +217,7 @@ export default function UserList() {
           floor: editFloor.trim(),
           location_ids: editLocationIds,
           asset_category: editAssetCategory || null,
+          allowed_departments: editRole === 'corporate_admin' && editAllowedDepartments.length > 0 ? editAllowedDepartments : null,
           can_view_beo: editCanViewBeo,
           can_manage_assets: editCanManageAssets,
         }),
@@ -213,8 +227,10 @@ export default function UserList() {
         setError(text || `Error ${res.status}`)
         return
       }
-      setEditingId(null)
+      // Pequeño delay para asegurar que se procesa en backend
+      await new Promise(r => setTimeout(r, 300))
       await load()
+      setEditingId(null)
     } catch (e: any) {
       setError(e?.message ?? 'Error inesperado')
     } finally {
@@ -408,11 +424,11 @@ export default function UserList() {
             <tr>
               <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">Email</th>
               <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">Nombre</th>
-              <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">Ciudad/Empresa</th>
+              <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">Sede</th>
               <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">Rol</th>
-              <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">Acceso BEO</th>
-              <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">Gestión Activos</th>
-              <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">Categoría Activos</th>
+              <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">BEO</th>
+              <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">Gestiona Activos</th>
+              <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">Categoría</th>
               <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">Estado</th>
               <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">Acciones</th>
             </tr>
@@ -436,11 +452,11 @@ export default function UserList() {
                     <td className="px-3 py-2">
                       <div className="text-gray-900 text-xs">
                         {u.location_codes && u.location_codes.length > 0 ? (
-                          <div className="flex flex-wrap gap-1">
+                          <div className="flex flex-wrap gap-0.5">
                             {u.location_codes.map((code, idx) => (
                               <span
                                 key={idx}
-                                className="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 font-medium text-[10px]"
+                                className="inline-block px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 font-medium text-[9px]"
                                 title={u.location_names?.[idx] || code}
                               >
                                 {code}
@@ -448,7 +464,7 @@ export default function UserList() {
                             ))}
                           </div>
                         ) : (
-                          <span className="text-gray-400">Sin asignar</span>
+                          <span className="text-gray-400 text-[10px]">—</span>
                         )}
                       </div>
                     </td>
@@ -458,13 +474,12 @@ export default function UserList() {
                     </td>
 
                     <td className="px-3 py-2">
-                      <div className="flex items-center">
+                      <div className="text-center">
                         {u.can_view_beo ? (
-                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold bg-purple-100 text-purple-700 border border-purple-300">
-                            <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
+                          <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-purple-100 border border-purple-300">
+                            <svg className="w-3 h-3 text-purple-600" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                             </svg>
-                            BEO
                           </span>
                         ) : (
                           <span className="text-gray-400 text-[10px]">—</span>
@@ -473,10 +488,10 @@ export default function UserList() {
                     </td>
 
                     <td className="px-3 py-2">
-                      <div className="flex items-center">
+                      <div className="text-center">
                         {u.can_manage_assets ? (
-                          <span className="inline-flex items-center justify-center w-6 h-6 rounded-full bg-emerald-100 border border-emerald-300">
-                            <svg className="w-4 h-4 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
+                          <span className="inline-flex items-center justify-center w-5 h-5 rounded-full bg-emerald-100 border border-emerald-300">
+                            <svg className="w-3 h-3 text-emerald-600" fill="currentColor" viewBox="0 0 20 20">
                               <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
                             </svg>
                           </span>
@@ -487,13 +502,11 @@ export default function UserList() {
                     </td>
 
                     <td className="px-3 py-2">
-                      <div className="text-gray-900 text-xs">
-                        {u.can_manage_assets && u.asset_category ? (
-                          <span className="inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-medium bg-orange-100 text-orange-700 border border-orange-300">
+                      <div className="text-center">
+                        {u.asset_category ? (
+                          <span className="inline-block px-1.5 py-0.5 rounded text-[9px] font-semibold bg-orange-100 text-orange-700 border border-orange-300">
                             {u.asset_category}
                           </span>
-                        ) : u.can_manage_assets ? (
-                          <span className="text-emerald-600 text-[10px] font-medium">Todo Activo</span>
                         ) : (
                           <span className="text-gray-400 text-[10px]">—</span>
                         )}
@@ -637,7 +650,8 @@ export default function UserList() {
                                     type="checkbox"
                                     checked={editCanManageAssets}
                                     onChange={(e) => setEditCanManageAssets(e.target.checked)}
-                                    className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-2 focus:ring-emerald-500"
+                                    disabled={editRole === 'requester' || editRole === 'auditor' || editRole === 'corporate_admin'}
+                                    className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
                                   />
                                   <span className="text-xs text-gray-700 flex items-center gap-1.5">
                                     <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -664,6 +678,21 @@ export default function UserList() {
                                 </div>
                               </div>
                             </div>
+
+                            {/* Selector de departamentos de inspección (solo para corporate_admin) */}
+                            {editRole === 'corporate_admin' && (
+                              <div className="md:col-span-2 p-3 border-2 border-amber-200 bg-amber-50 rounded-lg">
+                                <div className="text-[11px] font-semibold text-amber-900 uppercase tracking-wide mb-2.5">
+                                  Permisos de Inspección Corporativa
+                                </div>
+                                <InspectionDepartmentsSelector
+                                  value={editAllowedDepartments}
+                                  onChange={setEditAllowedDepartments}
+                                  label="Departamentos que puede inspeccionar"
+                                  helpText="Sin selección = puede inspeccionar todos los departamentos"
+                                />
+                              </div>
+                            )}
 
                             {/* Permisos especiales agrupados */}
                             <div className="md:col-span-2 p-3 border-2 border-blue-200 bg-blue-50 rounded-lg hidden">

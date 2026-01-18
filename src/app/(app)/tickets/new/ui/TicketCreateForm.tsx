@@ -9,6 +9,7 @@ import AttachmentUploader from '@/components/AttachmentUploader'
 import { uploadTicketAttachment } from '@/lib/storage/attachments'
 import ConfirmTicketModal from './ConfirmTicketModal'
 import KBSuggestions from '@/components/KBSuggestions'
+import { IT_ASSET_TYPES as BASE_IT_ASSET_TYPES, MAINTENANCE_ASSET_TYPES as BASE_MAINTENANCE_ASSET_TYPES } from '@/lib/tickets/ticket-asset-category'
 
 type CategoryRow = {
   id: string
@@ -37,7 +38,21 @@ type Asset = {
   location_name?: string | null
 }
 
-export default function TicketCreateForm({ categories: initialCategories }: { categories: CategoryRow[] }) {
+type ServiceArea = 'it' | 'maintenance'
+
+// Nota: en instalaciones antiguas existían tipos como NETWORK_DEVICE/PERIPHERAL.
+// Hacemos el filtrado por área en cliente para evitar errores si el ENUM en DB
+// aún no incluye algunos tipos nuevos (p.ej. UPS/PROJECTOR).
+const IT_ASSET_TYPES = [...BASE_IT_ASSET_TYPES, 'NETWORK_DEVICE', 'PERIPHERAL', 'NETWORK'] as const
+const MAINTENANCE_ASSET_TYPES = [...BASE_MAINTENANCE_ASSET_TYPES] as const
+
+export default function TicketCreateForm({
+  categories: initialCategories,
+  area,
+}: {
+  categories: CategoryRow[]
+  area: ServiceArea
+}) {
   const router = useRouter()
   const supabase = createSupabaseBrowserClient()
   const [categories, setCategories] = useState<CategoryRow[]>(initialCategories)
@@ -55,6 +70,9 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
   // User selection for agents/supervisors/admin
   const [users, setUsers] = useState<User[]>([])
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [currentUserRole, setCurrentUserRole] = useState<string | null>(null)
+  const [currentUserLocationId, setCurrentUserLocationId] = useState<string | null>(null)
+  const [requesterLocationId, setRequesterLocationId] = useState<string | null>(null)
   const [requesterId, setRequesterId] = useState<string>('')
   const [canCreateForOthers, setCanCreateForOthers] = useState(false)
   const [loadingUsers, setLoadingUsers] = useState(false)
@@ -92,9 +110,12 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
       // Check if user is agent/supervisor/admin
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role')
+        .select('role, location_id')
         .eq('id', user.id)
         .single()
+
+      setCurrentUserRole(profile?.role ?? null)
+      setCurrentUserLocationId(profile?.location_id ?? null)
 
       if (profile && ['agent_l1', 'agent_l2', 'supervisor', 'admin'].includes(profile.role)) {
         setCanCreateForOthers(true)
@@ -123,45 +144,120 @@ export default function TicketCreateForm({ categories: initialCategories }: { ca
           setLoadingUsers(false)
         }
       }
+    }
+    loadData()
+  }, [supabase])
 
-      // Load available assets (only operational ones) with location info
-      const { data: assetsData, error: assetsError } = await supabase
+  // When an agent/supervisor creates a ticket for someone else, use the requester's location
+  useEffect(() => {
+    async function loadRequesterLocation() {
+      if (!canCreateForOthers || !requesterId) {
+        setRequesterLocationId(null)
+        return
+      }
+
+      const { data: profile, error } = await supabase
+        .from('profiles')
+        .select('location_id')
+        .eq('id', requesterId)
+        .single()
+
+      if (error) {
+        console.error('Error cargando sede del solicitante:', error)
+        setRequesterLocationId(null)
+        return
+      }
+
+      setRequesterLocationId(profile?.location_id ?? null)
+    }
+
+    loadRequesterLocation()
+  }, [canCreateForOthers, requesterId, supabase])
+
+  // Load assets according to area and requester visibility rules
+  useEffect(() => {
+    async function loadAssets() {
+      if (!currentUserId || !currentUserRole) return
+
+      const effectiveLocationId = canCreateForOthers
+        ? (requesterLocationId ?? null)
+        : (currentUserLocationId ?? null)
+
+      let query = supabase
         .from('assets')
         .select('id, asset_tag, asset_type, brand, model, status, assigned_to, location_id, asset_location:locations!location_id(code, name)')
         .is('deleted_at', null)
         .in('status', ['OPERATIONAL', 'MAINTENANCE'])
         .order('asset_tag', { ascending: true })
 
-      if (assetsError) {
-        console.error('Error cargando assets:', assetsError)
+      // Reglas críticas: requester no debe ver inventario global
+      if (currentUserRole === 'requester') {
+        if (area === 'it') {
+          query = query.eq('assigned_to', currentUserId)
+        } else {
+          if (!effectiveLocationId) {
+            setAssets([])
+            return
+          }
+          query = query.eq('location_id', effectiveLocationId)
+        }
+      } else {
+        // Para no-admin: siempre acotar por sede en mantenimiento; y en IT acotar por sede o por asignación
+        if (currentUserRole !== 'admin') {
+          if (area === 'maintenance') {
+            if (!effectiveLocationId) {
+              setAssets([])
+              return
+            }
+            query = query.eq('location_id', effectiveLocationId)
+          } else {
+            // IT
+            if (canCreateForOthers && requesterId) {
+              // Si se crea para un solicitante, mostrar sus equipos asignados
+              query = query.eq('assigned_to', requesterId)
+            } else if (effectiveLocationId) {
+              // Caso general: acotar por sede del usuario
+              query = query.eq('location_id', effectiveLocationId)
+            }
+          }
+        }
       }
 
-      if (assetsData && assetsData.length > 0) {
-        // Para cada asset con assigned_to, obtener el nombre del usuario
-        const assetsWithNames = await Promise.all(
-          assetsData.map(async (asset: any) => {
-            let assigned_to_name = null
-            if (asset.assigned_to) {
-              const { data: profile } = await supabase
-                .from('profiles')
-                .select('full_name')
-                .eq('id', asset.assigned_to)
-                .single()
-              assigned_to_name = profile?.full_name || null
-            }
-            return {
-              ...asset,
-              assigned_to_name,
-              location_code: asset.asset_location?.code ?? null,
-              location_name: asset.asset_location?.name ?? null,
-            }
-          })
-        )
-        setAssets(assetsWithNames)
+      const { data: assetsData, error: assetsError } = await query
+
+      if (assetsError) {
+        console.error('Error cargando assets:', assetsError)
+        setAssets([])
+        return
       }
+
+      const allowedTypes = new Set<string>(
+        (area === 'it' ? IT_ASSET_TYPES : MAINTENANCE_ASSET_TYPES) as unknown as string[]
+      )
+
+      const filteredByArea = (assetsData ?? []).filter((asset: any) => {
+        const assetType = String(asset?.asset_type || '')
+        return allowedTypes.has(assetType)
+      })
+
+      const normalized = filteredByArea.map((asset: any) => ({
+        id: asset.id,
+        asset_tag: asset.asset_tag,
+        asset_type: asset.asset_type,
+        brand: asset.brand,
+        model: asset.model,
+        status: asset.status,
+        assigned_to: asset.assigned_to,
+        assigned_to_name: null,
+        location_code: asset.asset_location?.code ?? null,
+        location_name: asset.asset_location?.name ?? null,
+      }))
+
+      setAssets(normalized)
     }
-    loadData()
-  }, [supabase])
+
+    loadAssets()
+  }, [area, canCreateForOthers, currentUserId, currentUserLocationId, currentUserRole, requesterId, requesterLocationId, supabase])
 
   const roots = useMemo(() => {
     const filtered = categories.filter((c) => c.parent_id === null)

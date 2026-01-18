@@ -299,7 +299,7 @@ export default async function AssetDisposalsReportPage() {
         {pending > 0 && (
           <div className="mt-6">
             <Link
-              href="/admin/assets/disposals"
+              href="/assets/disposals"
               className="inline-flex items-center gap-2 text-sm text-amber-600 hover:text-amber-700 font-medium"
             >
               {pending} solicitud(es) pendiente(s) de autorización →

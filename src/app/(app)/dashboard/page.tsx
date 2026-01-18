@@ -404,9 +404,9 @@ export default async function DashboardPage() {
                 </div>
                 
                 <div className="min-w-0">
-                  <h1 className="text-xl font-extrabold text-white tracking-tight">Service Desk Dashboard</h1>
+                  <h1 className="text-xl font-extrabold text-white tracking-tight">Panel de Service Desk</h1>
                   <p className="text-slate-400 text-xs mt-0.5">
-                    ITIL v4 Compliant • Sistema de Gestión de Incidentes
+                    Gestión centralizada de solicitudes de TI
                   </p>
                 </div>
               </div>
@@ -415,23 +415,12 @@ export default async function DashboardPage() {
                 <Link
                   href="/tickets/new?area=it"
                   className="group relative flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-indigo-600 to-violet-600 hover:from-indigo-500 hover:to-violet-500 text-white rounded-xl font-bold text-sm transition-all shadow-lg hover:shadow-xl hover:shadow-indigo-500/25 hover:scale-[1.02]"
-                  aria-label="Crear ticket IT"
+                  aria-label="Crear ticket"
                 >
                   <svg className="w-4 h-4 group-hover:rotate-90 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
                   </svg>
-                  <span>Ticket IT</span>
-                </Link>
-
-                <Link
-                  href="/tickets/new?area=maintenance"
-                  className="group relative flex items-center gap-2 px-4 py-2.5 bg-orange-500 hover:bg-orange-600 text-white rounded-xl font-bold text-sm transition-all shadow-lg hover:shadow-xl hover:shadow-orange-500/25 hover:scale-[1.02]"
-                  aria-label="Crear ticket de Mantenimiento"
-                >
-                  <svg className="w-4 h-4 group-hover:rotate-90 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-                  </svg>
-                  <span>Ticket Mtto</span>
+                  <span>Crear Ticket</span>
                 </Link>
                 
                 {/* Indicador de estado */}

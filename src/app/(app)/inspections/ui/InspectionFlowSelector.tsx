@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createSupabaseBrowserClient, getSafeUser } from '@/lib/supabase/browser'
 import RRHHInspectionManager from './RRHHInspectionManager'
+import type { InspectionRRHHArea } from '@/lib/services/inspections-rrhh.service'
 
 type Department = {
   id: string
@@ -77,13 +78,18 @@ const DepartmentIcon = ({ type, className }: { type: Department['iconType'], cla
   return icons[type]
 }
 
-export default function InspectionFlowSelector() {
+export default function InspectionFlowSelector({
+  templateOverride
+}: {
+  templateOverride?: InspectionRRHHArea[] | null
+}) {
   const [step, setStep] = useState<'department' | 'property' | 'dashboard'>('department')
   const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null)
   const [selectedProperty, setSelectedProperty] = useState<Property | null>(null)
   const [currentUser, setCurrentUser] = useState<any>(null)
   const [userProfile, setUserProfile] = useState<any>(null)
   const [availableProperties, setAvailableProperties] = useState<Property[]>([])
+  const [allowedDepartments, setAllowedDepartments] = useState<string[] | null>(null)
   const [propertiesError, setPropertiesError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -96,18 +102,25 @@ export default function InspectionFlowSelector() {
       if (user) {
         setCurrentUser(user)
         
-        // Obtener perfil del usuario
+        // Obtener perfil del usuario incluyendo allowed_departments
         const { data: profile } = await supabase
           .from('profiles')
-          .select('id, role')
+          .select('id, role, allowed_departments')
           .eq('id', user.id)
           .single()
         
         setUserProfile(profile)
+        
+        // Guardar departamentos permitidos para corporate_admin
+        if (profile?.role === 'corporate_admin' && profile.allowed_departments) {
+          setAllowedDepartments(profile.allowed_departments as string[])
+        }
 
         const isAdmin = profile?.role === 'admin'
+        const isCorporateAdmin = profile?.role === 'corporate_admin'
 
-        if (isAdmin) {
+        // Admin y corporate_admin ven todas las ubicaciones
+        if (isAdmin || isCorporateAdmin) {
           const { data, error } = await supabase
             .from('locations')
             .select('id, code, name')
@@ -228,6 +241,7 @@ export default function InspectionFlowSelector() {
           propertyName={selectedProperty.name}
           currentUser={currentUser}
           userName={currentUser.user_metadata?.full_name || currentUser.email || 'Usuario'}
+          templateOverride={templateOverride}
         />
       </div>
     )
@@ -314,7 +328,14 @@ export default function InspectionFlowSelector() {
         {/* Department Selection */}
         {step === 'department' && (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
-            {DEPARTMENTS.map((dept) => (
+            {DEPARTMENTS
+              .filter(dept => {
+                // Si no hay restricción (admin o corporate_admin sin restricciones), mostrar todos
+                if (!allowedDepartments || allowedDepartments.length === 0) return true
+                // Filtrar por departamentos permitidos
+                return allowedDepartments.includes(dept.name)
+              })
+              .map((dept) => (
               <button
                 key={dept.id}
                 onClick={() => handleDepartmentSelect(dept)}

@@ -6,6 +6,31 @@ import SignOutButton from '@/components/SignOutButton'
 import NotificationBell from '@/components/NotificationBell'
 import { createSupabaseServerClient, getSafeServerUser } from '@/lib/supabase/server'
 import { getAvatarInitial } from '@/lib/ui/avatar'
+import { formatDistanceToNow } from 'date-fns'
+import { es } from 'date-fns/locale'
+
+// Tipos de actividad y sus configuraciones
+const activityConfig: Record<string, { label: string; icon: string; color: string }> = {
+  CREATE: { label: 'Creación', icon: '＋', color: 'text-emerald-400' },
+  UPDATE: { label: 'Actualización', icon: '✎', color: 'text-blue-400' },
+  DELETE: { label: 'Eliminación', icon: '✕', color: 'text-red-400' },
+  EXPORT: { label: 'Exportación', icon: '↓', color: 'text-violet-400' },
+  ASSIGN: { label: 'Asignación', icon: '→', color: 'text-amber-400' },
+  COMMENT: { label: 'Comentario', icon: '💬', color: 'text-cyan-400' },
+  CLOSE: { label: 'Cierre', icon: '✓', color: 'text-green-400' },
+  REOPEN: { label: 'Reapertura', icon: '↻', color: 'text-orange-400' },
+  LOGIN: { label: 'Inicio de sesión', icon: '●', color: 'text-slate-400' },
+}
+
+const entityTypeLabels: Record<string, string> = {
+  ticket: 'Ticket',
+  user: 'Usuario',
+  asset: 'Activo',
+  report: 'Reporte',
+  location: 'Ubicación',
+  department: 'Departamento',
+  profile: 'Perfil',
+}
 
 // Definición de módulos del sistema
 type Module = {
@@ -13,7 +38,8 @@ type Module = {
   name: string
   description: string
   icon: ReactNode
-  href: string
+  href?: string
+  getHref?: (profile: any) => string
   bgGradient: string
   iconBg: string
   textColor: string
@@ -23,33 +49,47 @@ type Module = {
 
 const modules: Module[] = [
   {
-    id: 'operaciones',
-    name: 'OPERACIONES',
-    description: 'Gestión diaria: Recepción, Ama de Llaves, Alimentos & Bebidas',
-    icon: (
-      <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-      </svg>
-    ),
-    href: '/mantenimiento',
-    bgGradient: 'from-emerald-500 via-teal-500 to-cyan-600',
-    iconBg: 'bg-emerald-100',
-    textColor: 'text-emerald-900',
-    requiredRoles: ['admin', 'supervisor', 'agent_l1', 'agent_l2', 'requester'],
-  },
-  {
-    id: 'helpdesk',
-    name: 'HELPDESK',
-    description: 'Mesa de Ayuda: IT, Mantenimiento, Soporte Técnico',
+    id: 'it-helpdesk',
+    name: 'IT - HELPDESK',
+    description: 'Mesa de Ayuda: Soporte Técnico y Desarrollo',
     icon: (
       <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
       </svg>
     ),
-    href: '/dashboard',
+    getHref: (profile: any) => {
+      // Si puede gestionar IT (admin o asset_category = IT o null)
+      if (profile?.role === 'admin' || profile?.asset_category === 'IT' || profile?.asset_category === null) {
+        return '/dashboard'
+      }
+      // Si solo puede crear tickets (supervisor de mantenimiento, etc)
+      return '/tickets/new?area=it'
+    },
     bgGradient: 'from-blue-500 via-indigo-500 to-purple-600',
     iconBg: 'bg-blue-100',
     textColor: 'text-blue-900',
+    requiredRoles: ['admin', 'supervisor', 'agent_l1', 'agent_l2', 'requester'],
+  },
+  {
+    id: 'mantenimiento',
+    name: 'MANTENIMIENTO',
+    description: 'Órdenes de Trabajo: Ingeniería, Equipos e Infraestructura',
+    icon: (
+      <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+      </svg>
+    ),
+    getHref: (profile: any) => {
+      // Si puede gestionar mantenimiento (admin o asset_category = MAINTENANCE)
+      if (profile?.role === 'admin' || profile?.asset_category === 'MAINTENANCE') {
+        return '/mantenimiento/dashboard'
+      }
+      // Si solo puede crear tickets (cualquier otro usuario)
+      return '/mantenimiento/tickets/new'
+    },
+    bgGradient: 'from-emerald-500 via-teal-500 to-cyan-600',
+    iconBg: 'bg-emerald-100',
+    textColor: 'text-emerald-900',
     requiredRoles: ['admin', 'supervisor', 'agent_l1', 'agent_l2', 'requester'],
   },
   {
@@ -77,11 +117,11 @@ const modules: Module[] = [
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
       </svg>
     ),
-    href: '/admin/users',
+    href: '/admin',
     bgGradient: 'from-violet-500 via-purple-500 to-fuchsia-600',
     iconBg: 'bg-violet-100',
     textColor: 'text-violet-900',
-    requiredRoles: ['admin'],
+    requiredRoles: ['admin', 'corporate_admin'],
   },
 ]
 
@@ -104,6 +144,14 @@ export default async function HubPage() {
     redirect('/login')
   }
 
+  // Obtener actividades recientes del usuario
+  const { data: recentActivities } = await supabase
+    .from('audit_log')
+    .select('id, action, entity_type, entity_id, metadata, created_at')
+    .eq('actor_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(5)
+
   // Determinar módulos accesibles según el rol del usuario
   const accessibleModules = modules.filter(module => {
     if (!module.requiredRoles) return true
@@ -111,10 +159,12 @@ export default async function HubPage() {
     return module.requiredRoles.includes(profile.role)
   })
 
-  // Si el usuario solo tiene acceso a un módulo, redirigir directamente
-  if (accessibleModules.length === 1) {
-    redirect(accessibleModules[0].href)
-  }
+  // NO redirigir automáticamente si es el único módulo
+  // Los usuarios deben ver el hub para navegar entre sus módulos disponibles
+  // (comentado porque causaba loops infinitos con corporate_admin)
+  // if (accessibleModules.length === 1) {
+  //   redirect(accessibleModules[0].href)
+  // }
 
   // Si no tiene acceso a ningún módulo (caso raro), mostrar mensaje
   if (accessibleModules.length === 0) {
@@ -141,7 +191,8 @@ export default async function HubPage() {
   }
 
   // Datos de header
-  const forwardedFor = headers().get('x-forwarded-for') || headers().get('x-real-ip') || ''
+  const hdrs = await headers()
+  const forwardedFor = hdrs.get('x-forwarded-for') || hdrs.get('x-real-ip') || ''
   const clientIpRaw = forwardedFor.split(',')[0]?.trim() || ''
   const clientIp = clientIpRaw.replace(/^::ffff:/i, '') || '—'
 
@@ -156,9 +207,11 @@ export default async function HubPage() {
           ? 'AGENTE L2'
           : profile?.role === 'supervisor'
             ? 'SUPERVISOR'
-            : profile?.role
-              ? profile.role.toUpperCase().replace('_', ' ')
-              : 'USUARIO'
+            : profile?.role === 'requester'
+              ? 'USUARIO'
+              : profile?.role === 'auditor'
+                ? 'AUDITOR'
+                : 'USUARIO'
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
@@ -229,10 +282,12 @@ export default async function HubPage() {
       {/* Módulos Grid */}
       <div className="max-w-7xl mx-auto px-6 py-12">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          {accessibleModules.map((module) => (
+          {accessibleModules.map((module) => {
+            const moduleHref = module.getHref ? module.getHref(profile) : (module.href || '#')
+            return (
             <Link
               key={module.id}
-              href={module.href}
+              href={moduleHref}
               className="group relative overflow-hidden rounded-2xl bg-slate-800/50 border border-slate-700/50 hover:border-slate-600 backdrop-blur-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl"
             >
               <div className={`absolute inset-0 bg-gradient-to-br ${module.bgGradient} opacity-0 group-hover:opacity-10 transition-opacity duration-300`}></div>
@@ -262,14 +317,114 @@ export default async function HubPage() {
                 <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${module.bgGradient}`}></div>
               </div>
             </Link>
-          ))}
+            )
+          })}
         </div>
 
-        <div className="mt-12 text-center">
-          <p className="text-sm text-slate-500">
-            Sistema ERP Modular para Hospitalidad • {new Date().getFullYear()}
-          </p>
-        </div>
+        {/* Footer con Actividad Reciente */}
+        <footer className="mt-16 relative">
+          {/* Línea decorativa superior */}
+          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-px bg-gradient-to-r from-transparent via-slate-600 to-transparent"></div>
+          
+          {/* Contenido principal del footer */}
+          <div className="pt-12 pb-8">
+            {/* Actividad Reciente */}
+            <div className="mb-10">
+              <div className="flex items-center gap-2 mb-4">
+                <span className="text-slate-500 text-xs">◷</span>
+                <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider">Actividad Reciente</h3>
+                <div className="flex-1 h-px bg-slate-800"></div>
+              </div>
+              
+              <div className="space-y-1">
+                {recentActivities && recentActivities.length > 0 ? (
+                  recentActivities.map((activity, idx) => {
+                    const config = activityConfig[activity.action] || { label: activity.action, icon: '•', color: 'text-slate-400' }
+                    const entityLabel = entityTypeLabels[activity.entity_type] || activity.entity_type
+                    const metadata = activity.metadata as Record<string, any> | null
+                    const detail = metadata?.email || metadata?.title || metadata?.name || activity.entity_id?.slice(0, 8)
+                    const timeAgo = formatDistanceToNow(new Date(activity.created_at), { addSuffix: true, locale: es })
+                    
+                    return (
+                      <div 
+                        key={activity.id} 
+                        className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-slate-800/40 transition-colors animate-in fade-in slide-in-from-left-2 duration-300"
+                        style={{ animationDelay: `${idx * 50}ms` }}
+                      >
+                        <span className={`text-sm ${config.color} flex-shrink-0 w-4 text-center`}>{config.icon}</span>
+                        <span className="text-sm text-slate-300 truncate flex-1">
+                          {config.label} de {entityLabel}
+                          {detail && <span className="text-slate-500"> · {detail}</span>}
+                        </span>
+                        <span className="text-[10px] text-slate-600 flex-shrink-0">{timeAgo}</span>
+                      </div>
+                    )
+                  })
+                ) : (
+                  <p className="text-sm text-slate-600 py-2 px-3">Sin actividad reciente</p>
+                )}
+              </div>
+            </div>
+
+            {/* Links y branding */}
+            <div className="flex flex-col md:flex-row items-center justify-between gap-6 border-t border-slate-800 pt-8">
+              {/* Logo y descripción */}
+              <div className="flex items-center gap-3">
+                <img
+                  src="https://integrational3.com.mx/logorigen/ZIII%20logo.png"
+                  alt="ZIII HoS"
+                  className="h-8 w-8 object-contain"
+                />
+                <div>
+                  <p className="text-sm font-semibold text-white tracking-tight">ZIII <span className="text-indigo-400 font-light">Hospitality OS</span></p>
+                  <p className="text-[10px] text-slate-500">Sistema de Gestión Hotelera</p>
+                </div>
+              </div>
+
+              {/* Links rápidos */}
+              <div className="flex items-center gap-6 text-sm">
+                <Link href="/profile" className="text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 group">
+                  <svg className="w-4 h-4 text-slate-500 group-hover:text-indigo-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                  </svg>
+                  Mi Perfil
+                </Link>
+                <span className="text-slate-700">|</span>
+                <Link href="/reports" className="text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 group">
+                  <svg className="w-4 h-4 text-slate-500 group-hover:text-indigo-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                  </svg>
+                  Reportes
+                </Link>
+                <span className="text-slate-700">|</span>
+                <Link href="/admin/knowledge-base" className="text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 group">
+                  <svg className="w-4 h-4 text-slate-500 group-hover:text-indigo-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  Ayuda
+                </Link>
+              </div>
+
+              {/* Versión y copyright */}
+              <div className="text-right">
+                <p className="text-[10px] text-slate-600 uppercase tracking-wider mb-1">Versión 2.1.0</p>
+                <p className="text-xs text-slate-500">
+                  © {new Date().getFullYear()} ZIII HoS
+                </p>
+              </div>
+            </div>
+
+            {/* Línea final con gradiente */}
+            <div className="mt-8 flex items-center justify-center gap-3">
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent"></div>
+              <div className="flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+                <span className="text-[10px] text-slate-500 uppercase tracking-widest">Sistema Activo</span>
+              </div>
+              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent"></div>
+            </div>
+          </div>
+        </footer>
       </div>
     </main>
   )

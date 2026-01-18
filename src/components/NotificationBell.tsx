@@ -313,7 +313,7 @@ export default function NotificationBell() {
                             {/* Link para solicitudes de baja (TICKET_ESCALATED sin ticket_id) */}
                             {!notification.ticket_id && notification.type === 'TICKET_ESCALATED' && notification.title.includes('Baja') && (
                               <Link
-                                href="/admin/assets/disposals"
+                                href="/assets/disposals"
                                 onClick={() => {
                                   markAsRead(notification.id)
                                   setIsOpen(false)

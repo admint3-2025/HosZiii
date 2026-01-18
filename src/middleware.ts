@@ -108,16 +108,13 @@ export async function middleware(request: NextRequest) {
         .eq('id', userId)
         .single()
 
-      // /admin/users solo para admin
-      if (pathname.startsWith('/admin/users')) {
-        if (profile?.role !== 'admin') {
-          const redirectUrl = request.nextUrl.clone()
-          redirectUrl.pathname = '/dashboard'
-          return NextResponse.redirect(redirectUrl)
-        }
+      // /admin para admin (acceso total) y corporate_admin (solo redirigir si intenta entrar)
+      if (profile?.role === 'corporate_admin') {
+        const redirectUrl = request.nextUrl.clone()
+        redirectUrl.pathname = '/reports'
+        return NextResponse.redirect(redirectUrl)
       }
-      // Otras rutas de admin para admin y supervisor
-      else if (profile?.role !== 'admin' && profile?.role !== 'supervisor') {
+      if (profile?.role !== 'admin') {
         const redirectUrl = request.nextUrl.clone()
         redirectUrl.pathname = '/dashboard'
         return NextResponse.redirect(redirectUrl)
@@ -150,6 +147,67 @@ export async function middleware(request: NextRequest) {
       if (profile?.role !== 'admin' && profile?.role !== 'supervisor') {
         const redirectUrl = request.nextUrl.clone()
         redirectUrl.pathname = '/dashboard'
+        return NextResponse.redirect(redirectUrl)
+      }
+    }
+
+    // MANTENIMIENTO: Lógica de acceso diferenciada
+    // - Crear tickets: cualquier usuario autenticado puede crear
+    // - Dashboard/Gestión: solo admin o usuarios con asset_category = 'MAINTENANCE'
+    if (pathname.startsWith('/mantenimiento')) {
+      const { data: userData } = await supabase.auth.getUser()
+      const userId = userData?.user?.id
+
+      if (!userId) {
+        const loginUrl = request.nextUrl.clone()
+        loginUrl.pathname = '/login'
+        return NextResponse.redirect(loginUrl)
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role, asset_category')
+        .eq('id', userId)
+        .single()
+
+      // Rutas de CREACIÓN de tickets - cualquier usuario autenticado puede acceder
+      const isTicketCreationRoute = pathname === '/mantenimiento/tickets/new'
+      
+      if (isTicketCreationRoute) {
+        // Permitir a cualquier usuario autenticado crear tickets
+        // (continuar sin redirigir)
+      } else {
+        // Rutas de GESTIÓN (dashboard, bandeja, reportes) - solo área de mantenimiento
+        const canManageMaintenance = profile?.role === 'admin' || profile?.asset_category === 'MAINTENANCE'
+        if (!canManageMaintenance) {
+          const redirectUrl = request.nextUrl.clone()
+          redirectUrl.pathname = '/dashboard'
+          return NextResponse.redirect(redirectUrl)
+        }
+      }
+    }
+
+    // DASHBOARD (IT): Solo para admin y usuarios con asset_category = 'IT' o null
+    if (pathname === '/dashboard' || pathname.startsWith('/dashboard/')) {
+      const { data: userData } = await supabase.auth.getUser()
+      const userId = userData?.user?.id
+
+      if (!userId) {
+        const loginUrl = request.nextUrl.clone()
+        loginUrl.pathname = '/login'
+        return NextResponse.redirect(loginUrl)
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role, asset_category')
+        .eq('id', userId)
+        .single()
+
+      // Si es MAINTENANCE, redirigir a mantenimiento
+      if (profile?.asset_category === 'MAINTENANCE' && profile?.role !== 'admin') {
+        const redirectUrl = request.nextUrl.clone()
+        redirectUrl.pathname = '/mantenimiento/dashboard'
         return NextResponse.redirect(redirectUrl)
       }
     }

@@ -6,7 +6,7 @@ type PageHeaderProps = {
   title: string
   description: string
   icon: React.ReactNode
-  color?: 'blue' | 'purple' | 'emerald' | 'orange' | 'rose'
+  color?: 'blue' | 'purple' | 'emerald' | 'orange' | 'rose' | 'helpdesk' | 'maintenance' | 'admin'
   action?: {
     label: string
     href: string
@@ -25,6 +25,10 @@ const gradients = {
   emerald: 'from-emerald-600 via-teal-600 to-cyan-600',
   orange: 'from-orange-500 via-amber-500 to-yellow-500',
   rose: 'from-rose-500 via-pink-500 to-fuchsia-500',
+  // Colores del sistema (coinciden con sidebar)
+  helpdesk: 'from-slate-900 via-slate-800 to-indigo-900',
+  maintenance: 'from-orange-900 via-orange-800 to-red-900',
+  admin: 'from-slate-900 via-slate-800 to-purple-900',
 }
 
 export default function PageHeader({

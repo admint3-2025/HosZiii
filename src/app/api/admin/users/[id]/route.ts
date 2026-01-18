@@ -118,6 +118,13 @@ export async function PATCH(
     updates.asset_category = assetCategory
   }
 
+  if (body?.allowed_departments !== undefined) {
+    const allowedDepartments = Array.isArray(body.allowed_departments) && body.allowed_departments.length > 0
+      ? body.allowed_departments
+      : null
+    updates.allowed_departments = allowedDepartments
+  }
+
   if (Object.keys(updates).length > 0) {
     const { error } = await admin.from('profiles').update(updates).eq('id', id)
     if (error) return new Response(error.message, { status: 400 })

@@ -10,7 +10,7 @@ export default async function AppShell({ children }: { children: React.ReactNode
   const { data: profile } = user
     ? await supabase
         .from('profiles')
-        .select('full_name,position,role,location_id,can_view_beo,locations(name,code)')
+        .select('full_name,position,role,location_id,can_view_beo,asset_category,locations(name,code)')
         .eq('id', user.id)
         .single()
     : { data: null }
@@ -27,6 +27,7 @@ export default async function AppShell({ children }: { children: React.ReactNode
   const userData = {
     role: profile?.role || null,
     canViewBeo: profile?.can_view_beo || false,
+    assetCategory: profile?.asset_category || null,
   }
 
   return (

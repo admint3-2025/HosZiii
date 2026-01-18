@@ -95,7 +95,7 @@ export default async function AssetLocationsReportPage() {
             </thead>
             <tbody className="divide-y divide-gray-200">
               {(locationChanges ?? []).map((change) => {
-                const assetLink = change.asset_id ? `/admin/assets/${change.asset_id}` : null
+                const assetLink = change.asset_id ? `/assets/${change.asset_id}` : null
                 
                 return (
                   <tr key={change.id} className="hover:bg-gray-50">

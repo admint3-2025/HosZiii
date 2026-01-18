@@ -17,6 +17,25 @@ interface RRHHInspectionManagerProps {
   currentUser: User
   userName: string
   mode?: 'create' | 'edit' | 'view'
+  templateOverride?: InspectionRRHHArea[] | null
+}
+
+function cloneTemplate(template: InspectionRRHHArea[]): InspectionRRHHArea[] {
+  return template.map((area, areaIdx) => ({
+    ...area,
+    id: undefined,
+    inspection_id: undefined,
+    area_order: areaIdx,
+    items: (area.items || []).map((item, itemIdx) => ({
+      ...item,
+      id: undefined,
+      area_id: undefined,
+      inspection_id: undefined,
+      item_order: itemIdx,
+      cumplimiento_valor: '',
+      comentarios_valor: item.comentarios_valor || ''
+    }))
+  }))
 }
 
 // Datos de template inicial (las 10 áreas de RRHH)
@@ -231,6 +250,10 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
 
   const handleNewInspection = () => {
     setShowNewInspectionModal(false)
+    const baseTemplate = props.templateOverride && props.templateOverride.length > 0
+      ? props.templateOverride
+      : RRHH_TEMPLATE
+
     // Crear nueva inspección
     const newInspection: InspectionRRHH = {
       location_id: props.locationId,
@@ -242,7 +265,7 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
       property_name: props.propertyName,
       status: 'draft',
       general_comments: '',
-      areas: RRHH_TEMPLATE
+      areas: cloneTemplate(baseTemplate)
     }
     setInspection(newInspection)
     setShowFormulario(true)

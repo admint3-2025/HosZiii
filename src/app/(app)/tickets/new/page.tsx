@@ -170,6 +170,7 @@ export default async function NewTicketPage({
         ) : (
           <TicketCreateForm
             categories={(categories ?? []).filter((c) => c.name !== 'BEO - Evento')}
+            area={area}
           />
         )}
       </div>

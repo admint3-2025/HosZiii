@@ -222,6 +222,7 @@ interface AppShellClientProps {
   userData: {
     role: string | null
     canViewBeo: boolean
+    assetCategory: string | null
   }
 }
 
@@ -250,15 +251,20 @@ export default function AppShellClient({
   const moduleContext = useMemo(() => {
     if (pathname.startsWith('/admin')) return 'admin'
     if (pathname.startsWith('/corporativo')) return 'corporativo'
+    // Reportes: determinar módulo según la subruta
+    if (pathname.startsWith('/reports/helpdesk')) return 'helpdesk'
+    if (pathname.startsWith('/reports/maintenance')) return 'mantenimiento'
+    if (pathname.startsWith('/reports')) return 'admin' // Centro de reportes en admin
     if (
       pathname.startsWith('/dashboard') ||
       pathname.startsWith('/tickets') ||
-      pathname.startsWith('/reports') ||
       pathname.startsWith('/audit') ||
-      pathname.startsWith('/beo')
+      pathname.startsWith('/beo') ||
+      pathname.startsWith('/assets')
     )
       return 'helpdesk'
-    if (pathname.startsWith('/mantenimiento') || pathname.startsWith('/ama-de-llaves')) return 'operaciones'
+    if (pathname.startsWith('/mantenimiento')) return 'mantenimiento'
+    if (pathname.startsWith('/ama-de-llaves')) return 'operaciones'
     return null
   }, [pathname])
 
@@ -266,12 +272,12 @@ export default function AppShellClient({
   const helpdeskItems: MenuSection['items'] = [
     { id: 'hd_dashboard', label: 'Dashboard', icon: 'Dashboard', href: '/dashboard' },
     { id: 'hd_tickets_mine', label: 'Mis Tickets', icon: 'Ticket', href: '/tickets?view=mine' },
-    { id: 'hd_new_it', label: 'Crear Ticket IT', icon: 'Ticket', href: '/tickets/new?area=it' },
-    { id: 'hd_new_maintenance', label: 'Crear Ticket Mantenimiento', icon: 'Wrench', href: '/tickets/new?area=maintenance' },
+    { id: 'hd_new_it', label: 'Crear Ticket', icon: 'Ticket', href: '/tickets/new?area=it' },
     ...(userData.role === 'admin' || userData.role === 'supervisor'
       ? ([{ id: 'hd_tickets_queue', label: 'Bandeja', icon: 'BarChart', href: '/tickets?view=queue', roles: ['admin', 'supervisor'] }] as MenuSection['items'])
       : []),
     { id: 'hd_beo', label: 'Eventos (BEO)', icon: 'Calendar', href: '/beo/dashboard', requireBeo: true },
+    { id: 'hd_assets', label: 'Activos IT', icon: 'Assets', href: '/assets', roles: ['admin', 'supervisor'] },
     {
       id: 'hd_knowledge',
       label: 'Base de Conocimientos',
@@ -281,12 +287,40 @@ export default function AppShellClient({
     },
   ]
 
-  // Menús específicos por módulo
+  // Determinar si el usuario puede GESTIONAR mantenimiento (no solo crear tickets)
+  const canManageMaintenance = userData.role === 'admin' || userData.assetCategory === 'MAINTENANCE'
+  const canManageIT = userData.role === 'admin' || userData.assetCategory === 'IT' || userData.assetCategory === null
+
   const topMenuByModule: Record<string, MenuSection[]> = {
     helpdesk: [
       {
         group: 'Helpdesk',
         items: helpdeskItems,
+      },
+    ],
+    mantenimiento: [
+      {
+        group: 'Mantenimiento',
+        items: [
+          // Dashboard y Bandeja solo para quienes pueden gestionar
+          ...(canManageMaintenance
+            ? ([
+                { id: 'mnt_dashboard', label: 'Dashboard', icon: 'Dashboard', href: '/mantenimiento/dashboard' },
+              ] as MenuSection['items'])
+            : []),
+          // Mis Tickets para todos
+          { id: 'mnt_tickets_mine', label: 'Mis Tickets', icon: 'Ticket', href: '/mantenimiento/tickets?view=mine' },
+          // Crear Ticket para todos
+          { id: 'mnt_new_ticket', label: 'Crear Ticket', icon: 'Wrench', href: '/mantenimiento/tickets/new' },
+          // Bandeja solo para supervisores/admin del área de mantenimiento
+          ...(canManageMaintenance && (userData.role === 'admin' || userData.role === 'supervisor')
+            ? ([{ id: 'mnt_tickets_queue', label: 'Bandeja', icon: 'BarChart', href: '/mantenimiento/tickets?view=queue', roles: ['admin', 'supervisor'] }] as MenuSection['items'])
+            : []),
+          // Activos solo para quienes pueden gestionar
+          ...(canManageMaintenance
+            ? ([{ id: 'mnt_assets', label: 'Activos', icon: 'Assets', href: '/mantenimiento/assets', roles: ['admin', 'supervisor'] }] as MenuSection['items'])
+            : []),
+        ],
       },
     ],
     operaciones: [
@@ -298,7 +332,10 @@ export default function AppShellClient({
     corporativo: [
       {
         group: 'Corporativo',
-        items: [{ id: 'corp_home', label: 'Dashboard', icon: 'Dashboard', href: '/corporativo/dashboard' }],
+        items: [
+          { id: 'corp_home', label: 'Dashboard', icon: 'Dashboard', href: '/corporativo/dashboard' },
+          { id: 'corp_inspecciones', label: 'Inspecciones', icon: 'ShieldCheck', href: '/corporativo/inspecciones' },
+        ],
       },
     ],
     admin: [
@@ -307,7 +344,6 @@ export default function AppShellClient({
         items: [
           { id: 'admin_users', label: 'Usuarios', icon: 'Users', href: '/admin/users', roles: ['admin'] },
           { id: 'admin_locations', label: 'Ubicaciones', icon: 'Location', href: '/admin/locations', roles: ['admin'] },
-          { id: 'admin_assets', label: 'Activos', icon: 'Assets', href: '/admin/assets', roles: ['admin', 'supervisor'] },
           { id: 'admin_reports', label: 'Reportes', icon: 'Reports', href: '/reports', roles: ['admin'] },
           { id: 'admin_audit', label: 'Auditoría', icon: 'Audit', href: '/audit', roles: ['admin'] },
           { id: 'admin_login_audits', label: 'Registro de sesiones', icon: 'Audit', href: '/admin/login-audits', roles: ['admin'] },
