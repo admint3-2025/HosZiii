@@ -96,22 +96,25 @@ export async function createMaintenanceTicket(input: CreateMaintenanceTicketInpu
   const { data: categories } = await supabase.from('categories').select('id,name,parent_id')
   const categoryPath = getCategoryPathLabel(categories ?? [], input.category_id)
 
-  // Generar ticket_number: contar tickets creados HOY y asignar el siguiente
+  // Generar ticket_number GLOBAL (max + 1). El constraint es UNIQUE global,
+  // así que no puede reiniciarse por día. Además, se reintenta si hay colisión.
   const admin = createSupabaseAdminClient()
-  
-  // Obtener fecha actual en México (UTC-6)
-  const now = new Date()
-  const mxTime = new Date(now.getTime() + (-6 * 60 * 60 * 1000))
-  const todayStart = new Date(Date.UTC(mxTime.getUTCFullYear(), mxTime.getUTCMonth(), mxTime.getUTCDate(), 6, 0, 0)) // 00:00 México = 06:00 UTC
-  const todayEnd = new Date(Date.UTC(mxTime.getUTCFullYear(), mxTime.getUTCMonth(), mxTime.getUTCDate() + 1, 6, 0, 0)) // 23:59 México
-  
-  const { count } = await admin
-    .from('tickets_maintenance')
-    .select('*', { count: 'exact', head: true })
-    .gte('created_at', todayStart.toISOString())
-    .lt('created_at', todayEnd.toISOString())
-  
-  const ticketNumber = (count || 0) + 1
+
+  async function getNextTicketNumber() {
+    const { data: lastTicket, error: lastErr } = await admin
+      .from('tickets_maintenance')
+      .select('ticket_number')
+      .order('ticket_number', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+
+    if (lastErr) {
+      console.warn('[Maintenance Ticket Create] ⚠️ No se pudo obtener max(ticket_number):', lastErr)
+    }
+
+    const last = Number((lastTicket as any)?.ticket_number || 0)
+    return (Number.isFinite(last) ? last : 0) + 1
+  }
 
   // Convertir priority numérico a texto según el constraint de la tabla
   const priorityMap: Record<number, string> = {
@@ -123,8 +126,7 @@ export async function createMaintenanceTicket(input: CreateMaintenanceTicketInpu
   }
   const priorityText = priorityMap[input.priority] || 'MEDIUM'
 
-  const ticketData: any = {
-    ticket_number: ticketNumber,
+  const ticketDataBase: any = {
     title: input.title,
     description: input.description,
     priority: priorityText,
@@ -137,26 +139,51 @@ export async function createMaintenanceTicket(input: CreateMaintenanceTicketInpu
   // If asset_id is provided, link the ticket to an asset
   if (input.asset_id) {
     console.log('[Maintenance Ticket Create] 📦 Asset ID recibido:', input.asset_id)
-    ticketData.asset_id = input.asset_id
+    ticketDataBase.asset_id = input.asset_id
   } else {
     console.log('[Maintenance Ticket Create] ⚠️ NO se recibió asset_id en input')
   }
 
   // If remote connection info is provided, save it
   if (input.remote_connection_type) {
-    ticketData.remote_connection_type = input.remote_connection_type
-    ticketData.remote_connection_id = input.remote_connection_id || null
-    ticketData.remote_connection_password = input.remote_connection_password || null
+    ticketDataBase.remote_connection_type = input.remote_connection_type
+    ticketDataBase.remote_connection_id = input.remote_connection_id || null
+    ticketDataBase.remote_connection_password = input.remote_connection_password || null
   }
 
-  console.log('[Maintenance Ticket Create] 📝 Datos a insertar:', JSON.stringify(ticketData, null, 2))
+  let ticket: any = null
+  let error: any = null
+  const maxAttempts = 5
 
-  // **IMPORTANTE: Insertar en la tabla tickets_maintenance**
-  const { data: ticket, error } = await supabase
-    .from('tickets_maintenance')
-    .insert(ticketData)
-    .select('id, ticket_number, title, description, priority, category_id, requester_id, asset_id, location_id, assigned_to, created_at')
-    .single()
+  for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+    const ticketNumber = await getNextTicketNumber()
+    const ticketData: any = { ...ticketDataBase, ticket_number: ticketNumber }
+    console.log(
+      `[Maintenance Ticket Create] 📝 Intento ${attempt}/${maxAttempts} - insert ticket_number=${ticketNumber}:`,
+      JSON.stringify(ticketData, null, 2)
+    )
+
+    const res = await supabase
+      .from('tickets_maintenance')
+      .insert(ticketData)
+      .select('id, ticket_number, title, description, priority, category_id, requester_id, asset_id, location_id, assigned_to, created_at')
+      .single()
+
+    ticket = res.data
+    error = res.error
+
+    if (!error) break
+
+    const msg = String(error?.message || '')
+    const code = String(error?.code || '')
+    const isDuplicateTicketNumber = code === '23505' && msg.includes('ticket_number')
+    if (isDuplicateTicketNumber && attempt < maxAttempts) {
+      console.warn('[Maintenance Ticket Create] 🔁 Colisión ticket_number, reintentando...', { code, msg })
+      continue
+    }
+
+    break
+  }
 
   if (error) {
     console.error('[Maintenance Ticket Create] ❌ Error al insertar:', error)
