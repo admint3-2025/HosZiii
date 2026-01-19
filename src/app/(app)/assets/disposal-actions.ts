@@ -4,44 +4,37 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { sendMail, getSmtpConfig } from '@/lib/email/mailer'
 import { revalidatePath } from 'next/cache'
+import { formatHistoryValue, FIELD_LABELS as HISTORY_FIELD_LABELS } from '@/lib/assets/format-history'
 
 // URL base del sistema - usar variable de entorno o detectar
 const getBaseUrl = () => {
   return process.env.NEXT_PUBLIC_APP_URL || process.env.VERCEL_URL || 'http://localhost:3000'
 }
 
-// Etiquetas legibles para campos
-const fieldLabels: Record<string, string> = {
-  asset_tag: 'Etiqueta',
-  asset_type: 'Tipo',
-  brand: 'Marca',
-  model: 'Modelo',
-  serial_number: 'Número de Serie',
-  status: 'Estado',
-  assigned_to: 'Asignado a',
-  location_id: 'Sede',
-  notes: 'Notas',
-  purchase_date: 'Fecha de Compra',
-  warranty_expires: 'Garantía Expira',
-  image_url: 'Imagen',
-  created: 'Creación'
-}
+// Etiquetas legibles para campos (usar las del helper centralizado)
+const fieldLabels = HISTORY_FIELD_LABELS
 
-// Formatear valores de campos (ocultar UUIDs y URLs)
+// Formatear valores de campos para emails
+// Usa el helper centralizado pero sin acceso a arrays de locations/users
 function formatFieldValue(fieldName: string, value: string | null, userName?: string): string {
   if (!value || value === 'null') return '(vacío)'
   
-  // Si hay nombre de usuario disponible, usarlo
+  // Si hay nombre de usuario disponible, usarlo directamente
   if (userName && fieldName === 'assigned_to') return userName
   
-  // Si parece un UUID
+  // Casos especiales del formateo centralizado
+  if (value === 'EMPTY') return 'Sin asignar'
+  
+  // Si parece un UUID (location_id, assigned_to sin userName)
   if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
-    return '(usuario)'
+    if (fieldName === 'location_id') return '(sede)'
+    if (fieldName === 'assigned_to') return '(usuario)'
+    return value
   }
   
   // Si es una URL de imagen
   if (fieldName === 'image_url' && value.startsWith('http')) {
-    return '(imagen actualizada)'
+    return 'Imagen agregada'
   }
   
   return value
@@ -328,8 +321,9 @@ export async function createDisposalRequest(assetId: string, reason: string) {
   
   // Construir filas de info del activo (solo las que tienen valor)
   const assetInfoRows: string[] = []
-  if (asset?.asset_type) {
-    assetInfoRows.push(`<tr><td style="padding: 6px 0; color: #6b7280; width: 140px;">Tipo:</td><td style="padding: 6px 0; font-weight: 500;">${asset.asset_type.replace(/_/g, ' ')}</td></tr>`)
+  if ((asset as any)?.asset_type || (asset as any)?.category) {
+    const typeValue = (asset as any).asset_type || (asset as any).category
+    assetInfoRows.push(`<tr><td style="padding: 6px 0; color: #6b7280; width: 140px;">Tipo:</td><td style="padding: 6px 0; font-weight: 500;">${typeValue.replace(/_/g, ' ')}</td></tr>`)
   }
   if (asset?.brand || asset?.model) {
     assetInfoRows.push(`<tr><td style="padding: 6px 0; color: #6b7280;">Marca / Modelo:</td><td style="padding: 6px 0; font-weight: 500;">${[asset?.brand, asset?.model].filter(Boolean).join(' ')}</td></tr>`)

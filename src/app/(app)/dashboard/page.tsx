@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getLocationFilter } from '@/lib/supabase/locations'
 import { unstable_noStore as noStore } from 'next/cache'
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import StatusChart from './ui/StatusChart'
 import PriorityChart from './ui/PriorityChart'
 import TrendChart from './ui/TrendChart'
@@ -30,6 +31,11 @@ export default async function DashboardPage() {
 
   const isAdminOrSupervisor = profile?.role === 'admin' || profile?.role === 'supervisor'
   const isAgent = profile?.role === 'agent_l1' || profile?.role === 'agent_l2'
+  
+  // Si es usuario estándar (no admin/supervisor/agente), redirigir a sus tickets
+  if (!isAdminOrSupervisor && !isAgent) {
+    redirect('/tickets?view=mine')
+  }
   
   // Inferir área de servicio: primero por asset_category (explícito), luego por departamento
   const inferredServiceArea = (() => {
@@ -62,17 +68,19 @@ export default async function DashboardPage() {
     return query.eq('location_id', 'none')
   }
 
-  // En dashboard, para supervisor/agentes mostramos vista operativa filtrada por área de servicio.
-  // Admins ven todo, supervisores y agentes solo su área (IT o Mantenimiento)
+  // En dashboard, para supervisor/agentes mostramos vista operativa.
+  // Admins ven TODO, supervisores y agentes solo su área
   const applyOperationalScope = (query: any) => {
     let q = query
-    if (user?.id && isAdminOrSupervisor) {
-      q = q.neq('requester_id', user.id)
-    }
     // Supervisores y agentes solo ven tickets de su área de servicio
     if (profile?.role === 'supervisor' || isAgent) {
-      q = q.eq('service_area', inferredServiceArea)
+      // Si inferredServiceArea es válido, filtrar por él
+      // Si es null o undefined, mostrar todos (fallback para datos legacy)
+      if (inferredServiceArea === 'it' || inferredServiceArea === 'maintenance') {
+        q = q.or(`service_area.eq.${inferredServiceArea},service_area.is.null`)
+      }
     }
+    // Admin ve TODO sin filtros
     return q
   }
 
@@ -269,9 +277,9 @@ export default async function DashboardPage() {
           .select('location_id, status')
           .is('deleted_at', null)
         
-        // Aplicar filtro de service_area para supervisores
-        if (inferredServiceArea) {
-          ticketsQuery = ticketsQuery.eq('service_area', inferredServiceArea)
+        // Aplicar filtro de service_area para supervisores (incluir nulls para datos legacy)
+        if (inferredServiceArea === 'it' || inferredServiceArea === 'maintenance') {
+          ticketsQuery = ticketsQuery.or(`service_area.eq.${inferredServiceArea},service_area.is.null`)
         }
         
         let shouldExecuteQuery = true

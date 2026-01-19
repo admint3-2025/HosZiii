@@ -14,9 +14,11 @@ type Ticket = {
 export default function RecentTickets({
   tickets,
   ticketsIndexHref,
+  baseHref = '/tickets',
 }: {
   tickets: Ticket[]
   ticketsIndexHref: string
+  baseHref?: string
 }) {
   return (
     <div className="card shadow-lg border-0">
@@ -57,7 +59,7 @@ export default function RecentTickets({
             tickets.map((ticket) => (
               <Link
                 key={ticket.id}
-                href={`/tickets/${ticket.id}`}
+                href={`${baseHref}/${ticket.id}`}
                 className="group block px-3 py-2 rounded-lg border border-gray-200 hover:border-purple-300 hover:bg-gradient-to-br hover:from-purple-50 hover:to-blue-50 transition-all hover:shadow-sm"
               >
                 <div className="flex items-center gap-3">

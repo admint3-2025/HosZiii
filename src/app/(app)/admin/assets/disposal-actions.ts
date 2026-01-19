@@ -328,8 +328,9 @@ export async function createDisposalRequest(assetId: string, reason: string) {
   
   // Construir filas de info del activo (solo las que tienen valor)
   const assetInfoRows: string[] = []
-  if (asset?.asset_type) {
-    assetInfoRows.push(`<tr><td style="padding: 6px 0; color: #6b7280; width: 140px;">Tipo:</td><td style="padding: 6px 0; font-weight: 500;">${asset.asset_type.replace(/_/g, ' ')}</td></tr>`)
+  if ((asset as any)?.asset_type || (asset as any)?.category) {
+    const typeValue = (asset as any).asset_type || (asset as any).category
+    assetInfoRows.push(`<tr><td style="padding: 6px 0; color: #6b7280; width: 140px;">Tipo:</td><td style="padding: 6px 0; font-weight: 500;">${typeValue.replace(/_/g, ' ')}</td></tr>`)
   }
   if (asset?.brand || asset?.model) {
     assetInfoRows.push(`<tr><td style="padding: 6px 0; color: #6b7280;">Marca / Modelo:</td><td style="padding: 6px 0; font-weight: 500;">${[asset?.brand, asset?.model].filter(Boolean).join(' ')}</td></tr>`)

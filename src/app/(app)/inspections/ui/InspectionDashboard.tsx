@@ -835,6 +835,7 @@ function AreaCard({ area, onUpdateItem }: { area: InspectionArea; onUpdateItem: 
   }, [area.items])
 
   const cumpleCount = area.items.filter(i => i.cumplimiento_valor === 'Cumple').length
+  const pendingCount = area.items.filter(i => !i.cumplimiento_valor || i.cumplimiento_valor === '').length
   const applicableItems = area.items.filter(i => i.cumplimiento_valor !== 'N/A').length
   const totalItems = area.items.length
   
@@ -844,7 +845,7 @@ function AreaCard({ area, onUpdateItem }: { area: InspectionArea; onUpdateItem: 
                      scoreNum >= 7 ? 'text-orange-600 bg-orange-50' : 'text-red-600 bg-red-50'
 
   return (
-    <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+    <div className={`bg-white rounded-lg shadow-sm border overflow-hidden ${pendingCount > 0 ? 'border-amber-200' : 'border-slate-200'}`}>
       <button
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors"
@@ -855,10 +856,22 @@ function AreaCard({ area, onUpdateItem }: { area: InspectionArea; onUpdateItem: 
           </div>
           <div className="text-left">
             <h3 className="text-sm font-semibold text-slate-800">{area.area}</h3>
-            <p className="text-xs text-slate-500">{cumpleCount}/{applicableItems} items cumplen{totalItems !== applicableItems ? ` (${totalItems - applicableItems} N/A)` : ''}</p>
+            <p className="text-xs text-slate-500">
+              {cumpleCount}/{totalItems - pendingCount} items cumplen
+              {pendingCount > 0 && (
+                <span className="ml-2 text-amber-600 font-medium">• {pendingCount} pendiente{pendingCount > 1 ? 's' : ''}</span>
+              )}
+            </p>
           </div>
         </div>
-        <ChevronIcon expanded={expanded} />
+        <div className="flex items-center gap-2">
+          {pendingCount > 0 && (
+            <span className="px-2 py-0.5 text-xs font-medium bg-amber-100 text-amber-700 rounded-full">
+              {pendingCount}
+            </span>
+          )}
+          <ChevronIcon expanded={expanded} />
+        </div>
       </button>
 
       {expanded && (
@@ -870,10 +883,22 @@ function AreaCard({ area, onUpdateItem }: { area: InspectionArea; onUpdateItem: 
             <div className="col-span-4">Comentarios</div>
           </div>
           
-          {area.items.map((item) => (
-            <div key={item.id} className="grid grid-cols-12 gap-2 px-4 py-3 border-b border-slate-50 hover:bg-slate-50 items-center">
-              <div className="col-span-4">
-                <span className="text-xs text-slate-700">{item.descripcion}</span>
+          {area.items.map((item) => {
+            const isPending = !item.cumplimiento_valor || item.cumplimiento_valor === ''
+            return (
+            <div 
+              key={item.id} 
+              className={`grid grid-cols-12 gap-2 px-4 py-3 border-b items-center ${
+                isPending 
+                  ? 'bg-amber-50/50 border-amber-100 hover:bg-amber-50' 
+                  : 'border-slate-50 hover:bg-slate-50'
+              }`}
+            >
+              <div className="col-span-4 flex items-center gap-2">
+                {isPending && (
+                  <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-amber-400" title="Pendiente de evaluar" />
+                )}
+                <span className={`text-xs ${isPending ? 'text-amber-700' : 'text-slate-700'}`}>{item.descripcion}</span>
               </div>
               
               <div className="col-span-2 text-center">
@@ -888,7 +913,7 @@ function AreaCard({ area, onUpdateItem }: { area: InspectionArea; onUpdateItem: 
                         ? 'bg-red-50 text-red-700 border-red-200'
                         : item.cumplimiento_valor === 'N/A'
                         ? 'bg-amber-50 text-amber-700 border-amber-200'
-                        : 'bg-slate-50 text-slate-500 border-slate-300'
+                        : 'bg-white text-slate-500 border-amber-300 ring-1 ring-amber-200'
                     }`}
                   >
                     <option value="">Seleccionar...</option>
@@ -936,7 +961,7 @@ function AreaCard({ area, onUpdateItem }: { area: InspectionArea; onUpdateItem: 
                 )}
               </div>
             </div>
-          ))}
+          )})}
           
           <div className="flex items-center justify-between px-4 py-3 bg-slate-50">
             <span className="text-xs text-slate-500">Promedio calculado del área</span>
@@ -1013,10 +1038,13 @@ export default function InspectionDashboard({
   const generalComments = propGeneralComments || internalGeneralComments
 
   const handleUpdateItem = (areaName: string, itemId: number, field: string, value: any) => {
+    console.log('=== InspectionDashboard.handleUpdateItem ===', { areaName, itemId, field, value, hasPropOnUpdateItem: !!propOnUpdateItem })
     setHasUnsavedChanges(true)
     if (propOnUpdateItem) {
+      console.log('Llamando propOnUpdateItem...')
       propOnUpdateItem(areaName, itemId, field, value)
     } else {
+      console.log('Usando estado interno (NO debería pasar)')
       setInternalInspectionData(prev => prev.map(area => {
         if (area.area !== areaName) return area
         return {
@@ -1105,39 +1133,39 @@ export default function InspectionDashboard({
   }, [inspectionData, propTrendData])
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      {/* Header Profesional */}
-      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 to-slate-800 border border-slate-700 shadow-lg mb-6 p-6">
-        <div className="absolute inset-0 bg-gradient-to-r from-indigo-600/5 to-transparent"></div>
-        <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-600/5 rounded-full blur-3xl"></div>
-        
-        <div className="relative z-10 flex items-center justify-between">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center border border-slate-700">
-              <svg className="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
+    <div className="bg-slate-50">
+      {/* Header compacto integrado */}
+      <div className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 border-b border-slate-600 px-4 py-2.5">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center gap-3">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
               </svg>
             </div>
             <div>
-              <h1 className="text-xl font-bold text-white tracking-tight">
-                Inspecciones {departmentName}
-              </h1>
-              <p className="text-slate-400 text-sm">
-                {propertyCode} • {propertyName}
-              </p>
+              <div className="flex items-center gap-2">
+                <span className="text-sm font-semibold text-white">{departmentName}</span>
+                <span className="text-slate-500">•</span>
+                <span className="text-sm font-medium text-emerald-400">{propertyCode}</span>
+              </div>
+              <p className="text-xs text-slate-400">{propertyName}</p>
             </div>
           </div>
-          <div className="flex gap-2">
+          <div className="flex items-center gap-2">
             <button
               onClick={onBack ? onBack : () => window.location.href = '/inspections'}
-              className="px-4 py-2 rounded-lg border border-slate-600 bg-slate-800 text-white hover:bg-slate-700 transition-colors text-sm font-medium"
+              className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-slate-300 text-xs hover:text-white hover:bg-white/10 transition-colors"
             >
-              Volver a Inspecciones
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Volver
             </button>
             <button
               onClick={() => onSave && onSave(false)}
               disabled={saving}
-              className="px-4 py-2 rounded-lg bg-indigo-600 text-white hover:bg-indigo-700 transition-colors text-sm font-medium disabled:opacity-50"
+              className="px-3 py-1.5 rounded-md bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
             >
               {saving ? 'Guardando...' : 'Guardar'}
             </button>
@@ -1146,7 +1174,8 @@ export default function InspectionDashboard({
       </div>
 
       {/* KPIs Row */}
-      <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-6">
+      <div className="p-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 mb-4">
         <KPICard 
           title="Promedio Global" 
           value={`${stats.averagePercentage}%`}
@@ -1180,10 +1209,10 @@ export default function InspectionDashboard({
           trend={stats.criticalAreas > 0 ? -5 : 0}
           color="#ef4444"
         />
-      </div>
+        </div>
 
       {/* Gráficos: Torta + Evaluaciones */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 mb-6">
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-4">
         {/* Torta Interactiva - Promedio Global */}
         <div className="bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
           <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
@@ -1215,7 +1244,7 @@ export default function InspectionDashboard({
       </div>
 
       {/* Calificación por Área - Barras Verticales Compactas */}
-      <div className="mb-6 bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+      <div className="mb-4 bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-100 bg-slate-50">
           <h3 className="text-sm font-semibold text-slate-700">Calificación por Área</h3>
         </div>
@@ -1264,10 +1293,10 @@ export default function InspectionDashboard({
       </div>
 
       {/* Áreas de inspección */}
-      <div className="space-y-3">
-        <h2 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
+      <div className="space-y-2">
+        <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-2">
           <EditIcon />
-          Detalle de Áreas (click para expandir y editar)
+          Detalle de Áreas (click para expandir)
         </h2>
         {inspectionData.map((area) => (
           <AreaCard key={area.area} area={area} onUpdateItem={handleUpdateItem} />
@@ -1275,7 +1304,7 @@ export default function InspectionDashboard({
       </div>
 
       {/* Comentarios Generales */}
-      <div className="mt-6 bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
+      <div className="mt-4 bg-white rounded-lg shadow-sm border border-slate-200 overflow-hidden">
         <div className="px-4 py-3 border-b border-slate-100 bg-slate-50 flex items-center gap-2">
           <svg className="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 8h10M7 12h4m1 8l-4-4H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-3l-4 4z" />
@@ -1363,8 +1392,7 @@ export default function InspectionDashboard({
           )}
         </div>
       </div>
-
-      {/* Modal de confirmación de cambios sin guardar */}
+      </div>
     </div>
   )
 }

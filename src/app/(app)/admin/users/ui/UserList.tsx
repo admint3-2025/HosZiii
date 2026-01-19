@@ -229,6 +229,7 @@ export default function UserList() {
       }
       // Pequeño delay para asegurar que se procesa en backend
       await new Promise(r => setTimeout(r, 300))
+      // Forzar recarga con nuevo timestamp
       await load()
       setEditingId(null)
     } catch (e: any) {
@@ -664,17 +665,25 @@ export default function UserList() {
                                 <div className="pt-2 border-t border-blue-200">
                                   <label className="text-[11px] font-semibold text-blue-900 uppercase tracking-wide mb-2 block">
                                     Categoría de Activos Asignada
+                                    {(editRole === 'supervisor' || editRole === 'agent_l1' || editRole === 'agent_l2') && (
+                                      <span className="ml-1 text-red-600">*</span>
+                                    )}
                                   </label>
                                   <select
                                     value={editAssetCategory}
                                     onChange={(e) => setEditAssetCategory(e.target.value)}
                                     className="select select-sm text-xs w-full"
+                                    disabled={editRole === 'requester' || editRole === 'auditor' || editRole === 'corporate_admin'}
                                   >
-                                    <option value="">Todo Activo</option>
+                                    <option value="">Sin restricción (ve todo)</option>
                                     <option value="IT">IT</option>
-                                    <option value="Maintenance">Mantenimiento</option>
+                                    <option value="MAINTENANCE">Mantenimiento</option>
                                   </select>
-                                  <p className="text-[10px] text-blue-700 mt-1">Define qué categoría de activos puede gestionar este usuario</p>
+                                  <p className="text-[10px] text-blue-700 mt-1">
+                                    {(editRole === 'supervisor' || editRole === 'agent_l1' || editRole === 'agent_l2') 
+                                      ? '⚠️ Obligatorio para supervisores/agentes: define su área de trabajo (IT o Mantenimiento)'
+                                      : 'Para admins: dejar en blanco para acceso completo a todas las áreas'}
+                                  </p>
                                 </div>
                               </div>
                             </div>

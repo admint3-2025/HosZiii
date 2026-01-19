@@ -6,10 +6,11 @@ import { createSupabaseBrowserClient, getSafeUser } from '@/lib/supabase/browser
 import { computePriority } from '@/lib/tickets/priority'
 import { createMaintenanceTicket } from '../actions'
 import AttachmentUploader from '@/components/AttachmentUploader'
-import { uploadTicketAttachment } from '@/lib/storage/attachments'
+import { uploadMaintenanceTicketAttachment } from '@/lib/storage/attachments'
 import ConfirmMaintenanceTicketModal from './ConfirmMaintenanceTicketModal'
 import KBSuggestions from '@/components/KBSuggestions'
-import { MAINTENANCE_ASSET_TYPES as BASE_MAINTENANCE_ASSET_TYPES } from '@/lib/tickets/ticket-asset-category'
+import { formatAssetType } from '@/lib/assets/format'
+import { getLocationIdsForAssetFilter, applyLocationFilterToQuery } from '@/lib/supabase/user-locations'
 
 type CategoryRow = {
   id: string
@@ -37,8 +38,6 @@ type Asset = {
   location_code?: string | null
   location_name?: string | null
 }
-
-const MAINTENANCE_ASSET_TYPES = [...BASE_MAINTENANCE_ASSET_TYPES] as const
 
 export default function MaintenanceTicketCreateForm({
   categories: initialCategories,
@@ -166,14 +165,39 @@ export default function MaintenanceTicketCreateForm({
     loadRequesterLocation()
   }, [canCreateForOthers, requesterId, supabase])
 
-  // Load assets for maintenance - only maintenance asset types
+  // Load assets for maintenance - LÓGICA UNIFICADA DE SEDES
   useEffect(() => {
     async function loadAssets() {
       if (!currentUserId || !currentUserRole) return
 
-      const effectiveLocationId = canCreateForOthers
-        ? (requesterLocationId ?? null)
-        : (currentUserLocationId ?? null)
+      // Obtener las sedes que el usuario puede ver según su rol
+      // Esto usa la lógica unificada: user_locations + profiles.location_id
+      const locationIds = await getLocationIdsForAssetFilter(supabase, currentUserId, 'ticket')
+      
+      console.log('[MaintenanceTicketCreateForm] 📍 Usuario:', currentUserId, 'Rol:', currentUserRole)
+      console.log('[MaintenanceTicketCreateForm] 📍 Sedes permitidas (locationIds):', locationIds)
+      console.log('[MaintenanceTicketCreateForm] 📍 locationIds es null?', locationIds === null)
+      console.log('[MaintenanceTicketCreateForm] 📍 locationIds.length:', locationIds?.length)
+
+      // Si el agente está creando para otro usuario, usar las sedes de ese usuario
+      let effectiveLocationIds = locationIds
+      if (canCreateForOthers && requesterId && requesterId !== currentUserId) {
+        const requesterLocationIds = await getLocationIdsForAssetFilter(supabase, requesterId, 'ticket')
+        effectiveLocationIds = requesterLocationIds
+        console.log('[MaintenanceTicketCreateForm] 📍 Creando para usuario:', requesterId, 'Sedes:', requesterLocationIds)
+      }
+
+      console.log('[MaintenanceTicketCreateForm] 📍 effectiveLocationIds:', effectiveLocationIds)
+      console.log('[MaintenanceTicketCreateForm] 📍 effectiveLocationIds es null?', effectiveLocationIds === null)
+
+      // Si effectiveLocationIds es array vacío (no null), el usuario no tiene acceso a ninguna sede
+      if (effectiveLocationIds !== null && effectiveLocationIds.length === 0) {
+        console.log('[MaintenanceTicketCreateForm] ⚠️ Usuario sin sedes asignadas - BLOQUEANDO')
+        setAssets([])
+        return
+      }
+
+      console.log('[MaintenanceTicketCreateForm] ✅ Continuando con query - effectiveLocationIds:', effectiveLocationIds)
 
       let query = supabase
         .from('assets_maintenance')
@@ -182,31 +206,20 @@ export default function MaintenanceTicketCreateForm({
         .in('status', ['ACTIVE', 'MAINTENANCE'])
         .order('asset_code', { ascending: true })
 
-      // Para no-admin: siempre acotar por sede en mantenimiento
-      if (currentUserRole !== 'admin') {
-        if (!effectiveLocationId) {
-          setAssets([])
-          return
-        }
-        query = query.eq('location_id', effectiveLocationId)
-      }
+      // Aplicar filtro de sedes (null = sin filtro para admin en modo gestión)
+      query = applyLocationFilterToQuery(query, effectiveLocationIds)
 
       const { data: assetsData, error: assetsError } = await query
 
       if (assetsError) {
-        console.error('Error cargando assets de mantenimiento:', assetsError)
+        console.error('[MaintenanceTicketCreateForm] Error cargando assets:', assetsError)
         setAssets([])
         return
       }
 
-      const allowedTypes = new Set<string>(MAINTENANCE_ASSET_TYPES as unknown as string[])
+      console.log('[MaintenanceTicketCreateForm] ✅ Activos encontrados:', assetsData?.length ?? 0)
 
-      const filteredByArea = (assetsData ?? []).filter((asset: any) => {
-        const assetCategory = String(asset?.category || '')
-        return allowedTypes.has(assetCategory)
-      })
-
-      const normalized = filteredByArea.map((asset: any) => ({
+      const normalized = (assetsData ?? []).map((asset: any) => ({
         id: asset.id,
         asset_tag: asset.asset_code,
         asset_type: asset.category,
@@ -223,7 +236,7 @@ export default function MaintenanceTicketCreateForm({
     }
 
     loadAssets()
-  }, [canCreateForOthers, currentUserId, currentUserLocationId, currentUserRole, requesterId, requesterLocationId, supabase])
+  }, [canCreateForOthers, currentUserId, currentUserRole, requesterId, supabase])
 
   const roots = useMemo(() => {
     const filtered = categories.filter((c) => c.parent_id === null)
@@ -317,7 +330,7 @@ export default function MaintenanceTicketCreateForm({
       const userId = canCreateForOthers && requesterId ? requesterId : currentUserId
       if (userId) {
         const uploadPromises = attachments.map(file => 
-          uploadTicketAttachment(result.ticketId!, file, userId)
+          uploadMaintenanceTicketAttachment(result.ticketId!, file, userId)
         )
         
         const uploadResults = await Promise.all(uploadPromises)
@@ -643,43 +656,49 @@ export default function MaintenanceTicketCreateForm({
         )}
 
         {/* Selector de activo (opcional) - activos de mantenimiento */}
-        {assets.length > 0 && (
-          <div className="card shadow-lg border-0 overflow-hidden">
-            <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border-b border-emerald-200 px-6 py-4">
-              <div className="flex items-center gap-3">
-                <div className="p-2 bg-emerald-100 rounded-lg">
-                  <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
-                  </svg>
-                </div>
-                <div>
-                  <h3 className="text-sm font-semibold text-emerald-900 uppercase tracking-wider">Activo relacionado</h3>
-                  <p className="text-xs text-emerald-700">Opcional: vincula este ticket con un activo de mantenimiento</p>
-                </div>
+        <div className="card shadow-lg border-0 overflow-hidden">
+          <div className="bg-gradient-to-br from-emerald-50 to-teal-50 border-b border-emerald-200 px-6 py-4">
+            <div className="flex items-center gap-3">
+              <div className="p-2 bg-emerald-100 rounded-lg">
+                <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 3v2m6-2v2M9 19v2m6-2v2M5 9H3m2 6H3m18-6h-2m2 6h-2M7 19h10a2 2 0 002-2V7a2 2 0 00-2-2H7a2 2 0 00-2 2v10a2 2 0 002 2zM9 9h6v6H9V9z" />
+                </svg>
+              </div>
+              <div>
+                <h3 className="text-sm font-semibold text-emerald-900 uppercase tracking-wider">Activo relacionado</h3>
+                <p className="text-xs text-emerald-700">Opcional: vincula este ticket con un activo de mantenimiento</p>
               </div>
             </div>
-            <div className="card-body">
-              <select
-                className="select w-full text-sm"
-                name="assetId"
-                value={assetId}
-                onChange={(e) => setAssetId(e.target.value)}
-              >
-                <option value="">-- Ninguno --</option>
-                {assets.map((asset) => (
-                  <option key={asset.id} value={asset.id}>
-                    {asset.asset_tag} - {asset.asset_type}
-                    {asset.brand && ` ${asset.brand}`}
-                    {asset.model && ` ${asset.model}`}
-                    {asset.location_name && ` • ${asset.location_name}`}
-                    {asset.assigned_to_name && ` | Asignado a: ${asset.assigned_to_name}`}
-                    {asset.status === 'MAINTENANCE' && ' [En mantenimiento]'}
-                  </option>
-                ))}
-              </select>
-            </div>
           </div>
-        )}
+          <div className="card-body space-y-2">
+            <select
+              className="select w-full text-sm"
+              name="assetId"
+              value={assetId}
+              onChange={(e) => setAssetId(e.target.value)}
+              disabled={assets.length === 0}
+            >
+              <option value="">
+                {assets.length === 0 ? '-- Sin activos disponibles en tu sede --' : '-- Ninguno --'}
+              </option>
+              {assets.map((asset) => (
+                <option key={asset.id} value={asset.id}>
+                  {asset.asset_tag} - {formatAssetType(asset, asset.asset_type || 'Activo')}
+                  {asset.brand && ` ${asset.brand}`}
+                  {asset.model && ` ${asset.model}`}
+                  {asset.location_name && ` • ${asset.location_name}`}
+                  {asset.assigned_to_name && ` | Asignado a: ${asset.assigned_to_name}`}
+                  {asset.status === 'MAINTENANCE' && ' [En mantenimiento]'}
+                </option>
+              ))}
+            </select>
+            {assets.length === 0 && (
+              <p className="text-xs text-amber-700">
+                No hay activos de mantenimiento visibles para tu sede/rol. El campo permanece para trazabilidad, pero no hay elementos que elegir.
+              </p>
+            )}
+          </div>
+        </div>
 
         {/* Card de información del ticket */}
         <div className="card shadow-lg border-0">

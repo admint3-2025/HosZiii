@@ -1,5 +1,6 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
+import { isITAssetCategoryOrUnassigned, isMaintenanceAssetCategory } from '@/lib/permissions/asset-category'
 
 export async function middleware(request: NextRequest) {
   const url = process.env.SUPABASE_URL_INTERNAL ?? process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -170,20 +171,54 @@ export async function middleware(request: NextRequest) {
         .eq('id', userId)
         .single()
 
-      // Rutas de CREACIÓN de tickets - cualquier usuario autenticado puede acceder
+      const canManageMaintenance = profile?.role === 'admin' || isMaintenanceAssetCategory(profile?.asset_category)
+
+      // Rutas que CUALQUIER usuario autenticado puede acceder:
+      // - Crear ticket: /mantenimiento/tickets/new
+      // - Ver sus propios tickets: /mantenimiento/tickets (con view=mine se filtra en la página)
+      // - Ver detalle de un ticket específico: /mantenimiento/tickets/[id]
       const isTicketCreationRoute = pathname === '/mantenimiento/tickets/new'
+      const isTicketListRoute = pathname === '/mantenimiento/tickets'
+      const isTicketDetailRoute = pathname.match(/^\/mantenimiento\/tickets\/[^\/]+$/)
       
-      if (isTicketCreationRoute) {
-        // Permitir a cualquier usuario autenticado crear tickets
-        // (continuar sin redirigir)
+      const isUserAccessibleRoute = isTicketCreationRoute || isTicketListRoute || isTicketDetailRoute
+      
+      if (isUserAccessibleRoute) {
+        // Permitir a cualquier usuario autenticado acceder
       } else {
-        // Rutas de GESTIÓN (dashboard, bandeja, reportes) - solo área de mantenimiento
-        const canManageMaintenance = profile?.role === 'admin' || profile?.asset_category === 'MAINTENANCE'
+        // Rutas de GESTIÓN (dashboard, activos, reportes) - solo admin/supervisor de mantenimiento
         if (!canManageMaintenance) {
           const redirectUrl = request.nextUrl.clone()
-          redirectUrl.pathname = '/dashboard'
+          redirectUrl.pathname = '/mantenimiento/tickets?view=mine'
           return NextResponse.redirect(redirectUrl)
         }
+      }
+    }
+
+    // HELP DESK IT (activos / beo): restringir a IT (admin o asset_category IT/null)
+    // Nota: usuarios de mantenimiento pueden crear tickets IT, pero NO acceder a inventario IT / BEO.
+    if (pathname.startsWith('/assets') || pathname.startsWith('/beo')) {
+      const { data: userData } = await supabase.auth.getUser()
+      const userId = userData?.user?.id
+
+      if (!userId) {
+        const loginUrl = request.nextUrl.clone()
+        loginUrl.pathname = '/login'
+        return NextResponse.redirect(loginUrl)
+      }
+
+      const { data: profile } = await supabase
+        .from('profiles')
+        .select('role, asset_category')
+        .eq('id', userId)
+        .single()
+
+      const canManageIT = profile?.role === 'admin' || isITAssetCategoryOrUnassigned(profile?.asset_category)
+
+      if (!canManageIT) {
+        const redirectUrl = request.nextUrl.clone()
+        redirectUrl.pathname = '/mantenimiento/dashboard'
+        return NextResponse.redirect(redirectUrl)
       }
     }
 
@@ -205,7 +240,7 @@ export async function middleware(request: NextRequest) {
         .single()
 
       // Si es MAINTENANCE, redirigir a mantenimiento
-      if (profile?.asset_category === 'MAINTENANCE' && profile?.role !== 'admin') {
+      if (isMaintenanceAssetCategory(profile?.asset_category) && profile?.role !== 'admin') {
         const redirectUrl = request.nextUrl.clone()
         redirectUrl.pathname = '/mantenimiento/dashboard'
         return NextResponse.redirect(redirectUrl)

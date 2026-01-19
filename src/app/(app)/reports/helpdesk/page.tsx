@@ -18,12 +18,13 @@ export default async function HelpdeskReportsPage() {
     .single()
 
   // Validar acceso a módulo IT
-  const canAccessIT = profile?.role === 'admin' || profile?.asset_category === 'IT' || profile?.asset_category === null
+  // corporate_admin ve todo como usuario normal
+  const canAccessIT = profile?.role === 'admin' || profile?.role === 'corporate_admin' || profile?.asset_category === 'IT' || profile?.asset_category === null
   if (!canAccessIT) {
     redirect('/reports')
   }
 
-  const isAdminOrSupervisor = profile?.role === 'admin' || profile?.role === 'supervisor'
+  const isAdminOrSupervisor = profile?.role === 'admin' || profile?.role === 'corporate_admin' || profile?.role === 'supervisor'
 
   // Obtener filtro de ubicaciones para reportes
   const locationFilter = await getReportsLocationFilter()

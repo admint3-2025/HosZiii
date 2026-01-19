@@ -1,26 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
-
-const FIELD_LABELS: Record<string, string> = {
-  asset_tag: 'Etiqueta',
-  asset_type: 'Tipo',
-  status: 'Estado',
-  serial_number: 'No. Serie',
-  model: 'Modelo',
-  brand: 'Marca',
-  department: 'Departamento',
-  location: 'Ubicación Física',
-  location_id: 'Sede',
-  assigned_to: 'Responsable',
-  purchase_date: 'Fecha de Compra',
-  warranty_end_date: 'Fin de Garantía',
-  processor: 'Procesador',
-  ram_gb: 'RAM (GB)',
-  storage_gb: 'Almacenamiento (GB)',
-  os: 'Sistema Operativo',
-  notes: 'Notas',
-}
+import AssetChangesTable from './AssetChangesTable'
 
 const CHANGE_TYPE_LABELS: Record<string, { label: string; color: string }> = {
   field_update: { label: 'Actualización', color: 'bg-blue-100 text-blue-800 border-blue-300' },
@@ -72,6 +53,12 @@ export default async function AssetChangesReportPage() {
     .in('id', assetIds)
 
   const assetMap = new Map(assets?.map(a => [a.id, a]) ?? [])
+  
+  // Obtener todas las ubicaciones para el formateo
+  const { data: locations } = await supabase
+    .from('locations')
+    .select('id, name, code')
+    .eq('is_active', true)
 
   // Estadísticas
   const totalChanges = changes?.length ?? 0
@@ -132,106 +119,11 @@ export default async function AssetChangesReportPage() {
       </div>
 
       {/* Tabla de cambios */}
-      <div className="card overflow-hidden">
-        <div className="overflow-x-auto">
-          <table className="min-w-full text-sm">
-            <thead className="bg-gradient-to-r from-gray-50 to-gray-100 border-b border-gray-200 text-left text-gray-600">
-              <tr>
-                <th className="px-4 py-3 font-semibold text-xs">Activo</th>
-                <th className="px-4 py-3 font-semibold text-xs">Campo</th>
-                <th className="px-4 py-3 font-semibold text-xs">Cambio</th>
-                <th className="px-4 py-3 font-semibold text-xs">Tipo</th>
-                <th className="px-4 py-3 font-semibold text-xs">Usuario</th>
-                <th className="px-4 py-3 font-semibold text-xs">Fecha</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-gray-200">
-              {(changes ?? []).map((change) => {
-                const asset = assetMap.get(change.asset_id)
-                const changeTypeInfo =
-                  CHANGE_TYPE_LABELS[change.change_type || 'field_update'] ?? {
-                    label: change.change_type || 'Otro cambio',
-                    color: 'bg-gray-100 text-gray-700 border-gray-200',
-                  }
-                
-                return (
-                  <tr key={change.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
-                      {asset ? (
-                        <Link
-                          href={`/assets/${asset.id}`}
-                          className="block hover:text-blue-600 transition-colors"
-                        >
-                          <div className="font-semibold text-gray-900">{asset.asset_tag}</div>
-                          <div className="text-xs text-gray-600">
-                            {asset.asset_type} - {asset.brand} {asset.model}
-                          </div>
-                          {asset.asset_location && (
-                            <div className="text-xs text-blue-600 font-medium">
-                              {(asset.asset_location as any).code}
-                            </div>
-                          )}
-                        </Link>
-                      ) : (
-                        <span className="text-gray-400 text-xs">Activo eliminado</span>
-                      )}
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className="font-medium text-gray-700">
-                        {FIELD_LABELS[change.field_name] || change.field_name}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center gap-2 text-xs">
-                        <span className="px-2 py-1 bg-red-50 text-red-700 rounded border border-red-200 font-mono max-w-[120px] truncate">
-                          {change.old_value || '(vacío)'}
-                        </span>
-                        <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 7l5 5m0 0l-5 5m5-5H6" />
-                        </svg>
-                        <span className="px-2 py-1 bg-green-50 text-green-700 rounded border border-green-200 font-mono max-w-[120px] truncate">
-                          {change.new_value || '(vacío)'}
-                        </span>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3">
-                      <span className={`inline-flex px-2 py-1 rounded-md text-xs font-bold border ${changeTypeInfo.color}`}>
-                        {changeTypeInfo.label}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="text-xs">
-                        <div className="font-semibold text-gray-900">
-                          {change.changed_by_name || 'Sin nombre'}
-                        </div>
-                        <div className="text-gray-600">{change.changed_by_email}</div>
-                      </div>
-                    </td>
-                    <td className="px-4 py-3 text-gray-700 whitespace-nowrap text-xs">
-                      {new Date(change.changed_at).toLocaleString('es-MX', {
-                        day: '2-digit',
-                        month: 'short',
-                        year: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit',
-                      })}
-                    </td>
-                  </tr>
-                )
-              })}
-              {changes?.length === 0 && (
-                <tr>
-                  <td className="px-4 py-12 text-center text-gray-500" colSpan={6}>
-                    <div className="text-4xl mb-2">📝</div>
-                    <div className="font-medium">No hay cambios registrados</div>
-                    <div className="text-xs mt-1">Los cambios en activos aparecerán aquí</div>
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
+      <AssetChangesTable 
+        changes={changes ?? []}
+        assetMap={assetMap}
+        locations={locations ?? []}
+      />
 
       {/* Nota informativa */}
       <div className="card bg-teal-50 border-teal-200">

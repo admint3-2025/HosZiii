@@ -2,9 +2,9 @@
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
-import { notifyTicketCreated } from '@/lib/email/ticket-notifications'
 import { getCategoryPathLabel } from '@/lib/categories/path'
 import { inferServiceAreaFromCategoryPath, type TicketServiceArea } from '@/lib/tickets/service-area'
+import { notifyMaintenanceTicketCreated } from '@/lib/email/maintenance-ticket-notifications'
 
 type CreateMaintenanceTicketInput = {
   title: string
@@ -33,7 +33,7 @@ export async function createMaintenanceTicket(input: CreateMaintenanceTicketInpu
   // Verificar rol del usuario actual y que tenga acceso a mantenimiento
   const { data: currentProfile } = await supabase
     .from('profiles')
-    .select('role, asset_category')
+    .select('role, asset_category, location_id')
     .eq('id', user.id)
     .single()
 
@@ -56,34 +56,82 @@ export async function createMaintenanceTicket(input: CreateMaintenanceTicketInpu
   // Validar que el solicitante tenga una sede asignada
   const { data: requesterProfile } = await supabase
     .from('profiles')
-    .select('location_id')
+    .select('location_id, full_name, email')
     .eq('id', requesterId)
     .single()
 
-  if (!requesterProfile?.location_id) {
-    return { error: `El usuario solicitante no tiene una sede asignada. Contacta al administrador para asignarle una sede antes de crear el ticket.` }
+  // Resolver location_id del ticket con fallbacks (para admins)
+  let resolvedLocationId: string | null = requesterProfile?.location_id ?? null
+
+  // Si el solicitante no tiene sede pero se seleccionó un activo, heredar la sede del activo
+  if (!resolvedLocationId && input.asset_id) {
+    const admin = createSupabaseAdminClient()
+    const { data: asset } = await admin
+      .from('assets_maintenance')
+      .select('location_id')
+      .eq('id', input.asset_id)
+      .maybeSingle()
+
+    resolvedLocationId = (asset as any)?.location_id ?? null
+  }
+
+  // Si sigue sin sede, usar la sede del usuario actual (si existe)
+  if (!resolvedLocationId) {
+    resolvedLocationId = (currentProfile as any)?.location_id ?? null
+  }
+
+  const currentRole = String((currentProfile as any)?.role || '').toLowerCase()
+  const isAdmin = currentRole === 'admin' || currentRole === 'corporate_admin'
+
+  if (!resolvedLocationId && !isAdmin) {
+    const who = requesterProfile?.full_name || requesterProfile?.email || requesterId
+    return {
+      error:
+        `El solicitante seleccionado (${who}) no tiene sede asignada (profiles.location_id). ` +
+        `Pídele al administrador asignarle una sede o selecciona un activo con sede para heredarla.`,
+    }
   }
 
   // Compute category path once (used for service_area + notification)
   const { data: categories } = await supabase.from('categories').select('id,name,parent_id')
   const categoryPath = getCategoryPathLabel(categories ?? [], input.category_id)
 
+  // Generar ticket_number: contar tickets creados HOY y asignar el siguiente
+  const admin = createSupabaseAdminClient()
+  
+  // Obtener fecha actual en México (UTC-6)
+  const now = new Date()
+  const mxTime = new Date(now.getTime() + (-6 * 60 * 60 * 1000))
+  const todayStart = new Date(Date.UTC(mxTime.getUTCFullYear(), mxTime.getUTCMonth(), mxTime.getUTCDate(), 6, 0, 0)) // 00:00 México = 06:00 UTC
+  const todayEnd = new Date(Date.UTC(mxTime.getUTCFullYear(), mxTime.getUTCMonth(), mxTime.getUTCDate() + 1, 6, 0, 0)) // 23:59 México
+  
+  const { count } = await admin
+    .from('tickets_maintenance')
+    .select('*', { count: 'exact', head: true })
+    .gte('created_at', todayStart.toISOString())
+    .lt('created_at', todayEnd.toISOString())
+  
+  const ticketNumber = (count || 0) + 1
+
+  // Convertir priority numérico a texto según el constraint de la tabla
+  const priorityMap: Record<number, string> = {
+    1: 'CRITICAL',
+    2: 'HIGH', 
+    3: 'MEDIUM',
+    4: 'LOW',
+    5: 'LOW'
+  }
+  const priorityText = priorityMap[input.priority] || 'MEDIUM'
+
   const ticketData: any = {
+    ticket_number: ticketNumber,
     title: input.title,
     description: input.description,
-    category_id: input.category_id,
-    impact: input.impact,
-    urgency: input.urgency,
-    priority: input.priority,
+    priority: priorityText,
     status: 'NEW',
-    support_level: input.support_level,
-    location_id: requesterProfile.location_id,
-    service_area: input.service_area ?? inferServiceAreaFromCategoryPath(categoryPath),
-  }
-
-  // If requester_id is provided, use it (agent creating for another user)
-  if (input.requester_id) {
-    ticketData.requester_id = input.requester_id
+    requester_id: requesterId, // Siempre incluir el requester (input.requester_id || user.id)
+    // Admin puede crear sin sede si no hay forma de inferirla
+    location_id: resolvedLocationId,
   }
 
   // If asset_id is provided, link the ticket to an asset
@@ -166,20 +214,55 @@ export async function createMaintenanceTicket(input: CreateMaintenanceTicketInpu
 
   // Send notification (await to ensure it's attempted, but don't block on failure)
   try {
-    console.log('[Maintenance Ticket Created] Enviando notificación para ticket:', ticket.ticket_number)
-    await notifyTicketCreated({
+    console.log('[Maintenance Ticket Created] Enviando notificaciones para ticket:', ticket.ticket_number)
+    
+    // Obtener información de la ubicación y del asignado (si existe)
+    let locationName: string | undefined
+    let locationCode: string | undefined
+    let assignedToName: string | undefined
+    
+    if (ticket.location_id) {
+      const { data: location } = await supabase
+        .from('locations')
+        .select('name, code')
+        .eq('id', ticket.location_id)
+        .single()
+      
+      if (location) {
+        locationName = location.name
+        locationCode = location.code
+      }
+    }
+    
+    if (ticket.assigned_to) {
+      const { data: assignedProfile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', ticket.assigned_to)
+        .single()
+      
+      assignedToName = assignedProfile?.full_name || undefined
+    }
+    
+    // Usar el nuevo helper de notificaciones de mantenimiento
+    await notifyMaintenanceTicketCreated({
       ticketId: ticket.id,
-      ticketNumber: ticket.ticket_number,
+      ticketNumber: String(ticket.ticket_number),
       title: ticket.title,
       description: ticket.description,
-      priority: ticket.priority,
-      category: categoryPath || 'Sin categoría',
+      priority: input.priority,
+      category: categoryPath || undefined,
       requesterId: ticket.requester_id,
-      actorId: user.id, // Usuario que creó el ticket
+      actorId: user.id,
+      locationName,
+      locationCode,
+      createdAt: ticket.created_at,
+      assignedToName,
     })
-    console.log('[Maintenance Ticket Created] ✓ Notificación enviada exitosamente')
+    
+    console.log('[Maintenance Ticket Created] ✓ Notificaciones enviadas exitosamente')
   } catch (err) {
-    console.error('[Maintenance Ticket Created] ✗ Error enviando notificación:', err)
+    console.error('[Maintenance Ticket Created] ✗ Error enviando notificaciones:', err)
   }
 
   return { success: true, ticketId: ticket.id }

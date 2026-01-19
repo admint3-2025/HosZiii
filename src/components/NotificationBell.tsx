@@ -300,7 +300,13 @@ export default function NotificationBell() {
                             </span>
                             {notification.ticket_id && (
                               <Link
-                                href={`/tickets/${notification.ticket_id}`}
+                                href={
+                                  // Detectar si es ticket de mantenimiento por el título/mensaje
+                                  notification.title.toLowerCase().includes('mantenimiento') ||
+                                  notification.message.toLowerCase().includes('mantenimiento')
+                                    ? `/mantenimiento/tickets/${notification.ticket_id}`
+                                    : `/tickets/${notification.ticket_id}`
+                                }
                                 onClick={() => {
                                   markAsRead(notification.id)
                                   setIsOpen(false)

@@ -31,17 +31,6 @@ export default async function TicketDetailPage({
       .select(`
         *,
         asset_id,
-        asset:assets!tickets_asset_id_fkey (
-          id,
-          asset_tag,
-          asset_type,
-          brand,
-          model,
-          serial_number,
-          status,
-          location_id,
-          asset_location:locations!location_id (id, code, name)
-        ),
         location:locations!location_id (id, code, name)
       `)
       .eq('id', id)
@@ -51,17 +40,45 @@ export default async function TicketDetailPage({
 
   if (!ticket) notFound()
 
-  // Si el asset no se devolvió por RLS, recuperar vía admin client (solo para mostrar)
-  let ticketAsset = ticket.asset || null
-  if (!ticketAsset && ticket.asset_id) {
+  // Obtener asset relacionado (soporta assets_it (nuevo) y assets (legacy))
+  let ticketAsset: any = null
+  if (ticket.asset_id) {
     try {
-      const { data: adminAsset } = await adminClient
-        .from('assets')
-        .select('id, asset_tag, asset_type, brand, model, serial_number, status, location_id, asset_location:locations!location_id (id, code, name)')
+      // Preferir esquema nuevo (assets_it)
+      const { data: a1 } = await adminClient
+        .from('assets_it')
+        .select('id, asset_code, category, brand, model, serial_number, status, location_id')
         .eq('id', ticket.asset_id)
-        .single()
-      if (adminAsset) {
-        ticketAsset = adminAsset
+        .maybeSingle()
+
+      const raw = a1
+        ? {
+            id: a1.id,
+            asset_tag: a1.asset_code,
+            asset_type: a1.category,
+            brand: a1.brand,
+            model: a1.model,
+            serial_number: a1.serial_number,
+            status: a1.status,
+            location_id: a1.location_id,
+          }
+        : null
+
+      if (raw) {
+        ticketAsset = {
+          ...raw,
+          asset_location: raw.location_id
+            ? ticket.location
+            : null,
+        }
+      } else {
+        // Fallback legacy
+        const { data: a2 } = await adminClient
+          .from('assets')
+          .select('id, asset_tag, asset_type, brand, model, serial_number, status, location_id, asset_location:locations!location_id (id, code, name)')
+          .eq('id', ticket.asset_id)
+          .maybeSingle()
+        if (a2) ticketAsset = a2
       }
     } catch (err) {
       console.error('Error obteniendo asset con admin client:', err)

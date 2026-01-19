@@ -256,29 +256,52 @@ export async function assignTicketAsset(input: AssignAssetInput) {
 
   const isUuid = value.includes('-') && value.length >= 32
 
-  const assetQuery = supabase
-    .from('assets')
-    .select('id, asset_tag, deleted_at')
+  // Intentar primero en assets_it (tabla nueva)
+  const assetQueryIT = supabase
+    .from('assets_it')
+    .select('id, asset_code, deleted_at')
     .is('deleted_at', null)
     .limit(1)
 
-  const { data: asset, error: assetErr } = isUuid
-    ? await assetQuery.eq('id', value).single()
-    : await assetQuery.ilike('asset_tag', value).single()
+  const { data: assetIT, error: assetITErr } = isUuid
+    ? await assetQueryIT.eq('id', value).single()
+    : await assetQueryIT.ilike('asset_code', value).single()
 
-  if (assetErr || !asset) {
+  let finalAsset: { id: string; asset_tag?: string; asset_code?: string } | null = null
+  
+  if (assetIT) {
+    // Mapear asset_code a asset_tag para compatibilidad
+    finalAsset = { id: assetIT.id, asset_tag: (assetIT as any).asset_code }
+  } else {
+    // Fallback a tabla legacy assets
+    const assetQuery = supabase
+      .from('assets')
+      .select('id, asset_tag, deleted_at')
+      .is('deleted_at', null)
+      .limit(1)
+
+    const { data: asset, error: assetErr } = isUuid
+      ? await assetQuery.eq('id', value).single()
+      : await assetQuery.ilike('asset_tag', value).single()
+
+    if (asset) {
+      finalAsset = asset
+    }
+  }
+
+  if (!finalAsset) {
     return { error: 'Activo no encontrado o está dado de baja' }
   }
 
   const { error: updateErr } = await supabase
     .from('tickets')
-    .update({ asset_id: asset.id })
+    .update({ asset_id: finalAsset.id })
     .eq('id', input.ticketId)
 
   if (updateErr) return { error: updateErr.message }
 
   await revalidatePath(`/tickets/${input.ticketId}`)
-  return { success: true, asset_tag: asset.asset_tag }
+  return { success: true, asset_tag: finalAsset.asset_tag }
 }
 
 export async function assignTicketAssetAction(formData: FormData) {

@@ -3,7 +3,7 @@ import { getReportsLocationFilter } from '@/lib/supabase/reports-filter'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import { StatusBadge } from '@/lib/ui/badges'
-import { formatTicketCode } from '@/lib/tickets/code'
+import { formatMaintenanceTicketCode as formatTicketCode } from '@/lib/tickets/code'
 import PageHeader, { SectionTitle, StatCard } from '@/components/ui/PageHeader'
 
 export default async function MaintenanceAllTicketsPage() {

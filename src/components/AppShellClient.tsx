@@ -7,6 +7,7 @@ import { useEffect, useState, useMemo, useCallback } from 'react'
 import SignOutButton from './SignOutButton'
 import NotificationBell from './NotificationBell'
 import { getAvatarInitial } from '@/lib/ui/avatar'
+import { isITAssetCategoryOrUnassigned, isMaintenanceAssetCategory } from '@/lib/permissions/asset-category'
 import MobileSidebar from './MobileSidebar'
 
 // Iconos Lucide-style como SVG
@@ -165,10 +166,19 @@ type NavItemProps = {
   icon: keyof typeof Icons
   isActive: boolean
   sidebarOpen: boolean
+  theme?: {
+    activeBar: string
+    activeBarShadow: string
+    accentIcon: string
+  }
 }
 
-function NavItem({ href, label, icon, isActive, sidebarOpen }: NavItemProps) {
+function NavItem({ href, label, icon, isActive, sidebarOpen, theme }: NavItemProps) {
   const Icon = Icons[icon]
+  // Default theme fallback
+  const activeBar = theme?.activeBar || 'bg-indigo-500'
+  const activeBarShadow = theme?.activeBarShadow || 'shadow-[0_0_10px_rgba(99,102,241,0.5)]'
+  const accentIcon = theme?.accentIcon || 'text-indigo-400'
   
   return (
     <Link
@@ -180,10 +190,10 @@ function NavItem({ href, label, icon, isActive, sidebarOpen }: NavItemProps) {
       title={!sidebarOpen ? label : undefined}
     >
       {isActive && (
-        <div className="absolute left-0 top-1/2 -translate-y-1/2 h-8 w-1 bg-indigo-500 rounded-r-full shadow-[0_0_10px_rgba(99,102,241,0.5)]"></div>
+        <div className={`absolute left-0 top-1/2 -translate-y-1/2 h-8 w-1 ${activeBar} rounded-r-full ${activeBarShadow}`}></div>
       )}
       <Icon 
-        className={`w-5 h-5 z-10 transition-colors flex-shrink-0 ${isActive ? 'text-indigo-400' : 'text-slate-400 group-hover:text-white'}`}
+        className={`w-5 h-5 z-10 transition-colors flex-shrink-0 ${isActive ? accentIcon : 'text-slate-400 group-hover:text-white'}`}
       />
       {sidebarOpen && (
         <span className={`text-sm font-medium tracking-wide z-10 whitespace-nowrap ${isActive ? 'text-white font-semibold' : ''}`}>
@@ -251,6 +261,7 @@ export default function AppShellClient({
   const moduleContext = useMemo(() => {
     if (pathname.startsWith('/admin')) return 'admin'
     if (pathname.startsWith('/corporativo')) return 'corporativo'
+    if (pathname.startsWith('/inspections')) return 'corporativo' // Inspecciones RRHH
     // Reportes: determinar módulo según la subruta
     if (pathname.startsWith('/reports/helpdesk')) return 'helpdesk'
     if (pathname.startsWith('/reports/maintenance')) return 'mantenimiento'
@@ -268,28 +279,52 @@ export default function AppShellClient({
     return null
   }, [pathname])
 
-  // Menú de Helpdesk
+  // Determinar si el usuario puede GESTIONAR mantenimiento / IT
+  // Nota: asset_category puede venir como 'Maintenance' (legacy/UI). Normalizamos.
+  const canManageMaintenance = userData.role === 'admin' || isMaintenanceAssetCategory(userData.assetCategory)
+  const canManageIT = userData.role === 'admin' || isITAssetCategoryOrUnassigned(userData.assetCategory)
+
+  const isMaintenanceSupervisor =
+    userData.role === 'supervisor' && canManageMaintenance && !canManageIT
+  
+  const isMaintenanceUser = canManageMaintenance && !canManageIT
+
+  // Menú de Helpdesk IT
+  // Nota: TODOS los usuarios pueden crear tickets IT (incluso supervisores de mantenimiento)
+  // Solo las opciones de GESTIÓN (dashboard, bandeja, activos) son exclusivas para IT
   const helpdeskItems: MenuSection['items'] = [
-    { id: 'hd_dashboard', label: 'Dashboard', icon: 'Dashboard', href: '/dashboard' },
+    // Dashboard: solo para quienes GESTIONAN IT
+    ...(canManageIT && (userData.role === 'admin' || userData.role === 'supervisor')
+      ? ([{ id: 'hd_dashboard', label: 'Dashboard', icon: 'Dashboard', href: '/dashboard' }] as MenuSection['items'])
+      : []),
+    // Mis Tickets y Crear Ticket: TODOS los usuarios pueden acceder
     { id: 'hd_tickets_mine', label: 'Mis Tickets', icon: 'Ticket', href: '/tickets?view=mine' },
     { id: 'hd_new_it', label: 'Crear Ticket', icon: 'Ticket', href: '/tickets/new?area=it' },
-    ...(userData.role === 'admin' || userData.role === 'supervisor'
+    // Bandeja: solo admin/supervisor de IT
+    ...(canManageIT && (userData.role === 'admin' || userData.role === 'supervisor')
       ? ([{ id: 'hd_tickets_queue', label: 'Bandeja', icon: 'BarChart', href: '/tickets?view=queue', roles: ['admin', 'supervisor'] }] as MenuSection['items'])
       : []),
-    { id: 'hd_beo', label: 'Eventos (BEO)', icon: 'Calendar', href: '/beo/dashboard', requireBeo: true },
-    { id: 'hd_assets', label: 'Activos IT', icon: 'Assets', href: '/assets', roles: ['admin', 'supervisor'] },
-    {
-      id: 'hd_knowledge',
-      label: 'Base de Conocimientos',
-      icon: 'Book',
-      href: '/admin/knowledge-base',
-      roles: ['admin', 'supervisor', 'agent_l1', 'agent_l2'],
-    },
+    // BEO: solo IT
+    ...(canManageIT
+      ? ([{ id: 'hd_beo', label: 'Eventos (BEO)', icon: 'Calendar', href: '/beo/dashboard', requireBeo: true }] as MenuSection['items'])
+      : []),
+    // Activos IT: solo admin/supervisor IT
+    ...(canManageIT && (userData.role === 'admin' || userData.role === 'supervisor')
+      ? ([{ id: 'hd_assets', label: 'Activos IT', icon: 'Assets', href: '/assets', roles: ['admin', 'supervisor'] }] as MenuSection['items'])
+      : []),
+    // KB solo para IT (y admin)
+    ...((canManageIT || userData.role === 'admin')
+      ? ([
+          {
+            id: 'hd_knowledge',
+            label: 'Base de Conocimientos',
+            icon: 'Book',
+            href: '/admin/knowledge-base',
+            roles: ['admin', 'supervisor', 'agent_l1', 'agent_l2'],
+          },
+        ] as MenuSection['items'])
+      : []),
   ]
-
-  // Determinar si el usuario puede GESTIONAR mantenimiento (no solo crear tickets)
-  const canManageMaintenance = userData.role === 'admin' || userData.assetCategory === 'MAINTENANCE'
-  const canManageIT = userData.role === 'admin' || userData.assetCategory === 'IT' || userData.assetCategory === null
 
   const topMenuByModule: Record<string, MenuSection[]> = {
     helpdesk: [
@@ -302,23 +337,26 @@ export default function AppShellClient({
       {
         group: 'Mantenimiento',
         items: [
-          // Dashboard y Bandeja solo para quienes pueden gestionar
-          ...(canManageMaintenance
+          // Dashboard solo para admin/supervisor de mantenimiento
+          ...(canManageMaintenance && (userData.role === 'admin' || userData.role === 'supervisor')
             ? ([
                 { id: 'mnt_dashboard', label: 'Dashboard', icon: 'Dashboard', href: '/mantenimiento/dashboard' },
               ] as MenuSection['items'])
             : []),
-          // Mis Tickets para todos
-          { id: 'mnt_tickets_mine', label: 'Mis Tickets', icon: 'Ticket', href: '/mantenimiento/tickets?view=mine' },
-          // Crear Ticket para todos
+          // Mis Tickets y Crear Ticket: visible para TODOS (requester, admin, supervisor)
+          { 
+            id: 'mnt_tickets_mine', 
+            label: 'Mis Tickets', 
+            icon: 'Ticket', 
+            href: '/mantenimiento/tickets?view=mine'
+          },
           { id: 'mnt_new_ticket', label: 'Crear Ticket', icon: 'Wrench', href: '/mantenimiento/tickets/new' },
-          // Bandeja solo para supervisores/admin del área de mantenimiento
+          // Bandeja y Activos solo para supervisores/admin del área de mantenimiento
           ...(canManageMaintenance && (userData.role === 'admin' || userData.role === 'supervisor')
-            ? ([{ id: 'mnt_tickets_queue', label: 'Bandeja', icon: 'BarChart', href: '/mantenimiento/tickets?view=queue', roles: ['admin', 'supervisor'] }] as MenuSection['items'])
-            : []),
-          // Activos solo para quienes pueden gestionar
-          ...(canManageMaintenance
-            ? ([{ id: 'mnt_assets', label: 'Activos', icon: 'Assets', href: '/mantenimiento/assets', roles: ['admin', 'supervisor'] }] as MenuSection['items'])
+            ? ([
+                { id: 'mnt_tickets_queue', label: 'Bandeja', icon: 'BarChart', href: '/mantenimiento/tickets?view=queue', roles: ['admin', 'supervisor'] },
+                { id: 'mnt_assets', label: 'Activos', icon: 'Assets', href: '/mantenimiento/assets', roles: ['admin', 'supervisor'] },
+              ] as MenuSection['items'])
             : []),
         ],
       },
@@ -335,6 +373,7 @@ export default function AppShellClient({
         items: [
           { id: 'corp_home', label: 'Dashboard', icon: 'Dashboard', href: '/corporativo/dashboard' },
           { id: 'corp_inspecciones', label: 'Inspecciones', icon: 'ShieldCheck', href: '/corporativo/inspecciones' },
+          { id: 'corp_inbox', label: 'Bandeja Inspecciones', icon: 'BarChart', href: '/inspections/inbox' },
         ],
       },
     ],
@@ -417,8 +456,27 @@ export default function AppShellClient({
   }
 
   const activeTopMenu = useMemo(() => {
-    return moduleContext ? topMenuByModule[moduleContext] || [] : []
-  }, [moduleContext])
+    // Si está en módulo de mantenimiento, SOLO mostrar menú de mantenimiento
+    if (moduleContext === 'mantenimiento') {
+      return topMenuByModule['mantenimiento'] || []
+    }
+    
+    // Si hay un módulo definido (admin, helpdesk, etc), usar ese menú
+    if (moduleContext) {
+      return topMenuByModule[moduleContext] || []
+    }
+    
+    // Si no hay módulo pero el usuario tiene permisos, mostrar menú por defecto
+    // Usuario de mantenimiento: mostrar menú de mantenimiento
+    if (canManageMaintenance && !canManageIT) {
+      return topMenuByModule['mantenimiento'] || []
+    }
+    // Usuario de IT: mostrar menú de helpdesk
+    if (canManageIT) {
+      return topMenuByModule['helpdesk'] || []
+    }
+    return []
+  }, [moduleContext, canManageMaintenance, canManageIT])
 
   const activeCollapsible = useMemo(() => {
     return moduleContext ? collapsibleByModule[moduleContext] || [] : []
@@ -496,17 +554,50 @@ export default function AppShellClient({
     return () => { mounted = false }
   }, [])
 
+  // Tema de colores según módulo
+  const moduleTheme = useMemo(() => {
+    if (moduleContext === 'corporativo') {
+      return {
+        accent: 'amber',
+        accentBg: 'from-amber-500/10 to-orange-500/10',
+        accentBorder: 'border-amber-500/20 hover:border-amber-500/40',
+        accentHover: 'hover:from-amber-500/20 hover:to-orange-500/20',
+        accentText: 'text-amber-400 group-hover:text-amber-300',
+        accentIcon: 'text-amber-400',
+        activeBg: 'bg-amber-500/20',
+        activeBar: 'bg-amber-500',
+        activeBarShadow: 'shadow-[0_0_10px_rgba(251,191,36,0.5)]',
+        groupBadge: 'bg-gradient-to-r from-amber-500/25 via-orange-500/25 to-red-500/20 text-amber-100 border border-amber-400/40 shadow-[0_0_16px_rgba(251,146,60,0.35)]',
+        groupText: 'text-amber-100'
+      }
+    }
+    // Default: indigo/purple
+    return {
+      accent: 'indigo',
+      accentBg: 'from-indigo-500/10 to-purple-500/10',
+      accentBorder: 'border-indigo-500/20 hover:border-indigo-500/40',
+      accentHover: 'hover:from-indigo-500/20 hover:to-purple-500/20',
+      accentText: 'text-indigo-400 group-hover:text-indigo-300',
+      accentIcon: 'text-indigo-400',
+      activeBg: 'bg-white/10',
+      activeBar: 'bg-indigo-500',
+      activeBarShadow: 'shadow-[0_0_10px_rgba(99,102,241,0.5)]',
+      groupBadge: 'bg-gradient-to-r from-indigo-500/25 via-purple-500/25 to-fuchsia-500/20 text-indigo-100 border border-indigo-400/40 shadow-[0_0_16px_rgba(99,102,241,0.35)]',
+      groupText: 'text-indigo-100'
+    }
+  }, [moduleContext])
+
   const roleLabel =
     profile?.role === 'admin'
       ? 'Admin'
       : profile?.role === 'corporate_admin'
         ? 'Admin Corporativo'
       : profile?.role === 'agent_l1'
-        ? 'Agente L1'
+        ? (isMaintenanceAssetCategory(userData.assetCategory) ? 'Mantenimiento - Técnico L1' : 'IT - Agente L1')
         : profile?.role === 'agent_l2'
-          ? 'Agente L2'
+          ? (isMaintenanceAssetCategory(userData.assetCategory) ? 'Mantenimiento - Técnico L2' : 'IT - Agente L2')
           : profile?.role === 'supervisor'
-            ? 'Supervisor'
+            ? (isMaintenanceAssetCategory(userData.assetCategory) ? 'Mantenimiento - Supervisor' : 'IT - Supervisor')
             : profile?.role
               ? 'Usuario'
               : 'Usuario'
@@ -557,11 +648,11 @@ export default function AppShellClient({
           {/* Botón Volver al Hub - Siempre visible */}
           <Link
             href="/hub"
-            className="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative bg-gradient-to-r from-indigo-500/10 to-purple-500/10 border border-indigo-500/20 hover:border-indigo-500/40 hover:from-indigo-500/20 hover:to-purple-500/20 mb-4"
+            className={`w-full flex items-center gap-3 px-3 py-2.5 rounded-xl transition-all duration-200 group relative bg-gradient-to-r ${moduleTheme.accentBg} border ${moduleTheme.accentBorder} ${moduleTheme.accentHover} mb-4`}
             title={!sidebarOpen ? 'Volver al Hub' : undefined}
           >
             <svg 
-              className="w-5 h-5 text-indigo-400 group-hover:text-indigo-300 transition-colors flex-shrink-0" 
+              className={`w-5 h-5 ${moduleTheme.accentText} transition-colors flex-shrink-0`}
               fill="none" 
               stroke="currentColor" 
               viewBox="0 0 24 24"
@@ -582,9 +673,11 @@ export default function AppShellClient({
             return (
               <div key={section.group}>
                 {sidebarOpen && (
-                  <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 px-3">
-                    {section.group}
-                  </h3>
+                  <div className="mb-2 px-3">
+                    <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-[0.28em] ${moduleTheme.groupBadge} ${moduleTheme.groupText}`}>
+                      {section.group}
+                    </span>
+                  </div>
                 )}
                 <div className="space-y-1">
                   {filteredItems.map((item) => (
@@ -595,6 +688,11 @@ export default function AppShellClient({
                       icon={item.icon}
                       isActive={isActive(item.href)}
                       sidebarOpen={sidebarOpen}
+                      theme={{
+                        activeBar: moduleTheme.activeBar,
+                        activeBarShadow: moduleTheme.activeBarShadow,
+                        accentIcon: moduleTheme.accentIcon,
+                      }}
                     />
                   ))}
                 </div>
@@ -605,9 +703,11 @@ export default function AppShellClient({
           {activeCollapsible.map((group) => (
             <div key={group.group}>
               {sidebarOpen && (
-                <h3 className="text-[10px] font-bold text-slate-500 uppercase tracking-widest mb-2 px-3">
-                  {group.group}
-                </h3>
+                <div className="mb-2 px-3">
+                  <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-[10px] font-bold uppercase tracking-[0.28em] ${moduleTheme.groupBadge} ${moduleTheme.groupText}`}>
+                    {group.group}
+                  </span>
+                </div>
               )}
 
               <div className="space-y-1">
@@ -627,11 +727,11 @@ export default function AppShellClient({
                         title={!sidebarOpen ? menu.label : undefined}
                       >
                         {active && (
-                          <div className="absolute left-0 top-1/2 -translate-y-1/2 h-8 w-1 bg-indigo-500 rounded-r-full shadow-[0_0_10px_rgba(99,102,241,0.5)]"></div>
+                          <div className={`absolute left-0 top-1/2 -translate-y-1/2 h-8 w-1 ${moduleTheme.activeBar} rounded-r-full ${moduleTheme.activeBarShadow}`}></div>
                         )}
                         <Icon
                           className={`w-5 h-5 z-10 transition-colors flex-shrink-0 ${
-                            active ? 'text-indigo-400' : 'text-slate-400 group-hover:text-white'
+                            active ? moduleTheme.accentIcon : 'text-slate-400 group-hover:text-white'
                           }`}
                         />
                         {sidebarOpen && (

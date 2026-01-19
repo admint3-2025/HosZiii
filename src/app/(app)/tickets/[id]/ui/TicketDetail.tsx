@@ -7,6 +7,7 @@ import RemoteConnectionInfo from "./RemoteConnectionInfo"
 import { StatusBadge, PriorityBadge, LevelBadge } from "@/lib/ui/badges"
 import { formatTicketCode } from "@/lib/tickets/code"
 import { getAvatarInitial } from "@/lib/ui/avatar"
+import { formatAssetType } from "@/lib/assets/format"
 
 type AssetInfo = {
   id: string
@@ -175,7 +176,7 @@ export default function TicketDetail({
                     </div>
                     <div>
                       <div className="text-xs text-sky-600 font-medium mb-1">Tipo</div>
-                      <div className="text-sm font-medium text-gray-800">{asset.asset_type.replace(/_/g, " ")}</div>
+                          <div className="text-sm font-medium text-gray-800">{formatAssetType(asset)}</div>
                     </div>
                   </div>
                   

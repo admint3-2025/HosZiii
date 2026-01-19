@@ -416,6 +416,7 @@ export default function InspectionsInbox() {
                     <th className="py-2 pr-4">Inspector</th>
                     <th className="py-2 pr-4">Departamento</th>
                     <th className="py-2 pr-4">Estado</th>
+                    <th className="py-2 pr-4">Avance</th>
                     <th className="py-2 pr-4">Prom.</th>
                     <th className="py-2 pr-4"></th>
                   </tr>
@@ -434,14 +435,42 @@ export default function InspectionsInbox() {
                           {statusLabel(r.status)}
                         </span>
                       </td>
-                      <td className="py-2 pr-4 whitespace-nowrap">{typeof r.average_score === 'number' ? `${Math.round(r.average_score * 10)}%` : '—'}</td>
+                      <td className="py-2 pr-4 whitespace-nowrap">
+                        <div className="flex items-center gap-2">
+                          <div className="w-16 h-1.5 bg-slate-200 rounded-full overflow-hidden">
+                            <div 
+                              className={`h-full rounded-full ${r.coverage_percentage >= 100 ? 'bg-emerald-500' : r.coverage_percentage >= 50 ? 'bg-blue-500' : 'bg-amber-500'}`}
+                              style={{ width: `${Math.min(r.coverage_percentage || 0, 100)}%` }}
+                            />
+                          </div>
+                          <span className="text-xs text-slate-500">{Math.round(r.coverage_percentage || 0)}%</span>
+                          {r.items_pending > 0 && (
+                            <span className="text-xs text-amber-600">({r.items_pending})</span>
+                          )}
+                        </div>
+                      </td>
+                      <td className="py-2 pr-4 whitespace-nowrap">
+                        {r.items_cumple > 0 ? (
+                          <span className="font-semibold text-slate-700">{Math.round((r.average_score || 0) * 10)}%</span>
+                        ) : (
+                          <span className="text-slate-400">—</span>
+                        )}
+                      </td>
                       <td className="py-2 pr-0 whitespace-nowrap">
                         <div className="flex items-center justify-end gap-2">
                           <button
                             onClick={() => handleOpen(r.id)}
-                            className="px-3 py-1.5 rounded-lg bg-white border border-slate-300 text-slate-700 hover:bg-slate-50 transition-colors text-xs font-semibold"
+                            className={`px-3 py-1.5 rounded-lg transition-colors text-xs font-semibold ${
+                              r.status === 'draft' 
+                                ? 'bg-blue-600 text-white hover:bg-blue-700' 
+                                : r.status === 'completed'
+                                ? 'bg-emerald-600 text-white hover:bg-emerald-700'
+                                : r.status === 'approved'
+                                ? 'bg-slate-100 text-slate-700 hover:bg-slate-200 border border-slate-300'
+                                : 'bg-white border border-slate-300 text-slate-700 hover:bg-slate-50'
+                            }`}
                           >
-                            Abrir
+                            {r.status === 'draft' ? 'Continuar' : r.status === 'completed' ? 'Ver completada' : r.status === 'approved' ? 'Ver aprobada' : 'Abrir'}
                           </button>
 
                           {canManageStatus && r.status === 'completed' && (

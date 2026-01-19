@@ -1,6 +1,7 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { isMaintenanceAssetCategory } from '@/lib/permissions/asset-category'
+import AssetDetailView from '@/app/(app)/assets/[id]/ui/AssetDetailView'
 
 export default async function MaintenanceAssetDetailPage({
   params,
@@ -11,101 +12,158 @@ export default async function MaintenanceAssetDetailPage({
   const supabase = await createSupabaseServerClient()
 
   const { data: { user } } = await supabase.auth.getUser()
-  const { data: profile } = user ? await supabase
+  if (!user) {
+    notFound()
+  }
+
+  const { data: profile } = await supabase
     .from('profiles')
     .select('role,asset_category')
     .eq('id', user.id)
-    .single() : { data: null }
+    .single()
 
-  const canAccessMaintenance = profile?.role === 'admin' || profile?.asset_category === 'MAINTENANCE'
+  const canAccessMaintenance = profile?.role === 'admin' || isMaintenanceAssetCategory(profile?.asset_category)
   
   if (!canAccessMaintenance) {
     return notFound()
   }
 
-  const { data: asset, error } = await supabase
+  const userRole = profile?.role || 'requester'
+
+  // Obtener activo con la sede - usando tabla assets_maintenance
+  const { data: rawAsset, error } = await supabase
     .from('assets_maintenance')
-    .select('*,locations(code,name)')
+    .select(`
+      *,
+      asset_location:locations!location_id(id, name, code)
+    `)
     .eq('id', id)
+    .is('deleted_at', null)
     .single()
 
-  if (error || !asset) {
-    return notFound()
+  if (error || !rawAsset) {
+    notFound()
   }
 
-  const statusConfig: Record<string, { label: string; badge: string; bg: string }> = {
-    'ACTIVE': { label: 'Activo', badge: 'Activo', bg: 'bg-green-100' },
-    'INACTIVE': { label: 'Inactivo', badge: 'Inactivo', bg: 'bg-gray-100' },
-    'MAINTENANCE': { label: 'Mantenimiento', badge: 'Mantenimiento', bg: 'bg-orange-100' },
-    'DISPOSED': { label: 'Descartado', badge: 'Descartado', bg: 'bg-red-100' },
+  // Mapear campos de assets_maintenance a los esperados por AssetDetailView
+  const asset = {
+    ...rawAsset,
+    // Mapeo de campos principales
+    asset_tag: rawAsset.asset_code,
+    asset_type: rawAsset.category,
+    assigned_to: rawAsset.assigned_to_user_id,
+    warranty_end_date: rawAsset.warranty_expiry,
+    // Campos que AssetDetailView espera pero no existen en assets_maintenance
+    department: null,
+    processor: null,
+    ram_gb: null,
+    storage_gb: null,
+    os: null,
+    location: rawAsset.asset_location?.name || null,
+    // Mantener el nombre del activo
+    asset_name: rawAsset.name,
   }
 
-  const status = statusConfig[asset.status] || statusConfig['ACTIVE']
+  // Obtener todas las sedes activas para el formulario de edición
+  const { data: locations } = await supabase
+    .from('locations')
+    .select('id, name, code')
+    .eq('is_active', true)
+    .order('name')
+
+  // Obtener usuarios según permisos
+  let users: Array<{ id: string; full_name: string | null }> = []
+  
+  if (asset.location_id) {
+    // Cargar todos los usuarios de la sede del activo
+    const { data: assetLocationUsers } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .eq('location_id', asset.location_id)
+      .order('full_name')
+    
+    users = assetLocationUsers || []
+  } else if (userRole === 'admin') {
+    // Si el activo no tiene sede asignada y el usuario es admin, mostrar todos
+    const { data: allUsers } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .order('full_name')
+    
+    users = allUsers || []
+  }
+
+  // Obtener responsable actual del activo (si existe)
+  let assignedUser: { id: string; full_name: string | null; location_name: string | null } | null = null
+  if (asset.assigned_to_user_id) {
+    const { data: userProfile } = await supabase
+      .from('profiles')
+      .select('id, full_name, locations(name)')
+      .eq('id', asset.assigned_to_user_id)
+      .single()
+
+    if (userProfile) {
+      assignedUser = {
+        id: userProfile.id as string,
+        full_name: (userProfile as any).full_name ?? null,
+        location_name: ((userProfile as any).locations?.name as string) ?? null,
+      }
+    }
+  }
+  
+  // Obtener tickets relacionados con este activo (si existen en tabla tickets)
+  const { data: relatedTickets } = await supabase
+    .from('tickets')
+    .select(`
+      id,
+      ticket_number,
+      title,
+      status,
+      priority,
+      created_at,
+      closed_at
+    `)
+    .eq('asset_id', id)
+    .is('deleted_at', null)
+    .order('created_at', { ascending: false })
+    .limit(20)
+
+  // Obtener historial de cambios del activo (si existe tabla asset_changes)
+  const { data: assetHistory } = await supabase
+    .from('asset_changes')
+    .select('*')
+    .eq('asset_id', id)
+    .order('changed_at', { ascending: false })
+    .limit(100)
+
+  // No tiene solicitudes de baja en mantenimiento (feature solo IT por ahora)
+  const pendingDisposalRequest = null
+
+  // Estadísticas simplificadas (sin RPC por ahora)
+  const assetStats = relatedTickets
+    ? {
+        totalTickets: relatedTickets.length,
+        openTickets: relatedTickets.filter(t => !['RESOLVED', 'CLOSED'].includes(t.status)).length,
+        locationChangeCount: 0,
+        lastLocationChangeAt: null,
+        assignmentChangeCount: 0,
+        lastAssignmentChangeAt: null,
+      }
+    : null
 
   return (
-    <main className="p-6 space-y-6">
-      <Link href="/mantenimiento/assets" className="text-orange-600 hover:text-orange-700 text-sm font-medium inline-flex items-center gap-2">
-        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-        </svg>
-        Volver a activos
-      </Link>
-
-      <div className="max-w-4xl">
-        <div className="bg-white rounded-xl shadow-lg p-8">
-          <div className="flex items-start justify-between gap-4 mb-6">
-            <div>
-              <h1 className="text-3xl font-bold text-gray-900">{asset.name}</h1>
-              <p className="text-gray-600 mt-1">Código: <span className="font-semibold">{asset.asset_code}</span></p>
-            </div>
-            <span className={`inline-flex px-4 py-2 rounded-lg text-sm font-semibold ${status.bg}`}>
-              {status.badge}
-            </span>
-          </div>
-
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 py-6 border-y border-gray-200">
-            <div>
-              <p className="text-gray-600 text-sm mb-1">Categoría</p>
-              <p className="font-bold text-gray-900">{asset.category || '—'}</p>
-            </div>
-            <div>
-              <p className="text-gray-600 text-sm mb-1">Marca</p>
-              <p className="font-bold text-gray-900">{asset.brand || '—'}</p>
-            </div>
-            <div>
-              <p className="text-gray-600 text-sm mb-1">Modelo</p>
-              <p className="font-bold text-gray-900">{asset.model || '—'}</p>
-            </div>
-            <div>
-              <p className="text-gray-600 text-sm mb-1">Sede</p>
-              <p className="font-bold text-gray-900">{(asset.locations as any)?.code || '—'}</p>
-            </div>
-          </div>
-
-          <div className="mt-6 space-y-4">
-            {asset.description && (
-              <div>
-                <h2 className="font-semibold text-gray-900 mb-2">Descripción</h2>
-                <p className="text-gray-700">{asset.description}</p>
-              </div>
-            )}
-
-            {asset.serial_number && (
-              <div>
-                <h2 className="font-semibold text-gray-900 mb-2">Número de Serie</h2>
-                <p className="text-gray-700 font-mono">{asset.serial_number}</p>
-              </div>
-            )}
-
-            {asset.notes && (
-              <div>
-                <h2 className="font-semibold text-gray-900 mb-2">Notas</h2>
-                <p className="text-gray-700">{asset.notes}</p>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-    </main>
+    <AssetDetailView
+      asset={asset}
+      locations={locations || []}
+      users={users}
+      relatedTickets={relatedTickets || []}
+      assignedUser={assignedUser}
+      stats={assetStats}
+      assetHistory={assetHistory || []}
+      userRole={userRole}
+      pendingDisposalRequest={pendingDisposalRequest}
+      backLink="/mantenimiento/assets"
+      assetCategory="MAINTENANCE"
+    />
   )
 }

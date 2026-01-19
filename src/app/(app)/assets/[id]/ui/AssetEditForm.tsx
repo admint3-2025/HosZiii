@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { updateAssetWithLocationChange } from '../actions'
+import { updateMaintenanceAsset } from '@/app/(app)/mantenimiento/assets/[id]/actions'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 import AssetImageUpload from '@/components/AssetImageUpload'
 import ComboboxInput, {
@@ -24,7 +25,7 @@ type Location = {
 type Asset = {
   id: string
   asset_tag: string
-  asset_type: string
+  asset_type: string | null
   status: string
   serial_number: string | null
   model: string | null
@@ -54,19 +55,28 @@ type Asset = {
   tonnage?: string | null
 }
 
+type UserOption = {
+  id: string
+  full_name: string | null
+}
+
 type AssetEditFormProps = {
   asset: Asset
   locations: Location[]
+  users: UserOption[]
   onCancel: () => void
   onSuccess: () => void
+  assetCategory?: 'IT' | 'MAINTENANCE'
 }
 
-export default function AssetEditForm({ asset, locations, onCancel, onSuccess }: AssetEditFormProps) {
+export default function AssetEditForm({ asset, locations, users, onCancel, onSuccess, assetCategory = 'IT' }: AssetEditFormProps) {
+  const isMaintenanceAsset = assetCategory === 'MAINTENANCE'
   const [selectedCategory, setSelectedCategory] = useState('IT')
+  const [assignees] = useState<Array<{ id: string; full_name: string | null }>>(users)
   const [formData, setFormData] = useState({
-    asset_tag: asset.asset_tag,
-    asset_type: asset.asset_type,
-    status: asset.status,
+    asset_tag: asset.asset_tag || '',
+    asset_type: asset.asset_type || '',
+    status: asset.status || '',
     serial_number: asset.serial_number || '',
     model: asset.model || '',
     brand: asset.brand || '',
@@ -105,9 +115,6 @@ export default function AssetEditForm({ asset, locations, onCancel, onSuccess }:
   const [dynamicFields, setDynamicFields] = useState<Record<string, string>>({})
   const { categories: categoriesMap } = useAssetTypes()
 
-  const [assignees, setAssignees] = useState<Array<{ id: string; name: string; email: string; location?: string }>>([])
-  const [loadingAssignees, setLoadingAssignees] = useState(false)
-
   // Inicializar categoría seleccionada según el tipo del activo
   useEffect(() => {
     for (const [category, types] of Object.entries(categoriesMap || {})) {
@@ -120,40 +127,17 @@ export default function AssetEditForm({ asset, locations, onCancel, onSuccess }:
 
   // Actualizar campos dinámicos cuando cambia el tipo
   useEffect(() => {
-    const fields = getAssetFieldsForType(formData.asset_type)
+    if (!formData.asset_type) {
+      setDynamicFields({})
+      return
+    }
+    const fields = getAssetFieldsForType(formData.asset_type as string)
     const newDynamicFields: Record<string, string> = {}
     fields.forEach(field => {
       newDynamicFields[field.name] = (formData as any)[field.name] || ''
     })
     setDynamicFields(newDynamicFields)
   }, [formData.asset_type])
-
-  useEffect(() => {
-    const loadAssignees = async () => {
-      try {
-        setLoadingAssignees(true)
-        const res = await fetch('/api/admin/users')
-        if (!res.ok) return
-        const data = await res.json()
-        const users = (data.users || []) as Array<any>
-        const mapped = users
-          .filter((u) => u.email)
-          .map((u) => ({
-            id: u.id as string,
-            name: (u.full_name as string) || (u.email as string),
-            email: u.email as string,
-            location: (u.location_name as string) || undefined,
-          }))
-        setAssignees(mapped)
-      } catch {
-        setAssignees([])
-      } finally {
-        setLoadingAssignees(false)
-      }
-    }
-
-    loadAssignees()
-  }, [])
 
   const handleLocationChange = async (newLocationId: string) => {
     if (newLocationId !== asset.location_id) {
@@ -200,8 +184,12 @@ export default function AssetEditForm({ asset, locations, onCancel, onSuccess }:
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    // Verificar si cambió la ubicación
-    if (formData.location_id !== asset.location_id && !locationChangeReason.trim()) {
+    console.log('[AssetEditForm] handleSubmit called')
+    console.log('[AssetEditForm] assetCategory:', assetCategory)
+    console.log('[AssetEditForm] isMaintenanceAsset:', isMaintenanceAsset)
+
+    // Verificar si cambió la ubicación (solo para IT assets)
+    if (!isMaintenanceAsset && formData.location_id !== asset.location_id && !locationChangeReason.trim()) {
       alert('Debe proporcionar una justificación para el cambio de sede')
       return
     }
@@ -209,30 +197,58 @@ export default function AssetEditForm({ asset, locations, onCancel, onSuccess }:
     setIsSubmitting(true)
 
     try {
-      const result = await updateAssetWithLocationChange(
-        asset.id,
-        {
-          asset_tag: formData.asset_tag,
-          asset_type: formData.asset_type,
-          status: formData.status,
-          serial_number: formData.serial_number || null,
-          model: formData.model || null,
-          brand: formData.brand || null,
-          department: formData.department || null,
-          purchase_date: formData.purchase_date || null,
-          warranty_end_date: formData.warranty_end_date || null,
-          location: formData.location || null,
-          location_id: formData.location_id || null,
-          assigned_to: formData.assigned_to || null,
-          notes: formData.notes || null,
-          processor: formData.processor || null,
-          ram_gb: formData.ram_gb ? parseInt(formData.ram_gb) : null,
-          storage_gb: formData.storage_gb ? parseInt(formData.storage_gb) : null,
-          os: formData.os || null,
-          image_url: formData.image_url || null,
-        },
-        formData.location_id !== asset.location_id ? locationChangeReason : undefined
-      )
+      let result: { success: boolean; error?: string }
+
+      if (isMaintenanceAsset) {
+        console.log('[AssetEditForm] Calling updateMaintenanceAsset')
+        // Update maintenance asset
+        result = await updateMaintenanceAsset(
+          asset.id,
+          {
+            asset_code: formData.asset_tag,
+            name: formData.asset_name || formData.asset_tag,
+            category: formData.asset_type || undefined,
+            brand: formData.brand || null,
+            model: formData.model || null,
+            serial_number: formData.serial_number || null,
+            status: formData.status,
+            location_id: formData.location_id || null,
+            assigned_to_user_id: formData.assigned_to || null,
+            purchase_date: formData.purchase_date || null,
+            warranty_expiry: formData.warranty_end_date || null,
+            notes: formData.notes || null,
+            image_url: formData.image_url || null,
+          }
+        )
+        console.log('[AssetEditForm] updateMaintenanceAsset result:', result)
+      } else {
+        console.log('[AssetEditForm] Calling updateAssetWithLocationChange')
+        // Update IT asset
+        result = await updateAssetWithLocationChange(
+          asset.id,
+          {
+            asset_tag: formData.asset_tag,
+            asset_type: formData.asset_type,
+            status: formData.status,
+            serial_number: formData.serial_number || null,
+            model: formData.model || null,
+            brand: formData.brand || null,
+            department: formData.department || null,
+            purchase_date: formData.purchase_date || null,
+            warranty_end_date: formData.warranty_end_date || null,
+            location: formData.location || null,
+            location_id: formData.location_id || null,
+            assigned_to: formData.assigned_to || null,
+            notes: formData.notes || null,
+            processor: formData.processor || null,
+            ram_gb: formData.ram_gb ? parseInt(formData.ram_gb) : null,
+            storage_gb: formData.storage_gb ? parseInt(formData.storage_gb) : null,
+            os: formData.os || null,
+            image_url: formData.image_url || null,
+          },
+          formData.location_id !== asset.location_id ? locationChangeReason : undefined
+        )
+      }
 
       if (!result.success) {
         // Verificar si es error de cambio de ubicación sin razón
@@ -348,7 +364,7 @@ export default function AssetEditForm({ asset, locations, onCancel, onSuccess }:
                   Tipo de Activo <span className="text-red-500">*</span>
                 </label>
                 <select
-                  value={formData.asset_type}
+                  value={formData.asset_type ?? ''}
                   onChange={(e) => setFormData({ ...formData, asset_type: e.target.value })}
                   required
                   className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
@@ -373,10 +389,21 @@ export default function AssetEditForm({ asset, locations, onCancel, onSuccess }:
                   required
                   className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
                 >
-                  <option value="OPERATIONAL">Operacional</option>
-                  <option value="MAINTENANCE">En Mantenimiento</option>
-                  <option value="OUT_OF_SERVICE">Fuera de Servicio</option>
-                  <option value="RETIRED">Retirado</option>
+                  {isMaintenanceAsset ? (
+                    <>
+                      <option value="ACTIVE">Activo</option>
+                      <option value="INACTIVE">Inactivo</option>
+                      <option value="MAINTENANCE">En Mantenimiento</option>
+                      <option value="DISPOSED">Dado de Baja</option>
+                    </>
+                  ) : (
+                    <>
+                      <option value="OPERATIONAL">Operacional</option>
+                      <option value="MAINTENANCE">En Mantenimiento</option>
+                      <option value="OUT_OF_SERVICE">Fuera de Servicio</option>
+                      <option value="RETIRED">Retirado</option>
+                    </>
+                  )}
                 </select>
               </div>
 
@@ -391,14 +418,11 @@ export default function AssetEditForm({ asset, locations, onCancel, onSuccess }:
                   className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500 bg-white"
                 >
                   <option value="">Sin asignar</option>
-                  {loadingAssignees && <option> Cargando usuarios... </option>}
-                  {!loadingAssignees &&
-                    assignees.map((u) => (
-                      <option key={u.id} value={u.id}>
-                        {u.location ? `[${u.location}] ` : ''}
-                        {u.name} ({u.email})
-                      </option>
-                    ))}
+                  {assignees.map((u) => (
+                    <option key={u.id} value={u.id}>
+                      {u.full_name || u.id}
+                    </option>
+                  ))}
                 </select>
                 <p className="mt-1 text-xs text-gray-500">
                   Este cambio quedará registrado en la auditoría de responsables del activo.
@@ -531,7 +555,7 @@ export default function AssetEditForm({ asset, locations, onCancel, onSuccess }:
         </div>
 
         {/* Campos Dinámicos según el tipo de activo */}
-        {getAssetFieldsForType(formData.asset_type).length > 0 && (
+        {(formData.asset_type && getAssetFieldsForType(formData.asset_type as string).length > 0) && (
           <div className="card shadow-sm border border-slate-200">
             <div className="card-body p-6">
               <h2 className="text-lg font-semibold text-gray-900 mb-4">
@@ -539,7 +563,7 @@ export default function AssetEditForm({ asset, locations, onCancel, onSuccess }:
               </h2>
               
               <div className="grid gap-4 md:grid-cols-2">
-                {getAssetFieldsForType(formData.asset_type).map((field: AssetFieldConfig) => (
+                {formData.asset_type && getAssetFieldsForType(formData.asset_type as string).map((field: AssetFieldConfig) => (
                   <div key={field.name}>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">
                       {field.label}

@@ -180,181 +180,110 @@ export default function InspectionFlowSelector({
 
   if (step === 'dashboard' && selectedDepartment && selectedProperty && currentUser) {
     const isAdmin = userProfile?.role === 'admin'
+    const isRRHH = selectedDepartment.name.toLowerCase().includes('rrhh') || 
+                   selectedDepartment.name.toLowerCase().includes('recursos humanos')
 
     return (
-      <div>
-        {/* Breadcrumb */}
-        <div className="bg-white border-b border-slate-200 px-6 py-3 mb-6">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2 text-sm">
-              <button
-                onClick={() => {
-                  setSelectedDepartment(null)
-                  setSelectedProperty(null)
-                  setStep('department')
-                }}
-                className="text-slate-500 hover:text-slate-700 transition-colors"
-              >
-                Inspecciones
-              </button>
-              <span className="text-slate-400">/</span>
-              <button
-                onClick={() => {
-                  setSelectedProperty(null)
-                  setStep('property')
-                }}
-                className="text-slate-500 hover:text-slate-700 transition-colors"
-              >
-                {selectedDepartment.name}
-              </button>
-              <span className="text-slate-400">/</span>
-              <span className="text-slate-900 font-semibold">{selectedProperty.code}</span>
-              {isAdmin && (
-                <span className="ml-2 px-2 py-0.5 bg-purple-100 text-purple-700 text-xs font-semibold rounded">
-                  ADMIN
-                </span>
-              )}
-            </div>
-
-            <button
-              onClick={() => {
-                const locationId = selectedProperty.id
-                window.location.href = `/inspections/inbox?locationId=${encodeURIComponent(locationId)}`
-              }}
-              className="inline-flex items-center gap-2 px-3 py-1.5 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition-colors text-sm font-medium"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 6h11M9 12h11M9 18h11" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6l1 1 2-2" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 12l1 1 2-2" />
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 18l1 1 2-2" />
-              </svg>
-              Bandeja
-            </button>
-          </div>
-        </div>
-
-        <RRHHInspectionManager
-          locationId={selectedProperty.id}
-          departmentName={selectedDepartment.name}
-          propertyCode={selectedProperty.code}
-          propertyName={selectedProperty.name}
-          currentUser={currentUser}
-          userName={currentUser.user_metadata?.full_name || currentUser.email || 'Usuario'}
-          templateOverride={templateOverride}
-        />
-      </div>
+      <RRHHInspectionManager
+        locationId={selectedProperty.id}
+        departmentName={selectedDepartment.name}
+        propertyCode={selectedProperty.code}
+        propertyName={selectedProperty.name}
+        currentUser={currentUser}
+        userName={currentUser.user_metadata?.full_name || currentUser.email || 'Usuario'}
+        templateOverride={templateOverride}
+        isAdmin={isAdmin}
+        isRRHH={isRRHH}
+        onChangeProperty={() => {
+          setSelectedProperty(null)
+          setStep('property')
+        }}
+        onChangeDepartment={() => {
+          setSelectedDepartment(null)
+          setSelectedProperty(null)
+          setStep('department')
+        }}
+      />
     )
   }
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-[#F8FAFC] flex items-center justify-center">
+      <div className="flex items-center justify-center py-12">
         <div className="text-center">
-          <div className="inline-block w-8 h-8 border-4 border-slate-300 border-t-indigo-600 rounded-full animate-spin"></div>
-          <p className="mt-4 text-slate-600">Cargando...</p>
+          <div className="inline-block w-6 h-6 border-2 border-slate-200 border-t-blue-500 rounded-full animate-spin"></div>
+          <p className="mt-2 text-slate-500 text-sm">Cargando...</p>
         </div>
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 p-6">
-      <div className="max-w-7xl mx-auto">
-        {/* Header Profesional */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-slate-900 to-slate-800 border border-slate-700 shadow-lg mb-8 p-6">
-          <div className="absolute inset-0 bg-gradient-to-r from-indigo-600/5 to-transparent"></div>
-          <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-600/5 rounded-full blur-3xl"></div>
-          
-          <div className="relative z-10 flex items-center justify-between">
-            <div className="flex items-center gap-4">
-              <div className="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center border border-slate-700">
-                <svg className="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-3 7h3m-3 4h3m-6-4h.01M9 16h.01" />
-                </svg>
-              </div>
-              <div>
-                <h1 className="text-xl font-bold text-white tracking-tight">
-                  Módulo de Inspecciones Corporativas
-                </h1>
-                <p className="text-slate-400 text-sm">
-                  {step === 'department' 
-                    ? 'Seleccione el departamento a inspeccionar' 
-                    : 'Seleccione la propiedad a evaluar'}
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* Hero Header Antiguo - Removido */}
-
-        {/* Stepper Moderno */}
-        {step !== 'department' && (
-          <div className="mb-6 flex items-center gap-4 px-4 py-3 bg-gradient-to-r from-blue-50 to-cyan-50 border border-blue-200 rounded-lg">
-            <div className="flex items-center gap-3">
-              <div className="flex items-center justify-center w-6 h-6 rounded-full bg-emerald-500">
+    <div className="bg-white">
+      <div className="p-4">
+        {/* Indicador de paso actual */}
+        <div className="mb-4 flex items-center gap-3 px-3 py-2 bg-slate-50 border border-slate-200 rounded-lg">
+          <div className="flex items-center gap-2">
+            <div className={`w-6 h-6 rounded-full ${step === 'department' ? 'bg-blue-500' : 'bg-emerald-500'} flex items-center justify-center`}>
+              {step === 'department' ? (
+                <span className="text-[10px] font-bold text-white">1</span>
+              ) : (
                 <svg className="w-3 h-3 text-white" fill="currentColor" viewBox="0 0 20 20">
                   <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
                 </svg>
-              </div>
-              <span className="text-sm font-semibold text-slate-700">Departamento seleccionado</span>
+              )}
             </div>
-            
-            <div className="flex-1 h-px bg-gradient-to-r from-emerald-300 to-blue-300"></div>
-            
-            <div className="flex items-center gap-3">
-              <span className="text-sm font-semibold text-blue-700">Seleccionar propiedad</span>
-              <div className="flex items-center justify-center w-6 h-6 rounded-full bg-blue-500">
-                <span className="text-xs font-bold text-white">2</span>
-              </div>
+            <span className={`text-xs font-medium ${step === 'department' ? 'text-blue-600' : 'text-emerald-600'}`}>
+              {step === 'department' ? 'Departamento' : selectedDepartment?.name}
+            </span>
+          </div>
+          
+          <div className="flex-1 h-px bg-slate-200"></div>
+          
+          <div className="flex items-center gap-2">
+            <span className={`text-xs font-medium ${step === 'property' ? 'text-blue-600' : 'text-slate-400'}`}>Propiedad</span>
+            <div className={`w-6 h-6 rounded-full ${step === 'property' ? 'bg-blue-500' : 'bg-slate-200'} flex items-center justify-center`}>
+              <span className={`text-[10px] font-bold ${step === 'property' ? 'text-white' : 'text-slate-500'}`}>2</span>
             </div>
           </div>
-        )}
+          
+          {step === 'property' && (
+            <button
+              onClick={handleBack}
+              className="ml-2 p-1.5 rounded-md hover:bg-slate-200 text-slate-500 hover:text-slate-700 transition-colors"
+              title="Regresar"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </button>
+          )}
+        </div>
 
-        {/* Botón de Regreso */}
-        {step !== 'department' && (
-          <button
-            onClick={handleBack}
-            className="mb-4 group inline-flex items-center gap-2 px-3 py-2 rounded-lg border border-slate-300 bg-white hover:bg-slate-50 text-slate-700 hover:text-slate-900 transition-all duration-300 text-sm"
-          >
-            <svg className="w-4 h-4 group-hover:-translate-x-0.5 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Regresar
-          </button>
-        )}
-
-        {/* Department Selection */}
+        {/* Department Selection - Grid expandido */}
         {step === 'department' && (
-          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 lg:grid-cols-8 gap-2">
             {DEPARTMENTS
               .filter(dept => {
-                // Si no hay restricción (admin o corporate_admin sin restricciones), mostrar todos
                 if (!allowedDepartments || allowedDepartments.length === 0) return true
-                // Filtrar por departamentos permitidos
                 return allowedDepartments.includes(dept.name)
               })
               .map((dept) => (
               <button
                 key={dept.id}
                 onClick={() => handleDepartmentSelect(dept)}
-                className="group relative overflow-hidden rounded-lg bg-white border border-slate-200 hover:border-blue-400 hover:shadow-md transition-all duration-300 p-4 text-left"
+                className="group relative overflow-hidden rounded-lg bg-white border border-slate-200 hover:border-blue-400 hover:shadow-md transition-all duration-200 p-3 text-left"
               >
-                {/* Background Gradient */}
-                <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
                 
                 <div className="relative z-10">
-                  {/* Icon */}
-                  <div className="w-10 h-10 rounded-lg bg-blue-100 group-hover:bg-blue-200 flex items-center justify-center transition-all duration-300 mb-3 group-hover:scale-105">
-                    <DepartmentIcon type={dept.iconType} className="w-5 h-5 text-blue-600 group-hover:text-blue-700 transition-colors" />
+                  <div className="w-8 h-8 rounded-lg bg-blue-100 group-hover:bg-blue-200 flex items-center justify-center transition-all duration-200 mb-1.5 group-hover:scale-105">
+                    <DepartmentIcon type={dept.iconType} className="w-4 h-4 text-blue-600 group-hover:text-blue-700 transition-colors" />
                   </div>
                   
-                  {/* Text */}
-                  <h3 className="font-bold text-slate-900 text-sm leading-tight mb-1 group-hover:text-blue-700 transition-colors">
+                  <h3 className="font-semibold text-slate-900 text-xs leading-tight group-hover:text-blue-700 transition-colors line-clamp-2">
                     {dept.name}
                   </h3>
-                  <p className="text-xs text-slate-500 group-hover:text-slate-700 transition-colors">Seleccionar</p>
                 </div>
               </button>
             ))}
@@ -364,44 +293,30 @@ export default function InspectionFlowSelector({
         {/* Property Selection */}
         {step === 'property' && selectedDepartment && (
           <div>
-            {/* Department Badge */}
-            <div className="mb-6 inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-white border border-slate-200">
-              <div className="w-8 h-8 rounded-lg bg-blue-100 flex items-center justify-center">
-                <DepartmentIcon type={selectedDepartment.iconType} className="w-4 h-4 text-blue-600" />
-              </div>
-              <div>
-                <p className="text-xs text-slate-500 uppercase tracking-wide font-semibold">Departamento</p>
-                <p className="font-bold text-slate-900 text-sm">{selectedDepartment.name}</p>
-              </div>
-            </div>
-
             {propertiesError && (
-              <div className="mb-4 bg-rose-50 border border-rose-200 rounded-lg p-3">
-                <p className="text-rose-700 text-xs font-semibold">Error cargando propiedades: {propertiesError}</p>
+              <div className="mb-3 bg-rose-50 border border-rose-200 rounded-lg p-3">
+                <p className="text-rose-700 text-xs font-semibold">Error: {propertiesError}</p>
               </div>
             )}
 
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-2">
               {availableProperties.map((prop) => (
                 <button
                   key={prop.id}
                   onClick={() => handlePropertySelect(prop)}
-                  className="group relative overflow-hidden rounded-lg bg-white border border-slate-200 hover:border-blue-400 hover:shadow-md transition-all duration-300 p-4"
+                  className="group relative overflow-hidden rounded-lg bg-white border border-slate-200 hover:border-cyan-400 hover:shadow-md transition-all duration-200 p-2.5"
                 >
-                  {/* Background Gradient */}
-                  <div className="absolute inset-0 bg-gradient-to-br from-blue-50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300"></div>
+                  <div className="absolute inset-0 bg-gradient-to-br from-cyan-50 via-transparent to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200"></div>
                   
-                  <div className="relative z-10">
-                    <div className="flex items-start justify-between gap-2">
-                      <div className="w-10 h-10 rounded-lg bg-cyan-100 group-hover:bg-cyan-200 flex items-center justify-center transition-all duration-300 group-hover:scale-105 flex-shrink-0">
-                        <svg className="w-5 h-5 text-cyan-600 group-hover:text-cyan-700 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
-                        </svg>
-                      </div>
-                      <div className="text-left flex-1">
-                        <h3 className="font-bold text-slate-900 text-sm mb-0.5 group-hover:text-blue-700 transition-colors">{prop.code}</h3>
-                        <p className="text-xs text-slate-500 group-hover:text-slate-700 transition-colors line-clamp-2">{prop.name}</p>
-                      </div>
+                  <div className="relative z-10 flex items-center gap-2">
+                    <div className="w-7 h-7 rounded-md bg-cyan-100 group-hover:bg-cyan-200 flex items-center justify-center transition-all duration-200 flex-shrink-0">
+                      <svg className="w-3.5 h-3.5 text-cyan-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                      </svg>
+                    </div>
+                    <div className="text-left min-w-0">
+                      <h3 className="font-semibold text-slate-900 text-xs group-hover:text-cyan-700 transition-colors">{prop.code}</h3>
+                      <p className="text-[10px] text-slate-500 truncate">{prop.name}</p>
                     </div>
                   </div>
                 </button>
@@ -410,11 +325,11 @@ export default function InspectionFlowSelector({
 
             {!propertiesError && availableProperties.length === 0 && (
               <div className="mt-4 bg-amber-50 border border-amber-200 rounded-lg p-4 text-center">
-                <svg className="w-8 h-8 text-amber-400/50 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4m0 4v.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                <svg className="w-6 h-6 text-amber-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
-                <p className="text-amber-900 font-semibold text-sm">No hay propiedades disponibles</p>
-                <p className="text-amber-800/70 text-xs mt-0.5">Contacta a tu administrador para obtener acceso</p>
+                <p className="text-amber-900 font-medium text-sm">Sin propiedades asignadas</p>
+                <p className="text-amber-700 text-xs mt-0.5">Contacta a tu administrador</p>
               </div>
             )}
           </div>

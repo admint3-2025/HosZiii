@@ -2,6 +2,8 @@ import Link from 'next/link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import AssetFilters from './ui/AssetFilters'
+import { redirect } from 'next/navigation'
+import { isMaintenanceAssetCategory } from '@/lib/permissions/asset-category'
 
 export default async function AssetsPage({
   searchParams,
@@ -27,6 +29,11 @@ export default async function AssetsPage({
     userRole = profile?.role || 'user'
     canManageAllAssets = profile?.can_manage_assets || false
     userAssetCategory = profile?.asset_category || null
+
+    // Bloquear inventario IT para perfiles de mantenimiento (no admin)
+    if (userRole !== 'admin' && isMaintenanceAssetCategory(userAssetCategory)) {
+      redirect('/mantenimiento/dashboard')
+    }
     
     // Si no es admin y no tiene permiso global de activos, obtener sus sedes asignadas
     if (userRole !== 'admin' && !canManageAllAssets) {
@@ -170,21 +177,24 @@ export default async function AssetsPage({
   // Obtener solicitudes de baja pendientes (solo para admins)
   let pendingDisposalRequests: any[] = []
   if (userRole === 'admin') {
+    // Nota: asset_disposal_requests.asset_id referencia la tabla 'assets' original
     const { data: disposalRequests, error: disposalError } = await dbClient
       .from('asset_disposal_requests')
       .select(`
         *,
         requester:profiles!asset_disposal_requests_requested_by_fkey(full_name),
-        asset:assets_it(asset_code, category, brand, model, image_url)
+        asset:assets(asset_tag, asset_type, brand, model, image_url)
       `)
       .eq('status', 'pending')
       .order('requested_at', { ascending: false })
     
     if (disposalError) {
-      console.error('[AssetsPage] Error fetching disposal requests:', disposalError)
+      // Solo loguear si hay un error real (no relación faltante)
+      if (disposalError.code !== 'PGRST200') {
+        console.error('[AssetsPage] Error fetching disposal requests:', disposalError)
+      }
     }
     pendingDisposalRequests = disposalRequests || []
-    console.log('[AssetsPage] Pending disposals:', pendingDisposalRequests.length)
   }
 
   // Determinar el subtítulo basado en la categoría del usuario

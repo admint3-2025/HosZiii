@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState, useTransition } from "react"
 import { assignTicketAssetAction } from "../actions"
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser"
+import { formatAssetType } from "@/lib/assets/format"
 
 type AssetOption = {
   id: string
@@ -88,9 +89,13 @@ export function AssetAssignForm({
     const loadAssets = async () => {
       try {
         setLoading(true)
+        setError(null)
         const params: string[] = []
         if (selectedLocationId) params.push(`locationId=${encodeURIComponent(selectedLocationId)}`)
         const qs = params.length ? `?${params.join("&")}` : ""
+        
+        console.log('[AssetAssignForm] Cargando activos:', { selectedLocationId, qs })
+        
         const res = await fetch(`/api/assets/search${qs}`, {
           signal: controller.signal,
         })
@@ -99,10 +104,17 @@ export function AssetAssignForm({
           throw new Error(text || `Error ${res.status}`)
         }
         const json = await res.json()
+        
+        console.log('[AssetAssignForm] Activos recibidos:', json.assets?.length || 0)
+        if (json.assets && json.assets.length > 0) {
+          console.log('[AssetAssignForm] Primer activo:', json.assets[0])
+        }
+        
         setResults(json.assets || [])
         setError(null)
       } catch (err: any) {
         if (err?.name === "AbortError") return
+        console.error('[AssetAssignForm] Error cargando activos:', err)
         setError("No se pudo cargar el inventario de la sede")
       } finally {
         setLoading(false)
@@ -217,6 +229,18 @@ export function AssetAssignForm({
                 </div>
                 {error && <div className="text-[11px] text-red-600">{error}</div>}
 
+                {!loading && !error && filteredResults.length === 0 && results.length === 0 && (
+                  <div className="text-sm text-gray-500 text-center py-8">
+                    No hay activos en esta sede. Selecciona otra sede o verifica el inventario.
+                  </div>
+                )}
+
+                {!loading && !error && filteredResults.length === 0 && results.length > 0 && (
+                  <div className="text-sm text-gray-500 text-center py-8">
+                    No se encontraron activos con ese criterio de búsqueda. Intenta con otro término.
+                  </div>
+                )}
+
                 {filteredResults.length > 0 && (
                   <div className="max-h-64 overflow-auto rounded-lg border border-gray-200 shadow-sm divide-y">
                     {filteredResults.map((asset) => (
@@ -235,7 +259,7 @@ export function AssetAssignForm({
                           <span className="text-[11px] px-2 py-0.5 rounded bg-gray-100 text-gray-700 border">{asset.status}</span>
                         </div>
                         <div className="text-xs text-gray-600">
-                          {asset.asset_type.replace(/_/g, " ")}
+                          {formatAssetType(asset)}
                           {asset.brand ? ` • ${asset.brand}` : ""}
                           {asset.model ? ` ${asset.model}` : ""}
                         </div>

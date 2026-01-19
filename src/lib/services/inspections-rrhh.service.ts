@@ -218,12 +218,30 @@ export class InspectionsRRHHService {
     const supabase = createSupabaseBrowserClient()
 
     try {
+      console.log('updateInspectionItems - Iniciando guardado para inspección:', inspectionId)
+      console.log('updateInspectionItems - Total de áreas:', areas.length)
+      
+      let itemsActualizados = 0
+      let itemsSinId = 0
+
       // Actualizar cada item
       for (const area of areas) {
+        console.log(`updateInspectionItems - Área "${area.nombre}": ${area.items.length} items`)
+        
         for (const item of area.items) {
-          if (!item.id) continue
+          if (!item.id) {
+            itemsSinId++
+            console.warn('updateInspectionItems - Item sin ID:', item.descripcion)
+            continue
+          }
 
-          const { error: itemError } = await supabase
+          console.log(`updateInspectionItems - Actualizando item ${item.id}:`, {
+            cumplimiento: item.cumplimiento_valor,
+            calif: item.calif_valor,
+            comentarios: item.comentarios_valor?.substring(0, 30)
+          })
+
+          const { error: itemError, data: updateResult } = await supabase
             .from('inspections_rrhh_items')
             .update({
               cumplimiento_valor: item.cumplimiento_valor,
@@ -231,27 +249,39 @@ export class InspectionsRRHHService {
               comentarios_valor: item.comentarios_valor
             })
             .eq('id', item.id)
+            .select()
+
+          console.log(`updateInspectionItems - Resultado update item ${item.id}:`, updateResult)
 
           if (itemError) {
+            console.error('updateInspectionItems - Error al actualizar item:', item.id, itemError)
             return { data: false, error: itemError }
           }
+          
+          itemsActualizados++
         }
       }
 
+      console.log(`updateInspectionItems - Items actualizados: ${itemsActualizados}, sin ID: ${itemsSinId}`)
+
       // Actualizar comentarios generales si se proporcionan
       if (generalComments !== undefined) {
+        console.log('updateInspectionItems - Actualizando comentarios generales')
         const { error: commentsError } = await supabase
           .from('inspections_rrhh')
           .update({ general_comments: generalComments })
           .eq('id', inspectionId)
 
         if (commentsError) {
+          console.error('updateInspectionItems - Error al actualizar comentarios:', commentsError)
           return { data: false, error: commentsError }
         }
       }
 
+      console.log('updateInspectionItems - Guardado completado exitosamente')
       return { data: true, error: null }
     } catch (error) {
+      console.error('updateInspectionItems - Error inesperado:', error)
       return { data: false, error }
     }
   }
@@ -359,52 +389,82 @@ export class InspectionsRRHHService {
    * Obtiene estadísticas generales de inspecciones de una ubicación
    */
   static async getLocationStats(
-    locationId: string
+    locationId: string,
+    filterByCurrentUser = false
   ): Promise<{ data: any; error: any }> {
     const supabase = createSupabaseBrowserClient()
+    
+    // Obtener usuario actual si se requiere filtro
+    let currentUserId: string | null = null
+    if (filterByCurrentUser) {
+      const { data: { user } } = await supabase.auth.getUser()
+      currentUserId = user?.id || null
+    }
+
+    // Base query builder
+    const buildQuery = (query: any) => {
+      query = query.eq('location_id', locationId)
+      if (currentUserId) {
+        query = query.eq('inspector_user_id', currentUserId)
+      }
+      return query
+    }
 
     // Total de inspecciones
-    const { count: totalCount, error: countError } = await supabase
+    let countQuery = supabase
       .from('inspections_rrhh')
       .select('*', { count: 'exact', head: true })
       .eq('location_id', locationId)
+    if (currentUserId) countQuery = countQuery.eq('inspector_user_id', currentUserId)
+    
+    const { count: totalCount, error: countError } = await countQuery
 
     if (countError) {
       return { data: null, error: countError }
     }
 
     // Inspecciones pendientes de aprobar
-    const { count: pendingCount } = await supabase
+    let pendingQuery = supabase
       .from('inspections_rrhh')
       .select('*', { count: 'exact', head: true })
       .eq('location_id', locationId)
       .eq('status', 'completed')
+    if (currentUserId) pendingQuery = pendingQuery.eq('inspector_user_id', currentUserId)
+    
+    const { count: pendingCount } = await pendingQuery
 
     // Promedio histórico
-    const { data: avgData } = await supabase
+    let avgQuery = supabase
       .from('inspections_rrhh')
       .select('average_score')
       .eq('location_id', locationId)
       .in('status', ['completed', 'approved'])
+    if (currentUserId) avgQuery = avgQuery.eq('inspector_user_id', currentUserId)
+    
+    const { data: avgData } = await avgQuery
 
     const avgScore = avgData && avgData.length > 0
       ? Math.round((avgData.reduce((sum: number, i: any) => sum + (i.average_score || 0), 0) / avgData.length) * 10)
       : 0
 
-    // Últimas 5 inspecciones
-    const { data: recentInspections } = await supabase
+    // Últimas 5 inspecciones del usuario
+    let recentQuery = supabase
       .from('inspections_rrhh')
       .select('*')
       .eq('location_id', locationId)
       .order('inspection_date', { ascending: false })
       .limit(5)
+    if (currentUserId) recentQuery = recentQuery.eq('inspector_user_id', currentUserId)
+    
+    const { data: recentInspections } = await recentQuery
 
     return {
       data: {
         totalInspections: totalCount || 0,
         pendingApproval: pendingCount || 0,
         averageScore: avgScore,
-        recentInspections: recentInspections || []
+        recentInspections: recentInspections || [],
+        currentUserId
       },
       error: null
     }

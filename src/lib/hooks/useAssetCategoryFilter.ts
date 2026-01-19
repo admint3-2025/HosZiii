@@ -8,6 +8,7 @@
 
 import { useEffect, useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
+import { normalizeAssetCategory } from '@/lib/permissions/asset-category'
 
 export type AssetCategoryType = 'IT' | 'MAINTENANCE' | null
 
@@ -52,7 +53,8 @@ export function useAssetCategoryFilter() {
         }
 
         const isAdmin = profile?.role === 'admin'
-        const assetCategory = profile?.asset_category as AssetCategoryType
+        const normalized = normalizeAssetCategory(profile?.asset_category)
+        const assetCategory = (normalized === 'UNKNOWN' ? null : normalized) as AssetCategoryType
 
         setAccess({
           userRole: profile?.role || 'user',

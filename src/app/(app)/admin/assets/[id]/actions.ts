@@ -1,13 +1,14 @@
 'use server'
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { revalidatePath } from 'next/cache'
 
 export async function updateAssetWithLocationChange(
   assetId: string,
   updateData: {
     asset_tag: string
-    asset_type: string
+    asset_type: string | null
     status: string
     serial_number: string | null
     model: string | null
@@ -28,35 +29,128 @@ export async function updateAssetWithLocationChange(
   locationChangeReason?: string
 ) {
   const supabase = await createSupabaseServerClient()
+  const adminClient = createSupabaseAdminClient()
 
   try {
-    // Usar la función RPC que maneja todo en una sola transacción
-    const { error } = await supabase.rpc('update_asset_with_location_reason', {
-      p_asset_id: assetId,
-      p_asset_tag: updateData.asset_tag,
-      p_asset_type: updateData.asset_type,
-      p_status: updateData.status,
-      p_serial_number: updateData.serial_number,
-      p_model: updateData.model,
-      p_brand: updateData.brand,
-      p_department: updateData.department,
-      p_purchase_date: updateData.purchase_date,
-      p_warranty_end_date: updateData.warranty_end_date,
-      p_location: updateData.location,
-      p_location_id: updateData.location_id,
-      p_notes: updateData.notes,
-      p_assigned_to: updateData.assigned_to,
-      p_processor: updateData.processor,
-      p_ram_gb: updateData.ram_gb,
-      p_storage_gb: updateData.storage_gb,
-      p_os: updateData.os,
-      p_image_url: updateData.image_url || null,
-      p_location_change_reason: locationChangeReason || null
-    })
+    // Obtener el usuario actual
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return { success: false, error: 'No autenticado' }
+    }
 
-    if (error) {
-      console.error('Error updating asset:', error)
-      return { success: false, error: error.message }
+    // Obtener valores anteriores para registrar cambios
+    const { data: oldAsset, error: fetchError } = await adminClient
+      .from('assets_it')
+      .select('*, asset_location:locations!location_id(id, name, code)')
+      .eq('id', assetId)
+      .single()
+
+    if (fetchError || !oldAsset) {
+      console.error('Error fetching old asset:', fetchError)
+      return { success: false, error: 'No se encontró el activo' }
+    }
+
+    // Verificar si hay cambio de ubicación sin razón
+    if (oldAsset.location_id !== updateData.location_id && !locationChangeReason?.trim()) {
+      return { success: false, error: 'LOCATION_CHANGE_REQUIRES_REASON' }
+    }
+
+    // Actualizar directamente en assets_it usando el cliente admin
+    const { error: updateError } = await adminClient
+      .from('assets_it')
+      .update({
+        asset_code: updateData.asset_tag,
+        name: updateData.asset_tag, // Usar asset_tag como nombre por defecto
+        category: updateData.asset_type,
+        status: updateData.status?.toUpperCase() || 'ACTIVE',
+        serial_number: updateData.serial_number,
+        model: updateData.model,
+        brand: updateData.brand,
+        location_id: updateData.location_id,
+        assigned_to_user_id: updateData.assigned_to,
+        purchase_date: updateData.purchase_date,
+        warranty_expiry: updateData.warranty_end_date,
+        notes: updateData.notes,
+        image_url: updateData.image_url,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', assetId)
+
+    if (updateError) {
+      console.error('Error updating asset_it:', updateError)
+      return { success: false, error: updateError.message }
+    }
+
+    // Registrar cambios en asset_changes si hay cambios relevantes
+    const changes: any[] = []
+    const changedAt = new Date().toISOString()
+
+    // Cambio de ubicación
+    if (oldAsset.location_id !== updateData.location_id) {
+      changes.push({
+        asset_id: assetId,
+        asset_tag: updateData.asset_tag,
+        field_name: 'location_id',
+        change_type: 'UPDATE',
+        old_value: oldAsset.asset_location?.code || oldAsset.location_id || 'Sin sede',
+        new_value: updateData.location_id || 'Sin sede',
+        changed_by: user.id,
+        changed_at: changedAt,
+      })
+    }
+
+    // Cambio de estado
+    if (oldAsset.status?.toUpperCase() !== updateData.status?.toUpperCase()) {
+      changes.push({
+        asset_id: assetId,
+        asset_tag: updateData.asset_tag,
+        field_name: 'status',
+        change_type: 'UPDATE',
+        old_value: oldAsset.status,
+        new_value: updateData.status?.toUpperCase(),
+        changed_by: user.id,
+        changed_at: changedAt,
+      })
+    }
+
+    // Cambio de asignación
+    if (oldAsset.assigned_to_user_id !== updateData.assigned_to) {
+      changes.push({
+        asset_id: assetId,
+        asset_tag: updateData.asset_tag,
+        field_name: 'assigned_to',
+        change_type: 'UPDATE',
+        old_value: oldAsset.assigned_to_user_id || 'Sin asignar',
+        new_value: updateData.assigned_to || 'Sin asignar',
+        changed_by: user.id,
+        changed_at: changedAt,
+      })
+    }
+
+    // Cambio de imagen
+    if (oldAsset.image_url !== updateData.image_url) {
+      changes.push({
+        asset_id: assetId,
+        asset_tag: updateData.asset_tag,
+        field_name: 'image_url',
+        change_type: 'UPDATE',
+        old_value: oldAsset.image_url || 'Sin imagen',
+        new_value: updateData.image_url || 'Imagen eliminada',
+        changed_by: user.id,
+        changed_at: changedAt,
+      })
+    }
+
+    // Insertar cambios en asset_changes
+    if (changes.length > 0) {
+      const { error: changesError } = await adminClient
+        .from('asset_changes')
+        .insert(changes)
+
+      if (changesError) {
+        console.error('Error inserting asset_changes (non-fatal):', changesError)
+        // No retornamos error porque el activo se actualizó correctamente
+      }
     }
 
     revalidatePath(`/admin/assets/${assetId}`)

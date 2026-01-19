@@ -9,16 +9,23 @@ import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import AssetEditForm from './AssetEditForm'
 import DisposalRequestModal from './DisposalRequestModal'
+import { formatAssetType, getAssetTypeValue } from '@/lib/assets/format'
 import {
   getAssetFieldsForType,
   getAssetTypesByCategory,
   isITAsset,
 } from '@/lib/assets/asset-fields'
+import { formatHistoryValue, FIELD_LABELS } from '@/lib/assets/format-history'
 
 type Location = {
   id: string
   name: string
   code: string
+}
+
+type UserOption = {
+  id: string
+  full_name: string | null
 }
 
 type Ticket = {
@@ -34,7 +41,7 @@ type Ticket = {
 type Asset = {
   id: string
   asset_tag: string
-  asset_type: string
+  asset_type: string | null
   status: string
   serial_number: string | null
   model: string | null
@@ -90,15 +97,19 @@ type AssetChange = {
 export default function AssetDetailView({
   asset,
   locations,
+  users,
   relatedTickets,
   assignedUser,
   stats,
   assetHistory,
   userRole = 'requester',
-  pendingDisposalRequest
+  pendingDisposalRequest,
+  backLink = '/assets',
+  assetCategory = 'IT'
 }: {
   asset: Asset
   locations: Location[]
+  users?: UserOption[]
   relatedTickets: Ticket[]
   assignedUser?: { id: string; full_name: string | null; location_name: string | null } | null
   stats?: AssetStats | null
@@ -110,6 +121,8 @@ export default function AssetDetailView({
     created_at: string
     requester: { full_name: string | null } | null
   } | null
+  backLink?: string
+  assetCategory?: 'IT' | 'MAINTENANCE'
 }) {
   const router = useRouter()
   const [isEditing, setIsEditing] = useState(false)
@@ -167,7 +180,7 @@ export default function AssetDetailView({
       },
     })
 
-    router.push('/assets')
+    router.push(backLink)
     router.refresh()
   }
 
@@ -279,11 +292,13 @@ export default function AssetDetailView({
       <AssetEditForm
         asset={asset}
         locations={locations}
+        users={users || []}
         onCancel={() => setIsEditing(false)}
         onSuccess={() => {
           setIsEditing(false)
           router.refresh()
         }}
+        assetCategory={assetCategory}
       />
     )
   }
@@ -407,7 +422,7 @@ export default function AssetDetailView({
       y += 10
 
       row('Etiqueta', asset.asset_tag, 15, y)
-      row('Tipo', asset.asset_type.replace(/_/g, ' '), 110, y)
+      row('Tipo', formatAssetType(asset, 'N/A'), 110, y)
       y += 8
       row('Marca', asset.brand || 'N/A', 15, y)
       row('Modelo', asset.model || 'N/A', 110, y)
@@ -938,7 +953,7 @@ export default function AssetDetailView({
             </div>
             <div>
               <dt className="text-xs font-medium text-gray-600">Tipo</dt>
-              <dd className="text-sm text-gray-900">{asset.asset_type.replace(/_/g, ' ')}</dd>
+              <dd className="text-sm text-gray-900">{formatAssetType(asset)}</dd>
             </div>
             <div>
               <dt className="text-xs font-medium text-gray-600">Número de Serie</dt>
@@ -1097,7 +1112,10 @@ export default function AssetDetailView({
 
       {/* Especificaciones Dinámicas por Tipo de Activo */}
       {(() => {
-        const specificFields = getAssetFieldsForType(asset.asset_type)
+        const assetTypeValue = getAssetTypeValue(asset)
+        if (!assetTypeValue) return null
+
+        const specificFields = getAssetFieldsForType(assetTypeValue)
         const hasVisibleFields = specificFields.some(field => {
           const value = (asset as any)[field.name]
           return value !== null && value !== undefined && value !== ''
@@ -1107,9 +1125,9 @@ export default function AssetDetailView({
 
         // Obtener label del tipo de activo
         const allTypes = getAssetTypesByCategory()
-        let typeLabel = asset.asset_type.replace(/_/g, ' ')
+        let typeLabel = assetTypeValue.replace(/_/g, ' ')
         Object.values(allTypes).forEach(categoryTypes => {
-          const type = categoryTypes.find(t => t.value === asset.asset_type)
+          const type = categoryTypes.find(t => t.value === assetTypeValue)
           if (type) typeLabel = type.label
         })
 
@@ -1269,34 +1287,6 @@ export default function AssetDetailView({
 
             <div className="space-y-2 max-h-96 overflow-y-auto">
               {assetHistory.map((change) => {
-                const fieldLabels: Record<string, string> = {
-                  status: 'Estado',
-                  asset_type: 'Tipo',
-                  brand: 'Marca',
-                  model: 'Modelo',
-                  serial_number: 'Número de Serie',
-                  processor: 'Procesador',
-                  ram_gb: 'Memoria RAM',
-                  storage_gb: 'Almacenamiento',
-                  os: 'Sistema Operativo',
-                  location_id: 'Sede',
-                  assigned_to: 'Responsable',
-                  department: 'Departamento',
-                  created: 'Creación',
-                  deleted: 'Eliminación',
-                  image_url: 'Imagen',
-                }
-
-                // Función para formatear valores de imagen
-                const formatImageValue = (value: string | null): string => {
-                  if (!value) return '(vacío)'
-                  if (value === 'Sin imagen') return 'Sin imagen'
-                  if (value === 'Imagen eliminada') return 'Imagen eliminada'
-                  // Si es una URL, mostrar texto amigable
-                  if (value.startsWith('http')) return 'Imagen agregada'
-                  return value
-                }
-
                 // Determinar si es un campo de imagen
                 const isImageField = change.field_name === 'image_url'
 
@@ -1318,28 +1308,40 @@ export default function AssetDetailView({
                             isImageField ? 'bg-purple-200 text-purple-800' :
                             'bg-blue-200 text-blue-800'
                           }`}>
-                            {fieldLabels[change.field_name] || change.field_name}
+                            {FIELD_LABELS[change.field_name] || change.field_name}
                           </span>
                           {change.change_type === 'UPDATE' && (
                             <span className="text-xs text-gray-600">
                               <span className="text-gray-400">
-                                {isImageField ? formatImageValue(change.old_value) : (change.old_value || '(vacío)')}
+                                {formatHistoryValue(change.old_value, change.field_name, locations, users, assignedUser)}
                               </span>
                               {' → '}
                               <span className="font-semibold text-gray-900">
-                                {isImageField ? formatImageValue(change.new_value) : (change.new_value || '(vacío)')}
+                                {formatHistoryValue(change.new_value, change.field_name, locations, users, assignedUser)}
                               </span>
                             </span>
                           )}
                           {change.change_type === 'CREATE' && (
-                            <span className="text-xs text-green-700 font-medium">{change.new_value}</span>
+                            <span className="text-xs text-green-700 font-medium">
+                              {formatHistoryValue(change.new_value, change.field_name, locations, users, assignedUser)}
+                            </span>
                           )}
                           {change.change_type === 'DELETE' && (
-                            <span className="text-xs text-red-700 font-medium">{change.new_value}</span>
+                            <span className="text-xs text-red-700 font-medium">
+                              {formatHistoryValue(change.new_value, change.field_name, locations, users, assignedUser)}
+                            </span>
                           )}
                         </div>
                         <div className="text-xs text-gray-600">
-                          {change.changed_by_name || 'Sistema'} ({change.changed_by_email || 'automático'})
+                          {change.changed_by_name && change.changed_by_email ? (
+                            <>
+                              {change.changed_by_name} ({change.changed_by_email})
+                            </>
+                          ) : change.changed_by_name ? (
+                            change.changed_by_name
+                          ) : (
+                            <span className="text-gray-400 italic">Usuario no registrado</span>
+                          )}
                         </div>
                       </div>
                       <div className="text-xs text-gray-500 whitespace-nowrap flex-shrink-0">

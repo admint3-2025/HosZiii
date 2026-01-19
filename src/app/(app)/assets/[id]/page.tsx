@@ -1,10 +1,12 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import AssetDetailView from './ui/AssetDetailView'
 
 export default async function AssetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createSupabaseServerClient()
+  const dbClient = createSupabaseAdminClient()
 
 
   
@@ -14,17 +16,21 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
     notFound()
   }
 
-  // Obtener perfil del usuario (rol)
+  // Obtener perfil del usuario (rol y category)
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, asset_category, can_manage_assets, location_id')
     .eq('id', user.id)
     .single()
 
   const userRole = profile?.role || 'requester'
 
-  // Obtener activo con la sede - usando tabla assets_it
-  const { data: asset, error } = await supabase
+  // Obtener activo - puede ser de IT o Mantenimiento
+  let rawAsset: any = null
+  let assetCategory: 'IT' | 'MAINTENANCE' = 'IT'
+  
+  // Primero intentar IT
+  const { data: itAsset, error: itError } = await supabase
     .from('assets_it')
     .select(`
       *,
@@ -34,8 +40,47 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
     .is('deleted_at', null)
     .single()
 
-  if (error || !asset) {
+  if (itAsset && !itError) {
+    rawAsset = itAsset
+    assetCategory = 'IT'
+  } else {
+    // Si no es IT, intentar Mantenimiento
+    const { data: maintAsset, error: maintError } = await supabase
+      .from('assets_maintenance')
+      .select(`
+        *,
+        asset_location:locations!location_id(id, name, code)
+      `)
+      .eq('id', id)
+      .is('deleted_at', null)
+      .single()
+    
+    if (maintAsset && !maintError) {
+      rawAsset = maintAsset
+      assetCategory = 'MAINTENANCE'
+    }
+  }
+
+  if (!rawAsset) {
     notFound()
+  }
+
+  // Mapear campos de assets_it a los esperados por AssetDetailView
+  const asset = {
+    ...rawAsset,
+    // Mapeo de campos principales (assets_it usa nombres diferentes)
+    asset_tag: rawAsset.asset_code,
+    asset_type: rawAsset.category,
+    assigned_to: rawAsset.assigned_to_user_id,
+    warranty_end_date: rawAsset.warranty_expiry,
+    // Campo location desde la relación
+    location: rawAsset.asset_location?.name || null,
+    // Campos IT específicos que pueden no existir en la nueva tabla
+    department: (rawAsset as any).department || null,
+    processor: (rawAsset as any).processor || null,
+    ram_gb: (rawAsset as any).ram_gb || null,
+    storage_gb: (rawAsset as any).storage_gb || null,
+    os: (rawAsset as any).os || null,
   }
 
   // Validar acceso basado en rol para agent_l1 y agent_l2
@@ -52,12 +97,57 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
       notFound()
     }
   }
-  // Obtener todas las sedes activas para el formulario de edición
-  const { data: locations } = await supabase
+  
+  // Obtener sedes disponibles según permisos
+  let locationsQuery = supabase
     .from('locations')
     .select('id, name, code')
     .eq('is_active', true)
     .order('name')
+  
+  // Si no es admin y no tiene permiso global, filtrar por sedes asignadas
+  if (userRole !== 'admin' && !profile?.can_manage_assets && user) {
+    // Obtener sedes de user_locations
+    const { data: userLocs } = await supabase
+      .from('user_locations')
+      .select('location_id')
+      .eq('user_id', user.id)
+    
+    let locationIds = userLocs?.map(ul => ul.location_id).filter(Boolean) || []
+    
+    // Si no hay en user_locations, obtener del perfil
+    if (locationIds.length === 0 && profile?.location_id) {
+      locationIds.push(profile.location_id)
+    }
+    
+    if (locationIds.length > 0) {
+      locationsQuery = locationsQuery.in('id', locationIds)
+    }
+  }
+  
+  const { data: locations } = await locationsQuery
+  
+  // Cargar usuarios de la SEDE DEL ACTIVO (no de las sedes del usuario actual)
+  let users: Array<{id: string, full_name: string | null}> = []
+  
+  if (asset.location_id) {
+    // Cargar todos los usuarios de la sede del activo
+    const { data: assetLocationUsers } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .eq('location_id', asset.location_id)
+      .order('full_name')
+    
+    users = assetLocationUsers || []
+  } else if (userRole === 'admin' || profile?.can_manage_assets) {
+    // Si el activo no tiene sede asignada y el usuario es admin, mostrar todos
+    const { data: allUsers } = await supabase
+      .from('profiles')
+      .select('id, full_name')
+      .order('full_name')
+    
+    users = allUsers || []
+  }
 
   // Obtener responsable actual del activo (si existe)
   let assignedUser: { id: string; full_name: string | null; location_name: string | null } | null = null
@@ -136,6 +226,7 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
     <AssetDetailView
       asset={asset}
       locations={locations || []}
+      users={users}
       relatedTickets={relatedTickets || []}
       assignedUser={assignedUser}
       stats={assetStats}

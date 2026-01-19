@@ -256,7 +256,7 @@ export default function UserCreateForm() {
             >
               <option value="">Todo Activo</option>
               <option value="IT">IT</option>
-              <option value="Maintenance">Mantenimiento</option>
+              <option value="MAINTENANCE">Mantenimiento</option>
             </select>
             <div className="mt-1 text-[10px] text-gray-500">
               Define qué tipos de activos puede gestionar este usuario

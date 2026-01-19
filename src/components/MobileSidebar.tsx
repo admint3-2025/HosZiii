@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
+import { isITAssetCategoryOrUnassigned, isMaintenanceAssetCategory } from "@/lib/permissions/asset-category"
 
 interface UserData {
   role: string | null
@@ -13,9 +14,21 @@ export default function MobileSidebar({ userData }: { userData: UserData }) {
   const pathname = usePathname()
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/")
 
-  const ticketsHref = (userData.role === 'admin' || userData.role === 'supervisor')
-    ? '/tickets?view=queue'
-    : '/tickets?view=mine'
+  const canManageIT = userData.role === 'admin' || isITAssetCategoryOrUnassigned(userData.assetCategory)
+  const canManageMaintenance = userData.role === 'admin' || isMaintenanceAssetCategory(userData.assetCategory)
+
+  const isMaintenanceContext = isMaintenanceAssetCategory(userData.assetCategory) && userData.role !== 'admin'
+
+  const dashboardHref = isMaintenanceContext ? '/mantenimiento/dashboard' : '/dashboard'
+
+  const ticketsHref = (() => {
+    if (isMaintenanceContext) {
+      return (userData.role === 'admin' || userData.role === 'supervisor') ? '/mantenimiento/tickets?view=queue' : '/mantenimiento/tickets?view=mine'
+    }
+    // Helpdesk (IT)
+    if (canManageIT && (userData.role === 'admin' || userData.role === 'supervisor')) return '/tickets?view=queue'
+    return '/tickets?view=mine'
+  })()
 
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 bg-slate-900 border-t border-slate-800 shadow-2xl z-[9999]">
@@ -35,9 +48,9 @@ export default function MobileSidebar({ userData }: { userData: UserData }) {
         </Link>
 
         <Link
-          href="/dashboard"
+          href={dashboardHref}
           className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl min-w-[56px] transition-all ${
-            isActive("/dashboard") 
+            isActive(dashboardHref) 
               ? "bg-white/10 text-indigo-400" 
               : "text-slate-400 hover:text-white"
           }`}
@@ -93,17 +106,19 @@ export default function MobileSidebar({ userData }: { userData: UserData }) {
               </Link>
             )}
 
-            <Link
-              href="/assets"
-              className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl min-w-[56px] transition-all ${
-                isActive('/assets') ? 'bg-white/10 text-indigo-400' : 'text-slate-400 hover:text-white'
-              }`}
-            >
-              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-              </svg>
-              <span className="text-[9px] font-bold">Activos IT</span>
-            </Link>
+            {(canManageIT) && (
+              <Link
+                href="/assets"
+                className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl min-w-[56px] transition-all ${
+                  isActive('/assets') ? 'bg-white/10 text-indigo-400' : 'text-slate-400 hover:text-white'
+                }`}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+                <span className="text-[9px] font-bold">Activos IT</span>
+              </Link>
+            )}
 
             {userData.role === 'admin' && (
               <Link

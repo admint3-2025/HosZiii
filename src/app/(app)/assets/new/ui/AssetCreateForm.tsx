@@ -18,17 +18,25 @@ type Location = {
   code: string
 }
 
+type UserOption = {
+  id: string
+  full_name: string | null
+}
+
 type AssetCreateFormProps = {
   locations: Location[]
   canManageAllAssets: boolean
   userRole: string
+  users: UserOption[]
 }
 
-export default function AssetCreateForm({ locations, canManageAllAssets, userRole }: AssetCreateFormProps) {
+export default function AssetCreateForm({ locations, canManageAllAssets, userRole, users: initialUsers }: AssetCreateFormProps) {
   const router = useRouter()
   const [processorSuggestions, setProcessorSuggestions] = useState<string[]>([])
   const [osSuggestions, setOsSuggestions] = useState<string[]>([])
   const [isLoadingCatalogs, setIsLoadingCatalogs] = useState(true)
+  const [users] = useState<UserOption[]>(initialUsers)
+  const [isLoadingUsers] = useState(false)
   
   const [formData, setFormData] = useState({
     asset_tag: '',
@@ -48,6 +56,7 @@ export default function AssetCreateForm({ locations, canManageAllAssets, userRol
     storage_gb: '',
     os: '',
     image_url: '',
+    assigned_to_user_id: '',
   })
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -115,8 +124,10 @@ export default function AssetCreateForm({ locations, canManageAllAssets, userRol
         purchase_date: formData.purchase_date || null,
         warranty_expiry: formData.warranty_end_date || null,
         location_id: formData.location_id || null,
+        assigned_to_user_id: formData.assigned_to_user_id || null,
         notes: formData.notes || null,
         created_by: user?.id || null,
+        image_url: formData.image_url || null,
       })
       .select()
       .single()
@@ -293,6 +304,34 @@ export default function AssetCreateForm({ locations, canManageAllAssets, userRol
                 ))}
               </select>
               <p className="text-xs text-gray-500 mt-1">Sede donde se encuentra el activo</p>
+            </div>
+
+            {/* Responsable del Equipo */}
+            <div>
+              <label className="block text-sm font-medium text-gray-700 mb-1.5">
+                Responsable del Equipo
+              </label>
+              <select
+                value={formData.assigned_to_user_id}
+                onChange={(e) => setFormData({ ...formData, assigned_to_user_id: e.target.value })}
+                className="block w-full px-3 py-2 border border-gray-300 rounded-lg text-sm focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                disabled={isLoadingUsers}
+              >
+                <option value="">
+                  {isLoadingUsers ? 'Cargando usuarios...' : 'Sin asignar'}
+                </option>
+                {users.map((user) => (
+                  <option key={user.id} value={user.id}>
+                    {user.full_name || user.id}
+                  </option>
+                ))}
+              </select>
+              {users.length === 0 && !isLoadingUsers && (
+                <p className="text-xs text-amber-600 mt-1">No hay usuarios disponibles</p>
+              )}
+              {isLoadingUsers && (
+                <p className="text-xs text-gray-500 mt-1">Cargando usuarios...</p>
+              )}
             </div>
 
             {/* Ubicación física */}

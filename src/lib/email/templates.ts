@@ -360,6 +360,11 @@ export function ticketCreatedEmailTemplate(params: {
   ticketUrl: string
   requesterName: string
   serviceLabel?: string
+  locationName?: string
+  locationCode?: string
+  createdAt?: string
+  assignedTo?: string
+  expectedResponseTime?: string
   assetTag?: string
   assetType?: string
   assetBrand?: string
@@ -375,6 +380,11 @@ export function ticketCreatedEmailTemplate(params: {
     ticketUrl,
     requesterName,
     serviceLabel: serviceLabelParam,
+    locationName,
+    locationCode,
+    createdAt,
+    assignedTo,
+    expectedResponseTime,
     assetTag,
     assetType,
     assetBrand,
@@ -383,6 +393,7 @@ export function ticketCreatedEmailTemplate(params: {
   } = params
 
   const serviceLabel = serviceLabelParam || 'Mesa de Ayuda ITIL'
+  const displayExpectedResponse = expectedResponseTime || '24-48 horas según prioridad'
 
   const subject = `Ticket #${ticketNumber} creado exitosamente`
 
@@ -470,6 +481,17 @@ export function ticketCreatedEmailTemplate(params: {
               <div style="font-size:16px; color:#111827; font-weight:600; line-height:1.4;">${escapeHtml(title)}</div>
             </div>
 
+            ${locationName ? `
+            <!-- Location -->
+            <div style="margin-bottom:16px; padding:12px; background:#fef3c7; border-radius:8px; border:1px solid #fbbf24;">
+              <div style="font-size:11px; color:#92400e; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+                <span style="font-size:14px;">📍</span>
+                <span>Sede</span>
+              </div>
+              <div style="font-size:14px; color:#111827; font-weight:600;">${escapeHtml(locationCode || '')} - ${escapeHtml(locationName)}</div>
+            </div>
+            ` : ''}
+
             <!-- Category & Priority -->
             <div style="display:table; width:100%; margin-bottom:16px;">
               <div style="display:table-cell; width:50%; padding-right:12px;">
@@ -481,6 +503,22 @@ export function ticketCreatedEmailTemplate(params: {
                 <div style="display:inline-block; padding:4px 12px; background:#fef2f2; color:#dc2626; font-size:13px; font-weight:700; border-radius:6px;">${escapeHtml(priority)}</div>
               </div>
             </div>
+
+            ${createdAt ? `
+            <!-- Creation Date -->
+            <div style="margin-bottom:16px; padding:12px; background:#f3f4f6; border-radius:8px;">
+              <div style="font-size:11px; color:#6b7280; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:4px;">📅 Fecha de creación</div>
+              <div style="font-size:14px; color:#111827; font-weight:500;">${escapeHtml(createdAt)}</div>
+            </div>
+            ` : ''}
+
+            ${assignedTo ? `
+            <!-- Assigned To -->
+            <div style="margin-bottom:16px; padding:12px; background:#dbeafe; border-radius:8px; border:1px solid #93c5fd;">
+              <div style="font-size:11px; color:#1e40af; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:4px;">👤 Asignado a</div>
+              <div style="font-size:14px; color:#111827; font-weight:600;">${escapeHtml(assignedTo)}</div>
+            </div>
+            ` : ''}
 
             ${assetTag ? `
             <!-- Asset Info -->
@@ -505,6 +543,16 @@ export function ticketCreatedEmailTemplate(params: {
             </div>
           </div>
 
+          <!-- Expected Response Time -->
+          <div style="margin-bottom:24px; padding:16px; background:#f0fdf4; border-left:4px solid #22c55e; border-radius:8px;">
+            <p style="margin:0 0 8px 0; font-size:13px; color:#166534; font-weight:700;">
+              ⏱️ TIEMPO DE RESPUESTA ESPERADO
+            </p>
+            <p style="margin:0; font-size:13px; color:#166534; line-height:1.5;">
+              ${escapeHtml(displayExpectedResponse)}. Te mantendremos informado del progreso de tu solicitud.
+            </p>
+          </div>
+
           <!-- CTA Button -->
           <div style="text-align:center; margin:32px 0 24px 0;">
             <a href="${escapeAttr(ticketUrl)}"
@@ -516,7 +564,7 @@ export function ticketCreatedEmailTemplate(params: {
           <!-- Info Box -->
           <div style="margin-top:24px; padding:16px; background:#dbeafe; border-left:4px solid #3b82f6; border-radius:8px;">
             <p style="margin:0; font-size:13px; color:#1e40af; line-height:1.5;">
-              <strong>💡 Consejo:</strong> Guarda este correo para tu referencia. Puedes usar el número de ticket para consultar el estado de tu solicitud en cualquier momento.
+              <strong>💡 Consejo:</strong> Guarda este correo para tu referencia. Puedes usar el número de ticket <strong>#${escapeHtml(ticketNumber)}</strong> para consultar el estado de tu solicitud en cualquier momento.
             </p>
           </div>
 
@@ -875,6 +923,9 @@ export function ticketStatusChangedEmailTemplate(params: {
   ticketUrl: string
   recipientName: string
   serviceLabel?: string
+  locationName?: string
+  locationCode?: string
+  changedAt?: string
   resolution?: string
   assetTag?: string
   assetType?: string
@@ -891,6 +942,9 @@ export function ticketStatusChangedEmailTemplate(params: {
     ticketUrl,
     recipientName,
     serviceLabel: serviceLabelParam,
+    locationName,
+    locationCode,
+    changedAt,
     resolution,
     assetTag,
     assetType,
@@ -994,10 +1048,24 @@ export function ticketStatusChangedEmailTemplate(params: {
               </div>
             </div>
 
+            ${locationName ? `
+            <div style="padding:12px; margin-bottom:16px; background:#fef3c7; border-radius:8px; border:1px solid #fbbf24;">
+              <div style="font-size:11px; color:#92400e; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:4px;">📍 Sede</div>
+              <div style="font-size:14px; color:#111827; font-weight:600;">${escapeHtml(locationCode || '')} - ${escapeHtml(locationName)}</div>
+            </div>
+            ` : ''}
+
             <div style="padding-bottom:16px;">
               <div style="font-size:11px; color:#6b7280; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:6px;">Actualizado por</div>
               <div style="font-size:14px; color:#111827; font-weight:500;">${escapeHtml(changedBy)}</div>
             </div>
+
+            ${changedAt ? `
+            <div style="padding:12px; background:#f3f4f6; border-radius:8px;">
+              <div style="font-size:11px; color:#6b7280; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:4px;">📅 Fecha de actualización</div>
+              <div style="font-size:14px; color:#111827; font-weight:500;">${escapeHtml(changedAt)}</div>
+            </div>
+            ` : ''}
           </div>
             ${assetTag ? `
             <div style="margin-bottom:24px; padding:16px; background:#ecfeff; border-radius:10px; border:1px solid #bae6fd;">

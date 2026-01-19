@@ -13,11 +13,22 @@ export default async function NewTicketPage({
   const area = params.area === 'it' || params.area === 'maintenance' ? (params.area as ServiceAreaParam) : undefined
 
   const supabase = await createSupabaseServerClient()
-  const { data: categories } = await supabase
+  const { data: allCategories } = await supabase
     .from('categories')
     .select('id,name,parent_id,sort_order')
     .order('sort_order', { ascending: true })
     .order('name', { ascending: true })
+
+  // Filtrar categorías según el área
+  // IT tiene sort_order < 100 
+  // Mantenimiento tiene sort_order >= 100
+  let categories = allCategories ?? []
+  if (area === 'it') {
+    categories = categories.filter((c) => (c.sort_order ?? 0) < 100)
+  } else if (area === 'maintenance') {
+    categories = categories.filter((c) => (c.sort_order ?? 0) >= 100)
+  }
+  // Si no especifica área, mostrar todas (selector de área)
 
   // Configuración de tema según área
   const themeConfig = {
@@ -70,15 +81,6 @@ export default async function NewTicketPage({
                   <h1 className="text-xl font-bold text-white">{theme.title}</h1>
                   <p className={`text-${theme.textColor} text-xs`}>{theme.subtitle}</p>
                 </div>
-                <Link
-                  href="/tickets/new"
-                  className="ml-auto text-white/80 hover:text-white text-xs flex items-center gap-1 transition-colors"
-                >
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                  </svg>
-                  Cambiar área
-                </Link>
               </div>
             </div>
           </div>

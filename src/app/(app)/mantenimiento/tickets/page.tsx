@@ -2,8 +2,10 @@ import Link from 'next/link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getLocationFilter } from '@/lib/supabase/locations'
 import { StatusBadge } from '@/lib/ui/badges'
-import { formatTicketCode } from '@/lib/tickets/code'
+import { formatMaintenanceTicketCode as formatTicketCode } from '@/lib/tickets/code'
 import MaintenanceTicketFilters from './ui/MaintenanceTicketFilters'
+import { isMaintenanceAssetCategory } from '@/lib/permissions/asset-category'
+import MaintenanceBanner from '../ui/MaintenanceBanner'
 
 export default async function MaintenanceTicketsPage({
   searchParams,
@@ -21,24 +23,16 @@ export default async function MaintenanceTicketsPage({
     .eq('id', user.id)
     .single() : { data: null }
 
-  // Validar acceso a mantenimiento
-  const canAccessMaintenance = profile?.role === 'admin' || profile?.asset_category === 'MAINTENANCE'
+  // TODOS los usuarios pueden ver SUS tickets de mantenimiento
+  // Solo admin/supervisor de mantenimiento pueden ver la bandeja completa
+  const isAdminOrSupervisor = profile?.role === 'admin' || profile?.role === 'supervisor'
+  // Admin, supervisores y técnicos (L1/L2) de mantenimiento pueden ver la bandeja
+  const canManageMaintenance = profile?.role === 'admin' || 
+    ((profile?.role === 'supervisor' || profile?.role === 'agent_l1' || profile?.role === 'agent_l2') && 
+     isMaintenanceAssetCategory(profile?.asset_category))
   
-  if (!canAccessMaintenance) {
-    return (
-      <main className="min-h-screen">
-        <div className="max-w-4xl mx-auto px-4 py-12 text-center">
-          <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-          </svg>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Acceso Denegado</h2>
-          <p className="text-gray-600">No tienes permisos para acceder a este módulo.</p>
-        </div>
-      </main>
-    )
-  }
-
-  const canViewQueue = profile?.role === 'admin' || profile?.role === 'supervisor'
+  // Determinar vista permitida
+  const canViewQueue = canManageMaintenance
   const requestedView = params.view
   const defaultView = canViewQueue ? 'queue' : 'mine'
   const view = (requestedView === 'queue' || requestedView === 'mine')
@@ -71,6 +65,7 @@ export default async function MaintenanceTicketsPage({
 
   // Aplicar filtros de vista
   if (view === 'mine') {
+    // Ver solo tickets donde soy el solicitante
     if (user?.id) {
       query = query.eq('requester_id', user.id)
     } else {
@@ -79,8 +74,11 @@ export default async function MaintenanceTicketsPage({
   }
 
   if (view === 'queue') {
+    // Bandeja: Ver tickets que NO soy el solicitante (pueden estar asignados a mí o sin asignar)
+    // Los técnicos de mantenimiento ven todos los tickets de su sede (filtrados por locationFilter arriba)
+    // IMPORTANTE: Manejar NULL correctamente (tickets sin solicitante también se muestran)
     if (user?.id) {
-      query = query.neq('requester_id', user.id)
+      query = query.or(`requester_id.neq.${user.id},requester_id.is.null`)
     }
   }
 
@@ -129,39 +127,18 @@ export default async function MaintenanceTicketsPage({
   return (
     <main className="p-6 space-y-6">
       {/* Header */}
-      <div className="relative overflow-hidden rounded-xl bg-gradient-to-br from-orange-600 via-red-600 to-red-700 p-6 shadow-lg">
-        <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32"></div>
-        <div className="absolute bottom-0 left-0 w-64 h-64 bg-red-400/20 rounded-full blur-3xl -ml-32 -mb-32"></div>
-        
-        <div className="relative z-10 flex items-center justify-between gap-4">
-          <div>
-            <div className="flex items-center gap-3 mb-1">
-              <div className="p-2 bg-white/20 backdrop-blur-sm rounded-lg">
-                <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
-                </svg>
-              </div>
-              <h1 className="text-xl font-bold text-white">Solicitudes de Mantenimiento</h1>
-              <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-3 py-1 text-[11px] font-semibold text-white ring-1 ring-white/20">
-                <span>{viewBadge.label}</span>
-                {viewBadge.sub ? (
-                  <span className="text-white/80">· {viewBadge.sub}</span>
-                ) : null}
-              </span>
-            </div>
-            <p className="text-orange-100 text-xs">Gestiona todas tus solicitudes de mantenimiento preventivo y correctivo</p>
-          </div>
-          <Link
-            href="/mantenimiento/tickets/new"
-            className="flex items-center gap-2 px-4 py-2 bg-white text-red-700 font-semibold rounded-lg shadow-md hover:shadow-lg hover:scale-105 transition-all duration-200 text-sm"
-          >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
-            </svg>
-            Nueva Solicitud
-          </Link>
-        </div>
-      </div>
+      <MaintenanceBanner
+        title="Solicitudes de Mantenimiento"
+        subtitle="Gestiona todas tus solicitudes de mantenimiento preventivo y correctivo"
+        badge={viewBadge}
+        actionLabel="Nueva Solicitud"
+        actionHref="/mantenimiento/tickets/new"
+        icon={
+          <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
+          </svg>
+        }
+      />
 
       {/* Tabs */}
       <div className="inline-flex items-center rounded-xl border border-slate-200 bg-white/80 p-1 shadow-sm">

@@ -8,28 +8,45 @@ import { createSupabaseServerClient, getSafeServerUser } from '@/lib/supabase/se
 import { getAvatarInitial } from '@/lib/ui/avatar'
 import { formatDistanceToNow } from 'date-fns'
 import { es } from 'date-fns/locale'
+import { isMaintenanceAssetCategory, isITAssetCategoryOrUnassigned } from '@/lib/permissions/asset-category'
 
 // Tipos de actividad y sus configuraciones
 const activityConfig: Record<string, { label: string; icon: string; color: string }> = {
-  CREATE: { label: 'Creación', icon: '＋', color: 'text-emerald-400' },
-  UPDATE: { label: 'Actualización', icon: '✎', color: 'text-blue-400' },
-  DELETE: { label: 'Eliminación', icon: '✕', color: 'text-red-400' },
-  EXPORT: { label: 'Exportación', icon: '↓', color: 'text-violet-400' },
-  ASSIGN: { label: 'Asignación', icon: '→', color: 'text-amber-400' },
-  COMMENT: { label: 'Comentario', icon: '💬', color: 'text-cyan-400' },
-  CLOSE: { label: 'Cierre', icon: '✓', color: 'text-green-400' },
-  REOPEN: { label: 'Reapertura', icon: '↻', color: 'text-orange-400' },
-  LOGIN: { label: 'Inicio de sesión', icon: '●', color: 'text-slate-400' },
+  CREATE: { label: 'Nuevo', icon: '＋', color: 'text-emerald-400' },
+  UPDATE: { label: 'Actualizado', icon: '✎', color: 'text-blue-400' },
+  DELETE: { label: 'Eliminado', icon: '✕', color: 'text-red-400' },
+  EXPORT: { label: 'Exportado', icon: '↓', color: 'text-violet-400' },
+  ASSIGN: { label: 'Asignado', icon: '→', color: 'text-amber-400' },
+  COMMENT: { label: 'Comentario en', icon: '💬', color: 'text-cyan-400' },
+  CLOSE: { label: 'Cerrado', icon: '✓', color: 'text-green-400' },
+  REOPEN: { label: 'Reabierto', icon: '↻', color: 'text-orange-400' },
+  LOGIN: { label: 'Sesión iniciada', icon: '●', color: 'text-slate-400' },
 }
 
 const entityTypeLabels: Record<string, string> = {
   ticket: 'Ticket',
+  tickets: 'Ticket',
+  ticket_it: 'Ticket IT',
+  ticket_maintenance: 'Ticket Mantenimiento',
+  tickets_maintenance: 'Ticket Mantenimiento',
   user: 'Usuario',
+  users: 'Usuario',
   asset: 'Activo',
+  assets: 'Activo IT',
+  assets_it: 'Activo IT',
+  assets_maintenance: 'Activo Mantenimiento',
+  asset_disposal_request: 'Solicitud de Baja',
   report: 'Reporte',
   location: 'Ubicación',
+  locations: 'Ubicación',
   department: 'Departamento',
+  departments: 'Departamento',
   profile: 'Perfil',
+  profiles: 'Usuario',
+  beo: 'Evento BEO',
+  knowledge_base: 'Base de Conocimientos',
+  inspection: 'Inspección',
+  inspections: 'Inspección',
 }
 
 // Definición de módulos del sistema
@@ -58,17 +75,24 @@ const modules: Module[] = [
       </svg>
     ),
     getHref: (profile: any) => {
-      // Si puede gestionar IT (admin o asset_category = IT o null)
-      if (profile?.role === 'admin' || profile?.asset_category === 'IT' || profile?.asset_category === null) {
+      const isAdminOrSupervisor = profile?.role === 'admin' || profile?.role === 'supervisor'
+      const isAgent = profile?.role === 'agent_l1' || profile?.role === 'agent_l2'
+      const canManageIT = isITAssetCategoryOrUnassigned(profile?.asset_category)
+      
+      // Admin, supervisor IT, o agentes IT van al dashboard
+      if (isAdminOrSupervisor && (profile?.role === 'admin' || canManageIT)) {
         return '/dashboard'
       }
-      // Si solo puede crear tickets (supervisor de mantenimiento, etc)
-      return '/tickets/new?area=it'
+      if (isAgent && canManageIT) {
+        return '/dashboard'
+      }
+      // Usuarios normales (incluido corporate_admin) van a su bandeja de tickets
+      return '/tickets?view=mine'
     },
     bgGradient: 'from-blue-500 via-indigo-500 to-purple-600',
     iconBg: 'bg-blue-100',
     textColor: 'text-blue-900',
-    requiredRoles: ['admin', 'supervisor', 'agent_l1', 'agent_l2', 'requester'],
+    requiredRoles: ['admin', 'supervisor', 'agent_l1', 'agent_l2', 'requester', 'corporate_admin'],
   },
   {
     id: 'mantenimiento',
@@ -80,17 +104,20 @@ const modules: Module[] = [
       </svg>
     ),
     getHref: (profile: any) => {
-      // Si puede gestionar mantenimiento (admin o asset_category = MAINTENANCE)
-      if (profile?.role === 'admin' || profile?.asset_category === 'MAINTENANCE') {
+      const isAdminOrSupervisor = profile?.role === 'admin' || profile?.role === 'supervisor'
+      const canManageMaintenance = isMaintenanceAssetCategory(profile?.asset_category)
+      
+      // Admin o supervisor de mantenimiento van al dashboard
+      if (isAdminOrSupervisor && (profile?.role === 'admin' || canManageMaintenance)) {
         return '/mantenimiento/dashboard'
       }
-      // Si solo puede crear tickets (cualquier otro usuario)
-      return '/mantenimiento/tickets/new'
+      // Usuarios normales (incluido corporate_admin) van a su bandeja de tickets
+      return '/mantenimiento/tickets?view=mine'
     },
     bgGradient: 'from-emerald-500 via-teal-500 to-cyan-600',
     iconBg: 'bg-emerald-100',
     textColor: 'text-emerald-900',
-    requiredRoles: ['admin', 'supervisor', 'agent_l1', 'agent_l2', 'requester'],
+    requiredRoles: ['admin', 'supervisor', 'agent_l1', 'agent_l2', 'requester', 'corporate_admin'],
   },
   {
     id: 'corporativo',
@@ -121,9 +148,11 @@ const modules: Module[] = [
     bgGradient: 'from-violet-500 via-purple-500 to-fuchsia-600',
     iconBg: 'bg-violet-100',
     textColor: 'text-violet-900',
-    requiredRoles: ['admin', 'corporate_admin'],
+    requiredRoles: ['admin'],
   },
 ]
+
+export const dynamic = 'force-dynamic'
 
 export default async function HubPage() {
   const user = await getSafeServerUser()
@@ -136,7 +165,7 @@ export default async function HubPage() {
   
   const { data: profile } = await supabase
     .from('profiles')
-    .select('full_name, role, position, location_id, can_view_beo')
+    .select('full_name, role, position, location_id, can_view_beo, asset_category')
     .eq('id', user.id)
     .single()
 
@@ -206,7 +235,7 @@ export default async function HubPage() {
         : profile?.role === 'agent_l2'
           ? 'AGENTE L2'
           : profile?.role === 'supervisor'
-            ? 'SUPERVISOR'
+            ? (isMaintenanceAssetCategory(profile?.asset_category) ? 'MANTENIMIENTO - SUPERVISOR' : 'IT - SUPERVISOR')
             : profile?.role === 'requester'
               ? 'USUARIO'
               : profile?.role === 'auditor'
@@ -340,9 +369,10 @@ export default async function HubPage() {
                 {recentActivities && recentActivities.length > 0 ? (
                   recentActivities.map((activity, idx) => {
                     const config = activityConfig[activity.action] || { label: activity.action, icon: '•', color: 'text-slate-400' }
-                    const entityLabel = entityTypeLabels[activity.entity_type] || activity.entity_type
+                    const entityLabel = entityTypeLabels[activity.entity_type] || activity.entity_type.replace(/_/g, ' ')
                     const metadata = activity.metadata as Record<string, any> | null
-                    const detail = metadata?.email || metadata?.title || metadata?.name || activity.entity_id?.slice(0, 8)
+                    // Mostrar nombre/título descriptivo, NO el ID
+                    const detail = metadata?.email || metadata?.title || metadata?.name || metadata?.asset_tag || metadata?.code || null
                     const timeAgo = formatDistanceToNow(new Date(activity.created_at), { addSuffix: true, locale: es })
                     
                     return (
@@ -353,8 +383,8 @@ export default async function HubPage() {
                       >
                         <span className={`text-sm ${config.color} flex-shrink-0 w-4 text-center`}>{config.icon}</span>
                         <span className="text-sm text-slate-300 truncate flex-1">
-                          {config.label} de {entityLabel}
-                          {detail && <span className="text-slate-500"> · {detail}</span>}
+                          {config.label} {entityLabel}
+                          {detail && <span className="text-slate-400"> — {detail}</span>}
                         </span>
                         <span className="text-[10px] text-slate-600 flex-shrink-0">{timeAgo}</span>
                       </div>

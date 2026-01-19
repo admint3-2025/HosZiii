@@ -18,6 +18,10 @@ interface RRHHInspectionManagerProps {
   userName: string
   mode?: 'create' | 'edit' | 'view'
   templateOverride?: InspectionRRHHArea[] | null
+  isAdmin?: boolean
+  isRRHH?: boolean
+  onChangeProperty?: () => void
+  onChangeDepartment?: () => void
 }
 
 function cloneTemplate(template: InspectionRRHHArea[]): InspectionRRHHArea[] {
@@ -171,8 +175,10 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
       const href = target.getAttribute('href')
       if (!href) return
 
-      // Permitir links a inspecciones
-      if (href === '/inspections' || href.startsWith('/inspections/')) return
+      // Solo permitir navegación sin advertencia a la misma inspección actual
+      // Cualquier otra navegación (incluyendo inbox, dashboard, etc.) requiere confirmación
+      const currentInspectionPath = props.inspectionId ? `/inspections/rrhh/${props.inspectionId}` : null
+      if (currentInspectionPath && href === currentInspectionPath) return
 
       e.preventDefault()
       e.stopPropagation()
@@ -208,7 +214,8 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
   }, [props.inspectionId])
 
   const loadStats = async () => {
-    const { data } = await InspectionsRRHHService.getLocationStats(props.locationId)
+    // Filtrar solo inspecciones del usuario actual
+    const { data } = await InspectionsRRHHService.getLocationStats(props.locationId, true)
     console.log('📊 loadStats data:', data)
     if (data) {
       setStats(data)
@@ -303,8 +310,12 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
     }
   }
 
-  const handleSave = async (completeInspection = false) => {
-    if (!inspection) return
+  const handleSave = async (completeInspection = false): Promise<boolean> => {
+    if (!inspection) {
+      console.error('handleSave: No hay inspección para guardar')
+      alert('Error: No hay inspección cargada para guardar')
+      return false
+    }
 
     setSaving(true)
 
@@ -318,6 +329,15 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
 
       if (inspection.id) {
         // Actualizar existente
+        console.log('Guardando inspección existente:', inspection.id)
+        console.log('=== DATOS QUE SE VAN A GUARDAR ===')
+        console.log('Areas:', inspection.areas.length)
+        inspection.areas.forEach((area, aIdx) => {
+          console.log(`Área ${aIdx}: ${area.area_name}`)
+          area.items.forEach((item, iIdx) => {
+            console.log(`  Item ${iIdx}: cumplimiento=${item.cumplimiento_valor}, calif=${item.calif_valor}, comentarios=${item.comentarios_valor}`)
+          })
+        })
         const { data, error } = await InspectionsRRHHService.updateInspectionItems(
           inspection.id,
           inspection.areas,
@@ -325,43 +345,48 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
         )
 
         if (error) {
+          console.error('Error al guardar:', error)
           alert('Error al guardar: ' + (error.message || 'Desconocido'))
           setSaving(false)
-          return
+          return false
         }
 
         if (completeInspection) {
+          console.log('Completando inspección...')
           await InspectionsRRHHService.updateInspectionStatus(inspection.id, 'completed')
         }
 
-        alert('Inspección guardada exitosamente')
-        
-        // Recargar para tener stats actualizadas
-        await loadInspection(inspection.id)
+        console.log('Inspección guardada exitosamente')
+        setSaving(false)
+        return true
       } else {
         // Crear nueva
+        console.log('Creando nueva inspección')
         const { data, error } = await InspectionsRRHHService.createInspection(inspection)
 
         if (error) {
+          console.error('Error al crear:', error)
           alert('Error al crear inspección: ' + (error.message || 'Desconocido'))
           setSaving(false)
-          return
+          return false
         }
 
         if (data) {
-          alert('Inspección creada exitosamente')
+          console.log('Inspección creada:', data.id)
           setInspection(data)
-          
-          // Redirigir a modo edición
-          router.push(`/inspections/rrhh/${data.id}`)
+          setSaving(false)
+          return true
         }
       }
     } catch (error: any) {
       console.error('Save error:', error)
       alert('Error al guardar: ' + (error.message || 'Desconocido'))
+      setSaving(false)
+      return false
     }
 
     setSaving(false)
+    return false
   }
 
   const handleGeneratePDF = async () => {
@@ -421,13 +446,13 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
         <div className="min-h-screen bg-slate-50 p-8">
           <div className="max-w-2xl mx-auto">
             <div className="mb-8">
-              <h1 className="text-3xl font-bold text-slate-900 mb-2">Seleccionar Inspección</h1>
-              <p className="text-slate-600">Hay múltiples inspecciones para esta propiedad</p>
+              <h1 className="text-3xl font-bold text-slate-900 mb-2">Mis Inspecciones</h1>
+              <p className="text-slate-600">Selecciona una inspección para continuar o ver</p>
               
               {hasDrafts && (
                 <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-lg">
                   <p className="text-amber-900 font-semibold text-sm">
-                    ⚠️ Tienes inspecciones iniciadas que puedes reanudar
+                    ⚠️ Tienes inspecciones en borrador que puedes continuar
                   </p>
                 </div>
               )}
@@ -510,6 +535,10 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
         locationId={props.locationId}
         stats={stats}
         onNewInspection={handleNewInspection}
+        isAdmin={props.isAdmin}
+        isRRHH={props.isRRHH}
+        onChangeProperty={props.onChangeProperty}
+        onChangeDepartment={props.onChangeDepartment}
       />
     )
   }
@@ -532,21 +561,28 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
   }))
 
   const handleUpdateItem = (areaName: string, itemId: number, field: string, value: any) => {
+    console.log('=== handleUpdateItem LLAMADO ===', { areaName, itemId, field, value })
+    setHasUnsavedChanges(true) // Marcar que hay cambios sin guardar
     setInspection((prev) => {
       if (!prev) return prev
-      return {
+      console.log('Areas disponibles:', prev.areas.map(a => a.area_name))
+      const updated = {
         ...prev,
         areas: prev.areas.map((area) => {
           if (area.area_name !== areaName) return area
+          console.log('Área encontrada:', area.area_name)
           return {
             ...area,
             items: area.items.map((item, idx) => {
               if (idx + 1 !== itemId) return item
+              console.log('Item encontrado:', { idx, itemId, field, value, itemActual: item })
               return { ...item, [field]: value }
             })
           }
         })
       }
+      console.log('Nuevo estado inspection.areas[0].items[0]:', updated.areas[0]?.items[0])
+      return updated
     })
   }
 
@@ -594,9 +630,9 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
             saving={saving}
             inspectionStatus={inspection.status}
             onUnsavedChanges={setHasUnsavedChanges}
-            onBack={() => {
+            onBack={props.onChangeProperty || (() => {
               window.location.href = '/inspections'
-            }}
+            })}
           />
         </div>
       ) : !showNewInspectionModal ? (
@@ -608,6 +644,10 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
           locationId={props.locationId}
           stats={stats}
           onNewInspection={handleNewInspection}
+          isAdmin={props.isAdmin}
+          isRRHH={props.isRRHH}
+          onChangeProperty={props.onChangeProperty}
+          onChangeDepartment={props.onChangeDepartment}
         />
       ) : null}
 
@@ -632,48 +672,55 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
 
             <div className="space-y-3">
               <button
-                onClick={() => {
-                  setHasUnsavedChanges(false)
-                  handleSave(false)
-                  setTimeout(() => {
-                    router.push(pendingNavigation || '/inspections')
+                disabled={saving}
+                onClick={async () => {
+                  const success = await handleSave(false) // Guardar como borrador
+                  if (success) {
+                    setHasUnsavedChanges(false)
                     setShowNavigationModal(false)
+                    const destination = pendingNavigation || '/inspections/inbox'
                     setPendingNavigation(null)
-                  }, 800)
+                    router.push(destination)
+                  }
                 }}
-                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium"
+                className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Guardar como Borrador
+                {saving ? 'Guardando...' : 'Guardar como Borrador'}
               </button>
 
               <button
-                onClick={() => {
-                  setHasUnsavedChanges(false)
-                  handleSave(true)
-                  setTimeout(() => {
-                    router.push(pendingNavigation || '/inspections')
+                disabled={saving}
+                onClick={async () => {
+                  const success = await handleSave(true) // Guardar y completar
+                  if (success) {
+                    setHasUnsavedChanges(false)
                     setShowNavigationModal(false)
+                    const destination = pendingNavigation || '/inspections/inbox'
                     setPendingNavigation(null)
-                  }, 800)
+                    router.push(destination)
+                  }
                 }}
-                className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium"
+                className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                Guardar y Completar
+                {saving ? 'Guardando...' : 'Guardar y Completar'}
               </button>
 
               <button
+                disabled={saving}
                 onClick={() => {
                   setHasUnsavedChanges(false)
                   setShowNavigationModal(false)
+                  const destination = pendingNavigation || '/inspections/inbox'
                   setPendingNavigation(null)
-                  router.push(pendingNavigation || '/inspections')
+                  router.push(destination)
                 }}
-                className="w-full px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors font-medium"
+                className="w-full px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors font-medium disabled:opacity-50"
               >
                 Descartar Cambios
               </button>
 
               <button
+                disabled={saving}
                 onClick={() => {
                   setShowNavigationModal(false)
                   setPendingNavigation(null)

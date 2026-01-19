@@ -200,3 +200,67 @@ export function getFileIcon(mimeType: string): string {
   if (mimeType === 'text/plain') return '📃'
   return '📎'
 }
+
+/**
+ * Sube un archivo adjunto a un ticket de MANTENIMIENTO
+ */
+export async function uploadMaintenanceTicketAttachment(
+  ticketId: string,
+  file: File,
+  userId: string
+): Promise<UploadResult> {
+  const validation = validateFile(file)
+  if (!validation.valid) {
+    return { success: false, error: validation.error }
+  }
+
+  const supabase = createSupabaseBrowserClient()
+
+  // Generar nombre único para evitar colisiones
+  const timestamp = Date.now()
+  const randomStr = Math.random().toString(36).substring(2, 8)
+  const fileExt = file.name.split('.').pop()
+  const fileName = `${ticketId}/${timestamp}-${randomStr}.${fileExt}`
+
+  try {
+    // Subir archivo a Storage (bucket de mantenimiento)
+    const { error: uploadError } = await supabase.storage
+      .from('maintenance-attachments')
+      .upload(fileName, file, {
+        cacheControl: '3600',
+        upsert: false,
+      })
+
+    if (uploadError) {
+      console.error('Error uploading maintenance file:', uploadError)
+      return { success: false, error: uploadError.message }
+    }
+
+    // Registrar en la base de datos (tabla de mantenimiento)
+    const { error: dbError } = await supabase
+      .from('ticket_attachments_maintenance')
+      .insert({
+        ticket_id: ticketId,
+        file_name: file.name,
+        file_size: file.size,
+        mime_type: file.type,
+        file_path: fileName,
+        uploaded_by: userId,
+      })
+
+    if (dbError) {
+      console.error('Error saving maintenance attachment metadata:', dbError)
+      // Intentar eliminar el archivo subido
+      await supabase.storage.from('maintenance-attachments').remove([fileName])
+      return { success: false, error: 'Error al guardar información del archivo' }
+    }
+
+    return {
+      success: true,
+      path: fileName,
+    }
+  } catch (error) {
+    console.error('Unexpected error uploading maintenance attachment:', error)
+    return { success: false, error: 'Error inesperado al subir archivo' }
+  }
+}

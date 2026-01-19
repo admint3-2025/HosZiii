@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getLocationFilter } from '@/lib/supabase/locations'
 import { unstable_noStore as noStore } from 'next/cache'
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import StatusChart from '../../dashboard/ui/StatusChart'
 import PriorityChart from '../../dashboard/ui/PriorityChart'
 import TrendChart from '../../dashboard/ui/TrendChart'
@@ -10,6 +11,8 @@ import AgingMetrics from '../../dashboard/ui/AgingMetrics'
 import InteractiveKPI from '../../dashboard/ui/InteractiveKPI'
 import AssignedAssets from '../../dashboard/ui/AssignedAssets'
 import LocationStatsTable from '../../dashboard/ui/LocationStatsTable'
+import { isMaintenanceAssetCategory } from '@/lib/permissions/asset-category'
+import MaintenanceBanner from '../ui/MaintenanceBanner'
 
 export const dynamic = 'force-dynamic'
 
@@ -28,26 +31,14 @@ export default async function MaintenanceDashboardPage() {
     .eq('id', user.id)
     .single() : { data: null }
 
-  // Validar acceso al DASHBOARD de mantenimiento (gestión)
-  // Solo admin o usuarios cuya área principal sea MAINTENANCE
-  // (supervisores/agentes de IT pueden crear tickets pero NO gestionar)
-  const canManageMaintenance = profile?.role === 'admin' || profile?.asset_category === 'MAINTENANCE'
+  // Acceso: admin o supervisor de mantenimiento al dashboard
+  // Otros usuarios (incluido corporate_admin) van a sus tickets
+  const isAdminOrSupervisor = profile?.role === 'admin' || profile?.role === 'supervisor'
+  const canManageMaintenance = profile?.role === 'admin' || (profile?.role === 'supervisor' && isMaintenanceAssetCategory(profile?.asset_category))
   
   if (!canManageMaintenance) {
-    return (
-      <main className="min-h-screen">
-        <div className="max-w-4xl mx-auto px-4 py-12 text-center">
-          <svg className="w-16 h-16 text-gray-400 mx-auto mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-          </svg>
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Acceso Denegado</h2>
-          <p className="text-gray-600">No tienes permisos para gestionar este módulo.</p>
-        </div>
-      </main>
-    )
+    redirect('/mantenimiento/tickets?view=mine')
   }
-
-  const isAdminOrSupervisor = profile?.role === 'admin' || profile?.role === 'supervisor'
   const isAgent = profile?.role === 'agent_l1' || profile?.role === 'agent_l2'
 
   const ticketsIndexHref = isAdminOrSupervisor ? '/mantenimiento/tickets?view=queue' : '/mantenimiento/tickets?view=mine'
@@ -252,52 +243,12 @@ export default async function MaintenanceDashboardPage() {
   return (
     <main className="min-h-screen space-y-6">
         {/* Header */}
-        <div className="relative overflow-hidden rounded-2xl bg-gradient-to-br from-orange-900 via-orange-800 to-red-900 shadow-2xl border border-orange-700/50">
-          <div className="absolute inset-0 opacity-10">
-            <div className="absolute inset-0" style={{
-              backgroundImage: `radial-gradient(circle at 2px 2px, rgb(251 146 60) 1px, transparent 0)`,
-              backgroundSize: '32px 32px'
-            }}></div>
-          </div>
-          
-          <div className="absolute top-0 right-0 w-72 h-72 bg-orange-500/20 rounded-full blur-3xl"></div>
-          <div className="absolute bottom-0 left-0 w-72 h-72 bg-red-500/10 rounded-full blur-3xl"></div>
-          
-          <div className="relative z-10 px-6 py-5">
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-              <div className="flex items-center gap-4">
-                <div className="relative flex-shrink-0">
-                  <div className="absolute inset-0 bg-orange-500 rounded-xl blur-md opacity-50"></div>
-                  <div className="relative w-12 h-12 rounded-xl bg-gradient-to-br from-orange-500 to-red-600 border border-orange-400/30 flex items-center justify-center shadow-xl">
-                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m6 2a8 8 0 11-16 0 8 8 0 0116 0zm-6 6v4m-2-2h4" />
-                    </svg>
-                  </div>
-                </div>
-                
-                <div className="min-w-0">
-                  <h1 className="text-xl font-extrabold text-white tracking-tight">Panel de Mantenimiento</h1>
-                  <p className="text-orange-200 text-xs mt-0.5">
-                    Gestión centralizada de solicitudes de mantenimiento
-                  </p>
-                </div>
-              </div>
-              
-              <div className="flex items-center gap-3">
-                <Link
-                  href="/mantenimiento/tickets/new"
-                  className="group relative flex items-center gap-2 px-4 py-2.5 bg-gradient-to-r from-orange-600 to-red-600 hover:from-orange-500 hover:to-red-500 text-white rounded-xl font-bold text-sm transition-all shadow-lg hover:shadow-xl hover:shadow-orange-500/25 hover:scale-[1.02]"
-                  aria-label="Crear ticket de Mantenimiento"
-                >
-                  <svg className="w-4 h-4 group-hover:rotate-90 transition-transform" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M12 4v16m8-8H4" />
-                  </svg>
-                  <span>Nuevo Ticket</span>
-                </Link>
-              </div>
-            </div>
-          </div>
-        </div>
+        <MaintenanceBanner
+          title="Panel de Mantenimiento"
+          subtitle="Gestión centralizada de solicitudes de mantenimiento"
+          actionLabel="Nuevo Ticket"
+          actionHref="/mantenimiento/tickets/new"
+        />
 
       {dashboardErrors.length ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800 flex items-center gap-3 shadow-sm">
@@ -377,7 +328,11 @@ export default async function MaintenanceDashboardPage() {
           <AssignedAssets assets={assignedAssets} />
         </div>
         <div className="mt-4">
-          <RecentTickets tickets={recentTickets ?? []} ticketsIndexHref={ticketsIndexHref} />
+          <RecentTickets 
+            tickets={recentTickets ?? []} 
+            ticketsIndexHref={ticketsIndexHref}
+            baseHref="/mantenimiento/tickets"
+          />
         </div>
       </div>
 

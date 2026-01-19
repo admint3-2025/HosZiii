@@ -33,7 +33,7 @@ export async function createTicket(input: CreateTicketInput) {
   // Verificar rol del usuario actual
   const { data: currentProfile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, location_id')
     .eq('id', user.id)
     .single()
 
@@ -49,12 +49,52 @@ export async function createTicket(input: CreateTicketInput) {
   // Validar que el solicitante tenga una sede asignada
   const { data: requesterProfile } = await supabase
     .from('profiles')
-    .select('location_id')
+    .select('location_id, full_name, email')
     .eq('id', requesterId)
     .single()
 
-  if (!requesterProfile?.location_id) {
-    return { error: `El usuario solicitante no tiene una sede asignada. Contacta al administrador para asignarle una sede antes de crear el ticket.` }
+  // Resolver location_id del ticket con fallbacks (para admins)
+  let resolvedLocationId: string | null = requesterProfile?.location_id ?? null
+
+  // Si el solicitante no tiene sede pero se seleccionó un activo, heredar la sede del activo
+  if (!resolvedLocationId && input.asset_id) {
+    const admin = createSupabaseAdminClient()
+
+    // Preferir esquema nuevo (assets_it). Si no existe/fracasa, intentar legacy (assets).
+    const { data: a1 } = await admin
+      .from('assets_it')
+      .select('location_id')
+      .eq('id', input.asset_id)
+      .maybeSingle()
+
+    resolvedLocationId = (a1 as any)?.location_id ?? null
+
+    if (!resolvedLocationId) {
+      const { data: a2 } = await admin
+        .from('assets')
+        .select('location_id')
+        .eq('id', input.asset_id)
+        .maybeSingle()
+      resolvedLocationId = (a2 as any)?.location_id ?? null
+    }
+  }
+
+  // Si sigue sin sede, usar la sede del usuario actual (si existe)
+  if (!resolvedLocationId) {
+    resolvedLocationId = (currentProfile as any)?.location_id ?? null
+  }
+
+  // Para no-admins, location_id sigue siendo obligatorio
+  const currentRole = String((currentProfile as any)?.role || '').toLowerCase()
+  const isAdmin = currentRole === 'admin' || currentRole === 'corporate_admin'
+
+  if (!resolvedLocationId && !isAdmin) {
+    const who = requesterProfile?.full_name || requesterProfile?.email || requesterId
+    return {
+      error:
+        `El solicitante seleccionado (${who}) no tiene sede asignada (profiles.location_id). ` +
+        `Pídele al administrador asignarle una sede o selecciona un activo con sede para heredarla.`,
+    }
   }
 
   // Insert ticket with NEW status
@@ -71,7 +111,8 @@ export async function createTicket(input: CreateTicketInput) {
     priority: input.priority,
     status: 'NEW',
     support_level: input.support_level,
-    location_id: requesterProfile.location_id,
+    // Admin puede crear sin sede si no hay forma de inferirla
+    location_id: resolvedLocationId,
     service_area: input.service_area ?? inferServiceAreaFromCategoryPath(categoryPath),
   }
 

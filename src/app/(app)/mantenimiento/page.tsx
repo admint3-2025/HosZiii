@@ -1,5 +1,7 @@
 import Link from 'next/link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { isMaintenanceAssetCategory } from '@/lib/permissions/asset-category'
+import MaintenanceBanner from './ui/MaintenanceBanner'
 
 export default async function MaintenanceHubPage() {
   const supabase = await createSupabaseServerClient()
@@ -11,14 +13,21 @@ export default async function MaintenanceHubPage() {
     .eq('id', user.id)
     .single() : { data: null }
 
-  const canAccessMaintenance = profile?.role === 'admin' || profile?.asset_category === 'MAINTENANCE'
+  // Acceso: admin o usuarios con asset_category de mantenimiento. corporate_admin accede como usuario normal
+  const canAccess = profile?.role === 'admin' || profile?.role === 'corporate_admin' || isMaintenanceAssetCategory(profile?.asset_category)
 
-  if (!canAccessMaintenance) {
+  // Si no tiene acceso, mostrar pantalla de acceso denegado (sin redirects)
+  if (!canAccess) {
     return (
-      <main className="min-h-screen">
-        <div className="max-w-4xl mx-auto px-4 py-12 text-center">
-          <h2 className="text-2xl font-bold text-gray-900 mb-2">Acceso Denegado</h2>
-          <p className="text-gray-600">No tienes permisos para acceder a este módulo.</p>
+      <main className="min-h-screen bg-gradient-to-br from-slate-900 to-slate-800">
+        <div className="flex items-center justify-center h-screen px-4">
+          <div className="text-center">
+            <h1 className="text-4xl font-bold text-white mb-4">Acceso Denegado</h1>
+            <p className="text-slate-400 mb-6">No tienes permisos para acceder a esta sección.</p>
+            <Link href="/hub" className="inline-block px-6 py-2 bg-indigo-600 text-white rounded-lg hover:bg-indigo-700">
+              Volver al Hub
+            </Link>
+          </div>
         </div>
       </main>
     )
@@ -32,20 +41,15 @@ export default async function MaintenanceHubPage() {
 
   return (
     <main className="min-h-screen bg-gradient-to-br from-orange-50 to-red-50">
-      <div className="max-w-7xl mx-auto px-4 py-12 sm:px-6 lg:px-8">
+      <div className="max-w-7xl mx-auto px-4 py-8 sm:px-6 lg:px-8">
         {/* Header */}
-        <div className="mb-12">
-          <div className="flex items-center gap-4 mb-4">
-            <div className="p-3 bg-orange-100 rounded-xl">
-              <svg className="w-8 h-8 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m6 2a8 8 0 11-16 0 8 8 0 0116 0zm-6 6v4m-2-2h4" />
-              </svg>
-            </div>
-            <div>
-              <h1 className="text-4xl font-bold text-gray-900">Panel de Mantenimiento</h1>
-              <p className="text-gray-600 mt-1">Gestión centralizada de solicitudes y activos de mantenimiento</p>
-            </div>
-          </div>
+        <div className="mb-8">
+          <MaintenanceBanner
+            title="Panel de Mantenimiento"
+            subtitle="Gestión centralizada de solicitudes y activos de mantenimiento"
+            actionLabel="Nuevo Ticket"
+            actionHref="/mantenimiento/tickets/new"
+          />
         </div>
 
         {/* Stats */}

@@ -52,8 +52,8 @@ export async function GET(request: Request) {
     }
 
     let assetQuery = client
-      .from("assets")
-      .select("id, asset_tag, asset_type, status, brand, model, location_id, asset_location:locations!location_id(code, name)")
+      .from("assets_it")
+      .select("id, asset_code, category, status, brand, model, location_id, asset_location:locations!location_id(code, name)")
       .is("deleted_at", null)
 
     if (locationId) {
@@ -62,19 +62,27 @@ export async function GET(request: Request) {
       assetQuery = assetQuery.in("location_id", allowedLocationIds)
     }
 
+    // Aplicar filtro de búsqueda solo si se proporciona un query
     if (query.length >= 2) {
-      assetQuery = assetQuery.or(`asset_tag.ilike.%${query}%,brand.ilike.%${query}%,model.ilike.%${query}%`)
+      assetQuery = assetQuery.or(`asset_code.ilike.%${query}%,brand.ilike.%${query}%,model.ilike.%${query}%`)
     }
 
     const { data, error } = await assetQuery
-      .order("asset_tag", { ascending: true })
-      .limit(locationId ? 200 : 10)
+      .order("asset_code", { ascending: true })
+      .limit(200)
 
     if (error) {
       return NextResponse.json({ error: error.message }, { status: 500 })
     }
 
-    return NextResponse.json({ assets: data ?? [] })
+    // Mapear asset_code a asset_tag y category a asset_type para compatibilidad con el frontend
+    const mappedAssets = (data ?? []).map((asset: any) => ({
+      ...asset,
+      asset_tag: asset.asset_code,
+      asset_type: asset.category,
+    }))
+
+    return NextResponse.json({ assets: mappedAssets })
   } catch (err: any) {
     console.error("[assets/search]", err)
     return NextResponse.json({ error: err?.message || "Error interno" }, { status: 500 })

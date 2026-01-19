@@ -5,6 +5,7 @@ import { getCategoryPathLabel } from '@/lib/categories/path'
 import { StatusBadge } from '@/lib/ui/badges'
 import { formatTicketCode } from '@/lib/tickets/code'
 import TicketFilters from './ui/TicketFilters'
+import { isITAssetCategoryOrUnassigned, isMaintenanceAssetCategory } from '@/lib/permissions/asset-category'
 
 export default async function TicketsPage({
   searchParams,
@@ -18,13 +19,15 @@ export default async function TicketsPage({
   const { data: { user } } = await supabase.auth.getUser()
   const { data: profile } = user ? await supabase
     .from('profiles')
-    .select('department,role')
+    .select('department,role,asset_category')
     .eq('id', user.id)
     .single() : { data: null }
   
   const isVentasDept = profile?.department?.toLowerCase().includes('ventas')
 
-  const canViewQueue = profile?.role === 'supervisor' || profile?.role === 'admin'
+  const canManageIT = profile?.role === 'admin' || isITAssetCategoryOrUnassigned(profile?.asset_category)
+  // Solo admin y supervisores IT pueden ver la bandeja completa
+  const canViewQueue = profile?.role === 'admin' || (profile?.role === 'supervisor' && canManageIT)
   const requestedView = params.view
   const defaultView = canViewQueue ? 'queue' : 'mine'
   const view = (requestedView === 'queue' || requestedView === 'mine')
@@ -32,6 +35,8 @@ export default async function TicketsPage({
     : defaultView
 
   const inferredServiceArea = (() => {
+    if (isMaintenanceAssetCategory(profile?.asset_category)) return 'maintenance'
+    if (isITAssetCategoryOrUnassigned(profile?.asset_category)) return 'it'
     const dept = (profile?.department ?? '').toLowerCase()
     if (dept.includes('mantenim')) return 'maintenance'
     return 'it'

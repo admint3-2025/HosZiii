@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { formatAssetType } from '@/lib/assets/format'
 
 type AssetRow = {
   id: string
@@ -47,7 +48,7 @@ export default function AssignedAssets({ assets }: { assets: AssetRow[] }) {
                     {asset.asset_tag}
                   </Link>
                   <div className="text-[11px] text-gray-600 truncate">
-                    {asset.asset_type.replace(/_/g, ' ')}
+                    {formatAssetType(asset)}
                     {asset.asset_location && (
                       <span className="ml-1 text-emerald-700 font-medium">
                         [
