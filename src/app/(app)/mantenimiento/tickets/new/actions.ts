@@ -155,7 +155,7 @@ export async function createMaintenanceTicket(input: CreateMaintenanceTicketInpu
   const { data: ticket, error } = await supabase
     .from('tickets_maintenance')
     .insert(ticketData)
-    .select('id, ticket_number, title, description, priority, category_id, requester_id, asset_id')
+    .select('id, ticket_number, title, description, priority, category_id, requester_id, asset_id, location_id, assigned_to, created_at')
     .single()
 
   if (error) {

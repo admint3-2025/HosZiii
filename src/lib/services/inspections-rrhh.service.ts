@@ -226,7 +226,7 @@ export class InspectionsRRHHService {
 
       // Actualizar cada item
       for (const area of areas) {
-        console.log(`updateInspectionItems - Área "${area.nombre}": ${area.items.length} items`)
+        console.log(`updateInspectionItems - Área "${area.area_name}": ${area.items.length} items`)
         
         for (const item of area.items) {
           if (!item.id) {

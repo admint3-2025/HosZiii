@@ -835,7 +835,7 @@ function AreaCard({ area, onUpdateItem }: { area: InspectionArea; onUpdateItem: 
   }, [area.items])
 
   const cumpleCount = area.items.filter(i => i.cumplimiento_valor === 'Cumple').length
-  const pendingCount = area.items.filter(i => !i.cumplimiento_valor || i.cumplimiento_valor === '').length
+  const pendingCount = area.items.filter(i => !i.cumplimiento_valor).length
   const applicableItems = area.items.filter(i => i.cumplimiento_valor !== 'N/A').length
   const totalItems = area.items.length
   
@@ -884,7 +884,7 @@ function AreaCard({ area, onUpdateItem }: { area: InspectionArea; onUpdateItem: 
           </div>
           
           {area.items.map((item) => {
-            const isPending = !item.cumplimiento_valor || item.cumplimiento_valor === ''
+            const isPending = !item.cumplimiento_valor
             return (
             <div 
               key={item.id} 
@@ -1079,7 +1079,7 @@ export default function InspectionDashboard({
     const totalCumple = inspectionData.reduce((acc, area) => acc + area.items.filter(i => i.cumplimiento_valor === 'Cumple').length, 0)
     const totalNoCumple = inspectionData.reduce((acc, area) => acc + area.items.filter(i => i.cumplimiento_valor === 'No Cumple').length, 0)
     const totalNA = inspectionData.reduce((acc, area) => acc + area.items.filter(i => i.cumplimiento_valor === 'N/A').length, 0)
-    const totalPending = inspectionData.reduce((acc, area) => acc + area.items.filter(i => i.cumplimiento_valor === '').length, 0)
+    const totalPending = inspectionData.reduce((acc, area) => acc + area.items.filter(i => !i.cumplimiento_valor).length, 0)
 
     const evaluatedItems = totalCumple + totalNoCumple + totalNA
     const applicableEvaluated = totalCumple + totalNoCumple

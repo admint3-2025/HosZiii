@@ -234,7 +234,8 @@ async function notifyMaintenanceLocationStaff(data: MaintenanceTicketNotificatio
             description: data.description || '',
             priority: PRIORITY_LABELS[data.priority || 3] || 'Media',
             category: data.category || 'Sin categoría',
-            locationName: `${locationName} (${locationCode})`,
+            locationName,
+            locationCode,
             actorName,
             ticketUrl,
             staffName,
@@ -296,9 +297,10 @@ export async function notifyMaintenanceTicketComment(data: MaintenanceCommentNot
   
   try {
     const supabase = createSupabaseAdminClient()
+
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const ticketUrl = `${baseUrl}/mantenimiento/tickets/${data.ticketId}`
-    
+
     // Obtener nombre del autor
     const { data: authorProfile } = await supabase
       .from('profiles')
@@ -347,7 +349,7 @@ export async function notifyMaintenanceTicketComment(data: MaintenanceCommentNot
           .select('user_id')
           .eq('location_id', ticket.location_id)
         
-        const userIdsFromUserLocations = (userLocations || []).map(ul => ul.user_id)
+        const userIdsFromUserLocations = (userLocations || []).map((ul: { user_id: string }) => ul.user_id)
         
         if (userIdsFromUserLocations.length > 0) {
           const { data: staffByUserLocations } = await supabase
@@ -357,12 +359,12 @@ export async function notifyMaintenanceTicketComment(data: MaintenanceCommentNot
             .in('role', ['agent_l1', 'agent_l2', 'supervisor'])
             .eq('asset_category', 'MAINTENANCE')
           
-          staffByUserLocations?.forEach(s => {
+          staffByUserLocations?.forEach((s: { id: string }) => {
             if (s.id !== data.authorId) recipientIds.add(s.id)
           })
         }
         
-        staffByProfile?.forEach(s => {
+        staffByProfile?.forEach((s: { id: string }) => {
           if (s.id !== data.authorId) recipientIds.add(s.id)
         })
       }

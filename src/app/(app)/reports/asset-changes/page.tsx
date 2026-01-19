@@ -49,10 +49,18 @@ export default async function AssetChangesReportPage() {
   const assetIds = [...new Set((changes ?? []).map(c => c.asset_id))]
   const { data: assets } = await supabase
     .from('assets')
-    .select('id, asset_tag, asset_type, brand, model, location_id, asset_location:locations(code, name)')
+    .select('id, asset_tag, asset_type, brand, model, location_id, asset_location:locations!assets_location_id_fkey(code, name)')
     .in('id', assetIds)
 
-  const assetMap = new Map(assets?.map(a => [a.id, a]) ?? [])
+  const assetMap = new Map(
+    (assets ?? []).map(a => {
+      // Si asset_location es array, tomar el primer elemento; si ya es objeto o null, dejar igual
+      const asset_location = Array.isArray(a.asset_location)
+        ? (a.asset_location[0] ?? null)
+        : a.asset_location ?? null
+      return [a.id, { ...a, asset_location }]
+    })
+  )
   
   // Obtener todas las ubicaciones para el formateo
   const { data: locations } = await supabase

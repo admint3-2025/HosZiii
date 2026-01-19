@@ -361,7 +361,7 @@ export default function MaintenanceAssetCreateForm({
                   <option value="">Sin asignar</option>
                   {users.map((user) => (
                     <option key={user.id} value={user.id}>
-                      {user.full_name || user.email}
+                      {user.full_name || user.id}
                     </option>
                   ))}
                 </select>
