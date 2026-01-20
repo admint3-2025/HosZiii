@@ -30,17 +30,20 @@ export async function createTicket(input: CreateTicketInput) {
     return { error: 'No autenticado' }
   }
 
-  // Verificar rol del usuario actual
+  // Verificar rol del usuario actual y asset_category
   const { data: currentProfile } = await supabase
     .from('profiles')
-    .select('role, location_id')
+    .select('role, location_id, asset_category')
     .eq('id', user.id)
     .single()
 
-  const canCreateForOthers = currentProfile && ['agent_l1', 'agent_l2', 'supervisor', 'admin'].includes(currentProfile.role)
+  // Solo admin o agentes/supervisores de IT pueden crear tickets IT para otros
+  const canCreateForOthers = currentProfile && 
+    (currentProfile.role === 'admin' || 
+     (['agent_l1', 'agent_l2', 'supervisor'].includes(currentProfile.role) && currentProfile.asset_category === 'IT'))
 
   if (input.requester_id && !canCreateForOthers) {
-    return { error: 'No tienes permisos para crear tickets para otros usuarios.' }
+    return { error: 'No tienes permisos para crear tickets IT para otros usuarios.' }
   }
 
   // Determinar el solicitante: si es admin/supervisor/técnico y especificó requester_id, usarlo; sino, usar el usuario actual

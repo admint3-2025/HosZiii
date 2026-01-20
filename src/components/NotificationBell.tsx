@@ -175,6 +175,8 @@ export default function NotificationBell() {
         return '🔒'
       case 'TICKET_ESCALATED':
         return '⚠️'
+      case 'inspection_critical':
+        return '🚨'
       default:
         return '🔔'
     }

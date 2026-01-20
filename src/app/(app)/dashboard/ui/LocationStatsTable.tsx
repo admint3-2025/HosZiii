@@ -20,7 +20,12 @@ type TopAgent = {
   avg_resolution_days: number
 }
 
-export default function LocationStatsTable({ rows }: { rows: LocationStatsRow[] }) {
+type Props = {
+  rows: LocationStatsRow[]
+  ticketType?: 'IT' | 'MAINTENANCE'
+}
+
+export default function LocationStatsTable({ rows, ticketType = 'IT' }: Props) {
   const [selectedLocationId, setSelectedLocationId] = useState<string | null>(
     rows[0]?.location_id ?? null
   )
@@ -54,10 +59,13 @@ export default function LocationStatsTable({ rows }: { rows: LocationStatsRow[] 
       try {
         const supabase = createSupabaseBrowserClient()
         
+        // Determinar tabla según tipo de ticket
+        const tableName = ticketType === 'MAINTENANCE' ? 'tickets_maintenance' : 'tickets'
+        
         // Tickets cerrados en esta ubicación (histórico completo)
         // Usar closed_by para ver quién cerró el ticket
         const { data: tickets, error: ticketsError } = await supabase
-          .from('tickets')
+          .from(tableName)
           .select('closed_by, created_at, closed_at')
           .eq('location_id', selectedLocationId)
           .eq('status', 'CLOSED')
@@ -141,7 +149,7 @@ export default function LocationStatsTable({ rows }: { rows: LocationStatsRow[] 
     }
 
     loadTopAgents()
-  }, [selectedLocationId])
+  }, [selectedLocationId, ticketType])
 
   if (!rows || rows.length === 0) {
     return null
@@ -172,6 +180,7 @@ export default function LocationStatsTable({ rows }: { rows: LocationStatsRow[] 
         },
         body: JSON.stringify({
           locationId: selected.location_id,
+          ticketType,
           includeLocationRecipients: includeResponsables,
           additionalEmails,
         }),

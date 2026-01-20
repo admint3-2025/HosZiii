@@ -264,18 +264,57 @@ export class InspectionsRRHHService {
 
       console.log(`updateInspectionItems - Items actualizados: ${itemsActualizados}, sin ID: ${itemsSinId}`)
 
-      // Actualizar comentarios generales si se proporcionan
-      if (generalComments !== undefined) {
-        console.log('updateInspectionItems - Actualizando comentarios generales')
-        const { error: commentsError } = await supabase
-          .from('inspections_rrhh')
-          .update({ general_comments: generalComments })
-          .eq('id', inspectionId)
+      // Recalcular métricas para que la bandeja muestre avance/promedio
+      const total_areas = areas.length
+      const total_items = areas.reduce((acc, area) => acc + (area.items?.length || 0), 0)
+      const items_cumple = areas.reduce(
+        (acc, area) => acc + area.items.filter(i => i.cumplimiento_valor === 'Cumple').length,
+        0
+      )
+      const items_no_cumple = areas.reduce(
+        (acc, area) => acc + area.items.filter(i => i.cumplimiento_valor === 'No Cumple').length,
+        0
+      )
+      const items_na = areas.reduce((acc, area) => acc + area.items.filter(i => i.cumplimiento_valor === 'N/A').length, 0)
+      const items_pending = areas.reduce((acc, area) => acc + area.items.filter(i => !i.cumplimiento_valor).length, 0)
 
-        if (commentsError) {
-          console.error('updateInspectionItems - Error al actualizar comentarios:', commentsError)
-          return { data: false, error: commentsError }
-        }
+      const evaluatedItems = items_cumple + items_no_cumple + items_na
+      const applicableEvaluated = items_cumple + items_no_cumple
+      const coverage_percentage = total_items > 0 ? Math.round((evaluatedItems / total_items) * 100) : 0
+      const compliance_percentage = applicableEvaluated > 0 ? Math.round((items_cumple / applicableEvaluated) * 100) : 0
+
+      const areaScores = areas.map(area => {
+        const cumpleItems = area.items.filter(item => item.cumplimiento_valor === 'Cumple')
+        if (cumpleItems.length === 0) return 0
+        const sum = cumpleItems.reduce((acc, item) => acc + (item.calif_valor || 0), 0)
+        return sum / cumpleItems.length
+      })
+      const average_score = total_areas > 0 ? Number((areaScores.reduce((a, b) => a + b, 0) / total_areas).toFixed(2)) : 0
+
+      const updatePayload: any = {
+        total_areas,
+        total_items,
+        items_cumple,
+        items_no_cumple,
+        items_na,
+        items_pending,
+        coverage_percentage,
+        compliance_percentage,
+        average_score,
+      }
+      if (generalComments !== undefined) {
+        updatePayload.general_comments = generalComments
+      }
+
+      console.log('updateInspectionItems - Actualizando métricas de inspección')
+      const { error: inspectionUpdateError } = await supabase
+        .from('inspections_rrhh')
+        .update(updatePayload)
+        .eq('id', inspectionId)
+
+      if (inspectionUpdateError) {
+        console.error('updateInspectionItems - Error al actualizar métricas:', inspectionUpdateError)
+        return { data: false, error: inspectionUpdateError }
       }
 
       console.log('updateInspectionItems - Guardado completado exitosamente')
@@ -457,6 +496,99 @@ export class InspectionsRRHHService {
     if (currentUserId) recentQuery = recentQuery.eq('inspector_user_id', currentUserId)
     
     const { data: recentInspections } = await recentQuery
+
+    return {
+      data: {
+        totalInspections: totalCount || 0,
+        pendingApproval: pendingCount || 0,
+        averageScore: avgScore,
+        recentInspections: recentInspections || [],
+        currentUserId
+      },
+      error: null
+    }
+  }
+
+  /**
+   * Obtiene estadísticas agregadas de inspecciones para múltiples sedes.
+   * Útil para tableros corporativos multi-sede.
+   */
+  static async getLocationsStats(
+    locationIds: string[],
+    options?: {
+      filterByCurrentUser?: boolean
+      department?: string
+      recentLimit?: number
+    }
+  ): Promise<{ data: any; error: any }> {
+    const supabase = createSupabaseBrowserClient()
+
+    if (!locationIds || locationIds.length === 0) {
+      return {
+        data: {
+          totalInspections: 0,
+          pendingApproval: 0,
+          averageScore: 0,
+          recentInspections: [],
+          currentUserId: null
+        },
+        error: null
+      }
+    }
+
+    const filterByCurrentUser = options?.filterByCurrentUser ?? false
+    const department = options?.department
+    const recentLimit = options?.recentLimit ?? 10
+
+    let currentUserId: string | null = null
+    if (filterByCurrentUser) {
+      const { data: { user } } = await supabase.auth.getUser()
+      currentUserId = user?.id || null
+    }
+
+    const applyFilters = (query: any) => {
+      query = query.in('location_id', locationIds)
+      if (department) query = query.eq('department', department)
+      if (currentUserId) query = query.eq('inspector_user_id', currentUserId)
+      return query
+    }
+
+    // Total
+    let countQuery = supabase
+      .from('inspections_rrhh')
+      .select('*', { count: 'exact', head: true })
+    countQuery = applyFilters(countQuery)
+    const { count: totalCount, error: countError } = await countQuery
+    if (countError) return { data: null, error: countError }
+
+    // Pendientes por aprobar (status=completed)
+    let pendingQuery = supabase
+      .from('inspections_rrhh')
+      .select('*', { count: 'exact', head: true })
+      .eq('status', 'completed')
+    pendingQuery = applyFilters(pendingQuery)
+    const { count: pendingCount } = await pendingQuery
+
+    // Promedio histórico (completed/approved)
+    let avgQuery = supabase
+      .from('inspections_rrhh')
+      .select('average_score')
+      .in('status', ['completed', 'approved'])
+    avgQuery = applyFilters(avgQuery)
+    const { data: avgData } = await avgQuery
+    const avgScore = avgData && avgData.length > 0
+      ? Math.round((avgData.reduce((sum: number, i: any) => sum + (i.average_score || 0), 0) / avgData.length) * 10)
+      : 0
+
+    // Recientes
+    let recentQuery = supabase
+      .from('inspections_rrhh')
+      .select('*')
+      .order('inspection_date', { ascending: false })
+      .limit(recentLimit)
+    recentQuery = applyFilters(recentQuery)
+    const { data: recentInspections, error: recentError } = await recentQuery
+    if (recentError) return { data: null, error: recentError }
 
     return {
       data: {

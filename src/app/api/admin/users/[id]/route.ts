@@ -1,7 +1,37 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 
-type Role = 'requester' | 'agent_l1' | 'agent_l2' | 'supervisor' | 'auditor' | 'corporate_admin' | 'admin'
+type Role =
+  | 'requester'
+  | 'agent_l1'
+  | 'agent_l2'
+  | 'supervisor'
+  | 'auditor'
+  | 'corporate_admin'
+  | 'admin'
+
+type HubModuleId = 'it-helpdesk' | 'mantenimiento' | 'corporativo' | 'administracion'
+type HubModules = Record<HubModuleId, boolean>
+
+function isMissingHubModulesColumnError(err: unknown): boolean {
+  const msg = (err as any)?.message
+  if (typeof msg !== 'string') return false
+  return msg.toLowerCase().includes('hub_modules') && msg.toLowerCase().includes('does not exist')
+}
+
+function parseHubModules(value: unknown): HubModules | null {
+  if (!value || typeof value !== 'object') return null
+  const obj = value as Record<string, unknown>
+  const keys: HubModuleId[] = ['it-helpdesk', 'mantenimiento', 'corporativo', 'administracion']
+  const result: Partial<HubModules> = {}
+  for (const key of keys) {
+    if (obj[key] === undefined) continue
+    if (typeof obj[key] !== 'boolean') return null
+    result[key] = obj[key] as boolean
+  }
+  if (Object.keys(result).length === 0) return null
+  return result as HubModules
+}
 
 function isValidRole(role: unknown): role is Role {
   return (
@@ -29,7 +59,8 @@ export async function PATCH(
   if (!user) return new Response('Unauthorized', { status: 401 })
 
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  if (profile?.role !== 'admin') return new Response('Forbidden', { status: 403 })
+  const isAdminLike = profile?.role === 'admin'
+  if (!isAdminLike) return new Response('Forbidden', { status: 403 })
 
   let body: any
   try {
@@ -125,9 +156,28 @@ export async function PATCH(
     updates.allowed_departments = allowedDepartments
   }
 
+  if (body?.hub_modules !== undefined) {
+    const hubModules = parseHubModules(body.hub_modules)
+    if (body.hub_modules !== null && hubModules === null) {
+      return new Response('Invalid hub_modules', { status: 400 })
+    }
+    if (hubModules) {
+      updates.hub_modules = hubModules
+    }
+  }
+
   if (Object.keys(updates).length > 0) {
     const { error } = await admin.from('profiles').update(updates).eq('id', id)
-    if (error) return new Response(error.message, { status: 400 })
+    if (error) {
+      // Backward-compat: allow edits even if DB migration wasn't applied yet.
+      if (updates.hub_modules !== undefined && isMissingHubModulesColumnError(error)) {
+        const { hub_modules: _ignored, ...updatesWithoutHubModules } = updates
+        const { error: retryErr } = await admin.from('profiles').update(updatesWithoutHubModules).eq('id', id)
+        if (retryErr) return new Response(retryErr.message, { status: 400 })
+      } else {
+        return new Response(error.message, { status: 400 })
+      }
+    }
   }
 
   if (body?.active !== undefined) {
@@ -177,7 +227,8 @@ export async function DELETE(
   if (!user) return new Response('Unauthorized', { status: 401 })
 
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  if (profile?.role !== 'admin') return new Response('Forbidden', { status: 403 })
+  const isAdminLike = profile?.role === 'admin'
+  if (!isAdminLike) return new Response('Forbidden', { status: 403 })
 
   const admin = createSupabaseAdminClient()
 
@@ -188,14 +239,24 @@ export async function DELETE(
   }
 
   // Verificar que no es el único admin
-  const { data: allUsers } = await admin.auth.admin.listUsers()
-  const adminCount = allUsers?.users.filter(u => 
-    u.app_metadata?.role === 'admin' || u.user_metadata?.role === 'admin'
-  ).length || 0
-  
-  const isTargetAdmin = targetUser.user.app_metadata?.role === 'admin' || 
-                        targetUser.user.user_metadata?.role === 'admin'
-  
+  const { data: adminProfiles, error: adminErr } = await admin
+    .from('profiles')
+    .select('id, role')
+    .eq('role', 'admin')
+
+  if (adminErr) {
+    return new Response(adminErr.message, { status: 400 })
+  }
+
+  const adminCount = (adminProfiles ?? []).length
+  const { data: targetProfile } = await admin
+    .from('profiles')
+    .select('role')
+    .eq('id', id)
+    .single()
+
+  const isTargetAdmin = targetProfile?.role === 'admin'
+
   if (isTargetAdmin && adminCount <= 1) {
     return new Response('No se puede eliminar el único usuario administrador del sistema', { status: 400 })
   }

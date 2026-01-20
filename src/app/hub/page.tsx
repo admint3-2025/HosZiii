@@ -165,7 +165,9 @@ export default async function HubPage() {
   
   const { data: profile } = await supabase
     .from('profiles')
-    .select('full_name, role, position, location_id, can_view_beo, asset_category')
+    // NOTE: Avoid selecting hub_modules explicitly because older DBs may not have the column yet.
+    // Selecting '*' will include hub_modules when present, and won't error when absent.
+    .select('*')
     .eq('id', user.id)
     .single()
 
@@ -182,11 +184,17 @@ export default async function HubPage() {
     .limit(5)
 
   // Determinar módulos accesibles según el rol del usuario
-  const accessibleModules = modules.filter(module => {
+  const accessibleByRole = modules.filter(module => {
     if (!module.requiredRoles) return true
     if (module.checkPermission) return module.checkPermission(profile)
     return module.requiredRoles.includes(profile.role)
   })
+
+  const hubModules = (profile as any)?.hub_modules as Record<string, unknown> | null
+  const accessibleModules =
+    profile?.role === 'admin' && hubModules && typeof hubModules === 'object'
+      ? accessibleByRole.filter((m) => hubModules[m.id] !== false)
+      : accessibleByRole
 
   // NO redirigir automáticamente si es el único módulo
   // Los usuarios deben ver el hub para navegar entre sus módulos disponibles
@@ -227,7 +235,7 @@ export default async function HubPage() {
 
   const roleLabel =
     profile?.role === 'admin'
-      ? 'ADMIN'
+      ? 'ADMINISTRADOR'
       : profile?.role === 'corporate_admin'
         ? 'ADMIN CORPORATIVO'
       : profile?.role === 'agent_l1'

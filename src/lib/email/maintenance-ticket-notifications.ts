@@ -5,6 +5,7 @@ import {
   ticketStatusChangedEmailTemplate,
 } from './templates'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { extractMaintenanceTicketSequence } from '@/lib/tickets/code'
 
 const STATUS_LABELS: Record<string, string> = {
   NEW: 'Nuevo',
@@ -119,7 +120,7 @@ export async function notifyMaintenanceTicketCreated(data: MaintenanceTicketNoti
           title: `[Mantenimiento] Solicitud #${data.ticketNumber} creada`,
           message: `Tu solicitud de mantenimiento "${data.title}" ha sido registrada.`,
           ticket_id: data.ticketId,
-          ticket_number: parseInt(data.ticketNumber),
+           ticket_number: extractMaintenanceTicketSequence(data.ticketNumber),
           actor_id: data.actorId,
           is_read: false,
         })
@@ -262,7 +263,7 @@ async function notifyMaintenanceLocationStaff(data: MaintenanceTicketNotificatio
             title: `[Mantenimiento] Nueva solicitud #${data.ticketNumber} en ${locationCode}`,
             message: `${actorName} creó una solicitud: "${data.title}"`,
             ticket_id: data.ticketId,
-            ticket_number: parseInt(data.ticketNumber),
+             ticket_number: extractMaintenanceTicketSequence(data.ticketNumber),
             actor_id: data.actorId,
             is_read: false,
           })
@@ -384,7 +385,7 @@ export async function notifyMaintenanceTicketComment(data: MaintenanceCommentNot
       title: `[Mantenimiento] Nuevo comentario en #${data.ticketNumber}`,
       message: `${authorName} comentó: "${data.commentBody.substring(0, 100)}${data.commentBody.length > 100 ? '...' : ''}"`,
       ticket_id: data.ticketId,
-      ticket_number: parseInt(data.ticketNumber),
+      ticket_number: extractMaintenanceTicketSequence(data.ticketNumber),
       actor_id: data.authorId,
       is_read: false,
     }))
@@ -484,7 +485,7 @@ export async function notifyMaintenanceTicketStatusChanged(data: MaintenanceTick
           title: `[Mantenimiento] Cambio de estado en #${data.ticketNumber}`,
           message: `Tu solicitud cambió de "${STATUS_LABELS[data.oldStatus] || data.oldStatus}" a "${STATUS_LABELS[data.newStatus] || data.newStatus}"`,
           ticket_id: data.ticketId,
-          ticket_number: parseInt(data.ticketNumber),
+           ticket_number: extractMaintenanceTicketSequence(data.ticketNumber),
           actor_id: data.actorId,
           is_read: false,
         })
@@ -542,7 +543,7 @@ export async function notifyMaintenanceTicketStatusChanged(data: MaintenanceTick
             title: `[Mantenimiento] Cambio de estado en #${data.ticketNumber}`,
             message: `El ticket cambió de "${STATUS_LABELS[data.oldStatus] || data.oldStatus}" a "${STATUS_LABELS[data.newStatus] || data.newStatus}"`,
             ticket_id: data.ticketId,
-            ticket_number: parseInt(data.ticketNumber),
+             ticket_number: extractMaintenanceTicketSequence(data.ticketNumber),
             actor_id: data.actorId,
             is_read: false,
           })

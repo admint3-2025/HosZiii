@@ -109,13 +109,15 @@ export async function middleware(request: NextRequest) {
         .eq('id', userId)
         .single()
 
+      const isAdminLike = profile?.role === 'admin'
+
       // /admin para admin (acceso total) y corporate_admin (solo redirigir si intenta entrar)
       if (profile?.role === 'corporate_admin') {
         const redirectUrl = request.nextUrl.clone()
         redirectUrl.pathname = '/reports'
         return NextResponse.redirect(redirectUrl)
       }
-      if (profile?.role !== 'admin') {
+      if (!isAdminLike) {
         const redirectUrl = request.nextUrl.clone()
         redirectUrl.pathname = '/dashboard'
         return NextResponse.redirect(redirectUrl)
@@ -145,7 +147,8 @@ export async function middleware(request: NextRequest) {
         .eq('id', auditUserId)
         .single()
 
-      if (profile?.role !== 'admin' && profile?.role !== 'supervisor') {
+      const isAdminLike = profile?.role === 'admin'
+      if (!isAdminLike && profile?.role !== 'supervisor') {
         const redirectUrl = request.nextUrl.clone()
         redirectUrl.pathname = '/dashboard'
         return NextResponse.redirect(redirectUrl)

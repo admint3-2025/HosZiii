@@ -8,7 +8,7 @@ type AgingMetric = {
   avgDays: number
   oldestDays: number
   count?: number
-  oldestTicketNumber?: number
+  oldestTicketNumber?: string | number
 }
 
 const STATUS_LABELS: Record<string, string> = {
@@ -20,7 +20,13 @@ const STATUS_LABELS: Record<string, string> = {
   RESOLVED: 'Resuelto',
 }
 
-export default function AgingMetrics({ metrics }: { metrics: AgingMetric[] }) {
+export default function AgingMetrics({
+  metrics,
+  baseHref = '/tickets',
+}: {
+  metrics: AgingMetric[]
+  baseHref?: string
+}) {
   const [hoveredStatus, setHoveredStatus] = useState<string | null>(null)
 
   return (
@@ -51,7 +57,7 @@ export default function AgingMetrics({ metrics }: { metrics: AgingMetric[] }) {
             metrics.map((metric) => (
               <Link
                 key={metric.status}
-                href={`/tickets?status=${metric.status}`}
+                href={`${baseHref}?status=${metric.status}`}
                 className="group relative block"
                 onMouseEnter={() => setHoveredStatus(metric.status)}
                 onMouseLeave={() => setHoveredStatus(null)}
@@ -83,11 +89,11 @@ export default function AgingMetrics({ metrics }: { metrics: AgingMetric[] }) {
                       {STATUS_LABELS[metric.status] || metric.status}
                     </div>
                     <div className="space-y-1 text-gray-300">
-                      {metric.count && <div>📊 Total: {metric.count} ticket{metric.count !== 1 ? 's' : ''}</div>}
+                      {metric.count != null && <div>📊 Total: {metric.count} ticket{metric.count !== 1 ? 's' : ''}</div>}
                       <div>📈 Promedio: {metric.avgDays.toFixed(1)} días</div>
                       <div>⏰ Más antiguo: {metric.oldestDays} días</div>
                       {metric.oldestTicketNumber && (
-                        <div>🎫 Ticket #{metric.oldestTicketNumber}</div>
+                        <div>🎫 Ticket {metric.oldestTicketNumber}</div>
                       )}
                     </div>
                     <div className="mt-2 pt-2 border-t border-gray-700 text-amber-400">

@@ -77,7 +77,7 @@ export async function getUserLocationInfo(
     }
 
     // 4. Determinar si puede ver todas las sedes
-    // Solo admin en modo gestión (no cuando crea tickets)
+    // Admin ve todo en modo gestión
     const canViewAllLocations = role === 'admin'
 
     return {

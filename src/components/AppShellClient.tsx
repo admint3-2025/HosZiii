@@ -281,8 +281,9 @@ export default function AppShellClient({
 
   // Determinar si el usuario puede GESTIONAR mantenimiento / IT
   // Nota: asset_category puede venir como 'Maintenance' (legacy/UI). Normalizamos.
-  const canManageMaintenance = userData.role === 'admin' || isMaintenanceAssetCategory(userData.assetCategory)
-  const canManageIT = userData.role === 'admin' || isITAssetCategoryOrUnassigned(userData.assetCategory)
+  const isAdminLike = userData.role === 'admin'
+  const canManageMaintenance = isAdminLike || isMaintenanceAssetCategory(userData.assetCategory)
+  const canManageIT = isAdminLike || isITAssetCategoryOrUnassigned(userData.assetCategory)
 
   const isMaintenanceSupervisor =
     userData.role === 'supervisor' && canManageMaintenance && !canManageIT
@@ -294,14 +295,14 @@ export default function AppShellClient({
   // Solo las opciones de GESTIÓN (dashboard, bandeja, activos) son exclusivas para IT
   const helpdeskItems: MenuSection['items'] = [
     // Dashboard: solo para quienes GESTIONAN IT
-    ...(canManageIT && (userData.role === 'admin' || userData.role === 'supervisor')
+    ...(canManageIT && (isAdminLike || userData.role === 'supervisor')
       ? ([{ id: 'hd_dashboard', label: 'Dashboard', icon: 'Dashboard', href: '/dashboard' }] as MenuSection['items'])
       : []),
     // Mis Tickets y Crear Ticket: TODOS los usuarios pueden acceder
     { id: 'hd_tickets_mine', label: 'Mis Tickets', icon: 'Ticket', href: '/tickets?view=mine' },
     { id: 'hd_new_it', label: 'Crear Ticket', icon: 'Ticket', href: '/tickets/new?area=it' },
     // Bandeja: solo admin/supervisor de IT
-    ...(canManageIT && (userData.role === 'admin' || userData.role === 'supervisor')
+    ...(canManageIT && (isAdminLike || userData.role === 'supervisor')
       ? ([{ id: 'hd_tickets_queue', label: 'Bandeja', icon: 'BarChart', href: '/tickets?view=queue', roles: ['admin', 'supervisor'] }] as MenuSection['items'])
       : []),
     // BEO: solo IT
@@ -309,11 +310,11 @@ export default function AppShellClient({
       ? ([{ id: 'hd_beo', label: 'Eventos (BEO)', icon: 'Calendar', href: '/beo/dashboard', requireBeo: true }] as MenuSection['items'])
       : []),
     // Activos IT: solo admin/supervisor IT
-    ...(canManageIT && (userData.role === 'admin' || userData.role === 'supervisor')
+    ...(canManageIT && (isAdminLike || userData.role === 'supervisor')
       ? ([{ id: 'hd_assets', label: 'Activos IT', icon: 'Assets', href: '/assets', roles: ['admin', 'supervisor'] }] as MenuSection['items'])
       : []),
     // KB solo para IT (y admin)
-    ...((canManageIT || userData.role === 'admin')
+    ...((canManageIT || isAdminLike)
       ? ([
           {
             id: 'hd_knowledge',
@@ -338,7 +339,7 @@ export default function AppShellClient({
         group: 'Mantenimiento',
         items: [
           // Dashboard solo para admin/supervisor de mantenimiento
-          ...(canManageMaintenance && (userData.role === 'admin' || userData.role === 'supervisor')
+          ...(canManageMaintenance && (isAdminLike || userData.role === 'supervisor')
             ? ([
                 { id: 'mnt_dashboard', label: 'Dashboard', icon: 'Dashboard', href: '/mantenimiento/dashboard' },
               ] as MenuSection['items'])
@@ -352,7 +353,7 @@ export default function AppShellClient({
           },
           { id: 'mnt_new_ticket', label: 'Crear Ticket', icon: 'Wrench', href: '/mantenimiento/tickets/new' },
           // Bandeja y Activos solo para supervisores/admin del área de mantenimiento
-          ...(canManageMaintenance && (userData.role === 'admin' || userData.role === 'supervisor')
+          ...(canManageMaintenance && (isAdminLike || userData.role === 'supervisor')
             ? ([
                 { id: 'mnt_tickets_queue', label: 'Bandeja', icon: 'BarChart', href: '/mantenimiento/tickets?view=queue', roles: ['admin', 'supervisor'] },
                 { id: 'mnt_assets', label: 'Activos', icon: 'Assets', href: '/mantenimiento/assets', roles: ['admin', 'supervisor'] },
@@ -589,9 +590,9 @@ export default function AppShellClient({
 
   const roleLabel =
     profile?.role === 'admin'
-      ? 'Admin'
-      : profile?.role === 'corporate_admin'
-        ? 'Admin Corporativo'
+        ? 'Administrador'
+        : profile?.role === 'corporate_admin'
+          ? 'Admin Corporativo'
       : profile?.role === 'agent_l1'
         ? (isMaintenanceAssetCategory(userData.assetCategory) ? 'Mantenimiento - Técnico L1' : 'IT - Agente L1')
         : profile?.role === 'agent_l2'

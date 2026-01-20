@@ -824,7 +824,15 @@ function EditIcon() {
 }
 
 // Componente de área expandible
-function AreaCard({ area, onUpdateItem }: { area: InspectionArea; onUpdateItem: (areaName: string, itemId: number, field: string, value: any) => void }) {
+function AreaCard({
+  area,
+  onUpdateItem,
+  isReadOnly = false,
+}: {
+  area: InspectionArea
+  onUpdateItem: (areaName: string, itemId: number, field: string, value: any) => void
+  isReadOnly?: boolean
+}) {
   const [expanded, setExpanded] = useState(false)
   
   const calculatedScore = useMemo(() => {
@@ -902,7 +910,7 @@ function AreaCard({ area, onUpdateItem }: { area: InspectionArea; onUpdateItem: 
               </div>
               
               <div className="col-span-2 text-center">
-                {item.cumplimiento_editable ? (
+                {item.cumplimiento_editable && !isReadOnly ? (
                   <select
                     value={item.cumplimiento_valor}
                     onChange={(e) => onUpdateItem(area.area, item.id, 'cumplimiento_valor', e.target.value)}
@@ -931,7 +939,7 @@ function AreaCard({ area, onUpdateItem }: { area: InspectionArea; onUpdateItem: 
               </div>
               
               <div className="col-span-2 text-center">
-                {item.calif_editable && item.cumplimiento_valor === 'Cumple' ? (
+                {item.calif_editable && item.cumplimiento_valor === 'Cumple' && !isReadOnly ? (
                   <input
                     type="number"
                     min="0"
@@ -948,7 +956,7 @@ function AreaCard({ area, onUpdateItem }: { area: InspectionArea; onUpdateItem: 
               </div>
               
               <div className="col-span-4">
-                {item.comentarios_libre ? (
+                {item.comentarios_libre && !isReadOnly ? (
                   <input
                     type="text"
                     value={item.comentarios_valor}
@@ -1010,6 +1018,12 @@ export default function InspectionDashboard({
 }: InspectionDashboardProps) {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
 
+  const isReadOnly = inspectionStatus === 'completed' || inspectionStatus === 'approved'
+
+  useEffect(() => {
+    if (isReadOnly) setHasUnsavedChanges(false)
+  }, [isReadOnly])
+
   // Detectar cambios sin guardar al cerrar ventana/pestaña
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
@@ -1038,6 +1052,7 @@ export default function InspectionDashboard({
   const generalComments = propGeneralComments || internalGeneralComments
 
   const handleUpdateItem = (areaName: string, itemId: number, field: string, value: any) => {
+    if (isReadOnly) return
     console.log('=== InspectionDashboard.handleUpdateItem ===', { areaName, itemId, field, value, hasPropOnUpdateItem: !!propOnUpdateItem })
     setHasUnsavedChanges(true)
     if (propOnUpdateItem) {
@@ -1059,6 +1074,7 @@ export default function InspectionDashboard({
   }
 
   const handleUpdateGeneralComments = (value: string) => {
+    if (isReadOnly) return
     if (onUpdateGeneralComments) {
       onUpdateGeneralComments(value)
     } else {
@@ -1162,13 +1178,15 @@ export default function InspectionDashboard({
               </svg>
               Volver
             </button>
-            <button
-              onClick={() => onSave && onSave(false)}
-              disabled={saving}
-              className="px-3 py-1.5 rounded-md bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
-            >
-              {saving ? 'Guardando...' : 'Guardar'}
-            </button>
+            {inspectionStatus !== 'completed' && (
+              <button
+                onClick={() => onSave && onSave(false)}
+                disabled={saving}
+                className="px-3 py-1.5 rounded-md bg-emerald-600 text-white text-xs font-medium hover:bg-emerald-700 transition-colors disabled:opacity-50"
+              >
+                {saving ? 'Guardando...' : 'Guardar'}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -1296,10 +1314,10 @@ export default function InspectionDashboard({
       <div className="space-y-2">
         <h2 className="text-xs font-semibold text-slate-500 uppercase tracking-wide flex items-center gap-2">
           <EditIcon />
-          Detalle de Áreas (click para expandir)
+          {isReadOnly ? 'Detalle de Áreas (solo lectura)' : 'Detalle de Áreas (click para expandir)'}
         </h2>
         {inspectionData.map((area) => (
-          <AreaCard key={area.area} area={area} onUpdateItem={handleUpdateItem} />
+          <AreaCard key={area.area} area={area} onUpdateItem={handleUpdateItem} isReadOnly={isReadOnly} />
         ))}
       </div>
 
@@ -1318,6 +1336,8 @@ export default function InspectionDashboard({
             maxLength={1000}
             placeholder="Escriba aquí observaciones generales, hallazgos importantes, recomendaciones o cualquier anotación relevante sobre esta inspección..."
             className="w-full h-32 text-sm px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 text-slate-700 placeholder:text-slate-400 resize-none"
+            disabled={isReadOnly}
+            readOnly={isReadOnly}
           />
           <div className="mt-2 flex items-center justify-between">
             <span className="text-xs text-slate-400">Las anotaciones se guardarán con la inspección</span>

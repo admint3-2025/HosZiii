@@ -30,6 +30,7 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json().catch(() => null)
     const locationId = body?.locationId as string | undefined
+    const ticketType = (body?.ticketType as string | undefined) ?? 'IT' // 'IT' o 'MAINTENANCE'
     const includeLocationRecipients =
       typeof body?.includeLocationRecipients === 'boolean'
         ? (body.includeLocationRecipients as boolean)
@@ -40,24 +41,82 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'locationId requerido' }, { status: 400 })
     }
 
-    // Obtener datos agregados de la sede
-    const { data: statsRow, error: statsError } = await supabase
-      .from('location_incident_stats')
-      .select('*')
-      .eq('location_id', locationId)
-      .maybeSingle()
+    // Determinar la tabla según el tipo de ticket
+    const ticketsTable = ticketType === 'MAINTENANCE' ? 'tickets_maintenance' : 'tickets'
+    const maintenanceStatuses = ['NEW', 'ASSIGNED', 'IN_PROGRESS', 'WAITING_PARTS', 'NEEDS_INFO']
+    const relevantStatuses = ticketType === 'MAINTENANCE' ? maintenanceStatuses : OPEN_STATUSES
 
-    if (statsError || !statsRow) {
+    // Obtener estadísticas calculadas dinámicamente
+    let statsRow: any = null
+
+    if (ticketType === 'MAINTENANCE') {
+      // Calcular estadísticas para mantenimiento
+      const { data: allTickets, error: allTicketsError } = await supabase
+        .from('tickets_maintenance')
+        .select('id, status, created_at, closed_at')
+        .eq('location_id', locationId)
+        .is('deleted_at', null)
+
+      if (allTicketsError) {
+        return NextResponse.json({ error: 'Error obteniendo tickets de mantenimiento' }, { status: 500 })
+      }
+
+      const tickets = allTickets || []
+      const totalTickets = tickets.length
+      const openTickets = tickets.filter(t => t.status !== 'CLOSED').length
+      const closedTickets = tickets.filter(t => t.status === 'CLOSED').length
+      
+      // Calcular promedio de resolución
+      const closedWithDates = tickets.filter(t => t.status === 'CLOSED' && t.closed_at)
+      const avgResolutionDays = closedWithDates.length > 0
+        ? closedWithDates.reduce((sum, t) => {
+            const created = new Date(t.created_at).getTime()
+            const closed = new Date(t.closed_at!).getTime()
+            return sum + ((closed - created) / (1000 * 60 * 60 * 24))
+          }, 0) / closedWithDates.length
+        : 0
+
+      // Obtener información de la sede
+      const { data: location } = await supabase
+        .from('locations')
+        .select('code, name')
+        .eq('id', locationId)
+        .single()
+
+      statsRow = {
+        location_id: locationId,
+        location_code: location?.code || 'N/A',
+        location_name: location?.name || 'Desconocida',
+        total_tickets: totalTickets,
+        open_tickets: openTickets,
+        closed_tickets: closedTickets,
+        avg_resolution_days: avgResolutionDays
+      }
+    } else {
+      // Usar vista para IT
+      const { data, error: statsError } = await supabase
+        .from('location_incident_stats')
+        .select('*')
+        .eq('location_id', locationId)
+        .maybeSingle()
+
+      if (statsError || !data) {
+        return NextResponse.json({ error: 'No se encontraron estadísticas para la sede' }, { status: 404 })
+      }
+      statsRow = data
+    }
+
+    if (!statsRow) {
       return NextResponse.json({ error: 'No se encontraron estadísticas para la sede' }, { status: 404 })
     }
 
     // Obtener tickets abiertos más relevantes de la sede
     const { data: openTickets, error: ticketsError } = await supabase
-      .from('tickets')
+      .from(ticketsTable)
       .select('id, ticket_number, title, status, priority, created_at')
       .eq('location_id', locationId)
       .is('deleted_at', null)
-      .in('status', OPEN_STATUSES)
+      .in('status', relevantStatuses)
       .order('created_at', { ascending: true })
       .limit(10)
 
@@ -126,10 +185,14 @@ export async function POST(req: NextRequest) {
       )
     }
 
+    const summaryLabel = ticketType === 'MAINTENANCE' 
+      ? 'Resumen ejecutivo de mantenimiento por sede'
+      : 'Resumen ejecutivo de incidencias por sede'
+
     const template = locationSummaryEmailTemplate({
       locationCode,
       locationName,
-      summaryLabel: 'Resumen ejecutivo de incidencias por sede',
+      summaryLabel,
       totalTickets: Number(statsRow.total_tickets ?? 0),
       openTickets: Number(statsRow.open_tickets ?? 0),
       closedTickets: Number(statsRow.closed_tickets ?? 0),

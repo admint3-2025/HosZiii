@@ -205,46 +205,6 @@ export default function ConfirmMaintenanceTicketModal({
               </p>
             </div>
           )}
-
-          {/* Conexión remota (si aplica) */}
-          {ticketData.remoteConnectionType && (
-            <div className="bg-cyan-50 border border-cyan-200 rounded-lg p-4">
-              <label className="flex items-center gap-2 text-xs font-semibold text-cyan-700 uppercase tracking-wider mb-2">
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                </svg>
-                Conexión remota
-              </label>
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <span className="text-xs text-cyan-600 font-semibold">Tipo:</span>
-                  <span className="text-sm font-medium text-cyan-900">
-                    {ticketData.remoteConnectionType === 'rustdesk' && '🖥️ RustDesk'}
-                    {ticketData.remoteConnectionType === 'anydesk' && '🔵 AnyDesk'}
-                    {ticketData.remoteConnectionType === 'teamviewer' && '🔴 TeamViewer'}
-                    {ticketData.remoteConnectionType === 'chrome_remote' && '🌐 Chrome Remote Desktop'}
-                    {ticketData.remoteConnectionType === 'otros' && '⚙️ Otros'}
-                  </span>
-                </div>
-                {ticketData.remoteConnectionId && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-cyan-600 font-semibold">ID:</span>
-                    <span className="text-sm font-mono font-medium text-cyan-900 bg-white px-2 py-1 rounded border border-cyan-300">
-                      {ticketData.remoteConnectionId}
-                    </span>
-                  </div>
-                )}
-                {ticketData.remoteConnectionPassword && (
-                  <div className="flex items-center gap-2">
-                    <span className="text-xs text-cyan-600 font-semibold">Password:</span>
-                    <span className="text-sm font-mono font-medium text-cyan-900 bg-white px-2 py-1 rounded border border-cyan-300">
-                      {ticketData.remoteConnectionPassword}
-                    </span>
-                  </div>
-                )}
-              </div>
-            </div>
-          )}
         </div>
 
         {/* Footer con botones en tema naranja */}

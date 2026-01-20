@@ -75,11 +75,20 @@ export default function InspectionsInbox() {
   const [rowsError, setRowsError] = useState<string | null>(null)
   const [inspections, setInspections] = useState<any[]>([])
 
+  const [deleteModalOpen, setDeleteModalOpen] = useState(false)
+  const [deleteAck, setDeleteAck] = useState('')
+  const [deleteTarget, setDeleteTarget] = useState<any | null>(null)
+
   const [filters, setFilters] = useState<InboxFilters>({ status: 'all', q: '' })
 
   const canManageStatus = useMemo(() => {
     const role = profile?.role || ''
     return role === 'admin' || role === 'supervisor'
+  }, [profile?.role])
+
+  const canDelete = useMemo(() => {
+    const role = profile?.role || ''
+    return role === 'admin'
   }, [profile?.role])
 
   useEffect(() => {
@@ -109,7 +118,7 @@ export default function InspectionsInbox() {
 
         setProfile((prof as any) || null)
 
-        const isAdmin = (prof as any)?.role === 'admin'
+        const isAdmin = (prof as any)?.role === 'admin' || (prof as any)?.role === 'corporate_admin'
 
         if (isAdmin) {
           const { data, error: locError } = await supabase
@@ -261,6 +270,80 @@ export default function InspectionsInbox() {
     }
   }
 
+  const openDeleteModal = (row: any) => {
+    setDeleteTarget(row)
+    setDeleteAck('')
+    setDeleteModalOpen(true)
+  }
+
+  const closeDeleteModal = () => {
+    if (rowsLoading) return
+    setDeleteModalOpen(false)
+    setDeleteAck('')
+    setDeleteTarget(null)
+  }
+
+  const confirmDeleteWithAck = async () => {
+    const row = deleteTarget
+    if (!row?.id) return
+
+    const ack = deleteAck.trim()
+    if (ack.length < 20) {
+      alert('El acuse debe tener mínimo 20 caracteres.')
+      return
+    }
+
+    setRowsLoading(true)
+    try {
+      const supabase = createSupabaseBrowserClient()
+
+      // Registrar acuse (auditoría)
+      const { error: logError } = await supabase
+        .from('inspections_rrhh_deletion_log')
+        .insert({
+          inspection_id: row.id,
+          deleted_by: profile?.id,
+          deleted_by_role: profile?.role,
+          acuse: ack,
+          snapshot: {
+            id: row.id,
+            status: row.status,
+            department: row.department,
+            inspection_date: row.inspection_date,
+            property_code: row.property_code,
+            property_name: row.property_name,
+            inspector_name: row.inspector_name,
+            coverage_percentage: row.coverage_percentage,
+            compliance_percentage: row.compliance_percentage,
+            average_score: row.average_score,
+          }
+        })
+
+      if (logError) {
+        alert(logError.message || 'No se pudo registrar el acuse de eliminación')
+        return
+      }
+
+      // Eliminar inspección (FK CASCADE elimina áreas/items)
+      const { error: deleteError } = await supabase
+        .from('inspections_rrhh')
+        .delete()
+        .eq('id', row.id)
+
+      if (deleteError) {
+        alert(deleteError.message || 'No se pudo eliminar la inspección')
+        return
+      }
+
+      closeDeleteModal()
+      await loadInspections(selectedPropertyId, availableProperties)
+    } catch (e: any) {
+      alert(e?.message || 'Error al eliminar inspección')
+    } finally {
+      setRowsLoading(false)
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-slate-100 flex items-center justify-center">
@@ -308,7 +391,7 @@ export default function InspectionsInbox() {
                 Bandeja de Inspecciones
               </h1>
               <p className="text-slate-400 text-sm">
-                Consulte inspecciones realizadas (RRHH) por propiedad, estado y búsqueda.
+                Consulte inspecciones realizadas por propiedad, estado y búsqueda.
               </p>
             </div>
           </div>
@@ -360,7 +443,7 @@ export default function InspectionsInbox() {
               <input
                 value={filters.q}
                 onChange={(e) => setFilters((prev) => ({ ...prev, q: e.target.value }))}
-                placeholder="Ej: inspector, RRHH, código, ..."
+                placeholder="Ej: inspector, departamento, código, ..."
                 className="w-full h-10 rounded-lg border border-slate-300 bg-white px-3 text-sm text-slate-900 placeholder:text-slate-400"
               />
             </div>
@@ -489,6 +572,16 @@ export default function InspectionsInbox() {
                               </button>
                             </>
                           )}
+
+                          {canDelete && (
+                            <button
+                              onClick={() => openDeleteModal(r)}
+                              className="px-3 py-1.5 rounded-lg bg-rose-600 text-white hover:bg-rose-700 transition-colors text-xs font-semibold"
+                              title="Eliminar inspección (requiere acuse)"
+                            >
+                              Eliminar
+                            </button>
+                          )}
                         </div>
                       </td>
                     </tr>
@@ -501,8 +594,66 @@ export default function InspectionsInbox() {
       </div>
 
       <div className="mt-4 text-xs text-slate-500">
-        Mostrando {filteredInspections.length} inspección(es) RRHH. Filtros aplicables por propiedad, estado y búsqueda.
+        Mostrando {filteredInspections.length} inspección(es). Filtros aplicables por propiedad, estado y búsqueda.
       </div>
+
+      {deleteModalOpen && deleteTarget && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={closeDeleteModal} />
+          <div className="relative w-full max-w-lg rounded-xl bg-white border border-slate-200 shadow-xl overflow-hidden">
+            <div className="p-4 border-b border-slate-100 bg-slate-50">
+              <h2 className="text-sm font-bold text-slate-900">Eliminar inspección</h2>
+              <p className="text-xs text-slate-600 mt-1">
+                Esta acción no se puede deshacer. Se requiere un acuse para registro.
+              </p>
+            </div>
+
+            <div className="p-4 space-y-3">
+              <div className="text-xs text-slate-700 bg-slate-50 border border-slate-200 rounded-lg p-3">
+                <div className="font-semibold text-slate-900">{deleteTarget.property_code || '—'}</div>
+                <div className="text-slate-600">
+                  {deleteTarget.department || '—'} • {formatDateShort(deleteTarget.inspection_date)} • {statusLabel(deleteTarget.status)}
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-xs font-semibold text-slate-700 mb-1">Acuse (mínimo 20 caracteres)</label>
+                <textarea
+                  value={deleteAck}
+                  onChange={(e) => setDeleteAck(e.target.value)}
+                  rows={4}
+                  className="w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 placeholder:text-slate-400"
+                  placeholder="Ej: Elimino por duplicado. Se creó una inspección correcta con folio ..."
+                  disabled={rowsLoading}
+                />
+                <div className="mt-1 flex items-center justify-between text-[11px]">
+                  <span className={deleteAck.trim().length >= 20 ? 'text-emerald-700' : 'text-slate-500'}>
+                    {deleteAck.trim().length}/20
+                  </span>
+                  <span className="text-slate-500">Se registrará junto con la eliminación.</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="p-4 border-t border-slate-100 bg-white flex items-center justify-end gap-2">
+              <button
+                onClick={closeDeleteModal}
+                disabled={rowsLoading}
+                className="px-3 py-2 rounded-lg border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 transition-colors text-sm font-semibold disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmDeleteWithAck}
+                disabled={rowsLoading || deleteAck.trim().length < 20}
+                className="px-3 py-2 rounded-lg bg-rose-600 text-white hover:bg-rose-700 transition-colors text-sm font-semibold disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                {rowsLoading ? 'Eliminando...' : 'Eliminar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

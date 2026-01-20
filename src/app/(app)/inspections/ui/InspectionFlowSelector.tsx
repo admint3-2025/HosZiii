@@ -79,9 +79,11 @@ const DepartmentIcon = ({ type, className }: { type: Department['iconType'], cla
 }
 
 export default function InspectionFlowSelector({
-  templateOverride
+  templateOverride,
+  context = 'self'
 }: {
   templateOverride?: InspectionRRHHArea[] | null
+  context?: 'self' | 'corporate'
 }) {
   const [step, setStep] = useState<'department' | 'property' | 'dashboard'>('department')
   const [selectedDepartment, setSelectedDepartment] = useState<Department | null>(null)
@@ -105,7 +107,7 @@ export default function InspectionFlowSelector({
         // Obtener perfil del usuario incluyendo allowed_departments
         const { data: profile } = await supabase
           .from('profiles')
-          .select('id, role, allowed_departments')
+          .select('id, role, allowed_departments, location_id')
           .eq('id', user.id)
           .single()
         
@@ -119,8 +121,9 @@ export default function InspectionFlowSelector({
         const isAdmin = profile?.role === 'admin'
         const isCorporateAdmin = profile?.role === 'corporate_admin'
 
-        // Admin y corporate_admin ven todas las ubicaciones
-        if (isAdmin || isCorporateAdmin) {
+        // En contexto corporativo: todas las sedes activas son inspeccionables.
+        // El permiso especial del perfil filtra DEPARTAMENTOS (allowed_departments), no sedes.
+        if (context === 'corporate' || isAdmin || isCorporateAdmin) {
           const { data, error } = await supabase
             .from('locations')
             .select('id, code, name')
@@ -180,6 +183,7 @@ export default function InspectionFlowSelector({
 
   if (step === 'dashboard' && selectedDepartment && selectedProperty && currentUser) {
     const isAdmin = userProfile?.role === 'admin'
+    const filterByCurrentUser = context === 'self'
     const isRRHH = selectedDepartment.name.toLowerCase().includes('rrhh') || 
                    selectedDepartment.name.toLowerCase().includes('recursos humanos')
 
@@ -194,6 +198,7 @@ export default function InspectionFlowSelector({
         templateOverride={templateOverride}
         isAdmin={isAdmin}
         isRRHH={isRRHH}
+        filterByCurrentUser={filterByCurrentUser}
         onChangeProperty={() => {
           setSelectedProperty(null)
           setStep('property')

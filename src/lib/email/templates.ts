@@ -2338,3 +2338,222 @@ export function locationSummaryEmailTemplate(params: {
 
   return { subject, html, text }
 }
+
+/**
+ * Template para notificar inspecciones con ítems debajo del umbral crítico
+ */
+export function criticalInspectionAlertTemplate(params: {
+  locationCode: string
+  locationName: string
+  inspectionDate: string
+  inspectorName: string
+  department: string
+  averageScore: number
+  criticalItems: Array<{
+    areaName: string
+    itemDescription: string
+    score: number
+    comments: string
+  }>
+  inspectionUrl: string
+  threshold: number
+}) {
+  const {
+    locationCode,
+    locationName,
+    inspectionDate,
+    inspectorName,
+    department,
+    averageScore,
+    criticalItems,
+    inspectionUrl,
+    threshold
+  } = params
+
+  const subject = `⚠️ Alerta Crítica: ${locationCode} - ${criticalItems.length} ítem${criticalItems.length === 1 ? '' : 's'} bajo umbral`
+
+  // Limitar a los primeros 10 items para que el correo sea corto
+  const maxItemsToShow = 10
+  const itemsToShow = criticalItems.slice(0, maxItemsToShow)
+  const remainingCount = Math.max(0, criticalItems.length - maxItemsToShow)
+
+  const criticalItemsText = itemsToShow
+    .map(item => `  • ${item.itemDescription} (${item.areaName}): ${item.score}/10`)
+    .join('\n')
+
+  const text = [
+    `ALERTA DE INSPECCIÓN CRÍTICA`,
+    ``,
+    `Se detectaron ${criticalItems.length} ítems con calificación menor a ${threshold}/10.`,
+    ``,
+    `Sede: ${locationName} (${locationCode})`,
+    `Departamento: ${department}`,
+    `Inspector: ${inspectorName}`,
+    `Fecha: ${inspectionDate}`,
+    `Promedio: ${averageScore.toFixed(1)}/10`,
+    ``,
+    `ÍTEMS CRÍTICOS:`,
+    criticalItemsText,
+    remainingCount > 0 ? `  ... y ${remainingCount} más` : '',
+    ``,
+    `Revisar: ${inspectionUrl}`,
+  ].filter(Boolean).join('\n')
+
+  const criticalItemsHtml = itemsToShow
+    .map(
+      item => `
+      <tr>
+        <td style="padding:12px 16px; border-bottom:1px solid #fef3c7;">
+          <p style="margin:0; font-size:14px; font-weight:600; color:#78350f;">
+            ${escapeHtml(item.itemDescription)}
+          </p>
+          <p style="margin:4px 0 0 0; font-size:12px; color:#92400e;">
+            📍 ${escapeHtml(item.areaName)}
+          </p>
+          ${item.comments ? `
+          <p style="margin:6px 0 0 0; font-size:11px; color:#92400e; font-style:italic; padding:6px 10px; background:#fef9e7; border-radius:4px;">
+            💬 ${escapeHtml(item.comments)}
+          </p>
+          ` : ''}
+        </td>
+        <td style="padding:12px 16px; border-bottom:1px solid #fef3c7; text-align:center; width:80px;">
+          <div style="display:inline-block; padding:6px 12px; background:#d97706; border-radius:6px;">
+            <p style="margin:0; font-size:14px; font-weight:700; color:#ffffff;">${item.score}/10</p>
+          </div>
+        </td>
+      </tr>
+    `
+    )
+    .join('')
+
+  const html = `
+  <!DOCTYPE html>
+  <html lang="es">
+  <head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  </head>
+  <body style="margin:0; padding:0; background-color:#f8fafc;">
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background:#f8fafc; padding:32px 16px;">
+      
+      <!-- Main Card -->
+      <div style="max-width:650px; margin:0 auto; background:#ffffff; border-radius:12px; overflow:hidden; box-shadow:0 4px 6px rgba(0,0,0,0.1);">
+        
+        <!-- Header with Logo -->
+        <div style="background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding:28px 32px; text-align:center;">
+          <div style="margin-bottom:12px;">
+            <img src="https://integrational3.com.mx/logorigen/ZIII%20logo.png" alt="ZIII HoS" style="height:40px; width:auto;" />
+          </div>
+          <div style="font-size:32px; margin-bottom:8px;">⚠️</div>
+          <h1 style="margin:0; font-size:20px; font-weight:700; color:#ffffff; letter-spacing:-0.5px;">
+            Alerta de Inspección Crítica
+          </h1>
+          <p style="margin:8px 0 0 0; font-size:13px; color:#94a3b8;">
+            ${department} · ${locationCode}
+          </p>
+        </div>
+
+        <!-- Alert Banner -->
+        <div style="background:#fef3c7; border-left:4px solid #f59e0b; padding:16px 32px;">
+          <p style="margin:0; font-size:15px; color:#78350f; font-weight:600;">
+            🚨 ${criticalItems.length} ${criticalItems.length === 1 ? 'ítem detectado' : 'ítems detectados'} con calificación inferior a ${threshold}/10
+          </p>
+        </div>
+
+        <!-- Content -->
+        <div style="padding:32px;">
+          
+          <!-- Inspection Info -->
+          <div style="margin-bottom:24px; padding:20px; background:#f8fafc; border-radius:8px; border:1px solid #e2e8f0;">
+            <h3 style="margin:0 0 16px 0; font-size:14px; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:0.5px;">
+              📋 Información de la Inspección
+            </h3>
+            <table style="width:100%; border-collapse:collapse;">
+              <tr>
+                <td style="padding:8px 0; font-size:13px; color:#64748b; width:140px;">
+                  <strong style="color:#334155;">Sede:</strong>
+                </td>
+                <td style="padding:8px 0; font-size:13px; color:#1e293b;">
+                  ${escapeHtml(locationName)} (${escapeHtml(locationCode)})
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:8px 0; font-size:13px; color:#64748b;">
+                  <strong style="color:#334155;">Inspector:</strong>
+                </td>
+                <td style="padding:8px 0; font-size:13px; color:#1e293b;">
+                  ${escapeHtml(inspectorName)}
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:8px 0; font-size:13px; color:#64748b;">
+                  <strong style="color:#334155;">Fecha:</strong>
+                </td>
+                <td style="padding:8px 0; font-size:13px; color:#1e293b;">
+                  ${escapeHtml(inspectionDate)}
+                </td>
+              </tr>
+              <tr>
+                <td style="padding:8px 0; font-size:13px; color:#64748b;">
+                  <strong style="color:#334155;">Promedio General:</strong>
+                </td>
+                <td style="padding:8px 0; font-size:13px; color:#1e293b;">
+                  <span style="display:inline-block; padding:4px 10px; background:${averageScore >= threshold ? '#dcfce7' : '#fee2e2'}; color:${averageScore >= threshold ? '#166534' : '#991b1b'}; border-radius:4px; font-weight:600;">
+                    ${averageScore.toFixed(1)}/10
+                  </span>
+                </td>
+              </tr>
+            </table>
+          </div>
+
+          <!-- Critical Items Section -->
+          <div style="margin-bottom:24px;">
+            <h3 style="margin:0 0 16px 0; font-size:14px; font-weight:700; color:#475569; text-transform:uppercase; letter-spacing:0.5px;">
+              🔍 Ítems que Requieren Atención${remainingCount > 0 ? ` (Mostrando ${maxItemsToShow} de ${criticalItems.length})` : ''}
+            </h3>
+            <table style="width:100%; border-collapse:collapse; background:#fffbeb; border-radius:8px; overflow:hidden; border:1px solid #fef3c7;">
+              ${criticalItemsHtml}
+            </table>
+            ${remainingCount > 0 ? `
+            <p style="margin:12px 0 0 0; font-size:12px; color:#78350f; font-weight:600; padding:12px; background:#fef3c7; border-radius:6px; text-align:center;">
+              ⚠️ Hay ${remainingCount} ítem${remainingCount === 1 ? '' : 's'} crítico${remainingCount === 1 ? '' : 's'} adicional${remainingCount === 1 ? '' : 'es'}. Revise el reporte completo.
+            </p>
+            ` : ''}
+          </div>
+
+          <!-- CTA Button -->
+          <div style="text-align:center; margin-bottom:24px;">
+            <a href="${escapeAttr(inspectionUrl)}"
+               style="display:inline-block; background:#0f172a; color:#ffffff; text-decoration:none; padding:14px 36px; border-radius:8px; font-size:15px; font-weight:600; box-shadow:0 2px 4px rgba(0,0,0,0.1);">
+              Ver Reporte Completo →
+            </a>
+          </div>
+
+          <!-- Note -->
+          <div style="padding:16px; background:#f1f5f9; border-radius:6px; border-left:3px solid #64748b;">
+            <p style="margin:0; font-size:12px; color:#475569; line-height:1.6;">
+              <strong>Nota:</strong> Esta alerta se genera automáticamente cuando se detectan ítems con calificación inferior al umbral establecido. Se recomienda revisar y tomar acciones correctivas a la brevedad.
+            </p>
+          </div>
+
+        </div>
+
+        <!-- Footer -->
+        <div style="padding:20px 32px; background:#f8fafc; border-top:1px solid #e2e8f0; text-align:center;">
+          <p style="margin:0 0 4px 0; font-size:12px; color:#64748b; font-weight:600;">
+            ZIII Helpdesk · Sistema de Inspecciones
+          </p>
+          <p style="margin:0; font-size:11px; color:#94a3b8;">
+            Este es un correo automático, por favor no responder directamente.
+          </p>
+        </div>
+
+      </div>
+    </div>
+  </body>
+  </html>
+  `
+
+  return { subject, html, text }
+}
+

@@ -44,10 +44,13 @@ export async function createMaintenanceTicket(input: CreateMaintenanceTicketInpu
     return { error: 'No tienes permisos para crear tickets de mantenimiento.' }
   }
 
-  const canCreateForOthers = currentProfile && ['agent_l1', 'agent_l2', 'supervisor', 'admin'].includes(currentProfile.role)
+  // Solo admin o agentes/supervisores de MANTENIMIENTO pueden crear tickets de mantenimiento para otros
+  const canCreateForOthers = currentProfile && 
+    (currentProfile.role === 'admin' || 
+     (['agent_l1', 'agent_l2', 'supervisor'].includes(currentProfile.role) && currentProfile.asset_category === 'MAINTENANCE'))
 
   if (input.requester_id && !canCreateForOthers) {
-    return { error: 'No tienes permisos para crear tickets para otros usuarios.' }
+    return { error: 'No tienes permisos para crear tickets de mantenimiento para otros usuarios.' }
   }
 
   // Determinar el solicitante: si es admin/supervisor/técnico y especificó requester_id, usarlo; sino, usar el usuario actual
@@ -96,24 +99,48 @@ export async function createMaintenanceTicket(input: CreateMaintenanceTicketInpu
   const { data: categories } = await supabase.from('categories').select('id,name,parent_id')
   const categoryPath = getCategoryPathLabel(categories ?? [], input.category_id)
 
-  // Generar ticket_number GLOBAL (max + 1). El constraint es UNIQUE global,
-  // así que no puede reiniciarse por día. Además, se reintenta si hay colisión.
+  // Generar ticket_number con formato estricto: MANT-DDMMAA-XXXX
+  // El campo es UNIQUE global, así que se reintenta si hay colisión.
   const admin = createSupabaseAdminClient()
 
-  async function getNextTicketNumber() {
+  function getMexicoDdmmyy(now: Date): { dd: string; mm: string; yy: string } {
+    const parts = new Intl.DateTimeFormat('en-GB', {
+      timeZone: 'America/Mexico_City',
+      day: '2-digit',
+      month: '2-digit',
+      year: '2-digit',
+    }).formatToParts(now)
+
+    const dd = parts.find((p) => p.type === 'day')?.value ?? '01'
+    const mm = parts.find((p) => p.type === 'month')?.value ?? '01'
+    const yy = parts.find((p) => p.type === 'year')?.value ?? '00'
+    return { dd, mm, yy }
+  }
+
+  async function getNextMaintenanceTicketCode(): Promise<string> {
+    const { dd, mm, yy } = getMexicoDdmmyy(new Date())
+    const datePart = `${dd}${mm}${yy}`
+    const prefix = `MANT-${datePart}-`
+
     const { data: lastTicket, error: lastErr } = await admin
       .from('tickets_maintenance')
       .select('ticket_number')
+      .ilike('ticket_number', `${prefix}%`)
       .order('ticket_number', { ascending: false })
       .limit(1)
       .maybeSingle()
 
     if (lastErr) {
-      console.warn('[Maintenance Ticket Create] ⚠️ No se pudo obtener max(ticket_number):', lastErr)
+      console.warn('[Maintenance Ticket Create] ⚠️ No se pudo obtener el último ticket del día:', lastErr)
     }
 
-    const last = Number((lastTicket as any)?.ticket_number || 0)
-    return (Number.isFinite(last) ? last : 0) + 1
+    const lastCode = String((lastTicket as any)?.ticket_number || '')
+    const lastSeqMatch = lastCode.match(/-(\d{4})$/)
+    const lastSeq = lastSeqMatch ? parseInt(lastSeqMatch[1], 10) : 0
+    const nextSeq = (Number.isFinite(lastSeq) ? lastSeq : 0) + 1
+    const seq = String(nextSeq).padStart(4, '0')
+
+    return `${prefix}${seq}`
   }
 
   // Convertir priority numérico a texto según el constraint de la tabla
@@ -144,19 +171,12 @@ export async function createMaintenanceTicket(input: CreateMaintenanceTicketInpu
     console.log('[Maintenance Ticket Create] ⚠️ NO se recibió asset_id en input')
   }
 
-  // If remote connection info is provided, save it
-  if (input.remote_connection_type) {
-    ticketDataBase.remote_connection_type = input.remote_connection_type
-    ticketDataBase.remote_connection_id = input.remote_connection_id || null
-    ticketDataBase.remote_connection_password = input.remote_connection_password || null
-  }
-
   let ticket: any = null
   let error: any = null
   const maxAttempts = 5
 
   for (let attempt = 1; attempt <= maxAttempts; attempt++) {
-    const ticketNumber = await getNextTicketNumber()
+    const ticketNumber = await getNextMaintenanceTicketCode()
     const ticketData: any = { ...ticketDataBase, ticket_number: ticketNumber }
     console.log(
       `[Maintenance Ticket Create] 📝 Intento ${attempt}/${maxAttempts} - insert ticket_number=${ticketNumber}:`,

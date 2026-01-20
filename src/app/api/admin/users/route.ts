@@ -1,7 +1,38 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 
-type Role = 'requester' | 'agent_l1' | 'agent_l2' | 'supervisor' | 'auditor' | 'corporate_admin' | 'admin'
+type Role =
+  | 'requester'
+  | 'agent_l1'
+  | 'agent_l2'
+  | 'supervisor'
+  | 'auditor'
+  | 'corporate_admin'
+  | 'admin'
+
+type HubModuleId = 'it-helpdesk' | 'mantenimiento' | 'corporativo' | 'administracion'
+type HubModules = Record<HubModuleId, boolean>
+
+function isMissingHubModulesColumnError(err: unknown): boolean {
+  const msg = (err as any)?.message
+  if (typeof msg !== 'string') return false
+  return msg.toLowerCase().includes('hub_modules') && msg.toLowerCase().includes('does not exist')
+}
+
+function parseHubModules(value: unknown): HubModules | null {
+  if (!value || typeof value !== 'object') return null
+  const obj = value as Record<string, unknown>
+  const keys: HubModuleId[] = ['it-helpdesk', 'mantenimiento', 'corporativo', 'administracion']
+  const result: Partial<HubModules> = {}
+  for (const key of keys) {
+    if (obj[key] === undefined) continue
+    if (typeof obj[key] !== 'boolean') return null
+    result[key] = obj[key] as boolean
+  }
+  // If empty object, treat as null (DB default applies)
+  if (Object.keys(result).length === 0) return null
+  return result as HubModules
+}
 
 function isValidEmail(email: unknown): email is string {
   return typeof email === 'string' && /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
@@ -28,7 +59,8 @@ export async function GET() {
   if (!user) return new Response('Unauthorized', { status: 401 })
 
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  if (profile?.role !== 'admin') return new Response('Forbidden', { status: 403 })
+  const isAdminLike = profile?.role === 'admin'
+  if (!isAdminLike) return new Response('Forbidden', { status: 403 })
 
   const admin = createSupabaseAdminClient()
 
@@ -40,7 +72,8 @@ export async function GET() {
 
   const { data: profiles, error: profErr } = await admin
     .from('profiles')
-    .select('id,full_name,role,department,phone,building,floor,position,supervisor_id,location_id,asset_category,allowed_departments,can_view_beo,can_manage_assets,locations(code,name)')
+    // NOTE: Avoid selecting hub_modules explicitly because older DBs may not have the column yet.
+    .select('*,locations(code,name)')
     .in('id', ids)
 
   if (profErr) return new Response(profErr.message, { status: 500 })
@@ -113,6 +146,7 @@ export async function GET() {
       allowed_departments: (p?.allowed_departments as any) ?? null,
       can_view_beo: (p?.can_view_beo as any) ?? false,
       can_manage_assets: (p?.can_manage_assets as any) ?? false,
+      hub_modules: (p?.hub_modules as any) ?? null,
     }
   })
 
@@ -128,7 +162,8 @@ export async function POST(request: Request) {
   if (!user) return new Response('Unauthorized', { status: 401 })
 
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
-  if (profile?.role !== 'admin') return new Response('Forbidden', { status: 403 })
+  const isAdminLike = profile?.role === 'admin'
+  if (!isAdminLike) return new Response('Forbidden', { status: 403 })
 
   let body: any
   try {
@@ -150,6 +185,7 @@ export async function POST(request: Request) {
   const allowedDepartments = Array.isArray(body?.allowed_departments) && body.allowed_departments.length > 0 ? body.allowed_departments : null
   const canViewBeo = Boolean(body?.can_view_beo)
   const canManageAssets = Boolean(body?.can_manage_assets)
+  const hubModules = parseHubModules(body?.hub_modules)
   const invite = body?.invite !== false
   const password = typeof body?.password === 'string' ? body.password : null
 
@@ -184,7 +220,7 @@ export async function POST(request: Request) {
   const newUserId = created.data.user.id
 
   // Ensure profile exists with proper role
-  const { error: upsertErr } = await admin.from('profiles').upsert({
+  const baseProfilePayload: Record<string, any> = {
     id: newUserId,
     full_name: fullName || null,
     role,
@@ -198,9 +234,19 @@ export async function POST(request: Request) {
     allowed_departments: allowedDepartments,
     can_view_beo: canViewBeo,
     can_manage_assets: canManageAssets,
-  })
+  }
 
-  if (upsertErr) {
+  const payloadWithHubModules = hubModules ? { ...baseProfilePayload, hub_modules: hubModules } : baseProfilePayload
+  const { error: upsertErr } = await admin.from('profiles').upsert(payloadWithHubModules)
+
+  // Backward-compat: if DB migration wasn't applied yet, retry without hub_modules.
+  if (upsertErr && hubModules && isMissingHubModulesColumnError(upsertErr)) {
+    const { error: retryErr } = await admin.from('profiles').upsert(baseProfilePayload)
+    if (retryErr) {
+      return new Response(`User created, but profile update failed: ${retryErr.message}`, { status: 500 })
+    }
+    // Continue: admin will behave as admin-like but without hub visibility config until migration is applied.
+  } else if (upsertErr) {
     return new Response(`User created, but profile update failed: ${upsertErr.message}`, { status: 500 })
   }
 

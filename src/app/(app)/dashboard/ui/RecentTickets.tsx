@@ -4,21 +4,25 @@ import { formatTicketCode } from '@/lib/tickets/code'
 
 type Ticket = {
   id: string
-  ticket_number: number
+  ticket_number: string | number
   title: string
   status: string
   priority: number
   created_at: string
 }
 
+type TicketCodeFormatter = (params: { ticket_number: string | number; created_at: string | null }) => string
+
 export default function RecentTickets({
   tickets,
   ticketsIndexHref,
   baseHref = '/tickets',
+  formatCode = formatTicketCode,
 }: {
   tickets: Ticket[]
   ticketsIndexHref: string
   baseHref?: string
+  formatCode?: TicketCodeFormatter
 }) {
   return (
     <div className="card shadow-lg border-0">
@@ -64,7 +68,7 @@ export default function RecentTickets({
               >
                 <div className="flex items-center gap-3">
                   <span className="text-xs font-bold text-purple-600 bg-purple-50 px-2 py-0.5 rounded shrink-0">
-                    {formatTicketCode({ ticket_number: ticket.ticket_number, created_at: ticket.created_at })}
+                    {formatCode({ ticket_number: ticket.ticket_number, created_at: ticket.created_at })}
                   </span>
                   <p className="text-sm font-medium text-gray-900 truncate flex-1 group-hover:text-purple-700 transition-colors">
                     {ticket.title}

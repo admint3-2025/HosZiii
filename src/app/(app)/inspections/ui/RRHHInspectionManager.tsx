@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
+import { useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import InspectionStatsDashboard from './InspectionStatsDashboard'
 import InspectionDashboard from './InspectionDashboard'
@@ -20,6 +21,7 @@ interface RRHHInspectionManagerProps {
   templateOverride?: InspectionRRHHArea[] | null
   isAdmin?: boolean
   isRRHH?: boolean
+  filterByCurrentUser?: boolean
   onChangeProperty?: () => void
   onChangeDepartment?: () => void
 }
@@ -159,6 +161,7 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [showNavigationModal, setShowNavigationModal] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
+  const pendingActionRef = useRef<(() => void) | null>(null)
   const [showDraftModal, setShowDraftModal] = useState(false)
   const [pendingDraftInspection, setPendingDraftInspection] = useState<any>(null)
   const [showNewInspectionModal, setShowNewInspectionModal] = useState(false)
@@ -204,21 +207,67 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
     }
   }, [showFormulario, hasUnsavedChanges])
 
+  // Permite que componentes externos (ej. tabs Tablero/Nueva en corporativo)
+  // pidan una navegación/acción protegida por el modal de cambios sin guardar.
+  useEffect(() => {
+    const handler = (evt: Event) => {
+      const ce = evt as CustomEvent<{ onProceed?: () => void; href?: string }>
+      const onProceed = ce?.detail?.onProceed
+      const href = ce?.detail?.href
+
+      // Si no hay formulario abierto o no hay cambios, proceder inmediatamente
+      if (!showFormulario || !hasUnsavedChanges) {
+        if (onProceed) onProceed()
+        else if (href) router.push(href)
+        return
+      }
+
+      // Abrir modal y guardar acción pendiente
+      pendingActionRef.current = onProceed || null
+      setPendingNavigation(href || null)
+      setShowNavigationModal(true)
+    }
+
+    window.addEventListener('ziii:inspection-navigate', handler as EventListener)
+    return () => window.removeEventListener('ziii:inspection-navigate', handler as EventListener)
+  }, [hasUnsavedChanges, router, showFormulario])
+
+  const proceedAfterUnsavedModal = () => {
+    const action = pendingActionRef.current
+    pendingActionRef.current = null
+    if (action) {
+      action()
+      return
+    }
+    const destination = pendingNavigation || '/inspections/inbox'
+    setPendingNavigation(null)
+    router.push(destination)
+  }
+
   // Cargar estadísticas al montar
   useEffect(() => {
-    loadStats()
-    
+    // Si ya tenemos un inspectionId específico (viene de bandeja/URL), cargar directamente
     if (props.inspectionId) {
       loadInspection(props.inspectionId)
+      return
     }
+    
+    // Solo cargar stats y mostrar modales si NO hay inspectionId
+    loadStats()
   }, [props.inspectionId])
 
   const loadStats = async () => {
-    // Filtrar solo inspecciones del usuario actual
-    const { data } = await InspectionsRRHHService.getLocationStats(props.locationId, true)
+    const filterByCurrentUser = props.filterByCurrentUser ?? true
+    const { data } = await InspectionsRRHHService.getLocationStats(props.locationId, filterByCurrentUser)
     console.log('📊 loadStats data:', data)
     if (data) {
       setStats(data)
+
+      // En vista corporativa (sin filtro por usuario), mantener el tablero en modo KPIs/lista
+      // y no forzar modales/selección de borradores.
+      if (!filterByCurrentUser) {
+        return
+      }
       
       // Si hay inspecciones recientes, analizar y cargar
       if (data.recentInspections && data.recentInspections.length > 0) {
@@ -311,6 +360,8 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
   }
 
   const handleSave = async (completeInspection = false): Promise<boolean> => {
+    console.log('🟢🟢🟢 HANDLESAVE LLAMADO - completeInspection:', completeInspection)
+    
     if (!inspection) {
       console.error('handleSave: No hay inspección para guardar')
       alert('Error: No hay inspección cargada para guardar')
@@ -352,8 +403,48 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
         }
 
         if (completeInspection) {
-          console.log('Completando inspección...')
-          await InspectionsRRHHService.updateInspectionStatus(inspection.id, 'completed')
+          console.log('🔵 Completando inspección y enviando notificaciones...')
+          
+          // Llamar al endpoint que hará AMBAS cosas: completar + notificar
+          // Esto garantiza que el status esté actualizado cuando se verifiquen los items críticos
+          try {
+            const completeResponse = await fetch('/api/inspections/complete-and-notify', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ inspectionId: inspection.id })
+            })
+            
+            console.log('📬 Respuesta recibida, status:', completeResponse.status)
+            
+            if (completeResponse.ok) {
+              const result = await completeResponse.json()
+              console.log('✅ Respuesta:', result)
+              
+              // Recargar la inspección completa desde la BD para obtener el status actualizado
+              console.log('🔄 Recargando inspección desde BD...')
+              await loadInspection(inspection.id)
+              
+              // Marcar como sin cambios pendientes
+              setHasUnsavedChanges(false)
+              
+              if (result.criticalItemsCount > 0) {
+                alert(`✅ Inspección completada.\n\n⚠️ Se detectaron ${result.criticalItemsCount} ítems críticos (< 8/10).\n\nSe han enviado notificaciones a ${result.adminsNotified} administradores.`)
+              } else {
+                alert('✅ Inspección completada exitosamente.')
+              }
+            } else {
+              const errorText = await completeResponse.text()
+              console.error('❌ Error al completar:', errorText)
+              alert('Error al completar la inspección. Por favor intenta de nuevo.')
+              setSaving(false)
+              return false
+            }
+          } catch (completeError) {
+            console.error('❌ Error en complete-and-notify:', completeError)
+            alert('Error al completar la inspección. Por favor intenta de nuevo.')
+            setSaving(false)
+            return false
+          }
         }
 
         console.log('Inspección guardada exitosamente')
@@ -374,6 +465,47 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
         if (data) {
           console.log('Inspección creada:', data.id)
           setInspection(data)
+          
+          // Si se debe completar, llamar al endpoint de notificaciones
+          if (completeInspection) {
+            console.log('🔵 Completando inspección recién creada y enviando notificaciones...')
+            
+            try {
+              const completeResponse = await fetch('/api/inspections/complete-and-notify', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ inspectionId: data.id })
+              })
+              
+              console.log('📬 Respuesta recibida, status:', completeResponse.status)
+              
+              if (completeResponse.ok) {
+                const result = await completeResponse.json()
+                console.log('✅ Respuesta:', result)
+                
+                await loadInspection(data.id)
+                setHasUnsavedChanges(false)
+                
+                if (result.criticalItemsCount > 0) {
+                  alert(`✅ Inspección completada.\n\n⚠️ Se detectaron ${result.criticalItemsCount} ítems críticos (< 8/10).\n\nSe han enviado notificaciones a ${result.adminsNotified} administradores.`)
+                } else {
+                  alert('✅ Inspección completada exitosamente.')
+                }
+              } else {
+                const errorText = await completeResponse.text()
+                console.error('❌ Error al completar:', errorText)
+                alert('Error al completar la inspección. Por favor intenta de nuevo.')
+                setSaving(false)
+                return false
+              }
+            } catch (completeError) {
+              console.error('❌ Error en complete-and-notify:', completeError)
+              alert('Error al completar la inspección. Por favor intenta de nuevo.')
+              setSaving(false)
+              return false
+            }
+          }
+          
           setSaving(false)
           return true
         }
@@ -630,9 +762,20 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
             saving={saving}
             inspectionStatus={inspection.status}
             onUnsavedChanges={setHasUnsavedChanges}
-            onBack={props.onChangeProperty || (() => {
-              window.location.href = '/inspections'
-            })}
+            onBack={() => {
+              const goBack = props.onChangeProperty || (() => {
+                window.location.href = '/inspections'
+              })
+
+              if (hasUnsavedChanges && showFormulario) {
+                pendingActionRef.current = goBack
+                setPendingNavigation(null)
+                setShowNavigationModal(true)
+                return
+              }
+
+              goBack()
+            }}
           />
         </div>
       ) : !showNewInspectionModal ? (
@@ -678,9 +821,7 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
                   if (success) {
                     setHasUnsavedChanges(false)
                     setShowNavigationModal(false)
-                    const destination = pendingNavigation || '/inspections/inbox'
-                    setPendingNavigation(null)
-                    router.push(destination)
+                    proceedAfterUnsavedModal()
                   }
                 }}
                 className="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
@@ -695,9 +836,7 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
                   if (success) {
                     setHasUnsavedChanges(false)
                     setShowNavigationModal(false)
-                    const destination = pendingNavigation || '/inspections/inbox'
-                    setPendingNavigation(null)
-                    router.push(destination)
+                    proceedAfterUnsavedModal()
                   }
                 }}
                 className="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
@@ -710,9 +849,7 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
                 onClick={() => {
                   setHasUnsavedChanges(false)
                   setShowNavigationModal(false)
-                  const destination = pendingNavigation || '/inspections/inbox'
-                  setPendingNavigation(null)
-                  router.push(destination)
+                  proceedAfterUnsavedModal()
                 }}
                 className="w-full px-4 py-2 bg-slate-200 text-slate-700 rounded-lg hover:bg-slate-300 transition-colors font-medium disabled:opacity-50"
               >

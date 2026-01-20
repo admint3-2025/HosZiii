@@ -1,9 +1,24 @@
 'use client'
 
+import { useState } from 'react'
+
+import CorporateInspectionsDashboard from './CorporateInspectionsDashboard'
 import InspectionFlowSelector from '@/app/(app)/inspections/ui/InspectionFlowSelector'
 import Link from 'next/link'
 
 export default function CorporativoInspeccionesClient() {
+  const [view, setView] = useState<'dashboard' | 'new'>('dashboard')
+
+  const requestViewChange = (nextView: 'dashboard' | 'new') => {
+    if (nextView === view) return
+    const onProceed = () => setView(nextView)
+    window.dispatchEvent(
+      new CustomEvent('ziii:inspection-navigate', {
+        detail: { onProceed }
+      })
+    )
+  }
+
   return (
     <main className="min-h-screen bg-slate-50">
       {/* Header del módulo */}
@@ -21,21 +36,42 @@ export default function CorporativoInspeccionesClient() {
             </div>
           </div>
           
-          <Link 
-            href="/corporativo/dashboard"
-            className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 backdrop-blur-sm text-white text-xs rounded-lg border border-white/20 hover:bg-white/20 transition-all"
-          >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-            </svg>
-            Dashboard
-          </Link>
+          <div className="flex items-center gap-2">
+            <div className="flex items-center bg-white/10 border border-white/20 rounded-lg overflow-hidden">
+              <button
+                onClick={() => requestViewChange('dashboard')}
+                className={`px-3 py-1.5 text-xs font-semibold transition-colors ${view === 'dashboard' ? 'bg-white/20 text-white' : 'text-white/80 hover:bg-white/10'}`}
+              >
+                Tablero
+              </button>
+              <button
+                onClick={() => requestViewChange('new')}
+                className={`px-3 py-1.5 text-xs font-semibold transition-colors ${view === 'new' ? 'bg-white/20 text-white' : 'text-white/80 hover:bg-white/10'}`}
+              >
+                Nueva
+              </button>
+            </div>
+
+            <Link 
+              href="/corporativo/dashboard"
+              className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 backdrop-blur-sm text-white text-xs rounded-lg border border-white/20 hover:bg-white/20 transition-all"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Dashboard
+            </Link>
+          </div>
         </div>
       </div>
 
       {/* Contenido */}
       <div className="bg-white border-t border-slate-100">
-        <InspectionFlowSelector />
+        {view === 'dashboard' ? (
+          <CorporateInspectionsDashboard onNewInspection={() => setView('new')} />
+        ) : (
+          <InspectionFlowSelector context="corporate" />
+        )}
       </div>
     </main>
   )

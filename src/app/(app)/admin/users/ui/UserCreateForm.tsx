@@ -18,6 +18,16 @@ const ROLES = [
 
 type Role = (typeof ROLES)[number]['value']
 
+type HubModuleId = 'it-helpdesk' | 'mantenimiento' | 'corporativo' | 'administracion'
+type HubModules = Record<HubModuleId, boolean>
+
+const DEFAULT_HUB_MODULES: HubModules = {
+  'it-helpdesk': true,
+  mantenimiento: true,
+  corporativo: true,
+  administracion: true,
+}
+
 type Location = {
   id: string
   name: string
@@ -53,6 +63,10 @@ export default function UserCreateForm() {
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<Result | null>(null)
 
+  const [adminHubModules, setAdminHubModules] = useState<HubModules>(DEFAULT_HUB_MODULES)
+  const [adminHubModalOpen, setAdminHubModalOpen] = useState(false)
+  const [roleBeforeAdmin, setRoleBeforeAdmin] = useState<Role>('requester')
+
   useEffect(() => {
     async function loadLocations() {
       try {
@@ -82,6 +96,14 @@ export default function UserCreateForm() {
       return
     }
 
+    if (role === 'admin') {
+      const enabled = Object.values(adminHubModules).some(Boolean)
+      if (!enabled) {
+        setError('Selecciona al menos 1 módulo visible para el Administrador')
+        return
+      }
+    }
+
     setBusy(true)
     try {
       const res = await fetch('/api/admin/users', {
@@ -101,6 +123,7 @@ export default function UserCreateForm() {
           allowed_departments: role === 'corporate_admin' && allowedDepartments.length > 0 ? allowedDepartments : null,
           can_view_beo: canViewBeo,
           can_manage_assets: canManageAssets,
+          hub_modules: role === 'admin' ? adminHubModules : null,
           invite,
           ...(invite ? {} : { password }),
         }),
@@ -129,11 +152,38 @@ export default function UserCreateForm() {
       setCanManageAssets(false)
       setInvite(true)
       setPassword('')
+      setAdminHubModules(DEFAULT_HUB_MODULES)
     } catch (e: any) {
       setError(e?.message ?? 'Error inesperado')
     } finally {
       setBusy(false)
     }
+  }
+
+  const roleLabel = (r: Role) => ROLES.find((x) => x.value === r)?.label ?? r
+
+  const openAdminHubModal = () => {
+    setAdminHubModalOpen(true)
+  }
+
+  const cancelAdminHubModal = () => {
+    setAdminHubModalOpen(false)
+    // revertir rol si todavía no quedó aplicado
+    if (role === 'admin') {
+      // keep
+      return
+    }
+    setRole(roleBeforeAdmin)
+  }
+
+  const confirmAdminHubModal = () => {
+    const enabled = Object.values(adminHubModules).some(Boolean)
+    if (!enabled) {
+      setError('Selecciona al menos 1 módulo visible para el Administrador')
+      return
+    }
+    setRole('admin')
+    setAdminHubModalOpen(false)
   }
 
   return (
@@ -228,7 +278,19 @@ export default function UserCreateForm() {
 
           <div>
             <label className="block text-[11px] font-medium text-gray-700">Rol</label>
-            <select className="select mt-1" value={role} onChange={(e) => setRole(e.target.value as Role)}>
+            <select
+              className="select mt-1"
+              value={role}
+              onChange={(e) => {
+                const nextRole = e.target.value as Role
+                if (nextRole === 'admin') {
+                  setRoleBeforeAdmin(role)
+                  setAdminHubModalOpen(true)
+                  return
+                }
+                setRole(nextRole)
+              }}
+            >
               {ROLES.map((r) => (
                 <option key={r.value} value={r.value}>
                   {r.label}
@@ -236,6 +298,31 @@ export default function UserCreateForm() {
               ))}
             </select>
           </div>
+
+          {role === 'admin' && (
+            <div className="sm:col-span-2 p-3 border-2 border-violet-200 bg-violet-50 rounded-lg">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <div className="text-[11px] font-semibold text-violet-900 uppercase tracking-wide">
+                    Vista del Hub (Administrador)
+                  </div>
+                  <div className="text-[11px] text-violet-800 mt-1">
+                    Visible: {Object.entries(adminHubModules)
+                      .filter(([, v]) => v)
+                      .map(([k]) => k)
+                      .join(', ') || '—'}
+                  </div>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={openAdminHubModal}
+                >
+                  Configurar
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="sm:col-span-2">
             <MultiLocationSelector
@@ -363,6 +450,60 @@ export default function UserCreateForm() {
           </button>
         </div>
       </div>
+
+      {adminHubModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={cancelAdminHubModal} />
+          <div className="relative w-full max-w-lg rounded-xl bg-white border border-slate-200 shadow-xl overflow-hidden">
+            <div className="p-4 border-b border-slate-100 bg-slate-50">
+              <h2 className="text-sm font-bold text-slate-900">Configurar vista del Hub (Administrador)</h2>
+              <p className="text-xs text-slate-600 mt-1">
+                Selecciona qué módulos verá en el Hub. Puedes cambiarlo después editando el usuario.
+              </p>
+            </div>
+
+            <div className="p-4 space-y-2">
+              {(
+                [
+                  { id: 'it-helpdesk', label: 'IT - HELPDESK' },
+                  { id: 'mantenimiento', label: 'MANTENIMIENTO' },
+                  { id: 'corporativo', label: 'CORPORATIVO' },
+                  { id: 'administracion', label: 'ADMINISTRACIÓN' },
+                ] as Array<{ id: HubModuleId; label: string }>
+              ).map((m) => (
+                <label key={m.id} className="flex items-center gap-2 text-sm text-slate-800">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 rounded border-slate-300"
+                    checked={adminHubModules[m.id]}
+                    onChange={(e) =>
+                      setAdminHubModules((prev) => ({
+                        ...prev,
+                        [m.id]: e.target.checked,
+                      }))
+                    }
+                  />
+                  {m.label}
+                </label>
+              ))}
+            </div>
+
+            <div className="p-4 border-t border-slate-100 bg-white flex items-center justify-between gap-2">
+              <div className="text-xs text-slate-500">
+                Rol seleccionado: <span className="font-semibold">{roleLabel('admin')}</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <button type="button" className="btn btn-secondary" onClick={cancelAdminHubModal}>
+                  Cancelar
+                </button>
+                <button type="button" className="btn btn-primary" onClick={confirmAdminHubModal}>
+                  Guardar
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

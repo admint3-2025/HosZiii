@@ -823,7 +823,7 @@ function EditIcon() {
 }
 
 // Componente de área expandible
-function AreaCard({ area, onUpdateItem }: { area: InspectionArea; onUpdateItem: (areaName: string, itemId: number, field: string, value: any) => void }) {
+function AreaCard({ area, onUpdateItem, isReadOnly = false }: { area: InspectionArea; onUpdateItem: (areaName: string, itemId: number, field: string, value: any) => void; isReadOnly?: boolean }) {
   const [expanded, setExpanded] = useState(false)
   
   const calculatedScore = useMemo(() => {
@@ -876,7 +876,7 @@ function AreaCard({ area, onUpdateItem }: { area: InspectionArea; onUpdateItem: 
               </div>
               
               <div className="col-span-2 text-center">
-                {item.cumplimiento_editable ? (
+                {item.cumplimiento_editable && !isReadOnly ? (
                   <select
                     value={item.cumplimiento_valor}
                     onChange={(e) => onUpdateItem(area.area, item.id, 'cumplimiento_valor', e.target.value)}
@@ -905,7 +905,7 @@ function AreaCard({ area, onUpdateItem }: { area: InspectionArea; onUpdateItem: 
               </div>
               
               <div className="col-span-2 text-center">
-                {item.calif_editable && item.cumplimiento_valor === 'Cumple' ? (
+                {item.calif_editable && item.cumplimiento_valor === 'Cumple' && !isReadOnly ? (
                   <input
                     type="number"
                     min="0"
@@ -922,7 +922,7 @@ function AreaCard({ area, onUpdateItem }: { area: InspectionArea; onUpdateItem: 
               </div>
               
               <div className="col-span-4">
-                {item.comentarios_libre ? (
+                {item.comentarios_libre && !isReadOnly ? (
                   <input
                     type="text"
                     value={item.comentarios_valor}
@@ -1209,10 +1209,10 @@ export default function RRHHDashboard({
       <div className="space-y-3">
         <h2 className="text-sm font-semibold text-slate-700 flex items-center gap-2">
           <EditIcon />
-          Detalle de Áreas (click para expandir y editar)
+          {inspectionStatus === 'completed' ? 'Detalle de Áreas (solo lectura)' : 'Detalle de Áreas (click para expandir y editar)'}
         </h2>
         {inspectionData.map((area) => (
-          <AreaCard key={area.area} area={area} onUpdateItem={handleUpdateItem} />
+          <AreaCard key={area.area} area={area} onUpdateItem={handleUpdateItem} isReadOnly={inspectionStatus === 'completed'} />
         ))}
       </div>
 
@@ -1231,6 +1231,8 @@ export default function RRHHDashboard({
             maxLength={1000}
             placeholder="Escriba aquí observaciones generales, hallazgos importantes, recomendaciones o cualquier anotación relevante sobre esta inspección..."
             className="w-full h-32 text-sm px-3 py-2 rounded-lg border border-slate-200 focus:border-blue-400 focus:ring-2 focus:ring-blue-100 text-slate-700 placeholder:text-slate-400 resize-none"
+            disabled={inspectionStatus === 'completed'}
+            readOnly={inspectionStatus === 'completed'}
           />
           <div className="mt-2 flex items-center justify-between">
             <span className="text-xs text-slate-400">Las anotaciones se guardarán con la inspección</span>

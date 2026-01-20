@@ -7,7 +7,24 @@ import MultiLocationSelector from '@/components/MultiLocationSelector'
 import InspectionDepartmentsSelector from '@/components/InspectionDepartmentsSelector'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 
-type Role = 'requester' | 'agent_l1' | 'agent_l2' | 'supervisor' | 'auditor' | 'corporate_admin' | 'admin'
+type Role =
+  | 'requester'
+  | 'agent_l1'
+  | 'agent_l2'
+  | 'supervisor'
+  | 'auditor'
+  | 'corporate_admin'
+  | 'admin'
+
+type HubModuleId = 'it-helpdesk' | 'mantenimiento' | 'corporativo' | 'administracion'
+type HubModules = Record<HubModuleId, boolean>
+
+const DEFAULT_HUB_MODULES: HubModules = {
+  'it-helpdesk': true,
+  mantenimiento: true,
+  corporativo: true,
+  administracion: true,
+}
 
 type Location = {
   id: string
@@ -38,6 +55,7 @@ type UserRow = {
   can_manage_assets: boolean | null
   asset_category: string | null
   allowed_departments: string[] | null
+  hub_modules?: any | null
 }
 
 const ROLE_LABEL: Record<Role, string> = {
@@ -74,6 +92,10 @@ export default function UserList() {
   const [editAllowedDepartments, setEditAllowedDepartments] = useState<string[]>([])
   const [editCanViewBeo, setEditCanViewBeo] = useState(false)
   const [editCanManageAssets, setEditCanManageAssets] = useState(false)
+
+  const [editHubModules, setEditHubModules] = useState<HubModules>(DEFAULT_HUB_MODULES)
+  const [hubModalOpen, setHubModalOpen] = useState(false)
+  const [roleBeforeAdmin, setRoleBeforeAdmin] = useState<Role>('requester')
 
   // Filtros
   const [searchText, setSearchText] = useState('')
@@ -177,6 +199,18 @@ export default function UserList() {
     setEditAllowedDepartments(u.allowed_departments ?? [])
     setEditCanViewBeo(u.can_view_beo ?? false)
     setEditCanManageAssets(u.can_manage_assets ?? false)
+
+    const hm = (u as any).hub_modules
+    if (hm && typeof hm === 'object') {
+      setEditHubModules({
+        'it-helpdesk': hm['it-helpdesk'] ?? true,
+        mantenimiento: hm['mantenimiento'] ?? true,
+        corporativo: hm['corporativo'] ?? true,
+        administracion: hm['administracion'] ?? true,
+      })
+    } else {
+      setEditHubModules(DEFAULT_HUB_MODULES)
+    }
     
     // Cargar sedes del usuario desde user_locations
     try {
@@ -220,6 +254,7 @@ export default function UserList() {
           allowed_departments: editRole === 'corporate_admin' && editAllowedDepartments.length > 0 ? editAllowedDepartments : null,
           can_view_beo: editCanViewBeo,
           can_manage_assets: editCanManageAssets,
+          hub_modules: editRole === 'admin' ? editHubModules : null,
         }),
       })
       const text = await res.text()
@@ -237,6 +272,24 @@ export default function UserList() {
     } finally {
       setBusy(false)
     }
+  }
+
+  const openHubModal = () => setHubModalOpen(true)
+  const cancelHubModal = () => {
+    setHubModalOpen(false)
+    // Si aún no se aplicó admin, revertimos rol
+    if (editRole !== 'admin') {
+      setEditRole(roleBeforeAdmin)
+    }
+  }
+  const confirmHubModal = () => {
+    const enabled = Object.values(editHubModules).some(Boolean)
+    if (!enabled) {
+      setError('Selecciona al menos 1 módulo visible para el Administrador')
+      return
+    }
+    setEditRole('admin')
+    setHubModalOpen(false)
   }
 
   async function toggleActive(u: UserRow) {
@@ -616,7 +669,19 @@ export default function UserList() {
 
                             <div>
                               <label className="block text-[11px] font-medium text-gray-700 mb-1">Rol</label>
-                              <select className="select text-xs" value={editRole} onChange={(e) => setEditRole(e.target.value as Role)}>
+                              <select
+                                className="select text-xs"
+                                value={editRole}
+                                onChange={(e) => {
+                                  const nextRole = e.target.value as Role
+                                  if (nextRole === 'admin') {
+                                    setRoleBeforeAdmin(editRole)
+                                    setHubModalOpen(true)
+                                    return
+                                  }
+                                  setEditRole(nextRole)
+                                }}
+                              >
                                 {(Object.keys(ROLE_LABEL) as Role[]).map((r) => (
                                   <option key={r} value={r}>
                                     {ROLE_LABEL[r]}
@@ -624,6 +689,27 @@ export default function UserList() {
                                 ))}
                               </select>
                             </div>
+
+                            {editRole === 'admin' && (
+                              <div className="md:col-span-2 p-3 border-2 border-violet-200 bg-violet-50 rounded-lg">
+                                <div className="flex items-start justify-between gap-3">
+                                  <div>
+                                    <div className="text-[11px] font-semibold text-violet-900 uppercase tracking-wide">
+                                      Vista del Hub (Administrador)
+                                    </div>
+                                    <div className="text-[11px] text-violet-800 mt-1">
+                                      Visible: {Object.entries(editHubModules)
+                                        .filter(([, v]) => v)
+                                        .map(([k]) => k)
+                                        .join(', ') || '—'}
+                                    </div>
+                                  </div>
+                                  <button type="button" className="btn btn-secondary text-xs" onClick={openHubModal}>
+                                    Configurar
+                                  </button>
+                                </div>
+                              </div>
+                            )}
 
                             {/* Permisos especiales agrupados */}
                             <div className="md:col-span-2 p-3 border-2 border-blue-200 bg-blue-50 rounded-lg">
@@ -779,6 +865,53 @@ export default function UserList() {
           </tbody>
         </table>
       </div>
+
+      {hubModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="absolute inset-0 bg-black/40" onClick={cancelHubModal} />
+          <div className="relative w-full max-w-lg rounded-xl bg-white border border-slate-200 shadow-xl overflow-hidden">
+            <div className="p-4 border-b border-slate-100 bg-slate-50">
+              <h2 className="text-sm font-bold text-slate-900">Configurar vista del Hub (Administrador)</h2>
+              <p className="text-xs text-slate-600 mt-1">Selecciona qué módulos verá en el Hub.</p>
+            </div>
+
+            <div className="p-4 space-y-2">
+              {(
+                [
+                  { id: 'it-helpdesk', label: 'IT - HELPDESK' },
+                  { id: 'mantenimiento', label: 'MANTENIMIENTO' },
+                  { id: 'corporativo', label: 'CORPORATIVO' },
+                  { id: 'administracion', label: 'ADMINISTRACIÓN' },
+                ] as Array<{ id: HubModuleId; label: string }>
+              ).map((m) => (
+                <label key={m.id} className="flex items-center gap-2 text-sm text-slate-800">
+                  <input
+                    type="checkbox"
+                    className="w-4 h-4 rounded border-slate-300"
+                    checked={editHubModules[m.id]}
+                    onChange={(e) =>
+                      setEditHubModules((prev) => ({
+                        ...prev,
+                        [m.id]: e.target.checked,
+                      }))
+                    }
+                  />
+                  {m.label}
+                </label>
+              ))}
+            </div>
+
+            <div className="p-4 border-t border-slate-100 bg-white flex items-center justify-end gap-2">
+              <button type="button" className="btn btn-secondary" onClick={cancelHubModal}>
+                Cancelar
+              </button>
+              <button type="button" className="btn btn-primary" onClick={confirmHubModal}>
+                Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

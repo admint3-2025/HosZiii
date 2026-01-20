@@ -85,9 +85,14 @@ export default async function MaintenanceTicketsPage({
   if (params.search) {
     const searchTerm = params.search.toLowerCase()
     if (searchTerm.startsWith('#')) {
-      const num = parseInt(searchTerm.substring(1))
-      if (!isNaN(num)) {
-        query = query.eq('ticket_number', num)
+      const raw = searchTerm.substring(1).trim().toUpperCase()
+      if (raw.startsWith('MANT-')) {
+        query = query.eq('ticket_number', raw)
+      } else if (/^\d+$/.test(raw)) {
+        const seq = raw.padStart(4, '0').slice(-4)
+        // Compatibilidad: buscar por secuencia (XXXX) en tickets formateados
+        // y también por igualdad exacta por si existen tickets legacy numéricos.
+        query = query.or(`ticket_number.eq.${raw},ticket_number.ilike.MANT-%-${seq}`)
       }
     } else {
       query = query.or(`title.ilike.%${params.search}%,description.ilike.%${params.search}%`)

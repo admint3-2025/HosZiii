@@ -12,9 +12,12 @@ export class InspectionRRHHPDFGenerator {
   private currentY: number
   private logoDataUrl?: string
   private logoFormat?: 'PNG' | 'JPEG' | 'WEBP'
+  private brandLogoDataUrl?: string
+  private brandLogoFormat?: 'PNG' | 'JPEG' | 'WEBP'
 
   // Logo corporativo
   private static readonly LOGO_URL = 'https://integrational3.com.mx/logorigen/ZIII%20logo.png'
+  private static readonly BRAND_LOGO_URL = 'https://integrational3.com.mx/logorigen/alzendhlogo.png'
 
   constructor() {
     this.doc = new jsPDF({
@@ -28,56 +31,82 @@ export class InspectionRRHHPDFGenerator {
     this.currentY = this.margin
   }
 
+  private async fetchImageAsDataUrl(url: string): Promise<{ dataUrl: string; format: 'PNG' | 'JPEG' | 'WEBP' }> {
+    const res = await fetch(url)
+    if (!res.ok) throw new Error('image fetch failed')
+
+    const blob = await res.blob()
+    const mime = (blob.type || '').toLowerCase()
+
+    const format: 'PNG' | 'JPEG' | 'WEBP' = mime.includes('png')
+      ? 'PNG'
+      : mime.includes('jpeg') || mime.includes('jpg')
+        ? 'JPEG'
+        : mime.includes('webp')
+          ? 'WEBP'
+          : 'PNG'
+
+    const dataUrl = await new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = () => resolve(String(reader.result))
+      reader.onerror = () => reject(new Error('image read failed'))
+      reader.readAsDataURL(blob)
+    })
+
+    return { dataUrl, format }
+  }
+
   private async loadLogo(): Promise<void> {
     if (this.logoDataUrl) return
 
-    const tryFetch = async (url: string) => {
-      const res = await fetch(url)
-      if (!res.ok) throw new Error('logo fetch failed')
-
-      const blob = await res.blob()
-      const mime = (blob.type || '').toLowerCase()
-
-      const format: 'PNG' | 'JPEG' | 'WEBP' = mime.includes('png')
-        ? 'PNG'
-        : mime.includes('jpeg') || mime.includes('jpg')
-          ? 'JPEG'
-          : mime.includes('webp')
-            ? 'WEBP'
-            : 'PNG'
-
-      const dataUrl = await new Promise<string>((resolve, reject) => {
-        const reader = new FileReader()
-        reader.onload = () => resolve(String(reader.result))
-        reader.onerror = () => reject(new Error('logo read failed'))
-        reader.readAsDataURL(blob)
-      })
-
-      this.logoDataUrl = dataUrl
-      this.logoFormat = format
-    }
-
     try {
       // Intento directo (si el host permite CORS)
-      await tryFetch(InspectionRRHHPDFGenerator.LOGO_URL)
+      const { dataUrl, format } = await this.fetchImageAsDataUrl(InspectionRRHHPDFGenerator.LOGO_URL)
+      this.logoDataUrl = dataUrl
+      this.logoFormat = format
       return
     } catch {
       // Fallback: proxy same-origin para evitar bloqueos CORS
       const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(InspectionRRHHPDFGenerator.LOGO_URL)}`
       try {
-        await tryFetch(proxyUrl)
+        const { dataUrl, format } = await this.fetchImageAsDataUrl(proxyUrl)
+        this.logoDataUrl = dataUrl
+        this.logoFormat = format
       } catch {
         // Si falla, seguimos sin logo (se renderiza el fallback)
       }
     }
   }
 
+  private async loadBrandLogo(inspection: InspectionRRHH): Promise<void> {
+    if (this.brandLogoDataUrl) return
+
+    // Logo fijo para este formato (con fallback de proxy por CORS)
+    try {
+      const { dataUrl, format } = await this.fetchImageAsDataUrl(InspectionRRHHPDFGenerator.BRAND_LOGO_URL)
+      this.brandLogoDataUrl = dataUrl
+      this.brandLogoFormat = format
+      return
+    } catch {
+      const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(InspectionRRHHPDFGenerator.BRAND_LOGO_URL)}`
+      try {
+        const { dataUrl, format } = await this.fetchImageAsDataUrl(proxyUrl)
+        this.brandLogoDataUrl = dataUrl
+        this.brandLogoFormat = format
+      } catch {
+        // Si falla, seguimos sin logo de marca
+      }
+    }
+  }
+
   /**
-   * Genera el PDF de una inspección RRHH
+   * Genera el PDF de una inspección
    */
   async generate(inspection: InspectionRRHH): Promise<Blob> {
     await this.loadLogo()
+    await this.loadBrandLogo(inspection)
     this.addHeader(inspection)
+    this.addStatusBanner(inspection)
     this.addKPISummary(inspection)
     this.addPerformanceChart(inspection)
     this.addAreasDetail(inspection)
@@ -91,7 +120,7 @@ export class InspectionRRHHPDFGenerator {
    * Descarga directamente el PDF
    */
   async download(inspection: InspectionRRHH, filename?: string): Promise<void> {
-    const fname = filename || `Inspeccion_RRHH_${inspection.property_code}_${new Date(inspection.inspection_date).toISOString().split('T')[0]}.pdf`
+    const fname = filename || `Inspeccion_${inspection.property_code}_${new Date(inspection.inspection_date).toISOString().split('T')[0]}.pdf`
     await this.generate(inspection)
     this.doc.save(fname)
   }
@@ -101,9 +130,12 @@ export class InspectionRRHHPDFGenerator {
     const logoY = this.currentY
     const logoSize = 22
 
-    const statusBoxWidth = 35
+    // Logo de marca (derecha) (solo aplica a ciertos hoteles)
+    const brandLogoX = this.pageWidth - this.margin - logoSize
+    const brandLogoY = logoY
+
     const textLeftX = logoX + logoSize + 5
-    const textRightX = this.pageWidth - this.margin - statusBoxWidth - 4
+    const textRightX = brandLogoX - 4
     const maxTextWidth = Math.max(10, textRightX - textLeftX)
 
     const ellipsizeToWidth = (text: string, maxWidth: number): string => {
@@ -147,6 +179,15 @@ export class InspectionRRHHPDFGenerator {
       this.doc.text('ZIII', logoX + logoSize / 2, logoY + logoSize / 2 + 2, { align: 'center' })
     }
 
+    // Logo de marca (derecha)
+    if (this.brandLogoDataUrl) {
+      try {
+        this.doc.addImage(this.brandLogoDataUrl, this.brandLogoFormat || 'PNG', brandLogoX, brandLogoY, logoSize, logoSize)
+      } catch {
+        // silencioso
+      }
+    }
+
     // Título (auto-ajusta para no montarse con el status)
     this.doc.setTextColor(30, 41, 59)
     this.doc.setFont('helvetica', 'bold')
@@ -176,7 +217,11 @@ export class InspectionRRHHPDFGenerator {
     this.doc.text(ellipsizeToWidth(`Fecha: ${dateStr}`, maxTextWidth), textLeftX, logoY + 18)
     this.doc.text(ellipsizeToWidth(`Inspector: ${inspection.inspector_name}`, maxTextWidth), textLeftX, logoY + 22)
 
-    // Estado
+    this.currentY = logoY + logoSize + 10
+    this.addSeparator()
+  }
+
+  private addStatusBanner(inspection: InspectionRRHH): void {
     const statusText = {
       draft: 'Borrador',
       completed: 'Completada',
@@ -191,16 +236,22 @@ export class InspectionRRHHPDFGenerator {
       rejected: [239, 68, 68] as const
     }[inspection.status] || ([203, 213, 225] as const)
 
-    const [r, g, b] = statusColor
-    this.doc.setFillColor(r, g, b)
-    this.doc.roundedRect(this.pageWidth - this.margin - statusBoxWidth, logoY, statusBoxWidth, 8, 2, 2, 'F')
-    this.doc.setTextColor(255, 255, 255)
-    this.doc.setFontSize(9)
-    this.doc.setFont('helvetica', 'bold')
-    this.doc.text(statusText, this.pageWidth - this.margin - 17.5, logoY + 5, { align: 'center' })
+    const pillW = 70
+    const pillH = 10
+    const x = (this.pageWidth - pillW) / 2
+    const y = this.currentY
 
-    this.currentY = logoY + logoSize + 10
-    this.addSeparator()
+    this.doc.setDrawColor(226, 232, 240)
+    this.doc.setLineWidth(0.4)
+    this.doc.setFillColor(statusColor[0], statusColor[1], statusColor[2])
+    this.doc.roundedRect(x, y, pillW, pillH, 4, 4, 'FD')
+
+    this.doc.setTextColor(255, 255, 255)
+    this.doc.setFont('helvetica', 'bold')
+    this.doc.setFontSize(11)
+    this.doc.text(statusText, this.pageWidth / 2, y + 6.8, { align: 'center' })
+
+    this.currentY = y + pillH + 8
   }
 
   private addKPISummary(inspection: InspectionRRHH): void {
@@ -272,56 +323,219 @@ export class InspectionRRHHPDFGenerator {
     this.doc.setTextColor(30, 41, 59)
     this.doc.setFontSize(11)
     this.doc.setFont('helvetica', 'bold')
-    this.doc.text('DISTRIBUCIÓN DE CUMPLIMIENTO', this.margin, this.currentY)
+    this.doc.text('DESEMPEÑO POR ÁREAS', this.margin, this.currentY)
     this.currentY += 8
 
     // Datos
-    const total = inspection.total_items || 1
+    const total = Math.max(1, inspection.total_items || 0)
     const cumple = inspection.items_cumple || 0
     const noCumple = inspection.items_no_cumple || 0
     const na = inspection.items_na || 0
     const pending = inspection.items_pending || 0
 
-    const segments = [
-      { label: 'Cumple', value: cumple, color: [16, 185, 129] as const, pct: Math.round((cumple / total) * 100) },
-      { label: 'No Cumple', value: noCumple, color: [239, 68, 68] as const, pct: Math.round((noCumple / total) * 100) },
-      { label: 'Sin evaluar', value: pending, color: [203, 213, 225] as const, pct: Math.round((pending / total) * 100) },
-      { label: 'N/A', value: na, color: [245, 158, 11] as const, pct: Math.round((na / total) * 100) }
-    ].filter((s) => s.value > 0)
+    const evaluated = Math.min(total, cumple + noCumple + na)
+    const coveragePct = Math.round((evaluated / total) * 100)
+    const complianceBase = cumple + noCumple
+    const compliancePct = complianceBase > 0 ? Math.round((cumple / complianceBase) * 100) : 0
 
-    // Gráfico de barras horizontales
-    const barHeight = 8
-    const maxWidth = this.pageWidth - 2 * this.margin - 50
-    let y = this.currentY
+    const areas = inspection.areas || []
+    const totalAreas = Math.max(1, areas.length || inspection.total_areas || 0)
 
-    segments.forEach((seg) => {
-      // Label
-      this.doc.setTextColor(71, 85, 105)
-      this.doc.setFontSize(9)
-      this.doc.setFont('helvetica', 'normal')
-      this.doc.text(seg.label, this.margin, y + 5)
+    const getAreaColor = (score: number): readonly [number, number, number] =>
+      score >= 9
+        ? ([16, 185, 129] as const)
+        : score >= 8
+          ? ([59, 130, 246] as const)
+          : score >= 7
+            ? ([245, 158, 11] as const)
+            : ([239, 68, 68] as const)
 
-      // Bar background
-      this.doc.setFillColor(241, 245, 249)
-      this.doc.roundedRect(this.margin + 30, y, maxWidth, barHeight, 1, 1, 'F')
+    let criticalCount = 0
+    for (const area of inspection.areas || []) {
+      for (const item of area.items || []) {
+        if (typeof item.calif_valor === 'number' && item.calif_valor > 0 && item.calif_valor < 8) {
+          criticalCount += 1
+        }
+      }
+    }
 
-      // Bar fill
-      const fillWidth = (seg.pct / 100) * maxWidth
-      const [r, g, b] = seg.color
+    // Conteo por banda de score (para leyenda)
+    const areaBands = {
+      excellent: { label: 'Excelente (≥9)', color: [16, 185, 129] as const, count: 0 },
+      good: { label: 'Bueno (8–8.99)', color: [59, 130, 246] as const, count: 0 },
+      regular: { label: 'Regular (7–7.99)', color: [245, 158, 11] as const, count: 0 },
+      critical: { label: 'Crítico (<7)', color: [239, 68, 68] as const, count: 0 }
+    }
+
+    for (const area of areas) {
+      const score = area.calculated_score || 0
+      if (score >= 9) areaBands.excellent.count += 1
+      else if (score >= 8) areaBands.good.count += 1
+      else if (score >= 7) areaBands.regular.count += 1
+      else areaBands.critical.count += 1
+    }
+
+    const legendBands = [
+      areaBands.excellent,
+      areaBands.good,
+      areaBands.regular,
+      areaBands.critical
+    ].filter((b) => b.count > 0)
+
+    // Layout: donut + leyenda + métricas
+    const sectionHeight = 44
+    const cardX = this.margin
+    const cardY = this.currentY
+    const cardW = this.pageWidth - 2 * this.margin
+    const cardH = sectionHeight
+
+    // Card container
+    this.doc.setFillColor(248, 250, 252)
+    this.doc.setDrawColor(226, 232, 240)
+    this.doc.setLineWidth(0.5)
+    this.doc.roundedRect(cardX, cardY, cardW, cardH, 2, 2, 'FD')
+
+    // Donut
+    const cx = cardX + 26
+    const cy = cardY + 22
+    const radius = 14.5
+    const thickness = 6
+
+    const anyDoc = this.doc as any
+    if (typeof anyDoc.setLineCap === 'function') anyDoc.setLineCap(1)
+    if (typeof anyDoc.setLineJoin === 'function') anyDoc.setLineJoin(1)
+
+    // Base ring
+    this.doc.setDrawColor(226, 232, 240)
+    this.doc.setLineWidth(thickness)
+    this.doc.circle(cx, cy, radius, 'S')
+
+    // Colored segments (un segmento por área)
+    let cursor = -90 // start at top
+    const sweepPerArea = 360 / totalAreas
+    if (areas.length > 0) {
+      for (const area of areas) {
+        const score = area.calculated_score || 0
+        const color = getAreaColor(score)
+        this.drawArcSegment(cx, cy, radius, cursor, cursor + sweepPerArea, color, thickness)
+        cursor += sweepPerArea
+      }
+    } else {
+      // Fallback: si no vienen áreas cargadas, mostramos el anillo completo en gris
+      this.drawArcSegment(cx, cy, radius, -90, 270, [203, 213, 225] as const, thickness)
+    }
+
+    // Inner cutout (helps hide segment joins and makes it feel like a donut)
+    const innerRadius = Math.max(1, radius - thickness / 2 + 0.4)
+    this.doc.setFillColor(255, 255, 255)
+    this.doc.circle(cx, cy, innerRadius, 'F')
+
+    // Center text
+    this.doc.setTextColor(30, 41, 59)
+    this.doc.setFont('helvetica', 'bold')
+    this.doc.setFontSize(8)
+    this.doc.text('ÁREAS', cx, cy - 4, { align: 'center' })
+    this.doc.setFontSize(14)
+    this.doc.text(String(areas.length || inspection.total_areas || 0), cx, cy + 3.5, { align: 'center' })
+    this.doc.setFont('helvetica', 'normal')
+    this.doc.setTextColor(100, 116, 139)
+    this.doc.setFontSize(7)
+    this.doc.text(`Prom: ${(inspection.average_score || 0).toFixed(1)}`, cx, cy + 9, { align: 'center' })
+
+    // Métricas (derecha)
+    const rightX = cardX + 52
+    const rightY = cardY + 10
+    const lineGap = 7
+
+    this.doc.setTextColor(30, 41, 59)
+    this.doc.setFont('helvetica', 'bold')
+    this.doc.setFontSize(9)
+    this.doc.text('Resumen', rightX, rightY)
+
+    this.doc.setFont('helvetica', 'normal')
+    this.doc.setTextColor(71, 85, 105)
+    this.doc.setFontSize(8)
+
+    // Cobertura
+    this.doc.text('Cobertura:', rightX, rightY + lineGap)
+    this.doc.setFont('helvetica', 'bold')
+    this.doc.setTextColor(30, 41, 59)
+    this.doc.text(`${coveragePct}%`, rightX + 18, rightY + lineGap)
+    this.doc.setFont('helvetica', 'normal')
+    this.doc.setTextColor(100, 116, 139)
+    this.doc.text(`(${evaluated}/${total})`, rightX + 28, rightY + lineGap)
+
+    // Cumplimiento
+    this.doc.setTextColor(71, 85, 105)
+    this.doc.text('Cumplimiento:', rightX, rightY + lineGap * 2)
+    const complianceColor = compliancePct >= 80 ? ([16, 185, 129] as const) : ([239, 68, 68] as const)
+    this.doc.setFont('helvetica', 'bold')
+    this.doc.setTextColor(complianceColor[0], complianceColor[1], complianceColor[2])
+    this.doc.text(`${compliancePct}%`, rightX + 22, rightY + lineGap * 2)
+    this.doc.setFont('helvetica', 'normal')
+    this.doc.setTextColor(100, 116, 139)
+    this.doc.text(`(base: ${complianceBase})`, rightX + 32, rightY + lineGap * 2)
+
+    // Críticos
+    this.doc.setTextColor(71, 85, 105)
+    this.doc.text('Críticos (<8):', rightX, rightY + lineGap * 3)
+    this.doc.setFont('helvetica', 'bold')
+    if (criticalCount > 0) this.doc.setTextColor(239, 68, 68)
+    else this.doc.setTextColor(16, 185, 129)
+    this.doc.text(String(criticalCount), rightX + 24, rightY + lineGap * 3)
+
+    // Leyenda (derecha)
+    const legendX = cardX + cardW - 62
+    let legendY = cardY + 11
+
+    this.doc.setTextColor(30, 41, 59)
+    this.doc.setFont('helvetica', 'bold')
+    this.doc.setFontSize(9)
+    this.doc.text('Detalle', legendX, legendY)
+    legendY += 6
+
+    this.doc.setFont('helvetica', 'normal')
+    this.doc.setFontSize(8)
+    for (const band of legendBands) {
+      const pct = Math.round((band.count / totalAreas) * 100)
+      const [r, g, b] = band.color
       this.doc.setFillColor(r, g, b)
-      this.doc.roundedRect(this.margin + 30, y, fillWidth, barHeight, 1, 1, 'F')
+      this.doc.circle(legendX + 1.5, legendY - 1.5, 1.2, 'F')
+      this.doc.setTextColor(71, 85, 105)
+      this.doc.text(`${band.label}: ${band.count} (${pct}%)`, legendX + 5, legendY)
+      legendY += 5
+    }
 
-      // Value
-      this.doc.setTextColor(30, 41, 59)
-      this.doc.setFontSize(9)
-      this.doc.setFont('helvetica', 'bold')
-      this.doc.text(`${seg.pct}%`, this.margin + 32 + maxWidth, y + 5.5)
-
-      y += barHeight + 4
-    })
-
-    this.currentY = y + 5
+    this.currentY = cardY + cardH + 6
     this.addSeparator()
+  }
+
+  private drawArcSegment(
+    cx: number,
+    cy: number,
+    radius: number,
+    startDeg: number,
+    endDeg: number,
+    color: readonly [number, number, number],
+    thickness: number
+  ): void {
+    const step = 1 // más suave (reduce el efecto de "rayitas")
+    const [r, g, b] = color
+    this.doc.setDrawColor(r, g, b)
+    this.doc.setLineWidth(thickness)
+
+    const toRad = (deg: number) => (deg * Math.PI) / 180
+    const final = Math.max(startDeg, endDeg)
+
+    for (let a = startDeg; a < final; a += step) {
+      const a1 = toRad(a)
+      const a2 = toRad(Math.min(final, a + step))
+      const x1 = cx + radius * Math.cos(a1)
+      const y1 = cy + radius * Math.sin(a1)
+      const x2 = cx + radius * Math.cos(a2)
+      const y2 = cy + radius * Math.sin(a2)
+      this.doc.line(x1, y1, x2, y2)
+    }
   }
 
   private addAreasDetail(inspection: InspectionRRHH): void {

@@ -13,6 +13,7 @@ import AssignedAssets from '../../dashboard/ui/AssignedAssets'
 import LocationStatsTable from '../../dashboard/ui/LocationStatsTable'
 import { isMaintenanceAssetCategory } from '@/lib/permissions/asset-category'
 import MaintenanceBanner from '../ui/MaintenanceBanner'
+import { formatMaintenanceTicketCode } from '@/lib/tickets/code'
 
 export const dynamic = 'force-dynamic'
 
@@ -193,7 +194,7 @@ export default async function MaintenanceDashboardPage() {
   if (agingError) dashboardErrors.push(agingError.message)
 
   const now = new Date()
-  const agingByStatus = (agingData ?? []).reduce((acc: Record<string, { days: number; ticketNumber: number }[]>, t: { status: string; created_at: string; ticket_number: number }) => {
+  const agingByStatus = (agingData ?? []).reduce((acc: Record<string, { days: number; ticketNumber: string }[]>, t: { status: string; created_at: string; ticket_number: string }) => {
     const createdDate = new Date(t.created_at)
     const daysSince = Math.floor((now.getTime() - createdDate.getTime()) / (1000 * 60 * 60 * 24))
     if (!acc[t.status]) acc[t.status] = []
@@ -201,7 +202,7 @@ export default async function MaintenanceDashboardPage() {
     return acc
   }, {})
 
-  const agingMetrics = (Object.entries(agingByStatus) as [string, { days: number; ticketNumber: number }[]][])
+  const agingMetrics = (Object.entries(agingByStatus) as [string, { days: number; ticketNumber: string }[]][]) 
     .map(([status, items]) => {
       const days = items.map((i) => i.days)
       const oldest = items.reduce((max, item) => item.days > max.days ? item : max, items[0])
@@ -214,6 +215,153 @@ export default async function MaintenanceDashboardPage() {
       }
     })
     .sort((a, b) => b.avgDays - a.avgDays)
+
+  // Estadísticas por sede (solo para admin/supervisor; RLS protege el resto)
+  let locationStats: any[] = []
+  if (user) {
+    const { data: profileForStats } = await supabase
+      .from('profiles')
+      .select('role, location_id, asset_category')
+      .eq('id', user.id)
+      .single()
+
+    if (isAdminOrSupervisor) {
+      // Admin usa consulta directa, supervisor usa consulta manual filtrada
+      if (profileForStats?.role === 'admin') {
+        // Admin: obtener TODAS las sedes activas y contar sus tickets
+        const { data: allLocations, error: locError } = await supabase
+          .from('locations')
+          .select('id, code, name')
+          .eq('is_active', true)
+          .order('code')
+
+        if (locError) {
+          dashboardErrors.push(locError.message)
+        } else if (allLocations && allLocations.length > 0) {
+          // Obtener todos los tickets de mantenimiento
+          const { data: ticketsData, error: ticketsError } = await supabase
+            .from('tickets_maintenance')
+            .select('location_id, status')
+            .is('deleted_at', null)
+
+          if (ticketsError) {
+            dashboardErrors.push(ticketsError.message)
+          } else {
+            // Agrupar tickets por ubicación
+            const locationMap = new Map<string, { total: number; open: number; closed: number }>()
+            
+            // Inicializar todas las sedes con 0 tickets
+            allLocations.forEach(loc => {
+              locationMap.set(loc.id, { total: 0, open: 0, closed: 0 })
+            })
+
+            // Contar tickets por sede
+            ;(ticketsData ?? []).forEach(ticket => {
+              const locId = ticket.location_id
+              if (!locId || !locationMap.has(locId)) return
+              
+              const loc = locationMap.get(locId)!
+              loc.total++
+              if (ticket.status === 'CLOSED') {
+                loc.closed++
+              } else {
+                loc.open++
+              }
+            })
+            
+            // Mapear a formato final con nombres de ubicaciones
+            locationStats = allLocations.map(loc => ({
+              location_id: loc.id,
+              location_code: loc.code,
+              location_name: loc.name,
+              total_tickets: locationMap.get(loc.id)?.total ?? 0,
+              open_tickets: locationMap.get(loc.id)?.open ?? 0,
+              closed_tickets: locationMap.get(loc.id)?.closed ?? 0,
+              avg_resolution_days: 0
+            })).sort((a, b) => b.total_tickets - a.total_tickets)
+          }
+        }
+      } else {
+        // Supervisor: consulta manual filtrando por sedes asignadas
+        let ticketsQuery = supabase
+          .from('tickets_maintenance')
+          .select('location_id, status')
+          .is('deleted_at', null)
+        
+        let shouldExecuteQuery = true
+        let locationIds: string[] = []
+        
+        // Obtener las sedes asignadas al supervisor
+        const { data: userLocs } = await supabase
+          .from('user_locations')
+          .select('location_id')
+          .eq('user_id', user.id)
+        
+        locationIds = userLocs?.map(ul => ul.location_id).filter(Boolean) || []
+        
+        // Incluir también la location_id del perfil si existe
+        if (profileForStats?.location_id && !locationIds.includes(profileForStats.location_id)) {
+          locationIds.push(profileForStats.location_id)
+        }
+        
+        // Filtrar por las sedes del supervisor
+        if (locationIds.length > 0) {
+          ticketsQuery = ticketsQuery.in('location_id', locationIds)
+        } else {
+          shouldExecuteQuery = false
+          locationStats = []
+        }
+
+        if (shouldExecuteQuery) {
+          const { data: ticketsData, error: ticketsError } = await ticketsQuery
+
+          if (ticketsError) {
+            dashboardErrors.push(ticketsError.message)
+          } else if (ticketsData) {
+            // Agrupar tickets por ubicación
+            const locationMap = new Map<string, { total: number; open: number; closed: number }>()
+            
+            ticketsData.forEach(ticket => {
+              const locId = ticket.location_id
+              if (!locId) return
+              
+              if (!locationMap.has(locId)) {
+                locationMap.set(locId, { total: 0, open: 0, closed: 0 })
+              }
+              const loc = locationMap.get(locId)!
+              loc.total++
+              if (ticket.status === 'CLOSED') {
+                loc.closed++
+              } else {
+                loc.open++
+              }
+            })
+            
+            // Obtener nombres de ubicaciones
+            const uniqueLocationIds = Array.from(locationMap.keys())
+            if (uniqueLocationIds.length > 0) {
+              const { data: locationsData } = await supabase
+                .from('locations')
+                .select('id, code, name')
+                .in('id', uniqueLocationIds)
+              
+              const locNameMap = new Map(locationsData?.map(l => [l.id, { code: l.code, name: l.name }]) || [])
+              
+              locationStats = Array.from(locationMap.entries()).map(([locId, stats]) => ({
+                location_id: locId,
+                location_code: locNameMap.get(locId)?.code || 'N/A',
+                location_name: locNameMap.get(locId)?.name || 'Desconocida',
+                total_tickets: stats.total,
+                open_tickets: stats.open,
+                closed_tickets: stats.closed,
+                avg_resolution_days: 0
+              })).sort((a, b) => b.total_tickets - a.total_tickets)
+            }
+          }
+        }
+      } // end else supervisor
+    } // end isAdminOrSupervisor
+  } // end if user
 
   // Activos asignados (usando tabla assets_maintenance)
   let assignedAssets: any[] = []
@@ -308,6 +456,25 @@ export default async function MaintenanceDashboardPage() {
         </div>
       </div>
 
+      {/* Estadísticas por Sede */}
+      {locationStats.length > 0 && (
+        <div className="pt-8">
+          <div className="flex items-center gap-3 mb-6">
+            <div className="p-2 bg-emerald-50 rounded-xl">
+              <svg className="w-5 h-5 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+              </svg>
+            </div>
+            <div>
+              <h2 className="text-base font-bold text-slate-900 tracking-tight">Estadísticas por Sede</h2>
+              <p className="text-xs text-slate-500">Distribución de tickets de mantenimiento por ubicación</p>
+            </div>
+          </div>
+          <LocationStatsTable rows={locationStats} ticketType="MAINTENANCE" />
+        </div>
+      )}
+
       <div className="pt-8">
         <div className="flex items-center justify-between mb-6">
           <div className="flex items-center gap-3">
@@ -324,7 +491,7 @@ export default async function MaintenanceDashboardPage() {
         </div>
         <div className="grid gap-4 lg:grid-cols-3">
           <TrendChart data={trendCounts} />
-          <AgingMetrics metrics={agingMetrics} />
+          <AgingMetrics metrics={agingMetrics} baseHref="/mantenimiento/tickets" />
           <AssignedAssets assets={assignedAssets} />
         </div>
         <div className="mt-4">
@@ -332,6 +499,7 @@ export default async function MaintenanceDashboardPage() {
             tickets={recentTickets ?? []} 
             ticketsIndexHref={ticketsIndexHref}
             baseHref="/mantenimiento/tickets"
+            formatCode={formatMaintenanceTicketCode}
           />
         </div>
       </div>
