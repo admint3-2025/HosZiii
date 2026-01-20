@@ -25,9 +25,11 @@ export default async function TicketsPage({
   
   const isVentasDept = profile?.department?.toLowerCase().includes('ventas')
 
-  const canManageIT = profile?.role === 'admin' || isITAssetCategoryOrUnassigned(profile?.asset_category)
+  const normalizedRole = String(profile?.role ?? '').trim().toLowerCase()
+  const isAdmin = normalizedRole === 'admin'
+  const canManageIT = isAdmin || isITAssetCategoryOrUnassigned(profile?.asset_category)
   // Solo admin y supervisores IT pueden ver la bandeja completa
-  const canViewQueue = profile?.role === 'admin' || (profile?.role === 'supervisor' && canManageIT)
+  const canViewQueue = isAdmin || (normalizedRole === 'supervisor' && canManageIT)
   const requestedView = params.view
   const defaultView = canViewQueue ? 'queue' : 'mine'
   const view = (requestedView === 'queue' || requestedView === 'mine')
@@ -46,22 +48,26 @@ export default async function TicketsPage({
     const areaLabel = inferredServiceArea === 'maintenance' ? 'Mantenimiento' : 'IT'
     if (view === 'mine') return { label: 'Mis tickets', sub: null }
     if (profile?.role === 'supervisor') return { label: 'Bandeja', sub: areaLabel }
-    if (profile?.role === 'admin') return { label: 'Bandeja', sub: 'Todas' }
+    if (isAdmin) return { label: 'Bandeja', sub: 'IT + Mantenimiento' }
     return { label: 'Bandeja', sub: null }
   })()
   
-  // Obtener filtro de ubicación
-  const locationFilter = await getLocationFilter()
+  // Admin SIEMPRE ve todo sin filtros de ubicación
+  const locationFilter = isAdmin ? null : await getLocationFilter()
   
   // Construir query base
   let query = supabase
     .from('tickets')
-    .select('id,ticket_number,title,status,priority,support_level,created_at,category_id,description,location_id,locations!inner(code,name)')
+    // Importante: NO usar !inner aquí, porque puede excluir tickets con location_id NULL
+    // o con sedes legacy eliminadas. Con left join, el ticket sigue visible (locations=null).
+    .select('id,ticket_number,title,status,priority,support_level,created_at,category_id,description,location_id,locations(code,name)')
     .is('deleted_at', null)
 
-  // Aplicar filtro de ubicación
-  if (locationFilter === null) {
-    // Admin: sin filtro (ve todos los tickets)
+  // Aplicar filtro de ubicación (Admin NO tiene filtros)
+  if (isAdmin) {
+    // Admin: sin ningún filtro de ubicación, ve TODAS las sedes
+  } else if (locationFilter === null) {
+    // Otro caso sin filtro (legacy)
   } else if (Array.isArray(locationFilter) && locationFilter.length > 0) {
     // Supervisor/Técnico con múltiples sedes
     query = query.in('location_id', locationFilter)
@@ -81,15 +87,19 @@ export default async function TicketsPage({
   }
 
   if (view === 'queue') {
-    if (user?.id) {
-      // Evita mezclar solicitudes propias dentro de la cola operativa
-      query = query.neq('requester_id', user.id)
+    // Admin ve TODO en bandeja, incluyendo tickets propios y requester_id NULL.
+    if (!isAdmin && user?.id) {
+      // Evita mezclar solicitudes propias dentro de la cola operativa,
+      // pero incluye tickets legacy sin solicitante.
+      query = query.or(`requester_id.neq.${user.id},requester_id.is.null`)
     }
 
-    if (profile?.role === 'supervisor') {
+    // Admin ve TODO (IT + Mantenimiento), Supervisor solo ve su área
+    if (normalizedRole === 'supervisor') {
       // Asegura que la cola sea solo del área del supervisor
       query = query.eq('service_area', inferredServiceArea)
     }
+    // Admin NO tiene filtro de service_area, ve ambos
   }
 
   if (params.search) {

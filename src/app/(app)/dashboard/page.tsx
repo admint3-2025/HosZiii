@@ -19,6 +19,8 @@ export default async function DashboardPage() {
   const supabase = await createSupabaseServerClient()
 
   const OPEN_STATUSES = ['NEW', 'ASSIGNED', 'IN_PROGRESS', 'NEEDS_INFO', 'WAITING_THIRD_PARTY', 'RESOLVED'] as const
+  const ALL_STATUSES = [...OPEN_STATUSES, 'CLOSED'] as const
+  const PRIORITIES = [1, 2, 3, 4, 5] as const
 
   const dashboardErrors: string[] = []
 
@@ -29,8 +31,9 @@ export default async function DashboardPage() {
     .eq('id', user.id)
     .single() : { data: null }
 
-  const isAdminOrSupervisor = profile?.role === 'admin' || profile?.role === 'supervisor'
-  const isAgent = profile?.role === 'agent_l1' || profile?.role === 'agent_l2'
+  const normalizedRole = String(profile?.role ?? '').trim().toLowerCase()
+  const isAdminOrSupervisor = normalizedRole === 'admin' || normalizedRole === 'supervisor'
+  const isAgent = normalizedRole === 'agent_l1' || normalizedRole === 'agent_l2'
   
   // Si es usuario estándar (no admin/supervisor/agente), redirigir a sus tickets
   if (!isAdminOrSupervisor && !isAgent) {
@@ -51,13 +54,16 @@ export default async function DashboardPage() {
 
   const ticketsIndexHref = isAdminOrSupervisor ? '/tickets?view=queue' : '/tickets?view=mine'
 
+  // Admin siempre ve TODO sin filtros de ubicación
+  const isAdmin = normalizedRole === 'admin'
+  
   // Obtener filtro de ubicación (null si es admin, array de location_ids si no lo es)
-  const locationFilter = await getLocationFilter()
+  const locationFilter = isAdmin ? null : await getLocationFilter()
 
   // Helper para aplicar filtro de ubicación
   const applyFilter = (query: any) => {
-    if (locationFilter === null) {
-      // Admin: sin filtro
+    // Admin SIEMPRE ve todo, sin excepciones
+    if (isAdmin || locationFilter === null) {
       return query
     }
     if (Array.isArray(locationFilter) && locationFilter.length > 0) {
@@ -69,28 +75,48 @@ export default async function DashboardPage() {
   }
 
   // En dashboard, para supervisor/agentes mostramos vista operativa.
-  // Admins ven TODO, supervisores y agentes solo su área
+  // Admins ven TODO (IT + Maintenance), supervisores y agentes solo su área
   const applyOperationalScope = (query: any) => {
+    // Admin ve ABSOLUTAMENTE TODO sin ningún filtro
+    if (isAdmin) {
+      return query
+    }
+    
     let q = query
     // Supervisores y agentes solo ven tickets de su área de servicio
-    if (profile?.role === 'supervisor' || isAgent) {
+    if (normalizedRole === 'supervisor' || isAgent) {
       // Si inferredServiceArea es válido, filtrar por él
       // Si es null o undefined, mostrar todos (fallback para datos legacy)
       if (inferredServiceArea === 'it' || inferredServiceArea === 'maintenance') {
         q = q.or(`service_area.eq.${inferredServiceArea},service_area.is.null`)
       }
     }
-    // Admin ve TODO sin filtros
     return q
+  }
+
+  const baseTickets = () => applyOperationalScope(applyFilter(
+    supabase
+      .from('tickets')
+      .select('id', { count: 'exact', head: true })
+      .is('deleted_at', null)
+  ))
+
+  // DEBUG: Admin count query sin filtros
+  if (isAdmin) {
+    const { count: adminTotalCount, error: adminCountError } = await supabase
+      .from('tickets')
+      .select('id', { count: 'exact', head: true })
+    
+    console.log('[ADMIN DEBUG] Total tickets sin filtros:', adminTotalCount, 'Error:', adminCountError)
   }
 
   // KPIs principales
   const [openRes, closedRes, escalatedRes, assignedRes, totalRes] = await Promise.all([
-    applyOperationalScope(applyFilter(supabase.from('tickets').select('id', { count: 'exact', head: true }).is('deleted_at', null).in('status', [...OPEN_STATUSES]))),
-    applyOperationalScope(applyFilter(supabase.from('tickets').select('id', { count: 'exact', head: true }).is('deleted_at', null).in('status', ['CLOSED']))),
-    applyOperationalScope(applyFilter(supabase.from('tickets').select('id', { count: 'exact', head: true }).is('deleted_at', null).eq('support_level', 2))),
-    applyOperationalScope(applyFilter(supabase.from('tickets').select('id', { count: 'exact', head: true }).is('deleted_at', null).not('assigned_agent_id', 'is', null))),
-    applyOperationalScope(applyFilter(supabase.from('tickets').select('id', { count: 'exact', head: true }).is('deleted_at', null))),
+    baseTickets().in('status', [...OPEN_STATUSES]),
+    baseTickets().eq('status', 'CLOSED'),
+    baseTickets().eq('support_level', 2),
+    baseTickets().not('assigned_agent_id', 'is', null),
+    baseTickets(),
   ])
 
   ;[openRes, closedRes, escalatedRes, assignedRes, totalRes].forEach((r) => {
@@ -104,41 +130,28 @@ export default async function DashboardPage() {
   const total = totalRes.count ?? 0
 
   // Distribución por estado
-  const { data: statusData, error: statusError } = await applyOperationalScope(applyFilter(
-    supabase
-      .from('tickets')
-      .select('status')
-      .is('deleted_at', null)
-  ))
-  if (statusError) dashboardErrors.push(statusError.message)
-
-  const statusCounts = (statusData ?? []).reduce((acc: Record<string, number>, t: { status: string }) => {
-    acc[t.status] = (acc[t.status] || 0) + 1
-    return acc
-  }, {})
-
-  const statusChartData = Object.entries(statusCounts).map(([status, count]) => ({
+  // IMPORTANTE: no hacemos select('status') sin paginación (PostgREST puede limitar filas y distorsionar gráficas).
+  const statusCountResults = await Promise.all(
+    ALL_STATUSES.map((status) => baseTickets().eq('status', status))
+  )
+  statusCountResults.forEach((r) => {
+    if (r.error) dashboardErrors.push(r.error.message)
+  })
+  const statusChartData = ALL_STATUSES.map((status, idx) => ({
     status,
-    count: count as number,
-  }))
+    count: statusCountResults[idx]?.count ?? 0,
+  })).filter((r) => r.count > 0)
 
   // Distribución por prioridad
-  const { data: priorityData, error: priorityError } = await applyOperationalScope(applyFilter(
-    supabase
-      .from('tickets')
-      .select('priority')
-      .is('deleted_at', null)
-  ))
-  if (priorityError) dashboardErrors.push(priorityError.message)
-
-  const priorityCounts = (priorityData ?? []).reduce((acc: Record<number, number>, t: { priority: number }) => {
-    acc[t.priority] = (acc[t.priority] || 0) + 1
-    return acc
-  }, {})
-
-  const priorityChartData = [1, 2, 3, 4].map((priority) => ({
+  const priorityCountResults = await Promise.all(
+    PRIORITIES.map((priority) => baseTickets().eq('priority', priority))
+  )
+  priorityCountResults.forEach((r) => {
+    if (r.error) dashboardErrors.push(r.error.message)
+  })
+  const priorityChartData = PRIORITIES.map((priority, idx) => ({
     priority,
-    count: priorityCounts[priority] || 0,
+    count: priorityCountResults[idx]?.count ?? 0,
   }))
 
   // Tendencia últimos 7 días (incluyendo hoy)
@@ -152,31 +165,22 @@ export default async function DashboardPage() {
     return `${year}-${month}-${day}`
   })
 
-  const { data: trendData, error: trendError } = await applyOperationalScope(applyFilter(
-    supabase
-      .from('tickets')
-      .select('created_at')
-      .gte('created_at', last7Days[0])
-  ))
-  if (trendError) dashboardErrors.push(trendError.message)
-
-  const trendCountMap = new Map<string, number>()
-
-  ;(trendData ?? []).forEach((t: { created_at: string }) => {
-    const createdUtc = new Date(t.created_at)
-    const local = new Date(
-      createdUtc.toLocaleString('en-US', { timeZone: 'America/Mexico_City' })
-    )
-    const year = local.getFullYear()
-    const month = String(local.getMonth() + 1).padStart(2, '0')
-    const day = String(local.getDate()).padStart(2, '0')
-    const key = `${year}-${month}-${day}`
-    trendCountMap.set(key, (trendCountMap.get(key) || 0) + 1)
+  // Tendencia últimos 7 días
+  // Usamos conteos por rango de fechas para evitar límites de filas.
+  const trendCountResults = await Promise.all(
+    last7Days.map((date, idx) => {
+      const start = new Date(`${date}T00:00:00.000Z`).toISOString()
+      const end = new Date(`${idx < last7Days.length - 1 ? last7Days[idx + 1] : date}T00:00:00.000Z`).toISOString()
+      const q = baseTickets().gte('created_at', start)
+      return idx < last7Days.length - 1 ? q.lt('created_at', end) : q
+    })
+  )
+  trendCountResults.forEach((r) => {
+    if (r.error) dashboardErrors.push(r.error.message)
   })
-
-  const trendCounts = last7Days.map((date) => ({
+  const trendCounts = last7Days.map((date, idx) => ({
     date,
-    count: trendCountMap.get(date) || 0,
+    count: trendCountResults[idx]?.count ?? 0,
   }))
 
   // Tickets recientes
@@ -240,122 +244,69 @@ export default async function DashboardPage() {
     })
     .sort((a, b) => b.avgDays - a.avgDays)
 
-  // Estadísticas por sede (solo para admin/supervisor; RLS protege el resto)
+  // Estadísticas por sede (solo admin/supervisor)
+  // IMPORTANTE: evitamos depender de views o selects completos sin paginación.
+  // Construimos la tabla por sede con conteos exactos por ubicación.
   let locationStats: any[] = []
-  if (user) {
-    const { data: profileForStats } = await supabase
-      .from('profiles')
-      .select('role, location_id, asset_category')
-      .eq('id', user.id)
-      .single()
+  if (user && isAdminOrSupervisor) {
+    const { data: activeLocations, error: locationsError } = await supabase
+      .from('locations')
+      .select('id, code, name')
+      .eq('is_active', true)
+      .order('code')
 
-    if (isAdminOrSupervisor) {
-      // Admin usa la vista original, supervisor usa consulta manual filtrada
-      if (profileForStats?.role === 'admin') {
-        // Admin: usar vista location_incident_stats (ve todas las sedes)
-        const { data: statsData, error: statsError } = await supabase
-          .from('location_incident_stats')
-          .select('*')
+    if (locationsError) {
+      dashboardErrors.push(locationsError.message)
+    } else {
+      let allowedLocations = activeLocations ?? []
 
-        if (statsError) {
-          dashboardErrors.push(statsError.message)
-        } else {
-          locationStats = (statsData ?? []).map(s => ({
-            location_id: s.location_id,
-            location_code: s.location_code,
-            location_name: s.location_name,
-            total_tickets: s.total_tickets ?? 0,
-            open_tickets: s.open_tickets ?? 0,
-            closed_tickets: s.closed_tickets ?? 0,
-            avg_resolution_days: s.avg_resolution_days ?? 0
-          }))
+      // Supervisores: solo sedes asignadas (por filter de ubicación)
+      if (!isAdmin) {
+        const locationIds = await getLocationFilter()
+        if (Array.isArray(locationIds)) {
+          allowedLocations = allowedLocations.filter((l) => locationIds.includes(l.id))
         }
-      } else {
-        // Supervisor: consulta manual filtrando por service_area
-        let ticketsQuery = supabase
-          .from('tickets')
-          .select('location_id, status')
-          .is('deleted_at', null)
-        
-        // Aplicar filtro de service_area para supervisores (incluir nulls para datos legacy)
-        if (inferredServiceArea === 'it' || inferredServiceArea === 'maintenance') {
-          ticketsQuery = ticketsQuery.or(`service_area.eq.${inferredServiceArea},service_area.is.null`)
-        }
-        
-        let shouldExecuteQuery = true
-        let locationIds: string[] = []
-        
-        // Obtener las sedes asignadas al supervisor
-        const { data: userLocs } = await supabase
-          .from('user_locations')
-          .select('location_id')
-          .eq('user_id', user.id)
-        
-        locationIds = userLocs?.map(ul => ul.location_id).filter(Boolean) || []
-        
-        // Incluir también la location_id del perfil si existe
-        if (profileForStats?.location_id && !locationIds.includes(profileForStats.location_id)) {
-          locationIds.push(profileForStats.location_id)
-        }
-        
-        // Filtrar por las sedes del supervisor
-        if (locationIds.length > 0) {
-          ticketsQuery = ticketsQuery.in('location_id', locationIds)
-        } else {
-          shouldExecuteQuery = false
-          locationStats = []
-        }
+      }
 
-        if (shouldExecuteQuery) {
-          const { data: ticketsData, error: ticketsError } = await ticketsQuery
+      const openStatuses = [...OPEN_STATUSES] as unknown as string[]
 
-          if (ticketsError) {
-            dashboardErrors.push(ticketsError.message)
-          } else if (ticketsData) {
-            // Agrupar tickets por ubicación
-            const locationMap = new Map<string, { total: number; open: number; closed: number }>()
-            
-            ticketsData.forEach(ticket => {
-              const locId = ticket.location_id
-              if (!locId) return
-              
-              if (!locationMap.has(locId)) {
-                locationMap.set(locId, { total: 0, open: 0, closed: 0 })
-              }
-              const loc = locationMap.get(locId)!
-              loc.total++
-              if (ticket.status === 'CLOSED') {
-                loc.closed++
-              } else {
-                loc.open++
-              }
-            })
-            
-            // Obtener nombres de ubicaciones
-            const uniqueLocationIds = Array.from(locationMap.keys())
-            if (uniqueLocationIds.length > 0) {
-              const { data: locationsData } = await supabase
-                .from('locations')
-                .select('id, code, name')
-                .in('id', uniqueLocationIds)
-              
-              const locNameMap = new Map(locationsData?.map(l => [l.id, { code: l.code, name: l.name }]) || [])
-              
-              locationStats = Array.from(locationMap.entries()).map(([locId, stats]) => ({
-                location_id: locId,
-                location_code: locNameMap.get(locId)?.code || 'N/A',
-                location_name: locNameMap.get(locId)?.name || 'Desconocida',
-                total_tickets: stats.total,
-                open_tickets: stats.open,
-                closed_tickets: stats.closed,
-                avg_resolution_days: 0
-              })).sort((a, b) => b.total_tickets - a.total_tickets)
-            }
+      const rows = await Promise.all(
+        allowedLocations.map(async (loc) => {
+          const base = () => {
+            let q = supabase
+              .from('tickets')
+              .select('id', { count: 'exact', head: true })
+              .is('deleted_at', null)
+              .eq('location_id', loc.id)
+            q = applyOperationalScope(q)
+            return q
           }
-        }
-      } // end else supervisor
-    } // end isAdminOrSupervisor
-  } // end if user
+
+          const [totalR, openR, closedR] = await Promise.all([
+            base(),
+            base().in('status', openStatuses),
+            base().eq('status', 'CLOSED'),
+          ])
+
+          ;[totalR, openR, closedR].forEach((r) => {
+            if (r.error) dashboardErrors.push(r.error.message)
+          })
+
+          return {
+            location_id: loc.id,
+            location_code: loc.code,
+            location_name: loc.name,
+            total_tickets: totalR.count ?? 0,
+            open_tickets: openR.count ?? 0,
+            closed_tickets: closedR.count ?? 0,
+            avg_resolution_days: 0,
+          }
+        })
+      )
+
+      locationStats = rows.sort((a, b) => b.total_tickets - a.total_tickets)
+    }
+  }
 
   // Activos asignados al usuario actual
   let assignedAssets: any[] = []

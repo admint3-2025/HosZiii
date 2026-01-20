@@ -98,8 +98,9 @@ export async function getLocationFilter(): Promise<string[] | null> {
     .select('role, location_id')
     .eq('id', user.id)
     .single()
-  
-  if (profile?.role === 'admin') return null // Admin ve todo
+
+  const normalizedRole = String(profile?.role ?? '').trim().toLowerCase()
+  if (normalizedRole === 'admin') return null // Admin ve todo
   
   // Cargar sedes desde user_locations
   const { data: userLocs } = await supabase

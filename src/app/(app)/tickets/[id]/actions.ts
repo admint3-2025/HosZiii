@@ -13,7 +13,9 @@ import { sendMail } from '@/lib/email/mailer'
 import { ticketInvestigationEmailTemplate } from '@/lib/email/templates'
 import { STATUS_LABELS } from '@/lib/tickets/workflow'
 import { PRIORITY_LABELS } from '@/lib/tickets/priority'
+import { formatTicketCode } from '@/lib/tickets/code'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { sendTelegramNotification, TELEGRAM_TEMPLATES } from '@/lib/telegram'
 import {
   fetchTicketAssetCategory,
   recipientMatchesTicketCategory,
@@ -352,7 +354,7 @@ export async function escalateTicket(ticketId: string, currentLevel: number, ass
   // Obtener datos del ticket para notificaciones
   const { data: ticket } = await supabase
     .from('tickets')
-    .select('id, ticket_number, title, priority, requester_id, assigned_agent_id, locations(name, code)')
+    .select('id, ticket_number, title, priority, requester_id, assigned_agent_id, created_at, locations(name, code)')
     .eq('id', ticketId)
     .single()
 
@@ -448,6 +450,9 @@ export async function escalateTicket(ticketId: string, currentLevel: number, ass
       console.log('[escalateTicket] AuthUser obtenido:', authUser.user?.email)
       
       if (authUser.user?.email) {
+        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+        const ticketUrl = `${baseUrl}/tickets/${ticketId}`
+
         // Crear notificación push
         console.log('[escalateTicket] Creando notificación push...')
         const { error: notifError } = await supabase.from('notifications').insert({
@@ -466,11 +471,29 @@ export async function escalateTicket(ticketId: string, currentLevel: number, ass
           console.log('[escalateTicket] ✓ Notificación push creada')
         }
 
+        // Telegram
+        try {
+          const ticketCode = formatTicketCode({
+            ticket_number: ticket.ticket_number,
+            created_at: (ticket as any).created_at ?? null,
+          })
+
+          const t = TELEGRAM_TEMPLATES.ticket_escalation_approved({
+            ticketNumber: ticketCode,
+            title: ticket.title,
+            approvedBy: supervisorProfile?.full_name || 'Supervisor',
+            assignedTo: newAgentProfile?.full_name || 'Técnico L2',
+            detailUrl: ticketUrl,
+            moduleLabel: 'Helpdesk IT',
+          })
+          await sendTelegramNotification(previousAgentId, t)
+        } catch (err) {
+          console.error('[escalateTicket] Error enviando Telegram:', err)
+        }
+
         // Enviar email
         console.log('[escalateTicket] Enviando email...')
         const { sendMail } = await import('@/lib/email/mailer')
-        const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-        const ticketUrl = `${baseUrl}/tickets/${ticketId}`
 
         const html = `
           <!DOCTYPE html>
@@ -756,7 +779,7 @@ export async function requestEscalation(ticketId: string, reason: string) {
   // Obtener información del ticket
   const { data: ticket } = await supabase
     .from('tickets')
-    .select('ticket_number, title, priority, support_level, location_id, locations(name, code)')
+    .select('ticket_number, title, priority, support_level, location_id, created_at, locations(name, code)')
     .eq('id', ticketId)
     .single()
 
@@ -847,6 +870,28 @@ export async function requestEscalation(ticketId: string, reason: string) {
         // Continuar con el siguiente supervisor
       } else {
         console.log(`[requestEscalation] Notificación push creada para ${supervisor.full_name}`)
+      }
+
+      // Telegram
+      try {
+        const ticketCode = formatTicketCode({
+          ticket_number: ticket.ticket_number,
+          created_at: (ticket as any).created_at ?? null,
+        })
+        const locationLabel = [locationCode, locationName].filter(Boolean).join(' - ')
+
+        const t = TELEGRAM_TEMPLATES.ticket_escalation_requested({
+          ticketNumber: ticketCode,
+          title: ticket.title,
+          requestedBy: profile.full_name || 'Técnico L1',
+          reason,
+          locationName: locationLabel || undefined,
+          detailUrl: ticketUrl,
+          moduleLabel: 'Helpdesk IT',
+        })
+        await sendTelegramNotification(supervisor.id, t)
+      } catch (err) {
+        console.error('[requestEscalation] Error enviando Telegram:', err)
       }
 
       // Enviar email

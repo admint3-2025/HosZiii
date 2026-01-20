@@ -955,7 +955,56 @@ export function ticketStatusChangedEmailTemplate(params: {
 
   const serviceLabel = serviceLabelParam || 'Mesa de Ayuda ITIL'
 
-  const subject = `🔄 Actualización Ticket #${ticketNumber}`
+  // Sujeto específico según el nuevo estado
+  let statusEmoji = '🔄'
+  let statusAction = 'Actualización'
+  
+  switch (newStatus.toUpperCase()) {
+    case 'ASSIGNED':
+    case 'ASIGNADO':
+      statusEmoji = '👤'
+      statusAction = 'ASIGNADO'
+      break
+    case 'IN_PROGRESS':
+    case 'EN PROGRESO':
+    case 'EN_PROGRESO':
+      statusEmoji = '⚙️'
+      statusAction = 'EN PROGRESO'
+      break
+    case 'NEEDS_INFO':
+    case 'REQUIERE INFORMACIÓN':
+    case 'REQUIERE_INFORMACIÓN':
+      statusEmoji = '❓'
+      statusAction = 'REQUIERE INFORMACIÓN'
+      break
+    case 'WAITING_THIRD_PARTY':
+    case 'ESPERANDO TERCERO':
+    case 'ESPERANDO_TERCERO':
+      statusEmoji = '⏳'
+      statusAction = 'ESPERANDO TERCERO'
+      break
+    case 'RESOLVED':
+    case 'RESUELTO':
+      statusEmoji = '✅'
+      statusAction = 'RESUELTO'
+      break
+    case 'ON_HOLD':
+    case 'EN ESPERA':
+    case 'EN_ESPERA':
+      statusEmoji = '⏸️'
+      statusAction = 'EN ESPERA'
+      break
+    case 'REOPENED':
+    case 'REABIERTO':
+      statusEmoji = '🔄'
+      statusAction = 'REABIERTO'
+      break
+    default:
+      statusEmoji = '🔄'
+      statusAction = newStatus
+  }
+
+  const subject = `${statusEmoji} Ticket ${statusAction} #${ticketNumber}`
 
   const textLines: string[] = [
     `Estado del ticket actualizado`,
@@ -1004,9 +1053,9 @@ export function ticketStatusChangedEmailTemplate(params: {
         
         <div style="background:linear-gradient(135deg, #8b5cf6 0%, #a78bfa 100%); padding:24px 24px 16px 24px;">
           <div style="background:rgba(255,255,255,0.15); backdrop-filter:blur(10px); border-radius:12px; padding:12px; text-align:center; border:1px solid rgba(255,255,255,0.2);">
-            <div style="font-size:36px; margin-bottom:6px;">🔄</div>
-            <h2 style="margin:0; font-size:20px; font-weight:700; color:#ffffff;">Estado Actualizado</h2>
-            <p style="margin:8px 0 0 0; font-size:14px; color:rgba(255,255,255,0.9);">El estado de tu ticket ha cambiado</p>
+            <div style="font-size:36px; margin-bottom:6px;">${statusEmoji}</div>
+            <h2 style="margin:0; font-size:20px; font-weight:700; color:#ffffff;">Ticket ${statusAction}</h2>
+            <p style="margin:8px 0 0 0; font-size:14px; color:rgba(255,255,255,0.9);">Estado: ${escapeHtml(newStatus)}</p>
           </div>
         </div>
 

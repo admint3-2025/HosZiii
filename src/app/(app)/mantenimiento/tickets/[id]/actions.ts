@@ -94,6 +94,77 @@ export async function addMaintenanceTicketComment(data: {
 }
 
 /**
+ * Escala un ticket de mantenimiento a nivel superior (si se implementa escalamiento en el futuro)
+ */
+export async function escalateMaintenanceTicket(data: {
+  ticketId: string
+  newLevel: number
+  assignToAgentId: string
+  escalatedBy: string
+}) {
+  try {
+    const supabase = await createSupabaseServerClient()
+    
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) {
+      return { error: 'No autenticado' }
+    }
+
+    // Actualizar nivel de soporte y agente asignado
+    const { error: updateError } = await supabase
+      .from('tickets_maintenance')
+      .update({ 
+        support_level: data.newLevel,
+        assigned_to: data.assignToAgentId,
+        updated_at: new Date().toISOString(),
+      })
+      .eq('id', data.ticketId)
+    
+    if (updateError) {
+      return { error: updateError.message }
+    }
+
+    // Obtener datos del ticket y ubicación
+    const { data: ticket } = await supabase
+      .from('tickets_maintenance')
+      .select('ticket_number, title, location_id, locations(name, code)')
+      .eq('id', data.ticketId)
+      .single()
+
+    // Obtener nombre del nuevo agente
+    const { data: newAgentProfile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', data.assignToAgentId)
+      .single()
+
+    const locationCode = (ticket?.locations as any)?.code || ''
+    const locationName = (ticket?.locations as any)?.name || ''
+
+    // Crear comentario automático de escalamiento
+    const { error: commentError } = await supabase
+      .from('maintenance_ticket_comments')
+      .insert({
+        ticket_id: data.ticketId,
+        author_id: user.id,
+        body: `✅ **Escalamiento aprobado a Nivel ${data.newLevel}**\n\n**Escalado por:** ${data.escalatedBy}\n**Asignado a:** ${newAgentProfile?.full_name || 'Técnico'}\n**Sede:** ${locationCode} - ${locationName}\n\n_El ticket ha sido escalado exitosamente._`,
+        visibility: 'public',
+      })
+
+    if (commentError) {
+      console.error('Error creando comentario de escalamiento:', commentError)
+    }
+
+    revalidatePath(`/mantenimiento/tickets/${data.ticketId}`)
+    
+    return { success: true }
+  } catch (err: any) {
+    console.error('[escalateMaintenanceTicket] Error:', err)
+    return { error: err.message || 'Error al escalar ticket' }
+  }
+}
+
+/**
  * Cambia el estado de un ticket de mantenimiento y envía notificaciones (PUSH + EMAIL)
  */
 export async function updateMaintenanceTicketStatus(data: {

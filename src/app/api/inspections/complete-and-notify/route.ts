@@ -3,6 +3,9 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { sendMail } from '@/lib/email/mailer'
 import { criticalInspectionAlertTemplate } from '@/lib/email/templates'
+import { sendTelegramNotification, TELEGRAM_TEMPLATES } from '@/lib/telegram'
+
+export const runtime = 'nodejs'
 
 const CRITICAL_THRESHOLD = 8 // Umbral crítico: calificaciones menores a 8
 
@@ -249,13 +252,46 @@ export async function POST(req: NextRequest) {
       console.log('[complete-and-notify] Notificaciones insertadas:', JSON.stringify(insertedData, null, 2))
     }
 
+    // 11. Enviar notificaciones a Telegram (solo a usuarios vinculados)
+    console.log('[complete-and-notify] 📱 Enviando notificaciones Telegram...')
+
+    const telegramBaseTemplate = TELEGRAM_TEMPLATES.inspection_critical({
+      department: inspection.department,
+      propertyCode: inspection.property_code,
+      propertyName: inspection.property_name,
+      criticalCount: criticalItems.length,
+      threshold: CRITICAL_THRESHOLD,
+    })
+
+    const telegramTemplate = {
+      ...telegramBaseTemplate,
+      message: `${telegramBaseTemplate.message}\n\n<b>Ver inspección:</b> ${inspectionUrl}`,
+    }
+
+    const telegramResults = await Promise.allSettled(
+      pushRecipients.map(async admin => {
+        const sent = await sendTelegramNotification(admin.id, telegramTemplate)
+        return { userId: admin.id, sent }
+      })
+    )
+
+    const telegramSent = telegramResults.filter(
+      r => r.status === 'fulfilled' && r.value.sent
+    ).length
+    const telegramFailed = telegramResults.length - telegramSent
+
+    console.log(
+      `[complete-and-notify] 📱 Telegram: ${telegramSent} enviados, ${telegramFailed} no enviados (no vinculado o error)`
+    )
+
     // Retornar éxito
     return NextResponse.json({
       success: true,
       message: 'Inspección completada y notificaciones enviadas',
       criticalItemsCount: criticalItems.length,
       adminsNotified: pushRecipients.length,
-      emailsSentToAdmins: emailRecipients.length
+      emailsSentToAdmins: emailRecipients.length,
+      telegramSent,
     }, { status: 200 })
 
   } catch (error: any) {

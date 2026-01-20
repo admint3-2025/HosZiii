@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import ChangePasswordForm from './ui/ChangePasswordForm'
 import { getAvatarInitial } from '@/lib/ui/avatar'
+import TelegramLinkCard from './ui/TelegramLinkCard'
 
 export const metadata = {
   title: 'Mi Perfil | ZIII HoS',
@@ -130,6 +131,9 @@ export default async function ProfilePage() {
 
         {/* Cambio de contraseña */}
         <ChangePasswordForm />
+
+        {/* Telegram */}
+        <TelegramLinkCard />
       </div>
     </div>
   )

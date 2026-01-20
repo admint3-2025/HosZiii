@@ -6,6 +6,7 @@ import {
 } from './templates'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { extractMaintenanceTicketSequence } from '@/lib/tickets/code'
+import { sendTelegramNotification, TELEGRAM_TEMPLATES } from '@/lib/telegram'
 
 const STATUS_LABELS: Record<string, string> = {
   NEW: 'Nuevo',
@@ -124,6 +125,24 @@ export async function notifyMaintenanceTicketCreated(data: MaintenanceTicketNoti
           actor_id: data.actorId,
           is_read: false,
         })
+
+      // Telegram solicitante
+      try {
+        const t = TELEGRAM_TEMPLATES.ticket_created({
+          ticketNumber: data.ticketNumber,
+          title: data.title,
+          priority: PRIORITY_LABELS[data.priority || 3] || 'Media',
+          locationName: data.locationCode
+            ? `${data.locationCode} - ${data.locationName || 'la sede'}`
+            : (data.locationName || 'la sede'),
+          serviceLabel: 'Mantenimiento',
+          detailUrl: ticketUrl,
+          moduleLabel: 'Mantenimiento',
+        })
+        await sendTelegramNotification(data.requesterId, t)
+      } catch (err) {
+        console.error('[notifyMaintenanceTicketCreated] ✗ Error enviando Telegram al solicitante:', err)
+      }
     }
 
     // 2. Notificar a supervisores/técnicos de MANTENIMIENTO de la sede
@@ -269,6 +288,22 @@ async function notifyMaintenanceLocationStaff(data: MaintenanceTicketNotificatio
           })
         
         console.log(`[notifyMaintenanceLocationStaff] ✓ Notificación in-app enviada a: ${staff.full_name}`)
+
+        // Telegram staff
+        try {
+          const t = TELEGRAM_TEMPLATES.ticket_created({
+            ticketNumber: data.ticketNumber,
+            title: data.title,
+            priority: PRIORITY_LABELS[data.priority || 3] || 'Media',
+            locationName: locationCode ? `${locationCode} - ${locationName}` : locationName,
+            serviceLabel: 'Mantenimiento',
+            detailUrl: ticketUrl,
+            moduleLabel: 'Mantenimiento',
+          })
+          await sendTelegramNotification(staff.id, t)
+        } catch (err) {
+          console.error(`[notifyMaintenanceLocationStaff] Error enviando Telegram a ${staff.id}:`, err)
+        }
         
       } catch (err) {
         console.error(`[notifyMaintenanceLocationStaff] Error notificando a ${staff.id}:`, err)
@@ -402,6 +437,27 @@ export async function notifyMaintenanceTicketComment(data: MaintenanceCommentNot
     } else {
       console.log(`[notifyMaintenanceTicketComment] ✓ ${notifications.length} notificaciones push creadas exitosamente`)
     }
+
+    // Telegram a los mismos destinatarios
+    try {
+      const preview = data.commentBody.replace(/\s+/g, ' ').trim().slice(0, 140)
+      const vis = data.commentVisibility === 'internal' ? ' (interno)' : ''
+      const t = TELEGRAM_TEMPLATES.ticket_comment({
+        ticketNumber: data.ticketNumber,
+        title: data.title,
+        authorName,
+        commentPreview: `${preview}${data.commentBody.length > 140 ? '…' : ''}${vis}`,
+        detailUrl: ticketUrl,
+        moduleLabel: 'Mantenimiento',
+      })
+      await Promise.allSettled(
+        Array.from(recipientIds).map(userId =>
+          sendTelegramNotification(userId, t)
+        )
+      )
+    } catch (err) {
+      console.error('[notifyMaintenanceTicketComment] ✗ Error enviando Telegram:', err)
+    }
     
   } catch (error) {
     console.error('[notifyMaintenanceTicketComment] ✗ Error:', error)
@@ -489,6 +545,22 @@ export async function notifyMaintenanceTicketStatusChanged(data: MaintenanceTick
           actor_id: data.actorId,
           is_read: false,
         })
+
+      // Telegram solicitante
+      try {
+        const t = TELEGRAM_TEMPLATES.ticket_status_changed({
+          ticketNumber: data.ticketNumber,
+          title: data.title,
+          oldStatus: STATUS_LABELS[data.oldStatus] || data.oldStatus,
+          newStatus: STATUS_LABELS[data.newStatus] || data.newStatus,
+          changedBy,
+          detailUrl: ticketUrl,
+          moduleLabel: 'Mantenimiento',
+        })
+        await sendTelegramNotification(data.requesterId, t)
+      } catch (err) {
+        console.error('[notifyMaintenanceTicketStatusChanged] ✗ Error enviando Telegram a solicitante:', err)
+      }
     }
 
     // Si hay agente asignado y es diferente al solicitante, notificarle también (EMAIL + PUSH)
@@ -547,6 +619,22 @@ export async function notifyMaintenanceTicketStatusChanged(data: MaintenanceTick
             actor_id: data.actorId,
             is_read: false,
           })
+
+        // Telegram agente
+        try {
+          const t = TELEGRAM_TEMPLATES.ticket_status_changed({
+            ticketNumber: data.ticketNumber,
+            title: data.title,
+            oldStatus: STATUS_LABELS[data.oldStatus] || data.oldStatus,
+            newStatus: STATUS_LABELS[data.newStatus] || data.newStatus,
+            changedBy,
+            detailUrl: ticketUrl,
+            moduleLabel: 'Mantenimiento',
+          })
+          await sendTelegramNotification(data.assignedAgentId, t)
+        } catch (err) {
+          console.error('[notifyMaintenanceTicketStatusChanged] ✗ Error enviando Telegram a agente:', err)
+        }
       }
     }
     

@@ -4,7 +4,7 @@ import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 import MaintenanceCloseTicketModal from './MaintenanceCloseTicketModal'
-import { updateMaintenanceTicketStatus } from '../actions'
+import { updateMaintenanceTicketStatus, escalateMaintenanceTicket } from '../actions'
 
 const STATUSES = [
   'NEW',
@@ -42,6 +42,8 @@ export default function MaintenanceTicketActions({
   const [nextStatus, setNextStatus] = useState(currentStatus)
   const [assignedAgentId, setAssignedAgentId] = useState(currentAgentId ?? '')
   const [agents, setAgents] = useState<{ id: string; full_name: string | null; email: string | null }[]>([])
+  const [agentsL2, setAgentsL2] = useState<{ id: string; full_name: string | null; email: string | null }[]>([])
+  const [escalateAgentId, setEscalateAgentId] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showCloseModal, setShowCloseModal] = useState(false)
@@ -98,6 +100,51 @@ export default function MaintenanceTicketActions({
     }
   }
 
+  async function loadAgentsL2() {
+    if (agentsL2.length > 0) return
+    try {
+      console.log('[MaintenanceTicketActions] Cargando técnicos L2/Supervisor/Admin para escalamiento...')
+      
+      // Obtener perfil del usuario actual
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) return
+      
+      const { data: currentProfile } = await supabase
+        .from('profiles')
+        .select('location_id, role')
+        .eq('id', user.id)
+        .single()
+      
+      const isAdmin = currentProfile?.role === 'admin'
+      const userLocationId = currentProfile?.location_id
+      
+      let query = supabase
+        .from('profiles')
+        .select('id, full_name, role, asset_category, location_id')
+        .in('role', ['agent_l2', 'supervisor', 'admin'])
+      
+      // Si NO es admin, filtrar solo por su sede
+      if (!isAdmin && userLocationId) {
+        query = query.eq('location_id', userLocationId)
+      }
+      
+      const { data, error } = await query.order('full_name')
+      
+      if (error) {
+        console.error('[MaintenanceTicketActions] Error cargando técnicos L2:', error)
+      } else {
+        // Filtrar solo MAINTENANCE o admins
+        const filtered = (data || []).filter(
+          agent => agent.asset_category === 'MAINTENANCE' || agent.role === 'admin'
+        )
+        console.log('[MaintenanceTicketActions] Técnicos L2 encontrados:', filtered.length)
+        setAgentsL2(filtered.map(a => ({ ...a, email: null })))
+      }
+    } catch (err) {
+      console.error('[MaintenanceTicketActions] Exception cargando L2:', err)
+    }
+  }
+
   async function updateStatus() {
     setError(null)
     if (nextStatus === currentStatus && (nextStatus !== 'ASSIGNED' || assignedAgentId === currentAgentId)) return
@@ -147,6 +194,7 @@ export default function MaintenanceTicketActions({
 
     try {
       const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('No autenticado')
       
       // Primero guardar la resolución
       const { error: resolutionError } = await supabase
@@ -154,11 +202,25 @@ export default function MaintenanceTicketActions({
         .update({
           resolution,
           closed_at: new Date().toISOString(),
-          closed_by: user?.id,
+          closed_by: user.id,
         })
         .eq('id', ticketId)
 
       if (resolutionError) throw resolutionError
+
+      // Crear comentario automático de cierre con la resolución
+      const { error: commentError } = await supabase
+        .from('maintenance_ticket_comments')
+        .insert({
+          ticket_id: ticketId,
+          author_id: user.id,
+          body: `🔒 **Ticket cerrado**\n\n**Resolución:**\n${resolution}`,
+          visibility: 'public',
+        })
+
+      if (commentError) {
+        console.error('Error creando comentario de cierre:', commentError)
+      }
 
       // Luego cambiar estado con notificaciones
       const result = await updateMaintenanceTicketStatus({
@@ -182,6 +244,9 @@ export default function MaintenanceTicketActions({
     
     setBusy(true)
     try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('No autenticado')
+
       // Primero limpiar campos de cierre
       const { error: clearError } = await supabase
         .from('tickets_maintenance')
@@ -193,6 +258,20 @@ export default function MaintenanceTicketActions({
         .eq('id', ticketId)
 
       if (clearError) throw clearError
+
+      // Crear comentario automático de reapertura
+      const { error: commentError } = await supabase
+        .from('maintenance_ticket_comments')
+        .insert({
+          ticket_id: ticketId,
+          author_id: user.id,
+          body: `🔄 **Ticket reabierto**\n\n_El ticket ha sido reabierto y vuelve a estar en progreso._`,
+          visibility: 'public',
+        })
+
+      if (commentError) {
+        console.error('Error creando comentario de reapertura:', commentError)
+      }
       
       // Luego cambiar estado con notificaciones
       const result = await updateMaintenanceTicketStatus({
@@ -210,136 +289,242 @@ export default function MaintenanceTicketActions({
     }
   }
 
+  async function escalateToL2() {
+    setError(null)
+    if (supportLevel === 2) return
+
+    if (!escalateAgentId) {
+      setError('Selecciona un técnico nivel 2, supervisor o administrador.')
+      return
+    }
+    
+    setBusy(true)
+    
+    try {
+      const { data: { user } } = await supabase.auth.getUser()
+      if (!user) throw new Error('No autenticado')
+
+      const { data: currentProfile } = await supabase
+        .from('profiles')
+        .select('full_name')
+        .eq('id', user.id)
+        .single()
+
+      const escalatedBy = currentProfile?.full_name || 'Sistema'
+
+      const result = await escalateMaintenanceTicket({
+        ticketId,
+        newLevel: 2,
+        assignToAgentId: escalateAgentId,
+        escalatedBy,
+      })
+
+      if (result.error) throw new Error(result.error)
+      
+      router.refresh()
+    } catch (err: any) {
+      setError(err.message || 'Error escalando el ticket')
+    } finally {
+      setBusy(false)
+    }
+  }
+
   const isClosed = currentStatus === 'CLOSED'
 
   return (
     <>
-      <div className="bg-white rounded-xl shadow-lg border-0">
-        <div className="p-5">
-          <div className="flex items-center gap-2 mb-4">
-            <div className="p-2 bg-orange-100 rounded-lg">
-              <svg className="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
-              </svg>
+      <div className="sticky top-6">
+        <div className="bg-white rounded-2xl shadow-xl border border-orange-100 overflow-hidden">
+          <div className="bg-gradient-to-r from-orange-50 via-amber-50 to-white border-b border-orange-100 px-4 py-2.5">
+            <div className="flex items-center gap-2">
+              <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-orange-100 text-orange-700 text-xs font-semibold">⚡</span>
+              <div>
+                <h3 className="text-xs font-semibold text-orange-900 uppercase tracking-wide">Acciones del ticket</h3>
+                <p className="mt-0.5 text-[11px] text-orange-700">Flujo operativo: estado, asignación, cierre y reapertura.</p>
+              </div>
             </div>
-            <h3 className="text-sm font-semibold text-gray-900 uppercase tracking-wider">Acciones</h3>
           </div>
 
-          {error && (
-            <div className="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
-              {error}
-            </div>
-          )}
-
-          {isClosed ? (
-            <div className="space-y-4">
-              <div className="p-4 bg-gray-50 rounded-lg text-center">
-                <svg className="w-8 h-8 text-gray-400 mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
-                </svg>
-                <p className="text-sm text-gray-600">Este ticket está cerrado</p>
+          <div className="p-4 space-y-4 text-sm">
+            {isClosed ? (
+              <div className="pt-1">
+                <div className="p-3 bg-gradient-to-r from-green-50 to-emerald-50 rounded-lg border border-green-200">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2">
+                      <div className="p-1.5 bg-green-100 rounded-lg">
+                        <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-xs font-semibold text-green-800">Ticket cerrado</p>
+                        <p className="text-[11px] text-green-600">Si el trabajo no quedó resuelto, puedes reactivarlo.</p>
+                      </div>
+                    </div>
+                    <button
+                      type="button"
+                      disabled={busy}
+                      onClick={handleReopenTicket}
+                      className="btn btn-sm bg-green-600 hover:bg-green-700 text-white shadow-sm whitespace-nowrap"
+                    >
+                      🔄 Reabrir
+                    </button>
+                  </div>
+                </div>
               </div>
-              <button
-                onClick={handleReopenTicket}
-                disabled={busy}
-                className="w-full px-4 py-2 bg-orange-600 text-white rounded-lg font-medium hover:bg-orange-700 transition disabled:opacity-50"
-              >
-                {busy ? 'Procesando...' : 'Reabrir Ticket'}
-              </button>
-            </div>
-          ) : (
-            <div className="space-y-4">
-              {/* Cambiar Estado */}
-              <div>
-                <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                  Cambiar Estado
-                </label>
-                <select
-                  value={nextStatus}
-                  onChange={(e) => setNextStatus(e.target.value)}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
-                >
-                  {STATUSES.map((s) => (
-                    <option key={s} value={s}>
-                      {STATUS_LABELS[s]}
-                    </option>
-                  ))}
-                </select>
-              </div>
-
-              {/* Asignar técnico (solo si el estado es ASSIGNED) */}
-              {nextStatus === 'ASSIGNED' && (
+            ) : (
+              <div className="space-y-4">
+                {/* Cambiar estado */}
                 <div>
-                  <label className="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">
-                    Asignar a
-                  </label>
+                  <label className="block text-xs font-semibold text-orange-900 mb-1">Estado del ticket</label>
+                  <p className="text-[11px] text-orange-700 mb-1">Define en qué etapa se encuentra la solicitud.</p>
                   <select
-                    value={assignedAgentId}
-                    onChange={(e) => setAssignedAgentId(e.target.value)}
-                    onFocus={loadAgents}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500"
+                    className="select select-sm w-full"
+                    value={nextStatus}
+                    onChange={(e) => setNextStatus(e.target.value)}
                   >
-                    <option value="">Seleccionar técnico...</option>
-                    {loadingAgents ? (
-                      <option disabled>Cargando...</option>
-                    ) : (
-                      agents.map((agent) => (
-                        <option key={agent.id} value={agent.id}>
-                          {agent.full_name || agent.email}
-                        </option>
-                      ))
-                    )}
+                    {STATUSES.map((s) => (
+                      <option key={s} value={s}>
+                        {STATUS_LABELS[s] || s}
+                      </option>
+                    ))}
                   </select>
+
+                  {nextStatus === 'ASSIGNED' && (
+                    <div className="mt-2 p-2.5 bg-amber-50 rounded border border-amber-200">
+                      <label className="block text-xs font-semibold text-amber-900 mb-1">Asignar responsable</label>
+                      <p className="text-[11px] text-amber-700 mb-1">Selecciona el técnico que quedará a cargo.</p>
+                      <select
+                        className="select select-sm w-full"
+                        value={assignedAgentId}
+                        onChange={(e) => setAssignedAgentId(e.target.value)}
+                        onFocus={loadAgents}
+                      >
+                        <option value="">-- Seleccionar técnico --</option>
+                        {loadingAgents ? (
+                          <option disabled>Cargando…</option>
+                        ) : (
+                          agents.map((agent) => (
+                            <option key={agent.id} value={agent.id}>
+                              {agent.full_name || agent.email || agent.id}
+                            </option>
+                          ))
+                        )}
+                      </select>
+                    </div>
+                  )}
+
+                  <div className="mt-2 flex justify-end">
+                    <button
+                      type="button"
+                      onClick={updateStatus}
+                      disabled={busy || (nextStatus === currentStatus && assignedAgentId === currentAgentId)}
+                      className="btn btn-sm bg-orange-600 hover:bg-orange-700 text-white px-4 disabled:opacity-50"
+                    >
+                      {busy ? 'Aplicando…' : 'Aplicar estado'}
+                    </button>
+                  </div>
                 </div>
-              )}
 
-              {/* Botón aplicar cambios */}
-              <button
-                onClick={updateStatus}
-                disabled={busy || (nextStatus === currentStatus && assignedAgentId === currentAgentId)}
-                className="w-full px-4 py-2.5 bg-orange-600 text-white rounded-lg font-semibold hover:bg-orange-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
-              >
-                {busy ? (
-                  <span className="flex items-center justify-center gap-2">
-                    <svg className="animate-spin h-4 w-4" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Procesando...
-                  </span>
-                ) : (
-                  'Aplicar Cambios'
-                )}
-              </button>
-
-              {/* Acciones rápidas */}
-              <div className="pt-4 border-t border-gray-200">
-                <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Acciones Rápidas</p>
-                <div className="grid grid-cols-2 gap-2">
-                  <button
-                    onClick={() => {
-                      setNextStatus('IN_PROGRESS')
-                      setTimeout(updateStatus, 100)
-                    }}
-                    disabled={busy || currentStatus === 'IN_PROGRESS'}
-                    className="px-3 py-2 text-xs font-medium bg-yellow-100 text-yellow-800 rounded-lg hover:bg-yellow-200 transition disabled:opacity-50"
-                  >
-                    En Progreso
-                  </button>
-                  <button
-                    onClick={() => {
-                      setNextStatus('RESOLVED')
-                      setTimeout(updateStatus, 100)
-                    }}
-                    disabled={busy || currentStatus === 'RESOLVED'}
-                    className="px-3 py-2 text-xs font-medium bg-green-100 text-green-800 rounded-lg hover:bg-green-200 transition disabled:opacity-50"
-                  >
-                    Resuelto
-                  </button>
+                {/* Acciones rápidas */}
+                <div className="pt-3 border-t border-orange-100">
+                  <p className="text-xs font-semibold text-orange-900 uppercase tracking-wide mb-2">Acciones rápidas</p>
+                  <div className="grid grid-cols-2 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNextStatus('IN_PROGRESS')
+                        setTimeout(updateStatus, 100)
+                      }}
+                      disabled={busy || currentStatus === 'IN_PROGRESS'}
+                      className="btn btn-sm bg-yellow-100 hover:bg-yellow-200 text-yellow-900 border border-yellow-200"
+                    >
+                      En progreso
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setNextStatus('RESOLVED')
+                        setTimeout(updateStatus, 100)
+                      }}
+                      disabled={busy || currentStatus === 'RESOLVED'}
+                      className="btn btn-sm bg-green-100 hover:bg-green-200 text-green-900 border border-green-200"
+                    >
+                      Resuelto
+                    </button>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )}
+
+            {/* Escalamiento - Solo cuando NO esté cerrado */}
+            {!isClosed && (
+              <>
+                <div className="pt-3 border-t border-orange-100">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="inline-flex h-5 w-5 items-center justify-center rounded-full bg-amber-100 text-amber-700 text-xs">🔺</span>
+                    <p className="text-xs font-semibold text-orange-900 uppercase tracking-wide">Escalamiento</p>
+                  </div>
+                  
+                  {supportLevel === 2 ? (
+                    <div className="p-2.5 bg-blue-50 rounded border border-blue-200 text-center">
+                      <p className="text-xs text-blue-700">Ya está en Nivel 2</p>
+                    </div>
+                  ) : (
+                    <>
+                      {/* Admin, Supervisor, L2: Pueden escalar directamente */}
+                      {['admin', 'supervisor', 'agent_l2'].includes(userRole) && supportLevel === 1 && (
+                        <div className="space-y-2">
+                          <select
+                            className="select select-sm w-full"
+                            value={escalateAgentId}
+                            onChange={(e) => setEscalateAgentId(e.target.value)}
+                            onFocus={loadAgentsL2}
+                            disabled={busy}
+                          >
+                            <option value="">-- Seleccionar técnico L2/Supervisor/Admin --</option>
+                            {agentsL2.map((a) => (
+                              <option key={a.id} value={a.id}>
+                                {a.full_name || a.id}
+                              </option>
+                            ))}
+                          </select>
+                          <div className="flex justify-end">
+                            <button
+                              type="button"
+                              disabled={busy || !escalateAgentId}
+                              onClick={escalateToL2}
+                              className="btn btn-sm bg-amber-600 hover:bg-amber-700 text-white px-4 whitespace-nowrap"
+                            >
+                              Escalar a Nivel 2
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {/* L1: No tiene acceso a escalamiento directo en Mantenimiento */}
+                      {userRole === 'agent_l1' && supportLevel === 1 && (
+                        <div className="p-2.5 bg-gray-50 rounded border border-gray-200">
+                          <p className="text-xs text-gray-600">
+                            Solo Supervisores y Administradores pueden escalar tickets de mantenimiento.
+                          </p>
+                        </div>
+                      )}
+                    </>
+                  )}
+                </div>
+              </>
+            )}
+
+            {error ? (
+              <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-start gap-2">
+                <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+                  <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
+                </svg>
+                <span>{error}</span>
+              </div>
+            ) : null}
+          </div>
         </div>
       </div>
 

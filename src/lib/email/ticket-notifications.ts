@@ -9,6 +9,8 @@ import {
   ticketLocationStaffNotificationTemplate,
 } from './templates'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { sendTelegramNotification, TELEGRAM_TEMPLATES } from '@/lib/telegram'
+import { formatTicketCode } from '@/lib/tickets/code'
 import {
   fetchTicketAssetCategory,
   getServiceLabelForTicketCategory,
@@ -57,6 +59,33 @@ type TicketNotificationData = {
   resolution?: string
 }
 
+async function getITTicketTelegramContext(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  ticketId: string,
+  fallbackTicketNumber: string,
+): Promise<{ ticketCode: string; locationLabel: string }> {
+  try {
+    const { data } = await supabase
+      .from('tickets')
+      .select('ticket_number, created_at, locations(name, code)')
+      .eq('id', ticketId)
+      .maybeSingle()
+
+    const ticketNumber = (data as any)?.ticket_number ?? fallbackTicketNumber
+    const createdAt = (data as any)?.created_at ?? null
+    const ticketCode = formatTicketCode({ ticket_number: ticketNumber, created_at: createdAt })
+
+    const locName = ((data as any)?.locations as any)?.name || 'Sin sede'
+    const locCode = ((data as any)?.locations as any)?.code || ''
+    const locationLabel = locCode ? `${locCode} - ${locName}` : locName
+
+    return { ticketCode, locationLabel }
+  } catch (err) {
+    console.error('[getITTicketTelegramContext] Error:', err)
+    return { ticketCode: String(fallbackTicketNumber), locationLabel: 'Sin sede' }
+  }
+}
+
 /**
  * Notifica al solicitante que su ticket ha sido creado
  */
@@ -97,6 +126,8 @@ export async function notifyTicketCreated(data: TicketNotificationData) {
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const ticketUrl = `${baseUrl}/tickets/${data.ticketId}`
 
+    const telegramCtx = await getITTicketTelegramContext(supabase, data.ticketId, data.ticketNumber)
+
     console.log('[notifyTicketCreated] Generando template de email...')
     const template = ticketCreatedEmailTemplate({
       ticketNumber: data.ticketNumber,
@@ -123,6 +154,22 @@ export async function notifyTicketCreated(data: TicketNotificationData) {
     })
 
     console.log(`[notifyTicketCreated] ✓ Notificación enviada exitosamente a ${requester.user.email}`)
+
+    // Telegram (si está vinculado)
+    try {
+      const t = TELEGRAM_TEMPLATES.ticket_created({
+        ticketNumber: telegramCtx.ticketCode,
+        title: data.title,
+        priority: PRIORITY_LABELS[data.priority || 3] || 'Media',
+        locationName: telegramCtx.locationLabel,
+        serviceLabel,
+        detailUrl: ticketUrl,
+        moduleLabel: 'Helpdesk IT',
+      })
+      await sendTelegramNotification(data.requesterId, t)
+    } catch (err) {
+      console.error('[notifyTicketCreated] ✗ Error enviando Telegram:', err)
+    }
     
     // NUEVO: Notificar a supervisores y técnicos de la misma sede
     await notifyLocationStaff(data)
@@ -207,6 +254,8 @@ export async function notifyTicketAssigned(data: TicketNotificationData) {
     const assetInfo = await fetchTicketAssetInfo(supabase, data.ticketId)
     const serviceLabel = getServiceLabelForTicketCategory(inferTicketAssetCategory(assetInfo?.assetType))
 
+    const telegramCtx = await getITTicketTelegramContext(supabase, data.ticketId, data.ticketNumber)
+
     const template = ticketAssignedEmailTemplate({
       ticketNumber: data.ticketNumber,
       title: data.title,
@@ -231,6 +280,23 @@ export async function notifyTicketAssigned(data: TicketNotificationData) {
     })
 
     console.log(`✓ Notificación de asignación enviada a ${agent.user.email} para ticket #${data.ticketNumber}`)
+
+    // Telegram al agente (si está vinculado)
+    try {
+      const t = TELEGRAM_TEMPLATES.ticket_assigned({
+        ticketNumber: telegramCtx.ticketCode,
+        title: data.title,
+        assignedTo: agentName,
+        priority: PRIORITY_LABELS[data.priority || 3] || 'Media',
+        locationName: telegramCtx.locationLabel,
+        serviceLabel,
+        detailUrl: ticketUrl,
+        moduleLabel: 'Helpdesk IT',
+      })
+      await sendTelegramNotification(data.assignedAgentId, t)
+    } catch (err) {
+      console.error('[notifyTicketAssigned] ✗ Error enviando Telegram al agente:', err)
+    }
 
     // También notificar al solicitante que su ticket fue asignado
     const { data: requester } = await supabase.auth.admin.getUserById(data.requesterId)
@@ -267,6 +333,23 @@ export async function notifyTicketAssigned(data: TicketNotificationData) {
       })
 
       console.log(`✓ Notificación de asignación enviada al solicitante ${requester.user.email}`)
+
+      // Telegram al solicitante (si está vinculado)
+      try {
+        const t = TELEGRAM_TEMPLATES.ticket_assigned({
+          ticketNumber: telegramCtx.ticketCode,
+          title: data.title,
+          assignedTo: agentName,
+          priority: PRIORITY_LABELS[data.priority || 3] || 'Media',
+          locationName: telegramCtx.locationLabel,
+          serviceLabel,
+          detailUrl: ticketUrl,
+          moduleLabel: 'Helpdesk IT',
+        })
+        await sendTelegramNotification(data.requesterId, t)
+      } catch (err) {
+        console.error('[notifyTicketAssigned] ✗ Error enviando Telegram al solicitante:', err)
+      }
     }
   } catch (error) {
     console.error('Error enviando notificación de asignación:', error)
@@ -284,6 +367,8 @@ export async function notifyTicketStatusChanged(data: TicketNotificationData) {
     
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const ticketUrl = `${baseUrl}/tickets/${data.ticketId}`
+
+    const telegramCtx = await getITTicketTelegramContext(supabase, data.ticketId, data.ticketNumber)
     const assetInfo = await fetchTicketAssetInfo(supabase, data.ticketId)
     const serviceLabel = getServiceLabelForTicketCategory(inferTicketAssetCategory(assetInfo?.assetType))
 
@@ -333,6 +418,22 @@ export async function notifyTicketStatusChanged(data: TicketNotificationData) {
       })
 
       console.log(`✓ Notificación de cambio de estado enviada a solicitante para ticket #${data.ticketNumber}`)
+
+      // Telegram solicitante
+      try {
+        const t = TELEGRAM_TEMPLATES.ticket_status_changed({
+          ticketNumber: telegramCtx.ticketCode,
+          title: data.title,
+          oldStatus: STATUS_LABELS[data.oldStatus] || data.oldStatus,
+          newStatus: STATUS_LABELS[data.newStatus] || data.newStatus,
+          changedBy,
+          detailUrl: ticketUrl,
+          moduleLabel: 'Helpdesk IT',
+        })
+        await sendTelegramNotification(data.requesterId, t)
+      } catch (err) {
+        console.error('[notifyTicketStatusChanged] ✗ Error enviando Telegram al solicitante:', err)
+      }
     }
 
     // Si hay agente asignado y es diferente al solicitante, notificarle también
@@ -371,6 +472,22 @@ export async function notifyTicketStatusChanged(data: TicketNotificationData) {
         })
 
         console.log(`✓ Notificación de cambio de estado enviada a agente para ticket #${data.ticketNumber}`)
+
+        // Telegram agente
+        try {
+          const t = TELEGRAM_TEMPLATES.ticket_status_changed({
+            ticketNumber: telegramCtx.ticketCode,
+            title: data.title,
+            oldStatus: STATUS_LABELS[data.oldStatus] || data.oldStatus,
+            newStatus: STATUS_LABELS[data.newStatus] || data.newStatus,
+            changedBy,
+            detailUrl: ticketUrl,
+            moduleLabel: 'Helpdesk IT',
+          })
+          await sendTelegramNotification(data.assignedAgentId, t)
+        } catch (err) {
+          console.error('[notifyTicketStatusChanged] ✗ Error enviando Telegram al agente:', err)
+        }
       }
     }
     
@@ -388,6 +505,14 @@ export async function notifyTicketClosed(data: TicketNotificationData) {
   try {
     const supabase = createSupabaseAdminClient()
     
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const ticketUrl = `${baseUrl}/tickets/${data.ticketId}`
+
+    const telegramCtx = await getITTicketTelegramContext(supabase, data.ticketId, data.ticketNumber)
+
+    const assetInfo = await fetchTicketAssetInfo(supabase, data.ticketId)
+    const serviceLabel = getServiceLabelForTicketCategory(inferTicketAssetCategory(assetInfo?.assetType))
+
     // Obtener email del solicitante
     const { data: requester } = await supabase.auth.admin.getUserById(data.requesterId)
     if (!requester.user?.email) return
@@ -410,11 +535,6 @@ export async function notifyTicketClosed(data: TicketNotificationData) {
         .single()
       closedBy = actorProfile?.full_name || 'Sistema'
     }
-
-    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-    const ticketUrl = `${baseUrl}/tickets/${data.ticketId}`
-    const assetInfo = await fetchTicketAssetInfo(supabase, data.ticketId)
-    const serviceLabel = getServiceLabelForTicketCategory(inferTicketAssetCategory(assetInfo?.assetType))
 
     const template = ticketClosedEmailTemplate({
       ticketNumber: data.ticketNumber,
@@ -439,6 +559,121 @@ export async function notifyTicketClosed(data: TicketNotificationData) {
     })
 
     console.log(`✓ Notificación de cierre enviada a ${requester.user.email} para ticket #${data.ticketNumber}`)
+
+    // PUSH in-app (solicitante)
+    try {
+      await supabase.from('notifications').insert({
+        user_id: data.requesterId,
+        type: 'TICKET_CLOSED',
+        title: `✅ Ticket #${data.ticketNumber} cerrado`,
+        message: `Tu ticket "${data.title}" fue cerrado por ${closedBy}.`,
+        ticket_id: data.ticketId,
+        ticket_number: data.ticketNumber,
+        actor_id: data.actorId,
+        is_read: false,
+      })
+    } catch (err) {
+      console.error('[notifyTicketClosed] ✗ Error creando push (solicitante):', err)
+    }
+
+    // Telegram solicitante
+    try {
+      const resolutionPreview = (data.resolution || '').replace(/\s+/g, ' ').trim().slice(0, 160)
+      const t = TELEGRAM_TEMPLATES.generic({
+        title: 'Ticket cerrado',
+        message:
+          `✅ <b>Ticket cerrado</b>\n\n` +
+          `<b>Código:</b> <code>${telegramCtx.ticketCode}</code>\n` +
+          `<b>Título:</b> ${data.title}\n` +
+          `<b>Sede:</b> ${telegramCtx.locationLabel}\n` +
+          `<b>Cerrado por:</b> ${closedBy}` +
+          (resolutionPreview ? `\n\n<b>Resolución:</b> ${resolutionPreview}${(data.resolution || '').length > 160 ? '…' : ''}` : '') +
+          `\n\n🔎 <a href="${ticketUrl}"><b>Revisar ticket</b></a>`,
+      })
+      await sendTelegramNotification(data.requesterId, t)
+    } catch (err) {
+      console.error('[notifyTicketClosed] ✗ Error enviando Telegram:', err)
+    }
+
+    // Notificar también al agente asignado (si existe y es diferente)
+    if (data.assignedAgentId && data.assignedAgentId !== data.requesterId) {
+      try {
+        const { data: agent } = await supabase.auth.admin.getUserById(data.assignedAgentId)
+        const agentEmail = agent.user?.email
+
+        const { data: agentProfile } = await supabase
+          .from('profiles')
+          .select('full_name')
+          .eq('id', data.assignedAgentId)
+          .single()
+
+        const agentName = agentProfile?.full_name || agentEmail || 'Agente'
+
+        // EMAIL agente
+        if (agentEmail) {
+          const templateAgent = ticketClosedEmailTemplate({
+            ticketNumber: data.ticketNumber,
+            title: data.title,
+            closedBy,
+            ticketUrl,
+            recipientName: agentName,
+            resolution: data.resolution,
+            serviceLabel,
+            assetTag: assetInfo?.assetTag,
+            assetType: assetInfo?.assetType || undefined,
+            assetBrand: assetInfo?.brand || undefined,
+            assetModel: assetInfo?.model || undefined,
+            assetSerial: assetInfo?.serialNumber || undefined,
+          })
+
+          await sendMail({
+            to: agentEmail,
+            subject: templateAgent.subject,
+            html: templateAgent.html,
+            text: templateAgent.text,
+          })
+
+          console.log(`✓ Notificación de cierre enviada al agente ${agentEmail} para ticket #${data.ticketNumber}`)
+        }
+
+        // PUSH agente
+        try {
+          await supabase.from('notifications').insert({
+            user_id: data.assignedAgentId,
+            type: 'TICKET_CLOSED',
+            title: `✅ Ticket #${data.ticketNumber} cerrado`,
+            message: `El ticket "${data.title}" fue cerrado por ${closedBy}.`,
+            ticket_id: data.ticketId,
+            ticket_number: data.ticketNumber,
+            actor_id: data.actorId,
+            is_read: false,
+          })
+        } catch (err) {
+          console.error('[notifyTicketClosed] ✗ Error creando push (agente):', err)
+        }
+
+        // Telegram agente
+        try {
+          const resolutionPreview = (data.resolution || '').replace(/\s+/g, ' ').trim().slice(0, 160)
+          const t = TELEGRAM_TEMPLATES.generic({
+            title: 'Ticket cerrado',
+            message:
+              `✅ <b>Ticket cerrado</b>\n\n` +
+              `<b>Código:</b> <code>${telegramCtx.ticketCode}</code>\n` +
+              `<b>Título:</b> ${data.title}\n` +
+              `<b>Sede:</b> ${telegramCtx.locationLabel}\n` +
+              `<b>Cerrado por:</b> ${closedBy}` +
+              (resolutionPreview ? `\n\n<b>Resolución:</b> ${resolutionPreview}${(data.resolution || '').length > 160 ? '…' : ''}` : '') +
+              `\n\n🔎 <a href="${ticketUrl}"><b>Revisar ticket</b></a>`,
+          })
+          await sendTelegramNotification(data.assignedAgentId, t)
+        } catch (err) {
+          console.error('[notifyTicketClosed] ✗ Error enviando Telegram (agente):', err)
+        }
+      } catch (err) {
+        console.error('[notifyTicketClosed] ✗ Error notificando agente asignado:', err)
+      }
+    }
   } catch (error) {
     console.error('Error enviando notificación de cierre:', error)
   }
@@ -455,6 +690,8 @@ export async function notifyTicketEscalated(data: TicketNotificationData) {
     
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const ticketUrl = `${baseUrl}/tickets/${data.ticketId}`
+
+    const telegramCtx = await getITTicketTelegramContext(supabase, data.ticketId, data.ticketNumber)
 
     // Obtener información del activo asociado
     const assetInfo = await fetchTicketAssetInfo(supabase, data.ticketId)
@@ -506,6 +743,22 @@ export async function notifyTicketEscalated(data: TicketNotificationData) {
       })
 
       console.log(`✓ Notificación de escalamiento enviada al especialista L2 ${specialist.user.email} para ticket #${data.ticketNumber}`)
+
+      // Telegram especialista
+      try {
+        const t = TELEGRAM_TEMPLATES.generic({
+          title: 'Ticket escalado a Nivel 2',
+          message:
+            `⬆️ <b>Escalamiento a Nivel 2</b>\n\n` +
+            `<b>Código:</b> <code>${telegramCtx.ticketCode}</code>\n` +
+            `<b>Título:</b> ${data.title}\n` +
+            `<b>Por:</b> ${escalatedBy}` +
+            `\n\n🔎 <a href="${ticketUrl}"><b>Revisar ticket</b></a>`,
+        })
+        await sendTelegramNotification(data.assignedAgentId, t)
+      } catch (err) {
+        console.error('[notifyTicketEscalated] ✗ Error enviando Telegram al especialista:', err)
+      }
     }
 
     // Notificar al solicitante
@@ -543,6 +796,22 @@ export async function notifyTicketEscalated(data: TicketNotificationData) {
       })
 
       console.log(`✓ Notificación de escalamiento enviada al solicitante ${requester.user.email} para ticket #${data.ticketNumber}`)
+
+      // Telegram solicitante
+      try {
+        const t = TELEGRAM_TEMPLATES.generic({
+          title: 'Ticket escalado a Nivel 2',
+          message:
+            `⬆️ <b>Tu ticket fue escalado</b>\n\n` +
+            `<b>Código:</b> <code>${telegramCtx.ticketCode}</code>\n` +
+            `<b>Título:</b> ${data.title}\n` +
+            `<b>Por:</b> ${escalatedBy}` +
+            `\n\n🔎 <a href="${ticketUrl}"><b>Revisar ticket</b></a>`,
+        })
+        await sendTelegramNotification(data.requesterId, t)
+      } catch (err) {
+        console.error('[notifyTicketEscalated] ✗ Error enviando Telegram al solicitante:', err)
+      }
     }
   } catch (error) {
     console.error('Error enviando notificación de escalamiento:', error)
@@ -620,6 +889,8 @@ export async function notifyLocationStaff(data: TicketNotificationData) {
     
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const ticketUrl = `${baseUrl}/tickets/${data.ticketId}`
+
+    const telegramCtx = await getITTicketTelegramContext(supabase, data.ticketId, data.ticketNumber)
     
     // Obtener quien generó el ticket/cambio
     let actorName = 'Sistema'
@@ -680,6 +951,33 @@ export async function notifyLocationStaff(data: TicketNotificationData) {
         })
         
         console.log(`[notifyLocationStaff] ✓ Notificación enviada a ${authUser.user.email} (${staffName})`)
+
+        // Telegram (si está vinculado)
+        try {
+          const telegramTemplate = isUpdate
+            ? TELEGRAM_TEMPLATES.ticket_status_changed({
+                ticketNumber: telegramCtx.ticketCode,
+                title: data.title,
+                oldStatus: data.oldStatus ? (STATUS_LABELS[data.oldStatus] || data.oldStatus) : '',
+                newStatus: data.newStatus ? (STATUS_LABELS[data.newStatus] || data.newStatus) : '',
+                changedBy: actorName,
+                detailUrl: ticketUrl,
+                moduleLabel: 'Helpdesk IT',
+              })
+            : TELEGRAM_TEMPLATES.ticket_created({
+                ticketNumber: telegramCtx.ticketCode,
+                title: data.title,
+                priority: PRIORITY_LABELS[data.priority || 3] || 'Media',
+                locationName: locationCode ? `${locationCode} - ${locationName}` : locationName,
+                serviceLabel,
+                detailUrl: ticketUrl,
+                moduleLabel: 'Helpdesk IT',
+              })
+
+          await sendTelegramNotification(staff.id, telegramTemplate)
+        } catch (err) {
+          console.error(`[notifyLocationStaff] Error enviando Telegram a ${staff.id}:`, err)
+        }
       } catch (err) {
         console.error(`[notifyLocationStaff] Error enviando notificación a ${staff.id}:`, err)
         // Continuar con el siguiente
