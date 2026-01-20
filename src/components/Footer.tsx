@@ -12,7 +12,7 @@ export default function Footer() {
           {/* Logo compacto */}
           <div className="flex items-center gap-2">
             <Image
-              src="https://integrational3.com.mx/logorigen/ZIII%20logo.png"
+              src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png"
               alt="ZIII"
               width={120}
               height={32}

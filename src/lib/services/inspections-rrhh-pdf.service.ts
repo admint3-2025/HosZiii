@@ -16,8 +16,8 @@ export class InspectionRRHHPDFGenerator {
   private brandLogoFormat?: 'PNG' | 'JPEG' | 'WEBP'
 
   // Logo corporativo
-  private static readonly LOGO_URL = 'https://integrational3.com.mx/logorigen/ZIII%20logo.png'
-  private static readonly BRAND_LOGO_URL = 'https://integrational3.com.mx/logorigen/alzendhlogo.png'
+  private static readonly LOGO_URL = 'https://systemach-sas.com/logo_ziii/ZIII%20logo.png'
+  private static readonly BRAND_LOGO_URL = 'https://systemach-sas.com/logo_ziii/alzendhlogo.png'
 
   constructor() {
     this.doc = new jsPDF({

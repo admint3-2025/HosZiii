@@ -396,7 +396,7 @@ export async function createDisposalRequest(assetId: string, reason: string) {
           
           <!-- Logo -->
           <div style="max-width: 640px; margin: 0 auto 24px auto; text-align: center;">
-            <img src="https://integrational3.com.mx/logorigen/ZIII%20logo.png" alt="ZIII Helpdesk" width="180" height="100" style="display: block; margin: 0 auto; height: 100px; width: auto; max-width: 100%;" />
+            <img src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png" alt="ZIII Helpdesk" width="180" height="100" style="display: block; margin: 0 auto; height: 100px; width: auto; max-width: 100%;" />
           </div>
           
           <!-- Main Card -->
@@ -567,7 +567,7 @@ export async function approveDisposalRequest(requestId: string, assetId: string,
           
           <!-- Logo -->
           <div style="max-width: 520px; margin: 0 auto 24px auto; text-align: center;">
-            <img src="https://integrational3.com.mx/logorigen/ZIII%20logo.png" alt="ZIII Helpdesk" width="180" height="100" style="display: block; margin: 0 auto; height: 100px; width: auto; max-width: 100%;" />
+            <img src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png" alt="ZIII Helpdesk" width="180" height="100" style="display: block; margin: 0 auto; height: 100px; width: auto; max-width: 100%;" />
           </div>
           
           <!-- Main Card -->
@@ -732,7 +732,7 @@ export async function rejectDisposalRequest(requestId: string, notes: string) {
             
             <!-- Logo -->
             <div style="max-width: 520px; margin: 0 auto 24px auto; text-align: center;">
-              <img src="https://integrational3.com.mx/logorigen/ZIII%20logo.png" alt="ZIII Helpdesk" width="180" height="100" style="display: block; margin: 0 auto; height: 100px; width: auto; max-width: 100%;" />
+              <img src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png" alt="ZIII Helpdesk" width="180" height="100" style="display: block; margin: 0 auto; height: 100px; width: auto; max-width: 100%;" />
             </div>
             
             <!-- Main Card -->

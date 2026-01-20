@@ -12,9 +12,9 @@ export const metadata: Metadata = {
   title: 'ZIII HoS',
   description: 'HoS: Operación y Mesa de Ayuda con trazabilidad ITIL.',
   icons: {
-    icon: 'https://integrational3.com.mx/logorigen/ZIII%20logo.png',
-    shortcut: 'https://integrational3.com.mx/logorigen/ZIII%20logo.png',
-    apple: 'https://integrational3.com.mx/logorigen/ZIII%20logo.png',
+    icon: 'https://systemach-sas.com/logo_ziii/ZIII%20logo.png',
+    shortcut: 'https://systemach-sas.com/logo_ziii/ZIII%20logo.png',
+    apple: 'https://systemach-sas.com/logo_ziii/ZIII%20logo.png',
   },
 }
 

@@ -615,7 +615,7 @@ export default function AppShellClient({
           <div className="flex items-center gap-3 text-white font-bold tracking-tight overflow-hidden">
             <div className="bg-white rounded-xl shadow-lg shadow-indigo-500/20 flex items-center justify-center p-1 flex-shrink-0">
               <Image
-                src="https://integrational3.com.mx/logorigen/ZIII%20logo.png"
+                src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png"
                 alt="ZIII Logo"
                 width={40}
                 height={40}
@@ -829,7 +829,7 @@ export default function AppShellClient({
             <div className="lg:hidden flex items-center gap-2 mr-4">
               <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow-lg p-1 border border-white/20">
                 <Image
-                  src="https://integrational3.com.mx/logorigen/ZIII%20logo.png"
+                  src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png"
                   alt="ZIII Logo"
                   width={32}
                   height={32}

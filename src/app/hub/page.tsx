@@ -259,7 +259,7 @@ export default async function HubPage() {
             <div className="flex items-center gap-6 min-w-0">
               <div className="flex items-center gap-3 flex-shrink-0">
                 <img
-                  src="https://integrational3.com.mx/logorigen/ZIII%20logo.png"
+                  src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png"
                   alt="ZIII HoS"
                   className="h-10 w-10 object-contain rounded-xl bg-white shadow-lg shadow-slate-900/40"
                 />
@@ -409,7 +409,7 @@ export default async function HubPage() {
               {/* Logo y descripción */}
               <div className="flex items-center gap-3">
                 <img
-                  src="https://integrational3.com.mx/logorigen/ZIII%20logo.png"
+                  src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png"
                   alt="ZIII HoS"
                   className="h-8 w-8 object-contain"
                 />
