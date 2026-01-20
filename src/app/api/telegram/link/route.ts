@@ -9,6 +9,12 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { sendTelegramMessage } from '@/lib/telegram/client'
 
+function isValidChatId(value: unknown): value is string {
+  if (typeof value !== 'string' && typeof value !== 'number') return false
+  const s = String(value).trim()
+  return /^-?\d+$/.test(s)
+}
+
 /**
  * POST /api/telegram/link
  * Vincula el usuario actual con su chat_id de Telegram
@@ -39,7 +45,16 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    console.log(`[Telegram Link] Vinculando usuario ${user.id} con chat ${chat_id}`)
+    if (!isValidChatId(chat_id)) {
+      return NextResponse.json(
+        { error: 'chat_id inválido. Debe ser numérico (ej: 123456789 o -1001234567890).' },
+        { status: 400 }
+      )
+    }
+
+    const chatIdNormalized = String(chat_id).trim()
+
+    console.log(`[Telegram Link] Vinculando usuario ${user.id} con chat ${chatIdNormalized}`)
 
     // Guardar el chat_id (usando RLS del usuario autenticado)
     const { error: upsertError } = await supabase
@@ -47,7 +62,7 @@ export async function POST(req: NextRequest) {
       .upsert(
         {
           user_id: user.id,
-          telegram_chat_id: String(chat_id),
+          telegram_chat_id: chatIdNormalized,
           device_name: device_name || 'Telegram',
           is_active: true,
           linked_at: new Date().toISOString(),
@@ -64,8 +79,8 @@ export async function POST(req: NextRequest) {
     }
 
     // Enviar mensaje de confirmación al usuario en Telegram
-    await sendTelegramMessage(
-      chat_id,
+    const result = await sendTelegramMessage(
+      chatIdNormalized,
       `
 ✅ <b>¡Vinculación exitosa!</b>
 
@@ -80,6 +95,38 @@ Ahora recibirás notificaciones aquí sobre:
 Usa la app para desconectarte cuando lo necesites.
       `.trim()
     )
+
+    if (!result.ok) {
+      // Rollback: no dejar guardado un chat_id inválido/inaccesible
+      await supabase.from('user_telegram_chat_ids').delete().eq('user_id', user.id)
+
+      const base = result.description || 'No se pudo enviar mensaje a Telegram'
+
+      if (result.error_code === 400 && /chat not found/i.test(base)) {
+        return NextResponse.json(
+          {
+            error:
+              'Telegram: chat_id no encontrado o inaccesible para el bot.\n\n' +
+              'Qué hacer:\n' +
+              '1) Abre el bot en Telegram y envía /start desde ese chat.\n' +
+              '2) Si es un grupo: agrega el bot al grupo y envía /start (o menciona al bot).\n' +
+              '3) Asegúrate de usar el chat_id correcto (en grupos suele ser negativo).',
+            telegram_error_code: result.error_code,
+            telegram_description: base,
+          },
+          { status: 400 }
+        )
+      }
+
+      return NextResponse.json(
+        {
+          error: `Telegram error: ${base}`,
+          telegram_error_code: result.error_code,
+          telegram_description: base,
+        },
+        { status: 502 }
+      )
+    }
 
     return NextResponse.json({
       ok: true,
