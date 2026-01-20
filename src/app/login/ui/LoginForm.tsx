@@ -22,6 +22,22 @@ export default function LoginForm() {
     const { error } = await supabase.auth.signInWithPassword({ email, password })
     setBusy(false)
     if (error) {
+      // Record failed login attempt (best-effort)
+      try {
+        await fetch('/api/auth/record-login-attempt', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            email: email.trim(),
+            success: false,
+            error: error.code || error.message,
+            userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+          }),
+        })
+      } catch {
+        // ignore
+      }
+
       // Manejo de token corrupto: pedir reintento con cookies limpias.
       if (
         error.code === 'refresh_token_already_used' ||
@@ -42,6 +58,22 @@ export default function LoginForm() {
       }
       return
     }
+
+    // Record successful login (best-effort)
+    try {
+      await fetch('/api/auth/record-login-attempt', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          email: email.trim(),
+          success: true,
+          userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
+        }),
+      })
+    } catch {
+      // ignore
+    }
+
     router.push('/')
     router.refresh()
   }

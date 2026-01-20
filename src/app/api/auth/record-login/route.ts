@@ -20,7 +20,25 @@ export async function POST(req: NextRequest) {
     const ip = (maybeXff && maybeXff.split(',')[0].trim()) || headers.get('cf-connecting-ip') || headers.get('x-real-ip') || headers.get('x-client-ip') || null
 
     const admin = createSupabaseAdminClient()
-    await admin.from('login_audits').insert({ user_id: currentUserId, ip, user_agent: userAgent })
+    const insertV2 = {
+      user_id: currentUserId,
+      ip,
+      user_agent: userAgent,
+      event: 'LOGIN',
+      success: true,
+      email: sessionData?.user?.email || null,
+      error: null,
+    }
+    const insertV1 = {
+      user_id: currentUserId,
+      ip,
+      user_agent: userAgent,
+    }
+
+    const { error: insertErr } = await admin.from('login_audits').insert(insertV2 as any)
+    if (insertErr) {
+      await admin.from('login_audits').insert(insertV1 as any)
+    }
 
     return NextResponse.json({ ok: true })
   } catch (err) {
