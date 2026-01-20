@@ -483,7 +483,9 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
                 const result = await completeResponse.json()
                 console.log('✅ Respuesta:', result)
                 
-                await loadInspection(data.id)
+                if (data.id) {
+                  await loadInspection(data.id)
+                }
                 setHasUnsavedChanges(false)
                 
                 if (result.criticalItemsCount > 0) {
