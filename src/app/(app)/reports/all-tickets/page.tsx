@@ -1,11 +1,27 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getReportsLocationFilter } from '@/lib/supabase/reports-filter'
 import { StatusBadge, PriorityBadge, LevelBadge } from '@/lib/ui/badges'
 import { getCategoryPathLabel } from '@/lib/categories/path'
+import { formatTicketCode } from '@/lib/tickets/code'
 import Link from 'next/link'
 
-export default async function AllTicketsReportPage() {
+export default async function AllTicketsReportPage({
+  searchParams,
+}: {
+  searchParams: Promise<{
+    search?: string
+    status?: string
+    priority?: string
+    level?: string
+    location?: string
+    assigned?: string
+    from?: string
+    to?: string
+  }>
+}) {
   const supabase = await createSupabaseServerClient()
+  const params = await searchParams
 
   // Obtener filtro de ubicación para reportes (supervisores sin permiso especial ven solo sus sedes)
   const locationFilter = await getReportsLocationFilter()
@@ -25,7 +41,8 @@ export default async function AllTicketsReportPage() {
       requester_id,
       assigned_agent_id,
       created_at,
-      updated_at
+      updated_at,
+      location_id
     `)
     .is('deleted_at', null)
 
@@ -35,6 +52,54 @@ export default async function AllTicketsReportPage() {
   } else if (locationFilter.shouldFilter && locationFilter.locationIds.length === 0) {
     // Supervisor sin sedes asignadas: no mostrar nada
     query = query.eq('id', '00000000-0000-0000-0000-000000000000')
+  }
+
+  // Filtros a criterio
+  if (params.search) {
+    const searchTerm = params.search.toLowerCase().trim()
+    if (searchTerm.startsWith('#')) {
+      const num = parseInt(searchTerm.substring(1))
+      if (!isNaN(num)) {
+        query = query.eq('ticket_number', num)
+      }
+    } else {
+      query = query.or(`title.ilike.%${params.search}%,description.ilike.%${params.search}%`)
+    }
+  }
+
+  if (params.status) {
+    query = query.eq('status', params.status)
+  }
+
+  if (params.priority) {
+    const p = parseInt(params.priority)
+    if (!isNaN(p)) query = query.eq('priority', p)
+  }
+
+  if (params.level) {
+    const lvl = parseInt(params.level)
+    if (!isNaN(lvl)) query = query.eq('support_level', lvl)
+  }
+
+  if (params.location) {
+    query = query.eq('location_id', params.location)
+  }
+
+  if (params.assigned === 'assigned') {
+    query = query.not('assigned_agent_id', 'is', null)
+  } else if (params.assigned === 'unassigned') {
+    query = query.is('assigned_agent_id', null)
+  }
+
+  if (params.from) {
+    const fromIso = new Date(`${params.from}T00:00:00.000Z`).toISOString()
+    query = query.gte('created_at', fromIso)
+  }
+
+  if (params.to) {
+    const d = new Date(`${params.to}T00:00:00.000Z`)
+    d.setUTCDate(d.getUTCDate() + 1)
+    query = query.lt('created_at', d.toISOString())
   }
 
   // Obtener todos los tickets activos
@@ -61,18 +126,41 @@ export default async function AllTicketsReportPage() {
 
   // Obtener usuarios (requesters y agentes)
   const allUserIds = [
-    ...new Set([
-      ...(tickets ?? []).map(t => t.requester_id),
-      ...(tickets ?? []).map(t => t.assigned_agent_id).filter(Boolean),
-    ])
+    ...new Set(
+      [
+        ...(tickets ?? []).map((t) => t.requester_id),
+        ...(tickets ?? []).map((t) => t.assigned_agent_id),
+      ].filter(Boolean),
+    ),
   ]
 
-  const { data: profiles } = await supabase
-    .from('profiles')
-    .select('id,full_name,email')
-    .in('id', allUserIds)
+  // Nota: `profiles` suele tener RLS (usuarios normales no pueden leer otros perfiles).
+  // Para reportes necesitamos resolver nombres/emails, así que usamos service-role.
+  const adminSupabase = createSupabaseAdminClient()
 
-  const userMap = new Map((profiles ?? []).map(p => [p.id, p]))
+  let profiles: any[] = []
+  if (allUserIds.length) {
+    const primary = await adminSupabase.from('profiles').select('id,full_name,email').in('id', allUserIds)
+    if (!primary.error) {
+      profiles = primary.data ?? []
+    } else {
+      // En algunos despliegues `profiles` no tiene columna `email`.
+      const fallback = await adminSupabase.from('profiles').select('id,full_name').in('id', allUserIds)
+      profiles = fallback.data ?? []
+    }
+  }
+
+  // Fallback: si falta perfil, intentar resolver email desde auth.users
+  // Nota: `auth.users` normalmente NO está expuesto por PostgREST.
+  // Si se requiere email, hay que usar GoTrue admin API; aquí dejamos vacío.
+  const authUsers: any[] = []
+
+  const combinedUsers = [
+    ...(profiles ?? []),
+    ...(authUsers ?? []).map((u: any) => ({ id: u.id, full_name: null, email: u.email })),
+  ]
+
+  const userMap = new Map((combinedUsers ?? []).map((p: any) => [p.id, p]))
 
   // Estadísticas
   const byStatus = (tickets ?? []).reduce((acc, t) => {
@@ -80,10 +168,37 @@ export default async function AllTicketsReportPage() {
     return acc
   }, {} as Record<string, number>)
 
-  const byPriority = (tickets ?? []).reduce((acc, t) => {
-    acc[t.priority] = (acc[t.priority] || 0) + 1
-    return acc
-  }, {} as Record<number, number>)
+  const totalTickets = tickets?.length ?? 0
+  const newTickets = byStatus.NEW || 0
+  const inProgressTickets = (byStatus.ASSIGNED || 0) + (byStatus.IN_PROGRESS || 0)
+  const closedTickets = byStatus.CLOSED || 0
+
+  const allowedLocations = await (async () => {
+    if (locationFilter.shouldFilter) {
+      if (!locationFilter.locationIds.length) return [] as any[]
+      const { data } = await supabase
+        .from('locations')
+        .select('id,code,name')
+        .eq('is_active', true)
+        .in('id', locationFilter.locationIds)
+        .order('code')
+      return data ?? []
+    }
+
+    const { data } = await supabase.from('locations').select('id,code,name').eq('is_active', true).order('code')
+    return data ?? []
+  })()
+
+  const qs = (() => {
+    const sp = new URLSearchParams()
+    for (const [k, v] of Object.entries(params)) {
+      if (typeof v === 'string' && v.trim().length > 0) sp.set(k, v)
+    }
+    return sp.toString()
+  })()
+
+  const exportCsvHref = `/reports/all-tickets/export-csv${qs ? `?${qs}` : ''}`
+  const exportPdfHref = `/reports/all-tickets/export-pdf${qs ? `?${qs}` : ''}`
 
   return (
     <main className="p-6 space-y-6">
@@ -114,48 +229,125 @@ export default async function AllTicketsReportPage() {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         <div className="card bg-gradient-to-br from-blue-50 to-indigo-50 border-blue-200">
           <div className="card-body">
-            <div className="text-sm font-medium text-blue-700">Total Activos</div>
-            <div className="text-3xl font-bold text-blue-900 mt-1">
-              {tickets?.length ?? 0}
-            </div>
+            <div className="text-xs font-semibold text-blue-700 uppercase tracking-wide">Total</div>
+            <div className="text-3xl font-bold text-blue-900 mt-1">{totalTickets}</div>
+            <div className="text-xs text-blue-700/80 mt-1">Tickets en el sistema</div>
           </div>
         </div>
 
-        {Object.entries(byPriority).map(([priority, count]) => {
-          const colors = {
-            1: { bg: 'from-red-50 to-red-100', text: 'text-red-900', label: 'text-red-700' },
-            2: { bg: 'from-orange-50 to-orange-100', text: 'text-orange-900', label: 'text-orange-700' },
-            3: { bg: 'from-blue-50 to-blue-100', text: 'text-blue-900', label: 'text-blue-700' },
-            4: { bg: 'from-gray-50 to-gray-100', text: 'text-gray-900', label: 'text-gray-700' },
-          }[priority] || { bg: 'from-gray-50 to-gray-100', text: 'text-gray-900', label: 'text-gray-700' }
+        <div className="card bg-gradient-to-br from-sky-50 to-blue-50 border-sky-200">
+          <div className="card-body">
+            <div className="text-xs font-semibold text-sky-700 uppercase tracking-wide">Nuevos</div>
+            <div className="text-3xl font-bold text-sky-900 mt-1">{newTickets}</div>
+            <div className="text-xs text-sky-700/80 mt-1">Sin iniciar atención</div>
+          </div>
+        </div>
 
-          return (
-            <div key={priority} className={`card bg-gradient-to-br ${colors.bg}`}>
-              <div className="card-body">
-                <div className={`text-sm font-medium ${colors.label}`}>
-                  Prioridad P{priority}
-                </div>
-                <div className={`text-3xl font-bold ${colors.text} mt-1`}>{count}</div>
-              </div>
-            </div>
-          )
-        })}
+        <div className="card bg-gradient-to-br from-violet-50 to-purple-50 border-violet-200">
+          <div className="card-body">
+            <div className="text-xs font-semibold text-violet-700 uppercase tracking-wide">En progreso</div>
+            <div className="text-3xl font-bold text-violet-900 mt-1">{inProgressTickets}</div>
+            <div className="text-xs text-violet-700/80 mt-1">Asignados / trabajando</div>
+          </div>
+        </div>
+
+        <div className="card bg-gradient-to-br from-emerald-50 to-teal-50 border-emerald-200">
+          <div className="card-body">
+            <div className="text-xs font-semibold text-emerald-700 uppercase tracking-wide">Cerrados</div>
+            <div className="text-3xl font-bold text-emerald-900 mt-1">{closedTickets}</div>
+            <div className="text-xs text-emerald-700/80 mt-1">Resueltos</div>
+          </div>
+        </div>
       </div>
 
-      {/* Distribución por estado */}
+      {/* Filtros para generar reporte */}
       <div className="card">
         <div className="card-body">
-          <h3 className="text-sm font-semibold text-gray-900 mb-4">Distribución por estado</h3>
-          <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-            {Object.entries(byStatus).map(([status, count]) => (
-              <div key={status} className="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
-                <StatusBadge status={status} />
-                <span className="text-lg font-bold text-gray-900">{count}</span>
-              </div>
-            ))}
+          <div className="flex items-center justify-between gap-4 flex-wrap">
+            <div>
+              <h3 className="text-sm font-semibold text-gray-900">Filtros</h3>
+              <p className="text-xs text-gray-500">Genera el reporte según tu criterio</p>
+            </div>
+            <Link href="/reports/all-tickets" className="btn btn-ghost btn-sm">
+              Limpiar
+            </Link>
           </div>
+
+          <form method="GET" className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-6 items-end">
+            <div className="lg:col-span-2">
+              <label className="text-xs font-medium text-gray-600">Buscar</label>
+              <input
+                name="search"
+                defaultValue={params.search ?? ''}
+                placeholder="#123, título o descripción"
+                className="input input-bordered w-full"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-gray-600">Estado</label>
+              <select name="status" defaultValue={params.status ?? ''} className="select select-bordered w-full">
+                <option value="">Todos</option>
+                <option value="NEW">Nuevo</option>
+                <option value="ASSIGNED">Asignado</option>
+                <option value="IN_PROGRESS">En progreso</option>
+                <option value="NEEDS_INFO">Requiere info</option>
+                <option value="WAITING_THIRD_PARTY">Esperando 3ro</option>
+                <option value="RESOLVED">Resuelto</option>
+                <option value="CLOSED">Cerrado</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-gray-600">Prioridad</label>
+              <select name="priority" defaultValue={params.priority ?? ''} className="select select-bordered w-full">
+                <option value="">Todas</option>
+                <option value="1">P1</option>
+                <option value="2">P2</option>
+                <option value="3">P3</option>
+                <option value="4">P4</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-gray-600">Asignación</label>
+              <select name="assigned" defaultValue={params.assigned ?? ''} className="select select-bordered w-full">
+                <option value="">Todos</option>
+                <option value="assigned">Asignados</option>
+                <option value="unassigned">Sin asignar</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-gray-600">Sede</label>
+              <select name="location" defaultValue={params.location ?? ''} className="select select-bordered w-full">
+                <option value="">Todas</option>
+                {(allowedLocations ?? []).map((l: any) => (
+                  <option key={l.id} value={l.id}>
+                    {l.code}
+                    {l.name ? ` - ${l.name}` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-gray-600">Desde</label>
+              <input name="from" type="date" defaultValue={params.from ?? ''} className="input input-bordered w-full" />
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-gray-600">Hasta</label>
+              <input name="to" type="date" defaultValue={params.to ?? ''} className="input input-bordered w-full" />
+            </div>
+
+            <div className="sm:col-span-2 lg:col-span-6 flex justify-end">
+              <button className="btn btn-primary" type="submit">Aplicar</button>
+            </div>
+          </form>
         </div>
       </div>
+
 
       {/* Tabla completa de tickets */}
       <div className="card overflow-hidden">
@@ -187,12 +379,12 @@ export default async function AllTicketsReportPage() {
 
                 return (
                   <tr key={ticket.id} className="hover:bg-gray-50">
-                    <td className="px-4 py-3">
+                    <td className="px-4 py-3 whitespace-nowrap">
                       <Link
                         href={`/tickets/${ticket.id}`}
                         className="font-semibold text-blue-600 hover:text-blue-700"
                       >
-                        #{ticket.ticket_number}
+                        {formatTicketCode({ ticket_number: ticket.ticket_number, created_at: ticket.created_at })}
                       </Link>
                     </td>
                     <td className="px-4 py-3">
@@ -216,7 +408,7 @@ export default async function AllTicketsReportPage() {
                       {requester ? (
                         <div>
                           <div className="font-medium text-gray-900 text-xs">
-                            {requester.full_name || 'Sin nombre'}
+                            {requester.full_name || requester.email || 'Sin nombre'}
                           </div>
                           <div className="text-xs text-gray-500">{requester.email}</div>
                         </div>
@@ -228,7 +420,7 @@ export default async function AllTicketsReportPage() {
                       {agent ? (
                         <div>
                           <div className="font-medium text-gray-900 text-xs">
-                            {agent.full_name || 'Sin nombre'}
+                            {agent.full_name || agent.email || 'Sin nombre'}
                           </div>
                           <div className="text-xs text-gray-500">{agent.email}</div>
                         </div>
@@ -282,9 +474,14 @@ export default async function AllTicketsReportPage() {
                 </p>
               </div>
             </div>
-            <a className="btn btn-secondary" href="/reports/all-tickets/export-csv">
-              Descargar CSV
-            </a>
+            <div className="flex items-center gap-2">
+              <a className="btn btn-secondary" href={exportCsvHref}>
+                Descargar CSV
+              </a>
+              <a className="btn btn-primary" href={exportPdfHref}>
+                Descargar PDF
+              </a>
+            </div>
           </div>
         </div>
       </div>

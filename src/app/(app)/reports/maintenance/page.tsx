@@ -78,7 +78,7 @@ export default async function MaintenanceReportsPage() {
       icon: '🗑️',
       link: '/reports/maintenance/deleted-tickets',
       count: deletedTickets ?? 0,
-      enabled: false, // Por implementar
+      enabled: true,
       requiresRole: 'supervisor',
     },
     {
@@ -87,7 +87,7 @@ export default async function MaintenanceReportsPage() {
       icon: '🔧',
       link: '/reports/maintenance/asset-inventory',
       count: totalAssets ?? 0,
-      enabled: false, // Por implementar
+      enabled: true,
       requiresRole: 'supervisor',
     },
     {

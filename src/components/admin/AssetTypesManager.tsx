@@ -6,7 +6,7 @@ export default function AssetTypesManager() {
   const [types, setTypes] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [isAdmin, setIsAdmin] = useState<boolean | null>(null)
-   const [error, setError] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
   const [value, setValue] = useState('')
   const [label, setLabel] = useState('')
   const [category, setCategory] = useState('IT')
@@ -36,7 +36,7 @@ export default function AssetTypesManager() {
       try {
         const res = await fetch('/api/admin/users')
         setIsAdmin(res.ok)
-      } catch (e) {
+      } catch {
         setIsAdmin(false)
       }
     }
@@ -76,6 +76,12 @@ export default function AssetTypesManager() {
         <h3 className="text-lg font-semibold">Tipos de activos</h3>
         <div className="text-sm text-slate-500">Admin: gestiona valores disponibles</div>
       </div>
+
+      {error && (
+        <div className="rounded border border-rose-200 bg-rose-50 px-3 py-2 text-sm text-rose-700">
+          {error}
+        </div>
+      )}
 
       <div className="rounded border p-3 bg-white">
         {loading ? <div>Loading…</div> : (

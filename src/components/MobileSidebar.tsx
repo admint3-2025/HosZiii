@@ -15,7 +15,6 @@ export default function MobileSidebar({ userData }: { userData: UserData }) {
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/")
 
   const canManageIT = userData.role === 'admin' || isITAssetCategoryOrUnassigned(userData.assetCategory)
-  const canManageMaintenance = userData.role === 'admin' || isMaintenanceAssetCategory(userData.assetCategory)
 
   const isMaintenanceContext = isMaintenanceAssetCategory(userData.assetCategory) && userData.role !== 'admin'
 

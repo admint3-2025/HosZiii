@@ -441,14 +441,6 @@ export class InspectionsRRHHService {
     }
 
     // Base query builder
-    const buildQuery = (query: any) => {
-      query = query.eq('location_id', locationId)
-      if (currentUserId) {
-        query = query.eq('inspector_user_id', currentUserId)
-      }
-      return query
-    }
-
     // Total de inspecciones
     let countQuery = supabase
       .from('inspections_rrhh')

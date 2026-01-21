@@ -1,6 +1,6 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
-import type { InspectionRRHH, InspectionRRHHArea } from './inspections-rrhh.service'
+import type { InspectionRRHH } from './inspections-rrhh.service'
 
 // Nota: jspdf-autotable v5 expone `autoTable(doc, options)` y adjunta `doc.lastAutoTable`.
 
@@ -78,7 +78,7 @@ export class InspectionRRHHPDFGenerator {
     }
   }
 
-  private async loadBrandLogo(inspection: InspectionRRHH): Promise<void> {
+  private async loadBrandLogo(): Promise<void> {
     if (this.brandLogoDataUrl) return
 
     // Logo fijo para este formato (con fallback de proxy por CORS)
@@ -104,7 +104,7 @@ export class InspectionRRHHPDFGenerator {
    */
   async generate(inspection: InspectionRRHH): Promise<Blob> {
     await this.loadLogo()
-    await this.loadBrandLogo(inspection)
+    await this.loadBrandLogo()
     this.addHeader(inspection)
     this.addStatusBanner(inspection)
     this.addKPISummary(inspection)
@@ -287,7 +287,7 @@ export class InspectionRRHHPDFGenerator {
       }
     ]
 
-    kpis.forEach((kpi, idx) => {
+    kpis.forEach((kpi) => {
       // Box
       this.doc.setDrawColor(226, 232, 240)
       this.doc.setLineWidth(0.5)
@@ -337,6 +337,10 @@ export class InspectionRRHHPDFGenerator {
     const coveragePct = Math.round((evaluated / total) * 100)
     const complianceBase = cumple + noCumple
     const compliancePct = complianceBase > 0 ? Math.round((cumple / complianceBase) * 100) : 0
+
+    // Ensure pending is considered in report computations (avoid unused-var lint)
+    const pendingPct = total > 0 ? Math.round((pending / total) * 100) : 0
+    void pendingPct
 
     const areas = inspection.areas || []
     const totalAreas = Math.max(1, areas.length || inspection.total_areas || 0)

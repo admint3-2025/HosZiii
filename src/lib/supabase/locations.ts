@@ -122,7 +122,7 @@ export async function getLocationFilter(): Promise<string[] | null> {
  * Aplica el filtro de ubicación a una query de Supabase
  * Uso: await applyLocationFilter(supabase.from('tickets').select('*'))
  */
-export async function applyLocationFilter<T>(
+export async function applyLocationFilter(
   query: any
 ): Promise<any> {
   const locationIds = await getLocationFilter()

@@ -50,7 +50,7 @@ export default function HelpdeskKpis() {
   const statusCounts = Object.entries(kpis.byStatus)
   const total = Math.max(1, Object.values(kpis.byStatus).reduce((s, v) => s + v, 0))
   const priorityEntries = Object.entries(kpis.byPriority)
-  const sumPriority = Math.max(1, priorityEntries.reduce((s, [_p, v]) => s + v, 0))
+  const sumPriority = Math.max(1, priorityEntries.reduce((s, [, v]) => s + v, 0))
   const lastUpdated = new Date().toLocaleString()
   const oldestBreachDays = sla && sla.length ? Math.max(...sla.map((t: any) => Math.max(0, Math.floor((Date.now() - new Date(t.created_at).getTime()) / (1000 * 60 * 60 * 24))))) : 0
 
@@ -103,7 +103,7 @@ export default function HelpdeskKpis() {
           <svg width="96" height="96" viewBox="0 0 42 42" className="shrink-0">
             <circle cx="21" cy="21" r="15.9" fill="#f1f5f9" />
             {statusCounts.map(([s, c], i) => {
-              const start = statusCounts.slice(0, i).reduce((a, [_s, _c]) => a + _c, 0) / total
+              const start = statusCounts.slice(0, i).reduce((a, [, count]) => a + count, 0) / total
               const sweep = c / total
               const startAngle = start * Math.PI * 2 - Math.PI / 2
               const endAngle = (start + sweep) * Math.PI * 2 - Math.PI / 2

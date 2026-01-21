@@ -12,6 +12,7 @@ export default async function AssetInventoryReportPage({
 }) {
   const supabase = await createSupabaseServerClient()
   const params = await searchParams
+  const isDev = process.env.NODE_ENV !== 'production'
 
   // Verificar autenticación
   const { data: { user } } = await supabase.auth.getUser()
@@ -28,6 +29,7 @@ export default async function AssetInventoryReportPage({
   }
 
   // Obtener filtro de ubicaciones para reportes
+  // Nota: este helper depende de auth/cookies; si llegase a fallar, nunca debe bloquear a admin.
   const locationFilter = await getReportsLocationFilter()
 
   const adminSupabase = createSupabaseAdminClient()
@@ -40,48 +42,56 @@ export default async function AssetInventoryReportPage({
     .order('name')
 
   // Si el supervisor no tiene acceso total, solo mostrar sus sedes en el dropdown
-  if (locationFilter.shouldFilter && locationFilter.locationIds.length > 0) {
-    locationsQuery = locationsQuery.in('id', locationFilter.locationIds)
-  } else if (locationFilter.shouldFilter && locationFilter.locationIds.length === 0) {
-    // Supervisor sin sedes: no mostrar opciones
-    locationsQuery = locationsQuery.eq('id', '00000000-0000-0000-0000-000000000000')
+  if (profile.role === 'supervisor') {
+    if (locationFilter.shouldFilter && locationFilter.locationIds.length > 0) {
+      locationsQuery = locationsQuery.in('id', locationFilter.locationIds)
+    } else if (locationFilter.shouldFilter && locationFilter.locationIds.length === 0) {
+      // Supervisor sin sedes: no mostrar opciones
+      locationsQuery = locationsQuery.eq('id', '00000000-0000-0000-0000-000000000000')
+    }
   }
 
   const { data: locations } = await locationsQuery
 
+  // Inventario IT: por diseño debe leer de `assets_it` (esquema nuevo).
+  // (En algunos despliegues antiguos los activos podrían estar en `assets`; dejamos fallback abajo.)
+  const assetsTable = 'assets_it'
+
   // Construir query de activos
   let query = adminSupabase
-    .from('assets')
-    .select(`
+    .from(assetsTable)
+    .select(
+      `
       id,
-      asset_tag,
-      asset_type,
+      asset_code,
+      name,
+      description,
+      category,
       status,
       brand,
       model,
       serial_number,
-      processor,
-      ram_gb,
-      storage_gb,
-      os,
       location_id,
-      department,
+      assigned_to_user_id,
       purchase_date,
-      warranty_end_date,
+      warranty_expiry,
       notes,
-      assigned_to,
       created_at,
-      locations!assets_location_id_fkey(id, code, name)
-    `)
+      deleted_at
+    `
+    )
     .is('deleted_at', null)
-    .order('asset_tag', { ascending: true })
+    .order('asset_code', { ascending: true })
 
-  // Aplicar filtro de ubicación para supervisores sin permiso especial (ANTES de otros filtros)
-  if (locationFilter.shouldFilter && locationFilter.locationIds.length > 0) {
-    query = query.in('location_id', locationFilter.locationIds)
-  } else if (locationFilter.shouldFilter && locationFilter.locationIds.length === 0) {
-    // Supervisor sin sedes: no mostrar nada
-    query = query.eq('id', '00000000-0000-0000-0000-000000000000')
+  // Aplicar filtro de ubicación SOLO para supervisores sin permiso especial (ANTES de otros filtros)
+  // Admin nunca debe ser bloqueado por filtros (incluso si el helper falla).
+  if (profile.role === 'supervisor') {
+    if (locationFilter.shouldFilter && locationFilter.locationIds.length > 0) {
+      query = query.in('location_id', locationFilter.locationIds)
+    } else if (locationFilter.shouldFilter && locationFilter.locationIds.length === 0) {
+      // Supervisor sin sedes: no mostrar nada
+      query = query.eq('id', '00000000-0000-0000-0000-000000000000')
+    }
   }
 
   // Aplicar filtros del usuario (parámetros de búsqueda)
@@ -90,24 +100,134 @@ export default async function AssetInventoryReportPage({
   }
 
   if (params.type) {
-    query = query.eq('asset_type', params.type)
+    query = query.eq('category', params.type)
   }
 
   if (params.status) {
     query = query.eq('status', params.status)
   }
 
-  const { data: assets, error: assetsError } = await query
+  let { data: assets, error: assetsError } = await query
 
-  // Debug logs
+  // Debug logs (solo dev)
   if (assetsError) {
-    console.error('[asset-inventory] Error fetching assets:', assetsError)
+    const e: any = assetsError
+    console.error('[asset-inventory] Error fetching assets (assets_it):', {
+      message: e?.message,
+      details: e?.details,
+      hint: e?.hint,
+      code: e?.code,
+      string: String(e),
+    })
   }
-  console.log('[asset-inventory] Assets count:', assets?.length ?? 0)
-  console.log('[asset-inventory] Locations count:', locations?.length ?? 0)
+  if (isDev) {
+    console.log('[asset-inventory] Assets count (primary table assets_it):', assets?.length ?? 0)
+    console.log('[asset-inventory] Locations count:', locations?.length ?? 0)
+  }
+
+  // Fallback: despliegues antiguos guardaban activos en `assets`.
+  // Si `assets_it` está vacío, intentar leer de `assets` (manteniendo la UI funcional).
+  if ((assets ?? []).length === 0) {
+    try {
+      const { data: legacyAssets, error: legacyErr } = await adminSupabase
+        .from('assets')
+        .select(
+          `
+          id,
+          asset_tag,
+          asset_type,
+          status,
+          brand,
+          model,
+          serial_number,
+          processor,
+          ram_gb,
+          storage_gb,
+          os,
+          location_id,
+          department,
+          purchase_date,
+          warranty_end_date,
+          notes,
+          assigned_to,
+          created_at
+        `
+        )
+        .is('deleted_at', null)
+        .order('asset_tag', { ascending: true })
+
+      if (legacyErr) {
+        const e: any = legacyErr
+        console.error('[asset-inventory] Error fetching legacy assets:', {
+          message: e?.message,
+          details: e?.details,
+          hint: e?.hint,
+          code: e?.code,
+          string: String(e),
+        })
+      }
+
+      // Solo reemplazar si hay datos en legacy
+      if ((legacyAssets ?? []).length > 0) {
+        assets = (legacyAssets ?? []) as any
+        if (isDev) console.log('[asset-inventory] Using legacy `assets` table, count:', (legacyAssets ?? []).length)
+      } else if (isDev) {
+        // Diagnostics útiles cuando TODO está vacío
+        const [{ count: itTotal }, { count: legacyTotal }, { count: maintTotal }] = await Promise.all([
+          adminSupabase.from('assets_it').select('id', { count: 'exact', head: true }),
+          adminSupabase.from('assets').select('id', { count: 'exact', head: true }),
+          adminSupabase.from('assets_maintenance').select('id', { count: 'exact', head: true }),
+        ])
+        console.log('[asset-inventory] Diagnostic counts - assets_it:', itTotal, 'assets:', legacyTotal, 'assets_maintenance:', maintTotal)
+      }
+    } catch (e) {
+      console.error('[asset-inventory] Error fallback fetching legacy assets:', e)
+    }
+  }
+
+  // Normalizar al shape esperado por el componente cliente.
+  // Soporta tanto esquema nuevo (assets_it) como fallback legacy (assets).
+  const normalizedAssets = (assets ?? []).map((a: any) => {
+    // Nuevo esquema
+    if (a?.asset_code !== undefined) {
+      return {
+        id: a.id,
+        asset_tag: a.asset_code,
+        asset_type: a.category ?? 'OTHER',
+        status: a.status ?? 'ACTIVE',
+        brand: a.brand ?? null,
+        model: a.model ?? null,
+        serial_number: a.serial_number ?? null,
+        processor: null,
+        ram_gb: null,
+        storage_gb: null,
+        os: null,
+        location_id: a.location_id ?? null,
+        department: null,
+        purchase_date: a.purchase_date ?? null,
+        warranty_end_date: a.warranty_expiry ?? null,
+        notes: a.notes ?? null,
+        assigned_to: a.assigned_to_user_id ?? null,
+        created_at: a.created_at,
+        // Para enriquecer luego
+        locations: null,
+        _name: a.name ?? null,
+        _description: a.description ?? null,
+      }
+    }
+
+    // Legacy ya viene casi en el formato que espera el cliente
+    return a
+  })
+
+  // Mapear location desde `locations` (evita depender de nombres de FK en PostgREST)
+  const assetsWithLocation = (normalizedAssets ?? []).map((a: any) => ({
+    ...a,
+    locations: locations?.find((l: any) => l.id === a.location_id) ?? null,
+  }))
 
   // Obtener información de usuarios asignados
-  const assignedUserIds = [...new Set((assets ?? []).map(a => a.assigned_to).filter(Boolean))]
+  const assignedUserIds = [...new Set((assetsWithLocation ?? []).map(a => a.assigned_to).filter(Boolean))]
   let assignedUsersMap = new Map()
   
   if (assignedUserIds.length > 0) {
@@ -120,7 +240,7 @@ export default async function AssetInventoryReportPage({
   }
 
   // Mapear assets con información completa
-  const enrichedAssets = (assets ?? []).map(asset => ({
+  const enrichedAssets = (assetsWithLocation ?? []).map(asset => ({
     ...asset,
     asset_location: (asset as any).locations,
     assigned_user: asset.assigned_to ? assignedUsersMap.get(asset.assigned_to) : null,
@@ -138,6 +258,8 @@ export default async function AssetInventoryReportPage({
     return acc
   }, {} as Record<string, { name: string; count: number }>)
 
+  const byLocationEntries = Object.entries(byLocation) as Array<[string, { name: string; count: number }]>
+
   const byType = enrichedAssets.reduce((acc, asset) => {
     const type = asset.asset_type || 'OTHER'
     acc[type] = (acc[type] || 0) + 1
@@ -150,26 +272,18 @@ export default async function AssetInventoryReportPage({
     return acc
   }, {} as Record<string, number>)
 
-  // Tipos de activos legibles
-  const assetTypeLabels: Record<string, string> = {
-    DESKTOP: 'PC de Escritorio',
-    LAPTOP: 'Laptop',
-    PRINTER: 'Impresora',
-    SCANNER: 'Escáner',
-    MONITOR: 'Monitor',
-    PHONE: 'Teléfono',
-    TABLET: 'Tablet',
-    SERVER: 'Servidor',
-    NETWORK_DEVICE: 'Equipo de Red',
-    PERIPHERAL: 'Periférico',
-    OTHER: 'Otro',
-  }
+  // Tipos/categorías legibles (en assets_it es texto libre). Se construye dinámicamente.
+  const uniqueCategories = Array.from(new Set(enrichedAssets.map(a => a.asset_type).filter(Boolean)))
+  const assetTypeLabels: Record<string, string> = uniqueCategories.reduce((acc, cat) => {
+    acc[String(cat)] = String(cat)
+    return acc
+  }, {} as Record<string, string>)
 
   const statusLabels: Record<string, string> = {
-    OPERATIONAL: 'Operacional',
+    ACTIVE: 'Activo',
+    INACTIVE: 'Inactivo',
     MAINTENANCE: 'En Mantenimiento',
-    OUT_OF_SERVICE: 'Fuera de Servicio',
-    RETIRED: 'Retirado',
+    DISPOSED: 'Dado de baja',
   }
 
   return (
@@ -209,7 +323,7 @@ export default async function AssetInventoryReportPage({
         <div className="card bg-gradient-to-br from-white to-green-50">
           <div className="p-4">
             <div className="text-xs font-medium text-gray-600">Operacionales</div>
-            <div className="text-2xl font-bold text-green-600 mt-1">{byStatus.OPERATIONAL ?? 0}</div>
+            <div className="text-2xl font-bold text-green-600 mt-1">{byStatus.ACTIVE ?? 0}</div>
             <div className="text-[10px] text-gray-500 mt-1">En uso activo</div>
           </div>
         </div>
@@ -250,7 +364,7 @@ export default async function AssetInventoryReportPage({
           </div>
           <div className="p-4">
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-              {Object.entries(byLocation)
+              {byLocationEntries
                 .sort((a, b) => b[1].count - a[1].count)
                 .map(([locId, { name, count }]) => (
                   <div key={locId} className="p-3 bg-gray-50 rounded-lg border border-gray-200">

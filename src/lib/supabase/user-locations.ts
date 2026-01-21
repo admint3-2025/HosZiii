@@ -112,7 +112,7 @@ export async function getLocationIdsForAssetFilter(
     return []
   }
 
-  const { role, allLocationIds, canViewAllLocations } = info
+  const { role, allLocationIds } = info
 
   console.log('[getLocationIdsForAssetFilter] 🔍 Usuario:', userId, 'Rol:', role, 'Modo:', mode)
 
@@ -138,7 +138,7 @@ export async function getLocationIdsForAssetFilter(
  * @param locationIds - Array de location_ids o null para sin filtro
  * @returns Query modificada con el filtro aplicado
  */
-export function applyLocationFilterToQuery<T>(
+export function applyLocationFilterToQuery(
   query: any,
   locationIds: string[] | null
 ): any {

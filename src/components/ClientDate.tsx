@@ -19,7 +19,7 @@ export default function ClientDate({ iso, options }: Props) {
       const d = new Date(iso)
       // Let the browser format in the user's locale/timezone
       setLabel(d.toLocaleString(undefined, options))
-    } catch (e) {
+    } catch {
       setLabel(iso)
     }
   }, [iso, options])

@@ -31,6 +31,8 @@ type Asset = {
   created_at: string
   asset_location: any
   assigned_user: any
+  _name?: string | null
+  _description?: string | null
 }
 
 type Props = {
@@ -38,6 +40,7 @@ type Props = {
   assets: Asset[]
   assetTypeLabels: Record<string, string>
   statusLabels: Record<string, string>
+  assetDetailBasePath?: string
   initialFilters: {
     location?: string
     type?: string
@@ -50,6 +53,7 @@ export default function AssetInventoryClient({
   assets,
   assetTypeLabels,
   statusLabels,
+  assetDetailBasePath = '/assets',
   initialFilters,
 }: Props) {
   const router = useRouter()
@@ -233,23 +237,28 @@ export default function AssetInventoryClient({
                 const location = asset.asset_location
                 const assignedUser = asset.assigned_user
                 const statusColors: Record<string, string> = {
-                  OPERATIONAL: 'bg-green-100 text-green-800 border-green-300',
+                  ACTIVE: 'bg-green-100 text-green-800 border-green-300',
                   MAINTENANCE: 'bg-amber-100 text-amber-800 border-amber-300',
-                  OUT_OF_SERVICE: 'bg-red-100 text-red-800 border-red-300',
-                  RETIRED: 'bg-gray-100 text-gray-800 border-gray-300',
+                  INACTIVE: 'bg-gray-100 text-gray-800 border-gray-300',
+                  DISPOSED: 'bg-rose-100 text-rose-800 border-rose-300',
                 }
 
                 return (
                   <tr key={asset.id} className="hover:bg-gray-50">
                     <td className="px-4 py-3">
                       <Link
-                        href={`/assets/${asset.id}`}
+                        href={`${assetDetailBasePath}/${asset.id}`}
                         className="block hover:text-blue-600 transition-colors"
                       >
                         <div className="font-semibold text-gray-900">{asset.asset_tag}</div>
                         <div className="text-xs text-gray-600">
-                          {asset.brand} {asset.model}
+                          {asset._name ? asset._name : `${asset.brand ?? ''} ${asset.model ?? ''}`.trim()}
                         </div>
+                        {asset._description && (
+                          <div className="text-[10px] text-gray-500 truncate max-w-[260px]">
+                            {asset._description}
+                          </div>
+                        )}
                         {asset.serial_number && (
                           <div className="text-[10px] text-gray-500 font-mono">
                             S/N: {asset.serial_number}
