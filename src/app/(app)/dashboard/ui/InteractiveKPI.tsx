@@ -2,13 +2,14 @@
 
 import { useState } from 'react'
 import Link from 'next/link'
+import { ArrowUpRight, ArrowDownRight } from 'lucide-react'
 
 type KPIProps = {
   label: string
   value: number
   total?: number
   icon: 'open' | 'closed' | 'escalated' | 'assigned'
-  color: 'blue' | 'green' | 'orange' | 'purple'
+  color: 'blue' | 'green' | 'orange' | 'purple' | 'amber' | 'red'
   description: string
   trend?: number
   href?: string
@@ -22,36 +23,60 @@ const colorMap = {
     text: 'text-blue-600',
     border: 'border-blue-200',
     bar: 'bg-blue-500',
-    hover: 'group-hover:text-blue-700',
-    iconBg: 'bg-blue-100',
-    borderHover: 'hover:border-blue-300',
+    stroke: '#3b82f6',
+    hover: 'group-hover:border-blue-300',
+    trend: 'bg-blue-100',
+    glow: 'bg-blue-500',
   },
   green: {
     bg: 'bg-emerald-50',
     text: 'text-emerald-600',
     border: 'border-emerald-200',
     bar: 'bg-emerald-500',
-    hover: 'group-hover:text-emerald-700',
-    iconBg: 'bg-emerald-100',
-    borderHover: 'hover:border-emerald-300',
+    stroke: '#10b981',
+    hover: 'group-hover:border-emerald-300',
+    trend: 'bg-emerald-100',
+    glow: 'bg-emerald-500',
   },
   orange: {
     bg: 'bg-orange-50',
     text: 'text-orange-600',
     border: 'border-orange-200',
     bar: 'bg-orange-500',
-    hover: 'group-hover:text-orange-700',
-    iconBg: 'bg-orange-100',
-    borderHover: 'hover:border-orange-300',
+    stroke: '#f97316',
+    hover: 'group-hover:border-orange-300',
+    trend: 'bg-orange-100',
+    glow: 'bg-orange-500',
   },
   purple: {
     bg: 'bg-purple-50',
     text: 'text-purple-600',
     border: 'border-purple-200',
     bar: 'bg-purple-500',
-    hover: 'group-hover:text-purple-700',
-    iconBg: 'bg-purple-100',
-    borderHover: 'hover:border-purple-300',
+    stroke: '#a855f7',
+    hover: 'group-hover:border-purple-300',
+    trend: 'bg-purple-100',
+    glow: 'bg-purple-500',
+  },
+  amber: {
+    bg: 'bg-amber-50',
+    text: 'text-amber-600',
+    border: 'border-amber-200',
+    bar: 'bg-amber-500',
+    stroke: '#f59e0b',
+    hover: 'group-hover:border-amber-300',
+    trend: 'bg-amber-100',
+    glow: 'bg-amber-500',
+  },
+  red: {
+    bg: 'bg-red-50',
+    text: 'text-red-600',
+    border: 'border-red-200',
+    bar: 'bg-red-500',
+    stroke: '#ef4444',
+    hover: 'group-hover:border-red-300',
+    trend: 'bg-red-100',
+    glow: 'bg-red-500',
   },
 }
 
@@ -79,43 +104,47 @@ const icons = {
   ),
 }
 
-function Sparkline({ data, colorName }: { data: number[]; colorName: keyof typeof colorMap }) {
-  if (!data || data.length < 2) return null
-  
-  const width = 60
-  const height = 24
-  const padding = 2
-  
-  const min = Math.min(...data)
-  const max = Math.max(...data)
-  const range = max - min || 1
-  
-  const points = data.map((val, index) => {
-    const x = padding + (index / (data.length - 1)) * (width - padding * 2)
-    const y = height - padding - ((val - min) / range) * (height - padding * 2)
-    return `${x},${y}`
-  }).join(' ')
+function Sparkline({ data, color }: { data: number[]; color: string }) {
+  const safe = (data?.length ? data : [0]).slice(-12)
+  const max = Math.max(...safe)
+  const min = Math.min(...safe)
 
-  const isPositive = data[data.length - 1] >= data[0]
-  
-  // Use explicit heavy colors for sparkline visibility
-  const strokeColor = colorName === 'green' ? '#10B981' : 
-                      colorName === 'blue' ? '#3B82F6' :
-                      colorName === 'orange' ? '#F97316' : '#A855F7'
+  const points = safe
+    .map((d, i) => {
+      const x = safe.length === 1 ? 0 : (i / (safe.length - 1)) * 100
+      const y = 100 - ((d - min) / (max - min || 1)) * 100
+      return `${x},${y}`
+    })
+    .join(' ')
 
   return (
-    <svg width={width} height={height} className="overflow-visible ml-auto">
+    <svg viewBox="0 0 100 100" className="w-full h-full">
+      <defs>
+        <linearGradient id={`grad-${color}`} x1="0%" y1="0%" x2="0%" y2="100%">
+          <stop offset="0%" stopColor={color} stopOpacity="0.15" />
+          <stop offset="100%" stopColor={color} stopOpacity="0" />
+        </linearGradient>
+      </defs>
+      <path
+        d={`M0,100 L0,${100 - ((safe[0] - min) / (max - min || 1)) * 100} ${points.split(' ').map((p) => `L${p}`).join(' ')} L100,100 Z`}
+        fill={`url(#grad-${color})`}
+        className="opacity-0 group-hover:opacity-100 transition-opacity duration-500"
+      />
       <polyline
         fill="none"
-        stroke={strokeColor}
+        stroke={color}
         strokeWidth="2"
+        points={points}
+        vectorEffect="non-scaling-stroke"
         strokeLinecap="round"
         strokeLinejoin="round"
-        strokeOpacity="0.8"
-        points={points}
       />
     </svg>
   )
+}
+
+function generateSparklineData(value: number): number[] {
+  return Array.from({ length: 7 }, (_, i) => Math.floor(value * (0.7 + (i * 0.3 / 6))))
 }
 
 export default function InteractiveKPI({
@@ -129,81 +158,84 @@ export default function InteractiveKPI({
   href,
   sparklineData
 }: KPIProps) {
+  const [isHovered, setIsHovered] = useState(false)
   const styles = colorMap[color]
   const percentage = (total > 0 && value >= 0) ? Math.min(Math.round((value / total) * 100), 100) : 0
   
   const formattedValue = new Intl.NumberFormat('es-MX').format(value)
+  const data = sparklineData || generateSparklineData(value)
+  const trendValue = trend || (value > 0 ? 5 : 0)
+  const trendDirection = trendValue >= 0 ? 'up' : 'down'
 
   const Content = (
-    <div className={`
-      relative overflow-hidden rounded-2xl bg-white border border-slate-100 shadow-[0_2px_8px_rgba(0,0,0,0.04)]
-      hover:shadow-[0_8px_16px_rgba(0,0,0,0.06)] ${styles.borderHover}
-      transition-all duration-200 h-full p-5 group
-    `}>
-      <div className="flex justify-between items-start mb-4">
-        <div className={`
-          w-10 h-10 rounded-xl flex items-center justify-center 
-          ${styles.iconBg} ${styles.text} transition-colors
-        `}>
-          {icons[icon]}
+    <div 
+      className={`
+        relative overflow-hidden rounded-xl bg-white border-2 ${styles.border} ${styles.hover}
+        hover:shadow-lg h-full p-5 group cursor-default
+      `}
+      style={{
+        transition: 'box-shadow 0.3s ease-out, border-color 0.3s ease-out, transform 0.2s ease-out'
+      }}
+      onMouseEnter={() => setIsHovered(true)}
+      onMouseLeave={() => setIsHovered(false)}
+    >
+      {/* Hover Glow Effect */}
+      <div className={`absolute top-0 left-0 w-full h-[2px] transition-all duration-500 transform scale-x-0 group-hover:scale-x-100 ${styles.glow}`}></div>
+
+      <div className="relative z-10 flex flex-col h-full justify-between">
+        {/* Header */}
+        <div className="flex justify-between items-start">
+          <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest group-hover:text-gray-700 transition-colors">{label}</span>
+          
+          {/* Trend Badge */}
+          <div className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded transition-colors duration-300 
+            ${trendDirection === 'up' ? 'text-emerald-600 bg-emerald-50 group-hover:bg-emerald-100' : 'text-red-600 bg-red-50 group-hover:bg-red-100'}`}>
+            {trendDirection === 'up' ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
+            {trendValue}%
+          </div>
+        </div>
+
+        {/* Value */}
+        <div className="flex items-end justify-between mt-2">
+          <span className="text-3xl font-bold text-gray-900 tracking-tighter">
+            {formattedValue}
+          </span>
         </div>
         
-        {trend !== undefined && (
-          <div className={`
-            px-2.5 py-1 rounded-full text-xs font-bold flex items-center gap-1
-            ${trend >= 0 ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-700'}
-          `}>
-            <span>{trend > 0 ? '↑' : trend < 0 ? '↓' : '-'}</span>
-            <span>{Math.abs(trend)}%</span>
+        {/* Description - Fixed Height */}
+        <div className="mt-2 pt-2 border-t border-dashed border-gray-300 min-h-[2.5rem]">
+          <span className="text-[10px] text-gray-500 font-medium line-clamp-2">{description}</span>
+        </div>
+
+        {/* Percentage bar */}
+        {total > 0 && (
+          <div className="mt-3">
+            <div className="flex items-center justify-between text-[10px] mb-1">
+              <span className="text-gray-500 font-medium">{percentage}% del total</span>
+              <span className="text-gray-400 font-semibold">{total}</span>
+            </div>
+            <div className="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+              <div 
+                className={`h-full ${styles.bar} transition-all duration-700 rounded-full`}
+                style={{ width: `${percentage}%` }}
+              />
+            </div>
           </div>
         )}
       </div>
 
-      <div className="space-y-1">
-        <h3 className="text-sm font-semibold text-slate-500 uppercase tracking-wider">{label}</h3>
-        <div className="flex items-end gap-3">
-          <span className="text-3xl font-extrabold text-slate-900 tracking-tight leading-none">
-            {formattedValue}
-          </span>
-          {total > 0 && (
-            <span className="text-xs font-medium text-slate-400 mb-1">
-              de {total} total
-            </span>
-          )}
+      {/* Sparkline Background */}
+      {data.length > 0 && (
+        <div className="absolute bottom-0 right-0 w-1/2 h-16 opacity-20 group-hover:opacity-40 transition-opacity duration-500 pointer-events-none">
+          <Sparkline data={data} color={styles.stroke} />
         </div>
-      </div>
-
-      <div className="mt-4 pt-4 border-t border-slate-50 flex items-center justify-between gap-4">
-         {/* Progress bar info for "measurable" aspect if total exists */}
-         {total > 0 ? (
-           <div className="w-full">
-              <div className="flex justify-between text-[10px] font-medium text-slate-400 mb-1.5 Uppercase">
-                <span>Capacidad</span>
-                <span>{percentage}%</span>
-              </div>
-              <div className="w-full bg-slate-100 rounded-full h-1.5 overflow-hidden">
-                <div 
-                  className={`h-full rounded-full ${styles.bar} transition-all duration-1000 ease-out`}
-                  style={{ width: `${percentage}%` }}
-                />
-              </div>
-           </div>
-         ) : (
-           <p className="text-xs text-slate-400 line-clamp-1 flex-1">{description}</p>
-         )}
-         
-         {sparklineData && (
-           <div className="flex-shrink-0">
-             <Sparkline data={sparklineData} colorName={color} />
-           </div>
-         )}
-      </div>
+      )}
     </div>
   )
 
   if (href) {
     return (
-      <Link href={href} className="block h-full cursor-pointer focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-indigo-500 rounded-2xl">
+      <Link href={href} className="block h-full">
         {Content}
       </Link>
     )
