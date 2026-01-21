@@ -262,10 +262,10 @@ export default function AppShellClient({
     if (pathname.startsWith('/admin')) return 'admin'
     if (pathname.startsWith('/corporativo')) return 'corporativo'
     if (pathname.startsWith('/inspections')) return 'corporativo' // Inspecciones RRHH
-    // Reportes: determinar módulo según la subruta
-    if (pathname.startsWith('/reports/helpdesk')) return 'helpdesk'
-    if (pathname.startsWith('/reports/maintenance')) return 'mantenimiento'
-    if (pathname.startsWith('/reports')) return 'admin' // Centro de reportes en admin
+    // Reportes: mantener en `Administración` para que el sidebar no cambie
+    // al entrar a reportes específicos (IT/Mantenimiento). El centro
+    // de reportes debe permanecer bajo el contexto de admin visual.
+    if (pathname.startsWith('/reports')) return 'admin'
     if (
       pathname.startsWith('/dashboard') ||
       pathname.startsWith('/tickets') ||
