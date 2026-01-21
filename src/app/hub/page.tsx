@@ -165,8 +165,6 @@ export default async function HubPage() {
   
   const { data: profile } = await supabase
     .from('profiles')
-    // NOTE: Avoid selecting hub_modules explicitly because older DBs may not have the column yet.
-    // Selecting '*' will include hub_modules when present, and won't error when absent.
     .select('*')
     .eq('id', user.id)
     .single()
@@ -190,11 +188,11 @@ export default async function HubPage() {
     return module.requiredRoles.includes(profile.role)
   })
 
-  const hubModules = (profile as any)?.hub_modules as Record<string, unknown> | null
-  const accessibleModules =
-    profile?.role === 'admin' && hubModules && typeof hubModules === 'object'
-      ? accessibleByRole.filter((m) => hubModules[m.id] !== false)
-      : accessibleByRole
+  // Aplicar preferencias de módulos visibles del usuario (disponible para TODOS los usuarios)
+  const hubVisibleModules = (profile as any)?.hub_visible_modules as Record<string, boolean> | null
+  const accessibleModules = hubVisibleModules && typeof hubVisibleModules === 'object'
+    ? accessibleByRole.filter((m) => hubVisibleModules[m.id] !== false)
+    : accessibleByRole
 
   // NO redirigir automáticamente si es el único módulo
   // Los usuarios deben ver el hub para navegar entre sus módulos disponibles

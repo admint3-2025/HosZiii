@@ -123,7 +123,7 @@ export default function UserCreateForm() {
           allowed_departments: role === 'corporate_admin' && allowedDepartments.length > 0 ? allowedDepartments : null,
           can_view_beo: canViewBeo,
           can_manage_assets: canManageAssets,
-          hub_modules: role === 'admin' ? adminHubModules : null,
+          hub_visible_modules: role === 'admin' ? adminHubModules : null,
           invite,
           ...(invite ? {} : { password }),
         }),

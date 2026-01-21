@@ -16,7 +16,7 @@ type HubModules = Record<HubModuleId, boolean>
 function isMissingHubModulesColumnError(err: unknown): boolean {
   const msg = (err as any)?.message
   if (typeof msg !== 'string') return false
-  return msg.toLowerCase().includes('hub_modules') && msg.toLowerCase().includes('does not exist')
+  return msg.toLowerCase().includes('hub_visible_modules') && msg.toLowerCase().includes('does not exist')
 }
 
 function parseHubModules(value: unknown): HubModules | null {
@@ -146,7 +146,7 @@ export async function GET() {
       allowed_departments: (p?.allowed_departments as any) ?? null,
       can_view_beo: (p?.can_view_beo as any) ?? false,
       can_manage_assets: (p?.can_manage_assets as any) ?? false,
-      hub_modules: (p?.hub_modules as any) ?? null,
+      hub_visible_modules: (p?.hub_visible_modules as any) ?? null,
     }
   })
 
@@ -185,7 +185,7 @@ export async function POST(request: Request) {
   const allowedDepartments = Array.isArray(body?.allowed_departments) && body.allowed_departments.length > 0 ? body.allowed_departments : null
   const canViewBeo = Boolean(body?.can_view_beo)
   const canManageAssets = Boolean(body?.can_manage_assets)
-  const hubModules = parseHubModules(body?.hub_modules)
+  const hubModules = parseHubModules(body?.hub_visible_modules)
   const invite = body?.invite !== false
   const password = typeof body?.password === 'string' ? body.password : null
 
@@ -236,10 +236,10 @@ export async function POST(request: Request) {
     can_manage_assets: canManageAssets,
   }
 
-  const payloadWithHubModules = hubModules ? { ...baseProfilePayload, hub_modules: hubModules } : baseProfilePayload
+  const payloadWithHubModules = hubModules ? { ...baseProfilePayload, hub_visible_modules: hubModules } : baseProfilePayload
   const { error: upsertErr } = await admin.from('profiles').upsert(payloadWithHubModules)
 
-  // Backward-compat: if DB migration wasn't applied yet, retry without hub_modules.
+  // Backward-compat: if DB migration wasn't applied yet, retry without hub_visible_modules.
   if (upsertErr && hubModules && isMissingHubModulesColumnError(upsertErr)) {
     const { error: retryErr } = await admin.from('profiles').upsert(baseProfilePayload)
     if (retryErr) {

@@ -16,7 +16,7 @@ type HubModules = Record<HubModuleId, boolean>
 function isMissingHubModulesColumnError(err: unknown): boolean {
   const msg = (err as any)?.message
   if (typeof msg !== 'string') return false
-  return msg.toLowerCase().includes('hub_modules') && msg.toLowerCase().includes('does not exist')
+  return msg.toLowerCase().includes('hub_visible_modules') && msg.toLowerCase().includes('does not exist')
 }
 
 function parseHubModules(value: unknown): HubModules | null {
@@ -156,13 +156,13 @@ export async function PATCH(
     updates.allowed_departments = allowedDepartments
   }
 
-  if (body?.hub_modules !== undefined) {
-    const hubModules = parseHubModules(body.hub_modules)
-    if (body.hub_modules !== null && hubModules === null) {
-      return new Response('Invalid hub_modules', { status: 400 })
+  if (body?.hub_visible_modules !== undefined) {
+    const hubModules = parseHubModules(body.hub_visible_modules)
+    if (body.hub_visible_modules !== null && hubModules === null) {
+      return new Response('Invalid hub_visible_modules', { status: 400 })
     }
     if (hubModules) {
-      updates.hub_modules = hubModules
+      updates.hub_visible_modules = hubModules
     }
   }
 
@@ -170,8 +170,8 @@ export async function PATCH(
     const { error } = await admin.from('profiles').update(updates).eq('id', id)
     if (error) {
       // Backward-compat: allow edits even if DB migration wasn't applied yet.
-      if (updates.hub_modules !== undefined && isMissingHubModulesColumnError(error)) {
-        const { hub_modules: _ignored, ...updatesWithoutHubModules } = updates
+      if (updates.hub_visible_modules !== undefined && isMissingHubModulesColumnError(error)) {
+        const { hub_visible_modules: _ignored, ...updatesWithoutHubModules } = updates
         const { error: retryErr } = await admin.from('profiles').update(updatesWithoutHubModules).eq('id', id)
         if (retryErr) return new Response(retryErr.message, { status: 400 })
       } else {
@@ -205,6 +205,7 @@ export async function PATCH(
         asset_category: body?.asset_category,
         can_view_beo: body?.can_view_beo,
         can_manage_assets: body?.can_manage_assets,
+        hub_visible_modules: body?.hub_visible_modules,
         active: body?.active,
       },
     },

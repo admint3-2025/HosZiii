@@ -55,7 +55,7 @@ type UserRow = {
   can_manage_assets: boolean | null
   asset_category: string | null
   allowed_departments: string[] | null
-  hub_modules?: any | null
+  hub_visible_modules?: any | null
 }
 
 const ROLE_LABEL: Record<Role, string> = {
@@ -95,7 +95,6 @@ export default function UserList() {
 
   const [editHubModules, setEditHubModules] = useState<HubModules>(DEFAULT_HUB_MODULES)
   const [hubModalOpen, setHubModalOpen] = useState(false)
-  const [roleBeforeAdmin, setRoleBeforeAdmin] = useState<Role>('requester')
 
   // Filtros
   const [searchText, setSearchText] = useState('')
@@ -200,7 +199,7 @@ export default function UserList() {
     setEditCanViewBeo(u.can_view_beo ?? false)
     setEditCanManageAssets(u.can_manage_assets ?? false)
 
-    const hm = (u as any).hub_modules
+    const hm = (u as any).hub_visible_modules
     if (hm && typeof hm === 'object') {
       setEditHubModules({
         'it-helpdesk': hm['it-helpdesk'] ?? true,
@@ -254,7 +253,7 @@ export default function UserList() {
           allowed_departments: editRole === 'corporate_admin' && editAllowedDepartments.length > 0 ? editAllowedDepartments : null,
           can_view_beo: editCanViewBeo,
           can_manage_assets: editCanManageAssets,
-          hub_modules: editRole === 'admin' ? editHubModules : null,
+          hub_visible_modules: editHubModules,
         }),
       })
       const text = await res.text()
@@ -277,18 +276,13 @@ export default function UserList() {
   const openHubModal = () => setHubModalOpen(true)
   const cancelHubModal = () => {
     setHubModalOpen(false)
-    // Si aún no se aplicó admin, revertimos rol
-    if (editRole !== 'admin') {
-      setEditRole(roleBeforeAdmin)
-    }
   }
   const confirmHubModal = () => {
     const enabled = Object.values(editHubModules).some(Boolean)
     if (!enabled) {
-      setError('Selecciona al menos 1 módulo visible para el Administrador')
+      setError('Selecciona al menos 1 módulo visible')
       return
     }
-    setEditRole('admin')
     setHubModalOpen(false)
   }
 
@@ -674,11 +668,6 @@ export default function UserList() {
                                 value={editRole}
                                 onChange={(e) => {
                                   const nextRole = e.target.value as Role
-                                  if (nextRole === 'admin') {
-                                    setRoleBeforeAdmin(editRole)
-                                    setHubModalOpen(true)
-                                    return
-                                  }
                                   setEditRole(nextRole)
                                 }}
                               >
@@ -690,26 +679,25 @@ export default function UserList() {
                               </select>
                             </div>
 
-                            {editRole === 'admin' && (
-                              <div className="md:col-span-2 p-3 border-2 border-violet-200 bg-violet-50 rounded-lg">
-                                <div className="flex items-start justify-between gap-3">
-                                  <div>
-                                    <div className="text-[11px] font-semibold text-violet-900 uppercase tracking-wide">
-                                      Vista del Hub (Administrador)
-                                    </div>
-                                    <div className="text-[11px] text-violet-800 mt-1">
-                                      Visible: {Object.entries(editHubModules)
-                                        .filter(([, v]) => v)
-                                        .map(([k]) => k)
-                                        .join(', ') || '—'}
-                                    </div>
+                            {/* Vista del Hub - Disponible para TODOS los usuarios */}
+                            <div className="md:col-span-2 p-3 border-2 border-violet-200 bg-violet-50 rounded-lg">
+                              <div className="flex items-start justify-between gap-3">
+                                <div>
+                                  <div className="text-[11px] font-semibold text-violet-900 uppercase tracking-wide">
+                                    Vista del Hub
                                   </div>
-                                  <button type="button" className="btn btn-secondary text-xs" onClick={openHubModal}>
-                                    Configurar
-                                  </button>
+                                  <div className="text-[11px] text-violet-800 mt-1">
+                                    Visible: {Object.entries(editHubModules)
+                                      .filter(([, v]) => v)
+                                      .map(([k]) => k)
+                                      .join(', ') || '—'}
+                                  </div>
                                 </div>
+                                <button type="button" className="btn btn-secondary text-xs" onClick={openHubModal}>
+                                  Configurar
+                                </button>
                               </div>
-                            )}
+                            </div>
 
                             {/* Permisos especiales agrupados */}
                             <div className="md:col-span-2 p-3 border-2 border-blue-200 bg-blue-50 rounded-lg">
@@ -871,8 +859,8 @@ export default function UserList() {
           <div className="absolute inset-0 bg-black/40" onClick={cancelHubModal} />
           <div className="relative w-full max-w-lg rounded-xl bg-white border border-slate-200 shadow-xl overflow-hidden">
             <div className="p-4 border-b border-slate-100 bg-slate-50">
-              <h2 className="text-sm font-bold text-slate-900">Configurar vista del Hub (Administrador)</h2>
-              <p className="text-xs text-slate-600 mt-1">Selecciona qué módulos verá en el Hub.</p>
+              <h2 className="text-sm font-bold text-slate-900">Configurar vista del Hub</h2>
+              <p className="text-xs text-slate-600 mt-1">Selecciona qué módulos verá en el Hub. Esto solo afecta la visualización, no los permisos.</p>
             </div>
 
             <div className="p-4 space-y-2">
