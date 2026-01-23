@@ -182,6 +182,19 @@ export default function NotificationBell() {
     }
   }
 
+  // Helper para detectar tipo de notificación
+  function getNotificationTheme(title: string, message: string) {
+    const isMantenimiento = title.includes('[Mantenimiento]') || 
+                            message.toLowerCase().includes('mantenimiento')
+    const isIT = title.includes('[IT]')
+    
+    return {
+      isMantenimiento,
+      isIT,
+      cleanTitle: title
+    }
+  }
+
   function getTimeAgo(dateString: string) {
     const date = new Date(dateString)
     const now = new Date()
@@ -270,12 +283,25 @@ export default function NotificationBell() {
                 </div>
               ) : (
                 <div className="divide-y divide-gray-100">
-                  {notifications.map((notification) => (
+                  {notifications.map((notification) => {
+                    const theme = getNotificationTheme(notification.title, notification.message)
+                    const bgColor = !notification.is_read 
+                      ? theme.isMantenimiento 
+                        ? 'bg-orange-50/40' 
+                        : theme.isIT 
+                          ? 'bg-indigo-50/40' 
+                          : 'bg-blue-50/30'
+                      : ''
+                    const badgeColor = theme.isMantenimiento 
+                      ? 'bg-orange-600' 
+                      : theme.isIT 
+                        ? 'bg-indigo-600' 
+                        : 'bg-blue-600'
+                    
+                    return (
                     <div
                       key={notification.id}
-                      className={`px-4 py-3 hover:bg-gray-50 transition-colors ${
-                        !notification.is_read ? 'bg-blue-50/30' : ''
-                      }`}
+                      className={`px-4 py-3 hover:bg-gray-50 transition-colors ${bgColor}`}
                     >
                       <div className="flex gap-3">
                         {/* Icon */}
@@ -287,10 +313,10 @@ export default function NotificationBell() {
                         <div className="flex-1 min-w-0">
                           <div className="flex items-start justify-between gap-2">
                             <p className="text-sm font-semibold text-gray-900">
-                              {notification.title}
+                              {theme.cleanTitle}
                             </p>
                             {!notification.is_read && (
-                              <div className="w-2 h-2 bg-blue-600 rounded-full flex-shrink-0 mt-1"></div>
+                              <div className={`w-2 h-2 ${badgeColor} rounded-full flex-shrink-0 mt-1`}></div>
                             )}
                           </div>
                           <p className="text-sm text-gray-600 mt-1">
@@ -343,7 +369,8 @@ export default function NotificationBell() {
                         </div>
                       </div>
                     </div>
-                  ))}
+                    )
+                  })}
                 </div>
               )}
             </div>

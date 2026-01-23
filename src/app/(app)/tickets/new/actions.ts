@@ -16,6 +16,7 @@ type CreateTicketInput = {
   priority: number
   support_level: number
   requester_id?: string
+  location_id?: string
   asset_id?: string | null
   remote_connection_type?: string | null
   remote_connection_id?: string | null
@@ -57,7 +58,8 @@ export async function createTicket(input: CreateTicketInput) {
     .single()
 
   // Resolver location_id del ticket con fallbacks (para admins)
-  let resolvedLocationId: string | null = requesterProfile?.location_id ?? null
+  // Si el admin envió location_id explícitamente, usarlo con máxima prioridad
+  let resolvedLocationId: string | null = input.location_id || (requesterProfile?.location_id ?? null)
 
   // Si el solicitante no tiene sede pero se seleccionó un activo, heredar la sede del activo
   if (!resolvedLocationId && input.asset_id) {

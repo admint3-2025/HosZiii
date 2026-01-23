@@ -4,10 +4,10 @@
   "version": "0.1.0",
   "type": "module",
   "scripts": {
-    "dev": "./scripts/ziii.sh dev",
-    "build": "./scripts/ziii.sh build",
-    "start": "./scripts/ziii.sh start",
-    "lint": "./scripts/ziii.sh lint"
+    "dev": "node ./scripts/dev.cjs",
+    "build": "node ./scripts/build.cjs",
+    "start": "node ./scripts/start.cjs",
+    "lint": "node ./scripts/lint.cjs"
   },
   "dependencies": {
     "@supabase/ssr": "^0.6.1",
@@ -22,6 +22,7 @@
     "qrcode": "^1.5.4",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
+    "socket.io-client": "^4.8.3",
     "zod": "^3.24.1"
   },
   "devDependencies": {

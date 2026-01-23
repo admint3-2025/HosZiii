@@ -101,50 +101,68 @@ export default function TrendChart({ data }: { data: TrendData[] }) {
         </div>
 
         {/* Gráfico de barras */}
-        <div className="flex items-end justify-between gap-3 h-28 mb-3 px-2">
+        <div className="relative flex items-end justify-between gap-3 mb-3 px-2" style={{ height: '140px' }}>
           {data.map((item, idx) => {
             const isHovered = hoveredIndex === idx
             const isToday = item.date === todayKey
-            // Calcular altura: mínimo 8px, máximo 100% del contenedor
+            // Calcular altura: mínimo 20px para visibilidad, máximo 100% del contenedor
             const barHeight = maxCount > 0 
-              ? Math.max(8, (item.count / maxCount) * 100) 
+              ? Math.max(20, (item.count / maxCount) * 100) 
               : 8
             
             return (
               <div 
                 key={idx}
-                className="flex-1 flex flex-col items-center justify-end cursor-pointer"
+                className="relative flex-1 flex flex-col items-center justify-end cursor-pointer group h-full"
                 onMouseEnter={() => setHoveredIndex(idx)}
                 onMouseLeave={() => setHoveredIndex(null)}
               >
-                {/* Valor sobre la barra */}
-                <div className={`text-sm font-bold mb-1 transition-all ${
-                  item.count > 0 
-                    ? isToday 
-                      ? 'text-indigo-600' 
-                      : isHovered 
-                        ? 'text-emerald-600' 
-                        : 'text-slate-700'
-                    : 'text-slate-300'
-                }`}>
-                  {item.count}
-                </div>
+                {/* Tooltip flotante al hacer hover */}
+                {isHovered && item.count > 0 && (
+                  <div className="absolute -top-8 left-1/2 transform -translate-x-1/2 bg-slate-900 text-white text-xs px-3 py-1.5 rounded-lg shadow-xl whitespace-nowrap z-20 animate-in fade-in slide-in-from-bottom-2 duration-150">
+                    <div className="font-bold">{item.count} tickets</div>
+                    <div className="absolute bottom-0 left-1/2 transform -translate-x-1/2 translate-y-1/2 rotate-45 w-2 h-2 bg-slate-900"></div>
+                  </div>
+                )}
                 
-                {/* Barra */}
+                {/* Barra con valor integrado */}
                 <div 
-                  className={`w-full max-w-[40px] rounded-lg transition-all duration-200 ${
+                  className={`relative w-full rounded-t-xl transition-all duration-300 ease-out flex items-center justify-center ${
                     item.count === 0
-                      ? 'bg-slate-100 border border-dashed border-slate-200'
+                      ? 'bg-slate-100 border-2 border-dashed border-slate-300'
                       : isToday 
-                        ? 'bg-gradient-to-t from-indigo-600 to-indigo-400 shadow-md shadow-indigo-200' 
+                        ? 'bg-gradient-to-t from-indigo-600 via-indigo-500 to-indigo-400 shadow-xl shadow-indigo-300/60 ring-2 ring-indigo-200' 
                         : isHovered 
-                          ? 'bg-gradient-to-t from-emerald-600 to-emerald-400 shadow-md shadow-emerald-200' 
-                          : 'bg-gradient-to-t from-slate-400 to-slate-300'
-                  } ${isHovered && item.count > 0 ? 'scale-105' : ''}`}
+                          ? 'bg-gradient-to-t from-emerald-600 via-emerald-500 to-emerald-400 shadow-xl shadow-emerald-300/60 ring-2 ring-emerald-200 scale-105' 
+                          : 'bg-gradient-to-t from-slate-500 via-slate-400 to-slate-300 shadow-lg hover:shadow-xl'
+                  } ${isHovered && item.count > 0 ? '-translate-y-1' : ''}`}
                   style={{ 
                     height: item.count === 0 ? '8px' : `${barHeight}%`,
+                    minHeight: item.count === 0 ? '8px' : '20px',
                   }}
-                ></div>
+                >
+                  {/* Mostrar el número dentro de la barra si hay espacio */}
+                  {item.count > 0 && barHeight > 30 && (
+                    <span className={`text-sm font-bold text-white drop-shadow-md ${
+                      isHovered ? 'scale-110' : ''
+                    } transition-transform duration-200`}>
+                      {item.count}
+                    </span>
+                  )}
+                  
+                  {/* Mostrar el número encima de la barra si no hay espacio */}
+                  {item.count > 0 && barHeight <= 30 && (
+                    <div className={`absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs font-bold transition-all duration-200 ${
+                      isToday 
+                        ? 'text-indigo-600' 
+                        : isHovered 
+                          ? 'text-emerald-600 scale-110' 
+                          : 'text-slate-600'
+                    }`}>
+                      {item.count}
+                    </div>
+                  )}
+                </div>
               </div>
             )
           })}

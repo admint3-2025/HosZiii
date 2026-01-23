@@ -1,11 +1,9 @@
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseServerClient, getSafeServerUser } from '@/lib/supabase/server'
 
 export async function POST(request: Request) {
   const supabase = await createSupabaseServerClient()
   
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const user = await getSafeServerUser()
 
   if (!user) return new Response('Unauthorized', { status: 401 })
 

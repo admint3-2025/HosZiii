@@ -4,7 +4,7 @@
 		{
 			"label": "Install dependencies (npm install)",
 			"type": "shell",
-			"command": "./scripts/ziii.sh",
+			"command": "npm",
 			"args": ["install"],
 			"isBackground": false,
 			"problemMatcher": [],
@@ -13,8 +13,8 @@
 		{
 			"label": "Run dev server (npm run dev)",
 			"type": "shell",
-			"command": "./scripts/ziii.sh",
-			"args": ["dev"],
+			"command": "npm",
+			"args": ["run", "dev"],
 			"isBackground": true,
 			"problemMatcher": [],
 			"group": "build"
@@ -22,8 +22,8 @@
 		{
 			"label": "Build production (next build)",
 			"type": "shell",
-			"command": "./scripts/ziii.sh",
-			"args": ["build"],
+			"command": "npm",
+			"args": ["run", "build"],
 			"isBackground": false,
 			"problemMatcher": [],
 			"group": "build"

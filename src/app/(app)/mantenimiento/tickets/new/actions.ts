@@ -16,6 +16,7 @@ type CreateMaintenanceTicketInput = {
   priority: number
   support_level: number
   requester_id?: string
+  location_id?: string
   asset_id?: string | null
   remote_connection_type?: string | null
   remote_connection_id?: string | null
@@ -64,7 +65,8 @@ export async function createMaintenanceTicket(input: CreateMaintenanceTicketInpu
     .single()
 
   // Resolver location_id del ticket con fallbacks (para admins)
-  let resolvedLocationId: string | null = requesterProfile?.location_id ?? null
+  // Si el admin envió location_id explícitamente, usarlo con máxima prioridad
+  let resolvedLocationId: string | null = input.location_id || (requesterProfile?.location_id ?? null)
 
   // Si el solicitante no tiene sede pero se seleccionó un activo, heredar la sede del activo
   if (!resolvedLocationId && input.asset_id) {
@@ -156,6 +158,7 @@ export async function createMaintenanceTicket(input: CreateMaintenanceTicketInpu
   const ticketDataBase: any = {
     title: input.title,
     description: input.description,
+    category_id: input.category_id,
     priority: priorityText,
     status: 'NEW',
     requester_id: requesterId, // Siempre incluir el requester (input.requester_id || user.id)

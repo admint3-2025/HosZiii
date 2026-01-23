@@ -1,6 +1,7 @@
 import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
 import type { User } from '@supabase/supabase-js'
+import { getSupabaseSessionFromCookies, isSessionExpired } from './session-cookie'
 
 export async function createSupabaseServerClient() {
   const url = process.env.SUPABASE_URL_INTERNAL ?? process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -37,24 +38,11 @@ export async function createSupabaseServerClient() {
  */
 export async function getSafeServerUser(): Promise<User | null> {
   try {
-    const supabase = await createSupabaseServerClient()
-    const { data, error } = await supabase.auth.getUser()
-    
-    if (error) {
-      // Si es error de refresh token, simplemente retornar null
-      const isRefreshTokenError =
-        error.code === 'refresh_token_already_used' ||
-        error.message?.includes('Invalid Refresh Token') ||
-        error.message?.includes('Already Used')
-      
-      if (isRefreshTokenError) {
-        return null
-      }
-      // Otros errores también devuelven null para no romper la UI
-      return null
-    }
-    
-    return data.user
+    // Read session directly from cookies to avoid any refresh-token rotation.
+    const cookieStore = await cookies()
+    const session = getSupabaseSessionFromCookies(cookieStore.getAll(), 'ziii-session')
+    if (!session || isSessionExpired(session)) return null
+    return (session.user ?? null) as User | null
   } catch {
     return null
   }

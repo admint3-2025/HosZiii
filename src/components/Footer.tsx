@@ -1,69 +1,45 @@
 import Link from 'next/link'
-import Image from 'next/image'
 
 export default function Footer() {
-  const currentYear = new Date().getFullYear()
-
   return (
-    <footer className="mt-6 sm:mt-8 border-t border-slate-200 bg-slate-50">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6 py-3 sm:py-4">
-        {/* Fila 1: Logo + Links + Info */}
-        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 sm:gap-4 text-xs">
-          {/* Logo compacto */}
-          <div className="flex items-center gap-2">
-            <Image
+    <footer className="bg-gradient-to-br from-slate-900 via-slate-900/95 to-slate-800 text-slate-200">
+      <div className="max-w-7xl mx-auto px-6 py-10">
+        <div className="flex flex-col md:flex-row items-center justify-between gap-6 border-t border-slate-800/50 pt-6">
+          <div className="flex items-center gap-3">
+            <img
               src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png"
-              alt="ZIII"
-              width={120}
-              height={32}
-              className="h-6 sm:h-8 w-auto"
-              unoptimized
+              alt="ZIII HoS"
+              className="h-8 w-8 object-contain"
             />
-            <div className="border-l border-slate-300 pl-2">
-              <div className="font-bold text-gray-900 font-[family-name:var(--font-orbitron)] text-[10px] sm:text-xs">
-                ZIII HoS
-              </div>
+            <div>
+              <p className="text-sm font-semibold text-white tracking-tight">ZIII <span className="text-indigo-400 font-light">Hospitality OS</span></p>
+              <p className="text-[10px] text-slate-500">Sistema de Gestión Hotelera</p>
             </div>
           </div>
 
-          {/* Links rápidos - ocultos en móvil */}
-          <div className="hidden sm:flex items-center gap-4">
-            <Link href="/dashboard" className="text-gray-600 hover:text-blue-600">
-              Dashboard
+          <div className="flex items-center gap-6 text-sm">
+            <Link href="/profile" className="text-slate-400 hover:text-white transition-colors">
+              Mi Perfil
             </Link>
-            <Link href="/tickets" className="text-gray-600 hover:text-blue-600">
-              Tickets
-            </Link>
-            <Link href="/reports" className="text-gray-600 hover:text-blue-600">
-              Reportes
-            </Link>
-            <Link href="/audit" className="text-gray-600 hover:text-blue-600">
-              Auditoría
+            <span className="text-slate-700">|</span>
+            <Link href="/admin/knowledge-base" className="text-slate-400 hover:text-white transition-colors">
+              Ayuda
             </Link>
           </div>
 
-          {/* Badge ITIL compacto */}
-          <div className="flex items-center gap-1.5 px-2 py-1 bg-blue-50 border border-blue-100 rounded">
-            <svg className="w-3 h-3 sm:w-3.5 sm:h-3.5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
-            </svg>
-            <span className="text-[10px] font-bold text-blue-700">ITIL v4</span>
+          <div className="text-right">
+            <p className="text-[10px] text-slate-600 uppercase tracking-wider mb-1">Versión 2.1.0</p>
+            <p className="text-xs text-slate-500">© {new Date().getFullYear()} ZIII HoS</p>
           </div>
         </div>
 
-        {/* Fila 2: Separador */}
-        <div className="my-2 sm:my-3 border-t border-slate-200" />
-
-        {/* Fila 3: Copyright + Estado */}
-        <div className="flex items-center justify-center sm:justify-between gap-3 sm:gap-4 text-[10px] sm:text-xs text-gray-500">
-          <div>
-            © {currentYear} <span className="font-semibold text-gray-700">ZIII HoS</span>
+        <div className="mt-8 flex items-center justify-center gap-3">
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent"></div>
+          <div className="flex items-center gap-2">
+            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+            <span className="text-[10px] text-slate-500 uppercase tracking-widest">Sistema Activo</span>
           </div>
-          
-          <div className="flex items-center gap-1.5">
-            <div className="w-1.5 h-1.5 rounded-full bg-green-500" />
-            <span>v1.0.0</span>
-          </div>
+          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent"></div>
         </div>
       </div>
     </footer>

@@ -51,7 +51,8 @@ export default function RRHHInspectionByIdPage() {
         const user = await getSafeUser(supabase)
 
         if (!user) {
-          router.replace('/login')
+          // Don't force redirect on auth errors; user might still have valid session
+          setError('No se pudo verificar la autenticación. Intenta recargar la página.')
           return
         }
 

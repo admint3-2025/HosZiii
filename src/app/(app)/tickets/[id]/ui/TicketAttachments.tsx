@@ -21,7 +21,7 @@ type Props = {
 
 export default function TicketAttachments({ ticketId, canDelete }: Props) {
   const router = useRouter()
-  const [attachments, setAttachments] = useState<Attachment[]>([])
+const [attachments, setAttachments] = useState<Attachment[]>([])
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [previewImage, setPreviewImage] = useState<Attachment | null>(null)
@@ -214,19 +214,12 @@ export default function TicketAttachments({ ticketId, canDelete }: Props) {
       {/* Modal de vista previa */}
       {previewImage && (
         <div 
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-90 p-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[9999] bg-black flex items-center justify-center p-8"
           onClick={() => setPreviewImage(null)}
+          onKeyDown={(e) => e.key === 'Escape' && setPreviewImage(null)}
+          tabIndex={0}
         >
-          <div className="relative max-w-7xl max-h-[90vh] w-full">
-            {/* Botón cerrar */}
-            <button
-              className="absolute -top-12 right-0 text-white hover:text-gray-300 transition-colors"
-              onClick={() => setPreviewImage(null)}
-            >
-              <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+          <div className="relative max-w-7xl max-h-[90vh] w-full" onClick={(e) => e.stopPropagation()}>
 
             {/* Nombre del archivo */}
             <div className="absolute -top-12 left-0 text-white text-sm font-medium">

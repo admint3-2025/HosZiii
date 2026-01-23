@@ -1,4 +1,4 @@
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseServerClient, getSafeServerUser } from '@/lib/supabase/server'
 import { getLocationFilter } from '@/lib/supabase/locations'
 import { unstable_noStore as noStore } from 'next/cache'
 import Link from 'next/link'
@@ -24,7 +24,7 @@ export default async function DashboardPage() {
 
   const dashboardErrors: string[] = []
 
-  const { data: { user } } = await supabase.auth.getUser()
+  const user = await getSafeServerUser()
   const { data: profile } = user ? await supabase
     .from('profiles')
     .select('role,department,asset_category')

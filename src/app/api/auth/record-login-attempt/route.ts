@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getSafeServerUser } from '@/lib/supabase/server'
 import { getSmtpConfig, sendMail } from '@/lib/email/mailer'
+import { getSupabaseSessionFromCookies, isSessionExpired } from '@/lib/supabase/session-cookie'
 
 function getRequestIp(req: NextRequest): string | null {
   const headers = req.headers
@@ -34,11 +35,45 @@ export async function POST(req: NextRequest) {
     const userAgent = sanitizeText(body?.userAgent, 500) || sanitizeText(req.headers.get('user-agent'), 500)
     const ip = getRequestIp(req)
 
+    // Useful dev log to diagnose "can't login" without asking for browser screenshots.
+    // Never log passwords; we only log sanitized email and error.
+    console.info('[auth] login-attempt', {
+      email,
+      success,
+      error: success ? null : error,
+      ip,
+      cookieNames: req.cookies
+        .getAll()
+        .map((c) => c.name)
+        .filter((n) => n.startsWith('ziii-session')),
+      sessionCookieLen: (() => {
+        const c = req.cookies.get('ziii-session')
+        return c?.value ? c.value.length : 0
+      })(),
+      sessionCookieIsBase64: (() => {
+        const c = req.cookies.get('ziii-session')
+        return !!c?.value && c.value.startsWith('base64-')
+      })(),
+      sessionParsed: (() => {
+        const rawCookies = req.cookies.getAll().map((c) => ({ name: c.name, value: c.value }))
+        const sess = getSupabaseSessionFromCookies(rawCookies, 'ziii-session')
+        const now = Math.floor(Date.now() / 1000)
+        const expiresAt = typeof (sess as any)?.expires_at === 'number' ? (sess as any).expires_at : null
+        return {
+          ok: !!sess,
+          hasUserId: !!(sess as any)?.user?.id,
+          expired: sess ? isSessionExpired(sess) : null,
+          now,
+          expiresAt,
+          secondsToExpiry: typeof expiresAt === 'number' ? expiresAt - now : null,
+        }
+      })(),
+    })
+
     // If it's a success attempt, prefer to attach the authenticated user_id.
     // If not authenticated (or failure), user_id will be null.
-    const serverClient = await createSupabaseServerClient()
-    const { data: authData } = await serverClient.auth.getUser()
-    const userId = authData?.user?.id || null
+    const user = await getSafeServerUser()
+    const userId = user?.id || null
 
     const admin = createSupabaseAdminClient()
 

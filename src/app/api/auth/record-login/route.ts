@@ -1,17 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getSafeServerUser } from '@/lib/supabase/server'
 
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json().catch(() => ({}))
     const headers = req.headers
 
-    // Verify the caller has a valid session via server client (reads cookies)
-    const serverClient = await createSupabaseServerClient()
-    const { data: sessionData } = await serverClient.auth.getUser()
-    const currentUserId = sessionData?.user?.id || null
-    if (!currentUserId) {
+    // Verify the caller has a valid session without triggering refresh-token rotation.
+    const user = await getSafeServerUser()
+    if (!user?.id) {
       return NextResponse.json({ ok: false, error: 'unauthenticated' }, { status: 401 })
     }
 
@@ -21,16 +19,16 @@ export async function POST(req: NextRequest) {
 
     const admin = createSupabaseAdminClient()
     const insertV2 = {
-      user_id: currentUserId,
+      user_id: user.id,
       ip,
       user_agent: userAgent,
       event: 'LOGIN',
       success: true,
-      email: sessionData?.user?.email || null,
+      email: user.email || null,
       error: null,
     }
     const insertV1 = {
-      user_id: currentUserId,
+      user_id: user.id,
       ip,
       user_agent: userAgent,
     }

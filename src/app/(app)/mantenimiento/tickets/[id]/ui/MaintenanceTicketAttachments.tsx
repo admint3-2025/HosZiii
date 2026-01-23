@@ -294,18 +294,12 @@ export default function MaintenanceTicketAttachments({
       {/* Modal de preview */}
       {previewUrl && (
         <div 
-          className="fixed inset-0 z-50 bg-black/80 flex items-center justify-center p-4"
+          className="fixed inset-0 z-[9999] bg-black flex items-center justify-center p-8"
           onClick={() => setPreviewUrl(null)}
+          onKeyDown={(e) => e.key === 'Escape' && setPreviewUrl(null)}
+          tabIndex={0}
         >
-          <div className="relative max-w-4xl max-h-[90vh]">
-            <button
-              onClick={() => setPreviewUrl(null)}
-              className="absolute -top-10 right-0 p-2 text-white hover:text-gray-300 transition"
-            >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
+          <div className="relative max-w-4xl max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
             <img
               src={previewUrl}
               alt="Preview"

@@ -1,11 +1,9 @@
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseServerClient, getSafeServerUser } from '@/lib/supabase/server'
 import AppShellClient from './AppShellClient'
 
 export default async function AppShell({ children }: { children: React.ReactNode }) {
   const supabase = await createSupabaseServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const user = await getSafeServerUser()
 
   const { data: profile } = user
     ? await supabase

@@ -1,3 +1,4 @@
+import { Suspense } from 'react'
 import LoginForm from './ui/LoginForm'
 
 export default async function LoginPage() {
@@ -114,7 +115,9 @@ export default async function LoginPage() {
           </div>
 
           <div className="mt-8 rounded-2xl border border-slate-200 bg-white p-7">
-            <LoginForm />
+            <Suspense fallback={<div className="text-sm text-slate-500">Cargando…</div>}>
+              <LoginForm />
+            </Suspense>
           </div>
 
           <div className="mt-6 text-center text-xs text-slate-400">

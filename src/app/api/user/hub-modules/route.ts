@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseServerClient, getSafeServerUser } from '@/lib/supabase/server'
 
 type HubModuleId = 'it-helpdesk' | 'mantenimiento' | 'corporativo' | 'administracion'
 
@@ -7,7 +7,7 @@ export async function POST(request: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient()
     
-    const { data: { user } } = await supabase.auth.getUser()
+    const user = await getSafeServerUser()
     if (!user) {
       return NextResponse.json({ error: 'No autenticado' }, { status: 401 })
     }

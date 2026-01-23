@@ -242,6 +242,9 @@ async function notifyMaintenanceLocationStaff(data: MaintenanceTicketNotificatio
     // Enviar notificaciones a cada miembro del personal
     for (const staff of filteredStaff) {
       try {
+        // Evitar duplicación: no enviar notificación push si el staff es el mismo solicitante
+        const isRequester = staff.id === data.requesterId
+        
         // Email
         const { data: authUser } = await supabase.auth.admin.getUserById(staff.id)
         
@@ -273,21 +276,30 @@ async function notifyMaintenanceLocationStaff(data: MaintenanceTicketNotificatio
           console.log(`[notifyMaintenanceLocationStaff] ✓ Email enviado a: ${authUser.user.email}`)
         }
         
-        // Notificación in-app
+        // Notificación in-app (siempre, incluso si es el solicitante)
+        // Si es el solicitante, usar mensaje personalizado
+        const pushTitle = isRequester
+          ? `[Mantenimiento] Solicitud #${data.ticketNumber} creada`
+          : `[Mantenimiento] Nueva solicitud #${data.ticketNumber} en ${locationCode}`
+        
+        const pushMessage = isRequester
+          ? `Tu solicitud de mantenimiento "${data.title}" ha sido registrada.`
+          : `${actorName} creó una solicitud: "${data.title}"`
+        
         await supabase
           .from('notifications')
           .insert({
             user_id: staff.id,
             type: 'TICKET_CREATED',
-            title: `[Mantenimiento] Nueva solicitud #${data.ticketNumber} en ${locationCode}`,
-            message: `${actorName} creó una solicitud: "${data.title}"`,
+            title: pushTitle,
+            message: pushMessage,
             ticket_id: data.ticketId,
              ticket_number: extractMaintenanceTicketSequence(data.ticketNumber),
             actor_id: data.actorId,
             is_read: false,
           })
         
-        console.log(`[notifyMaintenanceLocationStaff] ✓ Notificación in-app enviada a: ${staff.full_name}`)
+        console.log(`[notifyMaintenanceLocationStaff] ✓ Notificación in-app enviada a: ${staff.full_name} (${isRequester ? 'solicitante' : 'staff'})`)
 
         // Telegram staff
         try {

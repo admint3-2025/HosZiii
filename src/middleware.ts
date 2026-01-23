@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { isITAssetCategoryOrUnassigned, isMaintenanceAssetCategory } from '@/lib/permissions/asset-category'
+import { getSupabaseSessionFromCookies, isSessionExpired } from '@/lib/supabase/session-cookie'
 
 export async function middleware(request: NextRequest) {
   const url = process.env.SUPABASE_URL_INTERNAL ?? process.env.NEXT_PUBLIC_SUPABASE_URL
@@ -12,6 +13,10 @@ export async function middleware(request: NextRequest) {
 
   const { pathname } = request.nextUrl
 
+  // Quick cookie checks (supports chunking: ziii-session.0, etc.)
+  const hasSessionCookie = request.cookies.getAll().some((c) => c.name.startsWith('ziii-session'))
+  const debugAuth = process.env.NODE_ENV !== 'production'
+
   const clearAuthCookies = (res: NextResponse) => {
     const cookies = request.cookies.getAll()
     for (const c of cookies) {
@@ -22,14 +27,38 @@ export async function middleware(request: NextRequest) {
     }
   }
 
-  // En /login SIEMPRE limpiamos cookies antes de mostrar la página
+  // En /login NO limpiamos cookies por defecto.
   if (pathname === '/login') {
+    if (debugAuth) {
+      const names = request.cookies
+        .getAll()
+        .map((c) => c.name)
+        .filter((n) => n.startsWith('ziii-session'))
+      console.info('[auth][mw] /login', { hasSessionCookie, cookieNames: names })
+    }
+
+    // If already authenticated, don't show login again.
+    // Validate by parsing the session cookie (not just existence).
+    const cookieList = request.cookies.getAll().map((c) => ({ name: c.name, value: c.value }))
+    const session = hasSessionCookie ? getSupabaseSessionFromCookies(cookieList, 'ziii-session') : null
+    const sessionIsValid = !!session && !isSessionExpired(session)
+
+    if (sessionIsValid) {
+      const hubUrl = request.nextUrl.clone()
+      hubUrl.pathname = '/hub'
+      return NextResponse.redirect(hubUrl)
+    }
+
+    // Only clear cookies when explicitly requested to recover from a bad session.
+    const shouldClear = request.nextUrl.searchParams.get('clear') === '1'
     const res = NextResponse.next({
       request: {
         headers: request.headers,
       },
     })
-    clearAuthCookies(res)
+    if (shouldClear) {
+      clearAuthCookies(res)
+    }
     return res
   }
 
@@ -40,6 +69,12 @@ export async function middleware(request: NextRequest) {
   })
 
   const supabase = createServerClient(url, anonKey, {
+    auth: {
+      // CRITICAL: disable auto-refresh in middleware to prevent token rotation races
+      autoRefreshToken: false,
+      persistSession: false,
+      detectSessionInUrl: false,
+    },
     cookieOptions: {
       name: 'ziii-session',
     },
@@ -56,17 +91,57 @@ export async function middleware(request: NextRequest) {
     },
   })
 
-  // NO llamar getUser() - solo verificar si existe la cookie de sesión
-  const sessionCookie = request.cookies.get('ziii-session-access-token') || 
-                        request.cookies.get('ziii-session')
-  const hasSession = !!sessionCookie
+  // Para rutas protegidas, validar la sesión en middleware para permitir
+  // refresh y persistir cookies aquí (Server Components no siempre pueden).
+  const isProtectedPath =
+    pathname === '/' ||
+    pathname.startsWith('/hub') ||
+    pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/tickets') ||
+    pathname.startsWith('/reports') ||
+    pathname.startsWith('/audit') ||
+    pathname.startsWith('/admin') ||
+    pathname.startsWith('/mantenimiento') ||
+    pathname.startsWith('/beo') ||
+    pathname.startsWith('/corporativo')
+
+  // IMPORTANT: do not call Supabase auth methods here.
+  // Parse the session from cookies to avoid refresh-token rotation races.
+  const cookieList = request.cookies.getAll().map((c) => ({ name: c.name, value: c.value }))
+  const session = hasSessionCookie ? getSupabaseSessionFromCookies(cookieList, 'ziii-session') : null
+  const sessionHasUserId = !!session?.user?.id
+  const sessionExpired = !!session && isSessionExpired(session)
+  // Treat a parsed session with a user id as "authenticated enough" to attempt recovery.
+  // If the server clock is skewed or the token is near-expiry, we should NOT wipe cookies here.
+  // The browser can refresh the session on /login?recover=1.
+  const sessionIsValid = !!session && sessionHasUserId && !sessionExpired
+  const userId = session?.user?.id as string | undefined
+
+  if (debugAuth && (pathname === '/' || pathname.startsWith('/hub') || pathname === '/login')) {
+    console.info('[auth][mw] check', {
+      pathname,
+      hasSessionCookie,
+      sessionParsed: !!session,
+      sessionIsValid,
+      sessionExpired,
+      hasUserId: !!userId,
+    })
+  }
 
   // Mantener '/' como URL principal: redirigir al hub
   if (pathname === '/') {
-    if (!hasSession) {
+    if (!hasSessionCookie) {
       const loginUrl = request.nextUrl.clone()
       loginUrl.pathname = '/login'
       return NextResponse.redirect(loginUrl)
+    }
+
+    if (!!session && sessionHasUserId && sessionExpired) {
+      return NextResponse.redirect(new URL('/login?recover=1', request.url))
+    }
+
+    if (!sessionIsValid) {
+      return NextResponse.redirect(new URL('/login', request.url))
     }
 
     const hubUrl = request.nextUrl.clone()
@@ -86,18 +161,22 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/corporativo')
   if (isAppRoute) {
     // Verificar solo la cookie de sesión
-    if (!hasSession) {
+    if (!hasSessionCookie) {
       const loginUrl = request.nextUrl.clone()
       loginUrl.pathname = '/login'
       return NextResponse.redirect(loginUrl)
     }
 
+    if (!!session && sessionHasUserId && sessionExpired) {
+      return NextResponse.redirect(new URL('/login?recover=1', request.url))
+    }
+
+    if (!sessionIsValid) {
+      return NextResponse.redirect(new URL('/login', request.url))
+    }
+
     // Admin routes: diferentes niveles de acceso
     if (pathname.startsWith('/admin')) {
-      // Obtener usuario desde la sesión para conocer el id
-      const { data: userData } = await supabase.auth.getUser()
-      const userId = userData?.user?.id
-
       if (!userId) {
         const loginUrl = request.nextUrl.clone()
         loginUrl.pathname = '/login'
@@ -126,16 +205,7 @@ export async function middleware(request: NextRequest) {
 
     // Auditoría para admin y supervisor
     if (pathname.startsWith('/audit')) {
-      // Reusar userId si ya se obtuvo, o solicitarlo ahora
-      let auditUserId: string | undefined
-      try {
-        const { data: ud } = await supabase.auth.getUser()
-        auditUserId = ud?.user?.id
-      } catch {
-        auditUserId = undefined
-      }
-
-      if (!auditUserId) {
+      if (!userId) {
         const loginUrl = request.nextUrl.clone()
         loginUrl.pathname = '/login'
         return NextResponse.redirect(loginUrl)
@@ -144,7 +214,7 @@ export async function middleware(request: NextRequest) {
       const { data: profile } = await supabase
         .from('profiles')
         .select('role')
-        .eq('id', auditUserId)
+        .eq('id', userId)
         .single()
 
       const isAdminLike = profile?.role === 'admin'
@@ -159,9 +229,6 @@ export async function middleware(request: NextRequest) {
     // - Crear tickets: cualquier usuario autenticado puede crear
     // - Dashboard/Gestión: solo admin o usuarios con asset_category = 'MAINTENANCE'
     if (pathname.startsWith('/mantenimiento')) {
-      const { data: userData } = await supabase.auth.getUser()
-      const userId = userData?.user?.id
-
       if (!userId) {
         const loginUrl = request.nextUrl.clone()
         loginUrl.pathname = '/login'
@@ -201,9 +268,6 @@ export async function middleware(request: NextRequest) {
     // HELP DESK IT (activos / beo): restringir a IT (admin o asset_category IT/null)
     // Nota: usuarios de mantenimiento pueden crear tickets IT, pero NO acceder a inventario IT / BEO.
     if (pathname.startsWith('/assets') || pathname.startsWith('/beo')) {
-      const { data: userData } = await supabase.auth.getUser()
-      const userId = userData?.user?.id
-
       if (!userId) {
         const loginUrl = request.nextUrl.clone()
         loginUrl.pathname = '/login'
@@ -227,9 +291,6 @@ export async function middleware(request: NextRequest) {
 
     // DASHBOARD (IT): Solo para admin y usuarios con asset_category = 'IT' o null
     if (pathname === '/dashboard' || pathname.startsWith('/dashboard/')) {
-      const { data: userData } = await supabase.auth.getUser()
-      const userId = userData?.user?.id
-
       if (!userId) {
         const loginUrl = request.nextUrl.clone()
         loginUrl.pathname = '/login'

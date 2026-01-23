@@ -1,11 +1,12 @@
 'use client'
 
-import { useMemo, useState } from 'react'
-import { useRouter } from 'next/navigation'
+import { useEffect, useMemo, useState } from 'react'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 
 export default function LoginForm() {
   const router = useRouter()
+  const searchParams = useSearchParams()
   const supabase = useMemo(() => createSupabaseBrowserClient(), [])
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -13,13 +14,53 @@ export default function LoginForm() {
   const [busy, setBusy] = useState(false)
   const [mode, setMode] = useState<'login' | 'forgot'>('login')
   const [sent, setSent] = useState(false)
+  const [recoveryTried, setRecoveryTried] = useState(false)
+
+  // Session recovery flow: if middleware sent us here due to an "expired" cookie,
+  // attempt a refresh in the browser WITHOUT clearing cookies.
+  useEffect(() => {
+    const shouldRecover = searchParams.get('recover') === '1'
+    if (!shouldRecover || recoveryTried) return
+
+    let cancelled = false
+    setRecoveryTried(true)
+
+    ;(async () => {
+      setBusy(true)
+      setError(null)
+      try {
+        const { data: sessionData } = await supabase.auth.getSession()
+        if (!sessionData?.session) return
+
+        const { data, error } = await supabase.auth.refreshSession()
+        if (error) throw error
+
+        if (data?.session && !cancelled) {
+          router.replace('/hub')
+          router.refresh()
+        }
+      } catch (e: any) {
+        if (!cancelled) {
+          setError(
+            '⚠️ No se pudo recuperar la sesión automáticamente. Intenta iniciar sesión de nuevo o abre /login?clear=1 para limpiar cookies.'
+          )
+        }
+      } finally {
+        if (!cancelled) setBusy(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [searchParams, recoveryTried, supabase, router])
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault()
     setError(null)
     setBusy(true)
 
-    const { error } = await supabase.auth.signInWithPassword({ email, password })
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
     setBusy(false)
     if (error) {
       // Record failed login attempt (best-effort)
@@ -74,7 +115,8 @@ export default function LoginForm() {
       // ignore
     }
 
-    router.push('/')
+    // Go straight into the app to avoid extra redirects.
+    router.replace('/hub')
     router.refresh()
   }
 

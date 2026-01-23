@@ -4,9 +4,11 @@ import Link from 'next/link'
 import type { ReactNode } from 'react'
 import SignOutButton from '@/components/SignOutButton'
 import NotificationBell from '@/components/NotificationBell'
-import { createSupabaseServerClient, getSafeServerUser } from '@/lib/supabase/server'
+import { getSafeServerUser } from '@/lib/supabase/server'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getAvatarInitial } from '@/lib/ui/avatar'
 import { formatDistanceToNow } from 'date-fns'
+import Footer from '@/components/Footer'
 import { es } from 'date-fns/locale'
 import { isMaintenanceAssetCategory, isITAssetCategoryOrUnassigned } from '@/lib/permissions/asset-category'
 
@@ -161,7 +163,9 @@ export default async function HubPage() {
     redirect('/login')
   }
 
-  const supabase = await createSupabaseServerClient()
+  // Use admin client here to avoid any user-session refresh-token rotation on the server.
+  // We still scope all queries to the authenticated user's id.
+  const supabase = createSupabaseAdminClient()
   
   const { data: profile } = await supabase
     .from('profiles')
@@ -356,104 +360,47 @@ export default async function HubPage() {
           })}
         </div>
 
-        {/* Footer con Actividad Reciente */}
-        <footer className="mt-16 relative">
-          {/* Línea decorativa superior */}
-          <div className="absolute top-0 left-1/2 -translate-x-1/2 w-3/4 h-px bg-gradient-to-r from-transparent via-slate-600 to-transparent"></div>
-          
-          {/* Contenido principal del footer */}
-          <div className="pt-12 pb-8">
-            {/* Actividad Reciente */}
-            <div className="mb-10">
-              <div className="flex items-center gap-2 mb-4">
-                <span className="text-slate-500 text-xs">◷</span>
-                <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider">Actividad Reciente</h3>
-                <div className="flex-1 h-px bg-slate-800"></div>
-              </div>
-              
-              <div className="space-y-1">
-                {recentActivities && recentActivities.length > 0 ? (
-                  recentActivities.map((activity, idx) => {
-                    const config = activityConfig[activity.action] || { label: activity.action, icon: '•', color: 'text-slate-400' }
-                    const entityLabel = entityTypeLabels[activity.entity_type] || activity.entity_type.replace(/_/g, ' ')
-                    const metadata = activity.metadata as Record<string, any> | null
-                    // Mostrar nombre/título descriptivo, NO el ID
-                    const detail = metadata?.email || metadata?.title || metadata?.name || metadata?.asset_tag || metadata?.code || null
-                    const timeAgo = formatDistanceToNow(new Date(activity.created_at), { addSuffix: true, locale: es })
-                    
-                    return (
-                      <div 
-                        key={activity.id} 
-                        className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-slate-800/40 transition-colors animate-in fade-in slide-in-from-left-2 duration-300"
-                        style={{ animationDelay: `${idx * 50}ms` }}
-                      >
-                        <span className={`text-sm ${config.color} flex-shrink-0 w-4 text-center`}>{config.icon}</span>
-                        <span className="text-sm text-slate-300 truncate flex-1">
-                          {config.label} {entityLabel}
-                          {detail && <span className="text-slate-400"> — {detail}</span>}
-                        </span>
-                        <span className="text-[10px] text-slate-600 flex-shrink-0">{timeAgo}</span>
-                      </div>
-                    )
-                  })
-                ) : (
-                  <p className="text-sm text-slate-600 py-2 px-3">Sin actividad reciente</p>
-                )}
-              </div>
+        {/* Actividad Reciente restaurada */}
+        <div className="mt-16">
+          <div className="mb-10">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-slate-500 text-xs">◷</span>
+              <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider">Actividad Reciente</h3>
+              <div className="flex-1 h-px bg-slate-800"></div>
             </div>
-
-            {/* Links y branding */}
-            <div className="flex flex-col md:flex-row items-center justify-between gap-6 border-t border-slate-800 pt-8">
-              {/* Logo y descripción */}
-              <div className="flex items-center gap-3">
-                <img
-                  src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png"
-                  alt="ZIII HoS"
-                  className="h-8 w-8 object-contain"
-                />
-                <div>
-                  <p className="text-sm font-semibold text-white tracking-tight">ZIII <span className="text-indigo-400 font-light">Hospitality OS</span></p>
-                  <p className="text-[10px] text-slate-500">Sistema de Gestión Hotelera</p>
-                </div>
-              </div>
-
-              {/* Links rápidos */}
-              <div className="flex items-center gap-6 text-sm">
-                <Link href="/profile" className="text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 group">
-                  <svg className="w-4 h-4 text-slate-500 group-hover:text-indigo-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
-                  </svg>
-                  Mi Perfil
-                </Link>
-                <span className="text-slate-700">|</span>
-                <Link href="/admin/knowledge-base" className="text-slate-400 hover:text-white transition-colors flex items-center gap-1.5 group">
-                  <svg className="w-4 h-4 text-slate-500 group-hover:text-indigo-400 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.228 9c.549-1.165 2.03-2 3.772-2 2.21 0 4 1.343 4 3 0 1.4-1.278 2.575-3.006 2.907-.542.104-.994.54-.994 1.093m0 3h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Ayuda
-                </Link>
-              </div>
-
-              {/* Versión y copyright */}
-              <div className="text-right">
-                <p className="text-[10px] text-slate-600 uppercase tracking-wider mb-1">Versión 2.1.0</p>
-                <p className="text-xs text-slate-500">
-                  © {new Date().getFullYear()} ZIII HoS
-                </p>
-              </div>
-            </div>
-
-            {/* Línea final con gradiente */}
-            <div className="mt-8 flex items-center justify-center gap-3">
-              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent"></div>
-              <div className="flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-                <span className="text-[10px] text-slate-500 uppercase tracking-widest">Sistema Activo</span>
-              </div>
-              <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent"></div>
+            <div className="space-y-1">
+              {recentActivities && recentActivities.length > 0 ? (
+                recentActivities.map((activity, idx) => {
+                  const config = activityConfig[activity.action] || { label: activity.action, icon: '•', color: 'text-slate-400' }
+                  const entityLabel = entityTypeLabels[activity.entity_type] || activity.entity_type.replace(/_/g, ' ')
+                  const metadata = activity.metadata as Record<string, any> | null
+                  const detail = metadata?.email || metadata?.title || metadata?.name || metadata?.asset_tag || metadata?.code || null
+                  const timeAgo = formatDistanceToNow(new Date(activity.created_at), { addSuffix: true, locale: es })
+                  return (
+                    <div 
+                      key={activity.id} 
+                      className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-slate-800/40 transition-colors animate-in fade-in slide-in-from-left-2 duration-300"
+                      style={{ animationDelay: `${idx * 50}ms` }}
+                    >
+                      <span className={`text-sm ${config.color} flex-shrink-0 w-4 text-center`}>{config.icon}</span>
+                      <span className="text-sm text-slate-300 truncate flex-1">
+                        {config.label} {entityLabel}
+                        {detail && <span className="text-slate-400"> — {detail}</span>}
+                      </span>
+                      <span className="text-[10px] text-slate-600 flex-shrink-0">{timeAgo}</span>
+                    </div>
+                  )
+                })
+              ) : (
+                <p className="text-sm text-slate-600 py-2 px-3">Sin actividad reciente</p>
+              )}
             </div>
           </div>
-        </footer>
+        </div>
+      </div>
+      {/* Footer sticky solo en el hub */}
+      <div className="fixed bottom-0 left-0 w-full z-50">
+        <Footer />
       </div>
     </main>
   )

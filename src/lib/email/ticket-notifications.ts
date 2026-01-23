@@ -171,7 +171,7 @@ export async function notifyTicketCreated(data: TicketNotificationData) {
       console.error('[notifyTicketCreated] ✗ Error enviando Telegram:', err)
     }
     
-    // NUEVO: Notificar a supervisores y técnicos de la misma sede
+    // Notificar a supervisores y técnicos de la misma sede (incluirá al solicitante si es staff)
     await notifyLocationStaff(data)
   } catch (error) {
     console.error('[notifyTicketCreated] ✗ Error enviando notificación:', error)
@@ -910,6 +910,9 @@ export async function notifyLocationStaff(data: TicketNotificationData) {
     // Enviar notificación a cada miembro del personal
     for (const staff of filteredStaffProfiles as any[]) {
       try {
+        // Evitar duplicación: no enviar notificación push si el staff es el mismo solicitante
+        const isRequester = staff.id === data.requesterId
+        
         // Obtener email del auth
         const { data: authUser } = await supabase.auth.admin.getUserById(staff.id)
         
@@ -951,6 +954,32 @@ export async function notifyLocationStaff(data: TicketNotificationData) {
         })
         
         console.log(`[notifyLocationStaff] ✓ Notificación enviada a ${authUser.user.email} (${staffName})`)
+
+        // Notificación in-app (siempre, incluso si es el solicitante)
+        // Si es el solicitante, usar mensaje personalizado
+        try {
+          const pushTitle = isRequester 
+            ? `[IT] Solicitud #${data.ticketNumber} creada`
+            : `[IT] Nueva solicitud #${data.ticketNumber} en ${locationCode || locationName}`
+          
+          const pushMessage = isRequester
+            ? `Tu solicitud de soporte IT "${data.title}" ha sido registrada.`
+            : `${actorName} creó una solicitud: "${data.title}"`
+          
+          await supabase.from('notifications').insert({
+            user_id: staff.id,
+            type: 'TICKET_CREATED',
+            title: pushTitle,
+            message: pushMessage,
+            ticket_id: data.ticketId,
+            ticket_number: data.ticketNumber,
+            actor_id: data.actorId,
+            is_read: false,
+          })
+          console.log(`[notifyLocationStaff] ✓ Notificación push enviada a ${isRequester ? 'solicitante' : 'staff'} ${staff.id}`)
+        } catch (err) {
+          console.error(`[notifyLocationStaff] ✗ Error creando push para ${staff.id}:`, err)
+        }
 
         // Telegram (si está vinculado)
         try {
