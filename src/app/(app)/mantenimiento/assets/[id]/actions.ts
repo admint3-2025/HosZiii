@@ -14,6 +14,7 @@ export async function updateMaintenanceAsset(
     model?: string | null
     serial_number?: string | null
     status: string
+    department?: string | null
     location_id?: string | null
     assigned_to_user_id?: string | null
     purchase_date?: string | null
@@ -21,6 +22,7 @@ export async function updateMaintenanceAsset(
     cost?: number | null
     notes?: string | null
     image_url?: string | null
+    dynamic_specs?: Record<string, any>
   }
 ) {
   console.log('[updateMaintenanceAsset] Called with:', { assetId, updateData })

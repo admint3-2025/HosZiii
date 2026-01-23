@@ -263,7 +263,7 @@ export default function AssetEditForm({ asset, locations, onCancel, onSuccess, a
         result = await updateAssetWithLocationChange(
           asset.id,
           {
-            asset_tag: formData.asset_tag,
+            asset_code: formData.asset_tag,
             asset_type: formData.asset_type,
             status: formData.status,
             serial_number: formData.serial_number || null,

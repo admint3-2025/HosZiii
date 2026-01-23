@@ -1116,7 +1116,16 @@ export default function AssetDetailView({
         if (!assetTypeValue) return null
 
         const specificFields = getAssetFieldsForType(assetTypeValue)
-        const hasVisibleFields = specificFields.some(field => {
+        
+        // Para DESKTOP/LAPTOP, excluir campos legacy para evitar duplicación
+        const legacyFields = ['processor', 'ram_gb', 'storage_gb', 'os']
+        const isLegacyType = assetTypeValue === 'DESKTOP' || assetTypeValue === 'LAPTOP'
+        
+        const fieldsToShow = isLegacyType 
+          ? specificFields.filter(field => !legacyFields.includes(field.name))
+          : specificFields
+        
+        const hasVisibleFields = fieldsToShow.some(field => {
           const value = (asset as any)[field.name]
           return value !== null && value !== undefined && value !== ''
         })
@@ -1142,7 +1151,7 @@ export default function AssetDetailView({
               </div>
 
               <dl className="grid grid-cols-2 gap-x-4 gap-y-2">
-                {specificFields.map(field => {
+                {fieldsToShow.map(field => {
                   const value = (asset as any)[field.name]
                   if (!value) return null
 

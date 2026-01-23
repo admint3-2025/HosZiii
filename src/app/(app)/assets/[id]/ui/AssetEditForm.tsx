@@ -201,6 +201,18 @@ export default function AssetEditForm({ asset, locations, users, onCancel, onSuc
 
       if (isMaintenanceAsset) {
         console.log('[AssetEditForm] Calling updateMaintenanceAsset')
+        // Preparar dynamic_specs con los campos dinámicos
+        const dynamicSpecs: Record<string, any> = {}
+        if (formData.asset_type) {
+          const fields = getAssetFieldsForType(formData.asset_type)
+          fields.forEach(field => {
+            const value = (formData as any)[field.name]
+            if (value !== undefined && value !== null && value !== '') {
+              dynamicSpecs[field.name] = value
+            }
+          })
+        }
+
         // Update maintenance asset
         result = await updateMaintenanceAsset(
           asset.id,
@@ -212,22 +224,44 @@ export default function AssetEditForm({ asset, locations, users, onCancel, onSuc
             model: formData.model || null,
             serial_number: formData.serial_number || null,
             status: formData.status,
+            department: formData.department || null,
             location_id: formData.location_id || null,
             assigned_to_user_id: formData.assigned_to || null,
             purchase_date: formData.purchase_date || null,
             warranty_expiry: formData.warranty_end_date || null,
             notes: formData.notes || null,
             image_url: formData.image_url || null,
+            dynamic_specs: dynamicSpecs,
           }
         )
         console.log('[AssetEditForm] updateMaintenanceAsset result:', result)
       } else {
         console.log('[AssetEditForm] Calling updateAssetWithLocationChange')
+        // Preparar dynamic_specs con los campos dinámicos
+        // NOTA: Para DESKTOP/LAPTOP no incluimos processor, ram_gb, storage_gb, os
+        // porque usan columnas legacy dedicadas para evitar duplicación
+        const dynamicSpecs: Record<string, any> = {}
+        const legacyFields = ['processor', 'ram_gb', 'storage_gb', 'os']
+        
+        if (formData.asset_type) {
+          const fields = getAssetFieldsForType(formData.asset_type)
+          fields.forEach(field => {
+            // Excluir campos legacy de dynamic_specs
+            if (legacyFields.includes(field.name)) {
+              return
+            }
+            const value = (formData as any)[field.name]
+            if (value !== undefined && value !== null && value !== '') {
+              dynamicSpecs[field.name] = value
+            }
+          })
+        }
+
         // Update IT asset
         result = await updateAssetWithLocationChange(
           asset.id,
           {
-            asset_tag: formData.asset_tag,
+            asset_code: formData.asset_tag,
             asset_type: formData.asset_type,
             status: formData.status,
             serial_number: formData.serial_number || null,
@@ -245,6 +279,7 @@ export default function AssetEditForm({ asset, locations, users, onCancel, onSuc
             storage_gb: formData.storage_gb ? parseInt(formData.storage_gb) : null,
             os: formData.os || null,
             image_url: formData.image_url || null,
+            dynamic_specs: dynamicSpecs,
           },
           formData.location_id !== asset.location_id ? locationChangeReason : undefined
         )
@@ -604,61 +639,6 @@ export default function AssetEditForm({ asset, locations, users, onCancel, onSuc
                   </div>
                 ))}
               </div>
-            </div>
-          </div>
-        )}
-
-        {/* Especificaciones Técnicas (solo para PC/Laptop - LEGACY) */}
-        {(formData.asset_type === 'DESKTOP' || formData.asset_type === 'LAPTOP') && (
-          <div className="card shadow-sm border border-slate-200">
-            <div className="card-body p-6">
-              <h2 className="text-lg font-semibold text-gray-900 mb-4">Especificaciones Técnicas</h2>
-              
-              <div className="grid gap-4 md:grid-cols-2">
-                {/* Procesador */}
-                <ComboboxInput
-                  id="processor"
-                  label="Procesador"
-                  value={formData.processor}
-                  onChange={(value) => setFormData({ ...formData, processor: value })}
-                  suggestions={PROCESSOR_SUGGESTIONS}
-                  placeholder="Buscar o escribir procesador..."
-                />
-
-                {/* Memoria RAM */}
-                <ComboboxInput
-                  id="ram_gb"
-                  label="Memoria RAM (GB)"
-                  value={formData.ram_gb}
-                  onChange={(value) => setFormData({ ...formData, ram_gb: value })}
-                  suggestions={RAM_SUGGESTIONS}
-                  placeholder="Buscar o escribir..."
-                  type="number"
-                  min="1"
-                />
-
-                {/* Almacenamiento */}
-                <ComboboxInput
-                  id="storage_gb"
-                  label="Almacenamiento (GB)"
-                  value={formData.storage_gb}
-                  onChange={(value) => setFormData({ ...formData, storage_gb: value })}
-                  suggestions={STORAGE_SUGGESTIONS}
-                  placeholder="Buscar o escribir..."
-                  type="number"
-                  min="1"
-                />
-
-                {/* Sistema Operativo */}
-                <ComboboxInput
-                  id="os"
-                  label="Sistema Operativo"
-                  value={formData.os}
-                  onChange={(value) => setFormData({ ...formData, os: value })}
-                  suggestions={OS_SUGGESTIONS}
-                  placeholder="Buscar o escribir S.O..."
-                />
-              </div>
 
               <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded">
                 <div className="flex items-start gap-2">
@@ -666,7 +646,7 @@ export default function AssetEditForm({ asset, locations, users, onCancel, onSuc
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
                   </svg>
                   <p className="text-xs text-blue-800">
-                    <strong>Importante:</strong> Estos datos técnicos son críticos para el inventario. Cualquier modificación quedará registrada en el historial con usuario responsable.
+                    <strong>Importante:</strong> Estos datos son críticos para el inventario. Cualquier modificación quedará registrada en el historial con usuario responsable.
                   </p>
                 </div>
               </div>

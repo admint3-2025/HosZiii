@@ -81,6 +81,11 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
     ram_gb: (rawAsset as any).ram_gb || null,
     storage_gb: (rawAsset as any).storage_gb || null,
     os: (rawAsset as any).os || null,
+    // Campos dinámicos desde dynamic_specs (solo si no son DESKTOP/LAPTOP)
+    // Para DESKTOP/LAPTOP usamos las columnas legacy arriba
+    ...((rawAsset.category !== 'DESKTOP' && rawAsset.category !== 'LAPTOP') 
+      ? (rawAsset.dynamic_specs || {}) 
+      : {}),
   }
 
   // Validar acceso basado en rol para agent_l1 y agent_l2

@@ -53,8 +53,8 @@ export default async function MaintenanceAssetDetailPage({
     asset_type: rawAsset.category,
     assigned_to: rawAsset.assigned_to_user_id,
     warranty_end_date: rawAsset.warranty_expiry,
-    // Campos que AssetDetailView espera pero no existen en assets_maintenance
-    department: null,
+    // Campos que AssetDetailView espera
+    department: (rawAsset as any).department || null,
     processor: null,
     ram_gb: null,
     storage_gb: null,
@@ -62,6 +62,8 @@ export default async function MaintenanceAssetDetailPage({
     location: rawAsset.asset_location?.name || null,
     // Mantener el nombre del activo
     asset_name: rawAsset.name,
+    // Campos dinámicos desde dynamic_specs
+    ...(rawAsset.dynamic_specs || {}),
   }
 
   // Obtener todas las sedes activas para el formulario de edición

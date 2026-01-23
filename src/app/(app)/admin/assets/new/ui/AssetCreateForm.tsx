@@ -103,18 +103,18 @@ export default function AssetCreateForm({ locations, canManageAllAssets, userRol
     const { data: { user } } = await supabase.auth.getUser()
 
     const { data, error } = await supabase
-      .from('assets')
+      .from('assets_it')
       .insert({
-        asset_tag: formData.asset_tag,
-        asset_type: formData.asset_type,
-        status: formData.status,
+        asset_code: formData.asset_tag,
+        name: formData.model || 'Activo IT',
+        category: formData.asset_type,
+        status: formData.status === 'OPERATIONAL' ? 'ACTIVE' : formData.status === 'OUT_OF_SERVICE' ? 'INACTIVE' : formData.status === 'RETIRED' ? 'DISPOSED' : formData.status,
         serial_number: formData.serial_number || null,
         model: formData.model || null,
         brand: formData.brand || null,
         department: formData.department || null,
         purchase_date: formData.purchase_date || null,
-        warranty_end_date: formData.warranty_end_date || null,
-        location: formData.location || null,
+        warranty_expiry: formData.warranty_end_date || null,
         location_id: formData.location_id || null,
         notes: formData.notes || null,
         processor: formData.processor || null,
@@ -148,7 +148,7 @@ export default function AssetCreateForm({ locations, canManageAllAssets, userRol
       action: 'CREATE',
       actor_id: user?.id,
       metadata: {
-        asset_tag: data.asset_tag,
+        asset_code: data.asset_code,
         asset_type: data.asset_type,
         status: data.status,
         brand: data.brand,
