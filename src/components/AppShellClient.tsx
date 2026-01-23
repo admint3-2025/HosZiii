@@ -339,7 +339,7 @@ export default function AppShellClient({
         group: 'Mantenimiento',
         items: [
           // Dashboard solo para admin/supervisor de mantenimiento
-          ...(canManageMaintenance && (isAdminLike || userData.role === 'supervisor')
+          ...(canManageMaintenance && (isAdminLike || userData.role === 'supervisor' || userData.role === 'agent_l1' || userData.role === 'agent_l2')
             ? ([
                 { id: 'mnt_dashboard', label: 'Dashboard', icon: 'Dashboard', href: '/mantenimiento/dashboard' },
               ] as MenuSection['items'])
