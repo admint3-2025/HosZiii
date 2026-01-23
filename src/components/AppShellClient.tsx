@@ -295,7 +295,7 @@ export default function AppShellClient({
   // Solo las opciones de GESTIÓN (dashboard, bandeja, activos) son exclusivas para IT
   const helpdeskItems: MenuSection['items'] = [
     // Dashboard: solo para quienes GESTIONAN IT
-    ...(canManageIT && (isAdminLike || userData.role === 'supervisor')
+    ...(canManageIT && (isAdminLike || userData.role === 'supervisor' || userData.role === 'agent_l1')
       ? ([{ id: 'hd_dashboard', label: 'Dashboard', icon: 'Dashboard', href: '/dashboard' }] as MenuSection['items'])
       : []),
     // Mis Tickets y Crear Ticket: TODOS los usuarios pueden acceder
