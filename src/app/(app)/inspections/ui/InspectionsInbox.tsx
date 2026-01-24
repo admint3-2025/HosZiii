@@ -562,7 +562,7 @@ export default function InspectionsInbox() {
                         <div className="flex items-center gap-2">
                           <div className="w-16 h-1.5 bg-slate-200 rounded-full overflow-hidden">
                             <div 
-                              className={`h-full rounded-full ${r.coverage_percentage >= 100 ? 'bg-emerald-500' : r.coverage_percentage >= 50 ? 'bg-blue-500' : 'bg-amber-500'}`}
+                              className={`h-full rounded-full ${(r.coverage_percentage ?? 0) >= 100 ? 'bg-emerald-500' : (r.coverage_percentage ?? 0) >= 50 ? 'bg-blue-500' : 'bg-amber-500'}`}
                               style={{ width: `${Math.min(r.coverage_percentage || 0, 100)}%` }}
                             />
                           </div>
