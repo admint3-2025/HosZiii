@@ -567,7 +567,7 @@ export default function InspectionsInbox() {
                             />
                           </div>
                           <span className="text-xs text-slate-500">{Math.round(r.coverage_percentage || 0)}%</span>
-                          {r.items_pending > 0 && (
+                          {(r.items_pending ?? 0) > 0 && (
                             <span className="text-xs text-amber-600">({r.items_pending})</span>
                           )}
                         </div>
