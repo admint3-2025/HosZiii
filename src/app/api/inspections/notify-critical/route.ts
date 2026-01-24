@@ -5,6 +5,8 @@ import { criticalInspectionAlertTemplate } from '@/lib/email/templates'
 
 const CRITICAL_THRESHOLD = 8 // Umbral crítico: calificaciones menores a 8
 
+type InspectionType = 'rrhh' | 'gsh' | 'ama' | 'cocina' | 'housekeeping'
+
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createSupabaseServerClient()
@@ -21,16 +23,18 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json().catch(() => null)
     const inspectionId = body?.inspectionId as string | undefined
+    const inspectionType = (body?.inspectionType as string)?.toLowerCase() || 'rrhh'
 
     if (!inspectionId) {
       return NextResponse.json({ error: 'inspectionId requerido' }, { status: 400 })
     }
 
-    console.log('[notify-critical] Procesando inspección:', inspectionId)
+    console.log(`[notify-critical] Procesando inspección ${inspectionType.toUpperCase()}:`, inspectionId)
 
-    // 1. Obtener datos de la inspección
+    // 1. Obtener datos de la inspección (tabla dinámica según tipo)
+    const tableName = `inspections_${inspectionType}`
     const { data: inspection, error: inspectionError } = await supabase
-      .from('inspections_rrhh')
+      .from(tableName)
       .select('location_id, property_code, property_name, inspection_date, inspector_name, department, average_score, status')
       .eq('id', inspectionId)
       .single()
@@ -45,9 +49,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'Inspección no completada, no se envían alertas' }, { status: 200 })
     }
 
-    // 2. Obtener todas las áreas e ítems de la inspección
+    // 2. Obtener todas las áreas e ítems de la inspección (tabla dinámica)
+    const areasTableName = `inspections_${inspectionType}_areas`
     const { data: areas, error: areasError } = await supabase
-      .from('inspections_rrhh_areas')
+      .from(areasTableName)
       .select('id, area_name, area_order')
       .eq('inspection_id', inspectionId)
       .order('area_order')
@@ -63,8 +68,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ message: 'No hay áreas para verificar' }, { status: 200 })
     }
 
+    const itemsTableName = `inspections_${inspectionType}_items`
     const { data: items, error: itemsError } = await supabase
-      .from('inspections_rrhh_items')
+      .from(itemsTableName)
       .select('area_id, descripcion, calif_valor, comentarios_valor')
       .in('area_id', areaIds)
       .order('item_order')
@@ -109,9 +115,9 @@ export async function POST(req: NextRequest) {
 
     console.log(`[notify-critical] Enviando notificaciones a ${admins.length} administradores`)
 
-    // 6. Preparar URL de la inspección
+    // 6. Preparar URL de la inspección (dinámica según tipo)
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
-    const inspectionUrl = `${baseUrl}/inspections/rrhh/${inspectionId}`
+    const inspectionUrl = `${baseUrl}/inspections/${inspectionType}/${inspectionId}`
 
     // 7. Generar template de email
     const emailTemplate = criticalInspectionAlertTemplate({
@@ -143,13 +149,14 @@ export async function POST(req: NextRequest) {
     await Promise.all(emailPromises)
     console.log(`[notify-critical] ✓ Correos enviados exitosamente`)
 
-    // 9. Crear notificaciones push para admins
+    // 9. Crear notificaciones push para admins (con link dinámico)
+    const departmentLabel = inspection.department || inspectionType.toUpperCase()
     const notifications = admins.map(admin => ({
       user_id: admin.id,
       type: 'inspection_critical' as const,
       title: `🚨 Inspección crítica en ${inspection.property_code}`,
-      message: `Se detectaron ${criticalItems.length} ${criticalItems.length === 1 ? 'ítem crítico' : 'ítems críticos'} (< ${CRITICAL_THRESHOLD}/10) en la inspección de ${inspection.department}. Requiere revisión inmediata.`,
-      link: `/inspections/rrhh/${inspectionId}`,
+      message: `Se detectaron ${criticalItems.length} ${criticalItems.length === 1 ? 'ítem crítico' : 'ítems críticos'} (< ${CRITICAL_THRESHOLD}/10) en la inspección de ${departmentLabel}. Requiere revisión inmediata.`,
+      link: `/inspections/${inspectionType}/${inspectionId}`,
       is_read: false
     }))
 

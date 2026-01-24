@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { createSupabaseBrowserClient, getSafeUser } from '@/lib/supabase/browser'
 import RRHHInspectionManager from './RRHHInspectionManager'
+import GSHInspectionManager from './GSHInspectionManager'
 import type { InspectionRRHHArea } from '@/lib/services/inspections-rrhh.service'
 
 type Department = {
@@ -184,30 +185,95 @@ export default function InspectionFlowSelector({
   if (step === 'dashboard' && selectedDepartment && selectedProperty && currentUser) {
     const isAdmin = userProfile?.role === 'admin'
     const filterByCurrentUser = context === 'self'
-    const isRRHH = selectedDepartment.name.toLowerCase().includes('rrhh') || 
-                   selectedDepartment.name.toLowerCase().includes('recursos humanos')
+    const isRRHH = selectedDepartment.id === 'rrhh'
+    const isGSH = selectedDepartment.id === 'gsh'
+
+    // Lista de módulos implementados
+    const implementedModules = ['rrhh', 'gsh']
+    const isImplemented = implementedModules.includes(selectedDepartment.id)
+
+    // Si el módulo no está implementado, mostrar mensaje de pendiente
+    if (!isImplemented) {
+      return (
+        <div className="flex flex-col items-center justify-center min-h-[60vh] bg-gradient-to-br from-slate-50 to-slate-100 rounded-lg border border-slate-200 p-8">
+          <div className="max-w-md text-center">
+            <div className="w-20 h-20 mx-auto mb-6 rounded-full bg-amber-100 flex items-center justify-center">
+              <svg className="w-10 h-10 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6v6m0 0v6m0-6h6m-6 0H6" />
+              </svg>
+            </div>
+            
+            <h2 className="text-2xl font-bold text-slate-800 mb-3">
+              Módulo en Desarrollo
+            </h2>
+            
+            <p className="text-slate-600 mb-6">
+              El módulo de inspecciones para <span className="font-semibold text-slate-800">{selectedDepartment.name}</span> estará disponible próximamente.
+            </p>
+            
+            <div className="bg-blue-50 border border-blue-200 rounded-lg p-4 mb-6">
+              <p className="text-sm text-blue-800">
+                <strong>Módulos disponibles actualmente:</strong>
+              </p>
+              <ul className="mt-2 text-sm text-blue-700 space-y-1">
+                <li>✓ Recursos Humanos (RRHH)</li>
+                <li>✓ Guest Service Handler (GSH)</li>
+              </ul>
+            </div>
+            
+            <button
+              onClick={() => {
+                setSelectedDepartment(null)
+                setSelectedProperty(null)
+                setStep('department')
+              }}
+              className="inline-flex items-center gap-2 px-6 py-3 bg-slate-800 text-white rounded-lg hover:bg-slate-700 transition-colors font-medium"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+              Seleccionar otro departamento
+            </button>
+          </div>
+        </div>
+      )
+    }
+
+    const commonProps = {
+      locationId: selectedProperty.id,
+      departmentName: selectedDepartment.name,
+      propertyCode: selectedProperty.code,
+      propertyName: selectedProperty.name,
+      currentUser: currentUser,
+      userName: currentUser.user_metadata?.full_name || currentUser.email || 'Usuario',
+      isAdmin: isAdmin,
+      filterByCurrentUser: filterByCurrentUser,
+      onChangeProperty: () => {
+        setSelectedProperty(null)
+        setStep('property')
+      },
+      onChangeDepartment: () => {
+        setSelectedDepartment(null)
+        setSelectedProperty(null)
+        setStep('department')
+      }
+    }
+
+    if (isGSH) {
+      return (
+        <GSHInspectionManager
+          {...commonProps}
+          templateOverride={templateOverride}
+          isGSH={true}
+        />
+      )
+    }
 
     return (
       <RRHHInspectionManager
-        locationId={selectedProperty.id}
-        departmentName={selectedDepartment.name}
-        propertyCode={selectedProperty.code}
-        propertyName={selectedProperty.name}
-        currentUser={currentUser}
-        userName={currentUser.user_metadata?.full_name || currentUser.email || 'Usuario'}
+        {...commonProps}
         templateOverride={templateOverride}
-        isAdmin={isAdmin}
         isRRHH={isRRHH}
-        filterByCurrentUser={filterByCurrentUser}
-        onChangeProperty={() => {
-          setSelectedProperty(null)
-          setStep('property')
-        }}
-        onChangeDepartment={() => {
-          setSelectedDepartment(null)
-          setSelectedProperty(null)
-          setStep('department')
-        }}
       />
     )
   }

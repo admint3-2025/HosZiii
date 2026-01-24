@@ -5,11 +5,12 @@ import { useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import InspectionStatsDashboard from './InspectionStatsDashboard'
 import InspectionDashboard from './InspectionDashboard'
-import { InspectionsRRHHService, type InspectionRRHH, type InspectionRRHHArea } from '@/lib/services/inspections-rrhh.service'
-import { InspectionRRHHPDFGenerator } from '@/lib/services/inspections-rrhh-pdf.service'
+import { InspectionsGSHService, type InspectionGSH, type InspectionGSHArea } from '@/lib/services/inspections-gsh.service'
+import { InspectionGSHPDFGenerator } from '@/lib/services/inspections-gsh-pdf.service'
 import type { User } from '@supabase/supabase-js'
+import { getGSHInspectionTemplate } from '@/lib/templates/inspection-gsh-template'
 
-interface RRHHInspectionManagerProps {
+interface GSHInspectionManagerProps {
   inspectionId?: string
   locationId: string
   departmentName: string
@@ -18,15 +19,15 @@ interface RRHHInspectionManagerProps {
   currentUser: User
   userName: string
   mode?: 'create' | 'edit' | 'view'
-  templateOverride?: InspectionRRHHArea[] | null
+  templateOverride?: InspectionGSHArea[] | null
   isAdmin?: boolean
-  isRRHH?: boolean
+  isGSH?: boolean
   filterByCurrentUser?: boolean
   onChangeProperty?: () => void
   onChangeDepartment?: () => void
 }
 
-function cloneTemplate(template: InspectionRRHHArea[]): InspectionRRHHArea[] {
+function cloneTemplate(template: InspectionGSHArea[]): InspectionGSHArea[] {
   return template.map((area, areaIdx) => ({
     ...area,
     id: undefined,
@@ -44,115 +45,15 @@ function cloneTemplate(template: InspectionRRHHArea[]): InspectionRRHHArea[] {
   }))
 }
 
-// Datos de template inicial (las 10 áreas de RRHH)
-const RRHH_TEMPLATE: InspectionRRHHArea[] = [
-  {
-    area_name: "Planificación y control de plantilla",
-    area_order: 0,
-    items: [
-      { item_order: 0, descripcion: "Seguimiento vacantes actuales", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 1, descripcion: "Uso de plataformas para posteo de vacantes", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 2, descripcion: "% Rotación actual de plantilla aceptable", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true }
-    ]
-  },
-  {
-    area_name: "Plan de inducción a colaboradores",
-    area_order: 1,
-    items: [
-      { item_order: 0, descripcion: "Inducción de personal de nuevo ingreso", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 1, descripcion: "Inducción al puesto (Formato espejo y líder)", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 2, descripcion: "Salarios emocionales", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 3, descripcion: "Conocimiento de Reglamento Interno", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 4, descripcion: "Entrega de PIN Nuevo Ingreso", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true }
-    ]
-  },
-  {
-    area_name: "Evaluación y gestión de desempeño",
-    area_order: 2,
-    items: [
-      { item_order: 0, descripcion: "Aplicación de evaluación de desempeño", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 1, descripcion: "Seguimiento puntual de renovaciones", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true }
-    ]
-  },
-  {
-    area_name: "Reconocimiento y recompensas",
-    area_order: 3,
-    items: [
-      { item_order: 0, descripcion: "Festejo Cumpleaños", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 1, descripcion: "Celebración Colaborador del Mes", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 2, descripcion: "Celebración aniversarios", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true }
-    ]
-  },
-  {
-    area_name: "Prevención Social y laboral",
-    area_order: 4,
-    items: [
-      { item_order: 0, descripcion: "Integración de comisiones mixtas", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 1, descripcion: "Tarjetas checadoras completas", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 2, descripcion: "Recibos de nómina completos", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 3, descripcion: "Papeletas de vacaciones", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 4, descripcion: "Tiempo adicional autorizado", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true }
-    ]
-  },
-  {
-    area_name: "Áreas comunes colaboradores",
-    area_order: 5,
-    items: [
-      { item_order: 0, descripcion: "Comedor de colaboradores", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 1, descripcion: "Vestidores/Lockers", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 2, descripcion: "Baños colaboradores", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 3, descripcion: "Oficinas", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true }
-    ]
-  },
-  {
-    area_name: "Calendario Actividades",
-    area_order: 6,
-    items: [
-      { item_order: 0, descripcion: "Actividad de mes", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 1, descripcion: "Capacitaciones del mes", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true }
-    ]
-  },
-  {
-    area_name: "Expedientes",
-    area_order: 7,
-    items: [
-      { item_order: 0, descripcion: "Documentación completa colaborador", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 1, descripcion: "Retención Infonavit", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 2, descripcion: "Retención Foncacot", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 3, descripcion: "Aceptación Fondo de ahorro", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 4, descripcion: "Anexo sindicato", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 5, descripcion: "Política salarios emocionales", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 6, descripcion: "Formato inducción", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 7, descripcion: "Perfil de puesto", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 8, descripcion: "Contratos determinado/indeterminado", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true }
-    ]
-  },
-  {
-    area_name: "Imagen",
-    area_order: 8,
-    items: [
-      { item_order: 0, descripcion: "Higiene personal", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 1, descripcion: "Uniforme completo (Conforme a la política)", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 2, descripcion: "Uso de gafete/PIN nuevo ingreso", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 3, descripcion: "Uso de Cubrebocas", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true }
-    ]
-  },
-  {
-    area_name: "Vinculaciones y oferta académica",
-    area_order: 9,
-    items: [
-      { item_order: 0, descripcion: "Vinculaciones con dependencias gubernamentales", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 1, descripcion: "Vinculaciones con Universidades Locales", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 2, descripcion: "Vinculaciones con dependencias no lucrativas", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true }
-    ]
-  }
-]
+// Template de GSH (importado desde archivo de template)
+const GSH_TEMPLATE: InspectionGSHArea[] = getGSHInspectionTemplate().areas
 
-export default function RRHHInspectionManager(props: RRHHInspectionManagerProps) {
+
+export default function GSHInspectionManager(props: GSHInspectionManagerProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
-  const [inspection, setInspection] = useState<InspectionRRHH | null>(null)
+  const [inspection, setInspection] = useState<InspectionGSH | null>(null)
   const [generalComments, setGeneralComments] = useState('')
   const [trendData, setTrendData] = useState<number[]>([85, 88, 87, 90, 89, 90])
   const [stats, setStats] = useState<any>(null)
@@ -180,7 +81,7 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
 
       // Solo permitir navegación sin advertencia a la misma inspección actual
       // Cualquier otra navegación (incluyendo inbox, dashboard, etc.) requiere confirmación
-      const currentInspectionPath = props.inspectionId ? `/inspections/rrhh/${props.inspectionId}` : null
+      const currentInspectionPath = props.inspectionId ? `/inspections/gsh/${props.inspectionId}` : null
       if (currentInspectionPath && href === currentInspectionPath) return
 
       e.preventDefault()
@@ -258,7 +159,7 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
 
   const loadStats = async () => {
     const filterByCurrentUser = props.filterByCurrentUser ?? true
-    const { data } = await InspectionsRRHHService.getLocationStats(props.locationId, filterByCurrentUser)
+    const { data } = await InspectionsGSHService.getLocationStats(props.locationId, filterByCurrentUser)
     console.log('📊 loadStats data:', data)
     if (data) {
       setStats(data)
@@ -308,10 +209,10 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
     setShowNewInspectionModal(false)
     const baseTemplate = props.templateOverride && props.templateOverride.length > 0
       ? props.templateOverride
-      : RRHH_TEMPLATE
+      : GSH_TEMPLATE
 
     // Crear nueva inspección
-    const newInspection: InspectionRRHH = {
+    const newInspection: InspectionGSH = {
       location_id: props.locationId,
       department: props.departmentName,
       inspector_user_id: props.currentUser.id,
@@ -336,7 +237,7 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
 
   const loadInspection = async (id: string) => {
     setLoading(true)
-    const { data, error } = await InspectionsRRHHService.getInspectionById(id)
+    const { data, error } = await InspectionsGSHService.getInspectionById(id)
     if (error) {
       console.error('Error loading inspection:', error)
       alert('Error al cargar la inspección')
@@ -353,7 +254,7 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
   }
 
   const loadTrendData = async () => {
-    const { data } = await InspectionsRRHHService.getRecentInspectionsTrend(props.locationId, 5)
+    const { data } = await InspectionsGSHService.getRecentInspectionsTrend(props.locationId, 5)
     if (data && data.length > 0) {
       setTrendData(data)
     }
@@ -389,7 +290,7 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
             console.log(`  Item ${iIdx}: cumplimiento=${item.cumplimiento_valor}, calif=${item.calif_valor}, comentarios=${item.comentarios_valor}`)
           })
         })
-        const { data, error } = await InspectionsRRHHService.updateInspectionItems(
+        const { data, error } = await InspectionsGSHService.updateInspectionItems(
           inspection.id,
           inspection.areas,
           generalComments
@@ -411,8 +312,10 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
             const completeResponse = await fetch('/api/inspections/complete-and-notify', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ inspectionId: inspection.id, inspectionType: 'rrhh' })
+              body: JSON.stringify({ inspectionId: inspection.id, inspectionType: 'gsh' })
             })
+            
+            console.log('📬 Respuesta recibida, status:', completeResponse.status)
             
             if (completeResponse.ok) {
               const result = await completeResponse.json()
@@ -451,7 +354,7 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
       } else {
         // Crear nueva
         console.log('Creando nueva inspección')
-        const { data, error } = await InspectionsRRHHService.createInspection(inspection)
+        const { data, error } = await InspectionsGSHService.createInspection(inspection)
 
         if (error) {
           console.error('Error al crear:', error)
@@ -472,7 +375,7 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
               const completeResponse = await fetch('/api/inspections/complete-and-notify', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ inspectionId: data.id, inspectionType: 'rrhh' })
+                body: JSON.stringify({ inspectionId: data.id, inspectionType: 'gsh' })
               })
               
               console.log('📬 Respuesta recibida, status:', completeResponse.status)
@@ -524,7 +427,7 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
   const handleGeneratePDF = async () => {
     if (!inspection) return
 
-    const generator = new InspectionRRHHPDFGenerator()
+    const generator = new InspectionGSHPDFGenerator()
     await generator.download(inspection)
   }
 
@@ -668,7 +571,7 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
         stats={stats}
         onNewInspection={handleNewInspection}
         isAdmin={props.isAdmin}
-        isRRHH={props.isRRHH}
+        isGSH={props.isGSH}
         onChangeProperty={props.onChangeProperty}
         onChangeDepartment={props.onChangeDepartment}
       />
@@ -788,7 +691,7 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
           stats={stats}
           onNewInspection={handleNewInspection}
           isAdmin={props.isAdmin}
-          isRRHH={props.isRRHH}
+          isGSH={props.isGSH}
           onChangeProperty={props.onChangeProperty}
           onChangeDepartment={props.onChangeDepartment}
         />

@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 
 import { createSupabaseBrowserClient, getSafeUser } from '@/lib/supabase/browser'
-import { InspectionsRRHHService, type InspectionRRHHStatus } from '@/lib/services/inspections-rrhh.service'
+import { InspectionsCombinedService, type CombinedInspection } from '@/lib/services/inspections-combined.service'
+
+type InspectionRRHHStatus = 'draft' | 'completed' | 'approved' | 'rejected'
 
 type Property = {
   id: string
@@ -178,9 +180,14 @@ export default function InspectionsInbox() {
     setRowsError(null)
 
     if (propertyId === 'all') {
-      // Cargar todas las inspecciones de todas las propiedades del usuario
+      // Cargar todas las inspecciones de todas las propiedades del usuario (RRHH + GSH)
       const locationIds = allProperties.map((p) => p.id)
-      const { data, error: listError } = await InspectionsRRHHService.listInspectionsMultiple(locationIds, 200, 0)
+      const { data, error: listError } = await InspectionsCombinedService.listInspectionsMultiple(
+        locationIds, 
+        ['rrhh', 'gsh'], // Solo tipos implementados
+        200, 
+        0
+      )
 
       if (listError) {
         setRowsError(listError.message || 'Error al listar inspecciones')
@@ -192,8 +199,13 @@ export default function InspectionsInbox() {
       setInspections(data || [])
       setRowsLoading(false)
     } else if (propertyId) {
-      // Cargar inspecciones de una propiedad específica
-      const { data, error: listError } = await InspectionsRRHHService.listInspections(propertyId, 200, 0)
+      // Cargar inspecciones de una propiedad específica (RRHH + GSH)
+      const { data, error: listError } = await InspectionsCombinedService.listInspections(
+        propertyId,
+        ['rrhh', 'gsh'], // Solo tipos implementados
+        200,
+        0
+      )
 
       if (listError) {
         setRowsError(listError.message || 'Error al listar inspecciones')
@@ -250,17 +262,22 @@ export default function InspectionsInbox() {
     return rows
   }, [filters.q, filters.status, inspections])
 
-  const handleOpen = (id: string) => {
-    router.push(`/inspections/rrhh/${id}`)
+  const handleOpen = (inspection: CombinedInspection) => {
+    // Redirigir a la página correcta según el tipo de inspección
+    router.push(`/inspections/${inspection.inspection_type}/${inspection.id}`)
   }
 
-  const handleSetStatus = async (id: string, status: InspectionRRHHStatus) => {
+  const handleSetStatus = async (inspection: CombinedInspection, status: InspectionRRHHStatus) => {
     const ok = window.confirm(`¿Cambiar estado a "${statusLabel(status)}"?`)
     if (!ok) return
 
     setRowsLoading(true)
     try {
-      const { error: stError } = await InspectionsRRHHService.updateInspectionStatus(id, status)
+      const { error: stError } = await InspectionsCombinedService.updateInspectionStatus(
+        inspection.id,
+        inspection.inspection_type,
+        status
+      )
       if (stError) {
         alert(stError.message || 'No se pudo actualizar el estado')
         return
@@ -298,38 +315,55 @@ export default function InspectionsInbox() {
     try {
       const supabase = createSupabaseBrowserClient()
 
+      // Determinar tabla de log según tipo de inspección
+      const logTableName = `inspections_${row.inspection_type}_deletion_log`
+
+      // Preparar snapshot de inspección
+      const snapshot = {
+        id: row.id,
+        status: row.status,
+        department: row.department,
+        inspection_date: row.inspection_date,
+        property_code: row.property_code,
+        property_name: row.property_name,
+        inspector_name: row.inspector_name,
+        coverage_percentage: row.coverage_percentage,
+        compliance_percentage: row.compliance_percentage,
+        average_score: row.average_score,
+      }
+
+      // RRHH usa estructura diferente a GSH
+      const logData = row.inspection_type === 'rrhh' 
+        ? {
+            inspection_id: row.id,
+            deleted_by: profile?.id,
+            deleted_by_role: profile?.role,
+            acuse: ack,
+            snapshot: snapshot
+          }
+        : {
+            inspection_id: row.id,
+            deleted_by_user_id: profile?.id,
+            deleted_at: new Date().toISOString(),
+            inspection_data: snapshot,
+            reason: ack
+          }
+
       // Registrar acuse (auditoría)
       const { error: logError } = await supabase
-        .from('inspections_rrhh_deletion_log')
-        .insert({
-          inspection_id: row.id,
-          deleted_by: profile?.id,
-          deleted_by_role: profile?.role,
-          acuse: ack,
-          snapshot: {
-            id: row.id,
-            status: row.status,
-            department: row.department,
-            inspection_date: row.inspection_date,
-            property_code: row.property_code,
-            property_name: row.property_name,
-            inspector_name: row.inspector_name,
-            coverage_percentage: row.coverage_percentage,
-            compliance_percentage: row.compliance_percentage,
-            average_score: row.average_score,
-          }
-        })
+        .from(logTableName)
+        .insert(logData)
 
       if (logError) {
         alert(logError.message || 'No se pudo registrar el acuse de eliminación')
         return
       }
 
-      // Eliminar inspección (FK CASCADE elimina áreas/items)
-      const { error: deleteError } = await supabase
-        .from('inspections_rrhh')
-        .delete()
-        .eq('id', row.id)
+      // Eliminar inspección usando servicio combinado (FK CASCADE elimina áreas/items)
+      const { error: deleteError } = await InspectionsCombinedService.deleteInspection(
+        row.id,
+        row.inspection_type
+      )
 
       if (deleteError) {
         alert(deleteError.message || 'No se pudo eliminar la inspección')
@@ -506,14 +540,19 @@ export default function InspectionsInbox() {
                   </tr>
                 </thead>
                 <tbody>
-                  {filteredInspections.map((r: any) => (
-                    <tr key={r.id} className="border-b border-slate-100 hover:bg-slate-50">
+                  {filteredInspections.map((r: CombinedInspection) => (
+                    <tr key={`${r.inspection_type}-${r.id}`} className="border-b border-slate-100 hover:bg-slate-50">
                       <td className="py-2 pr-4 whitespace-nowrap">{formatDateShort(r.inspection_date)}</td>
                       <td className="py-2 pr-4 whitespace-nowrap">
                         <span className="font-medium text-slate-900">{r.property_code}</span>
                       </td>
                       <td className="py-2 pr-4">{r.inspector_name || '—'}</td>
-                      <td className="py-2 pr-4">{r.department || '—'}</td>
+                      <td className="py-2 pr-4">
+                        <span className="inline-flex items-center gap-1">
+                          {r.department || '—'}
+                          <span className="text-[10px] text-slate-400 font-mono">({r.inspection_type.toUpperCase()})</span>
+                        </span>
+                      </td>
                       <td className="py-2 pr-4">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded-full border text-xs font-semibold ${statusBadgeClass(r.status)}`}>
                           {statusLabel(r.status)}
@@ -543,7 +582,7 @@ export default function InspectionsInbox() {
                       <td className="py-2 pr-0 whitespace-nowrap">
                         <div className="flex items-center justify-end gap-2">
                           <button
-                            onClick={() => handleOpen(r.id)}
+                            onClick={() => handleOpen(r)}
                             className={`px-3 py-1.5 rounded-lg transition-colors text-xs font-semibold ${
                               r.status === 'draft' 
                                 ? 'bg-blue-600 text-white hover:bg-blue-700' 
@@ -560,13 +599,13 @@ export default function InspectionsInbox() {
                           {canManageStatus && r.status === 'completed' && (
                             <>
                               <button
-                                onClick={() => handleSetStatus(r.id, 'approved')}
+                                onClick={() => handleSetStatus(r, 'approved')}
                                 className="px-3 py-1.5 rounded-lg bg-blue-600 text-white hover:bg-blue-700 transition-colors text-xs font-semibold"
                               >
                                 Aprobar
                               </button>
                               <button
-                                onClick={() => handleSetStatus(r.id, 'rejected')}
+                                onClick={() => handleSetStatus(r, 'rejected')}
                                 className="px-3 py-1.5 rounded-lg bg-rose-600 text-white hover:bg-rose-700 transition-colors text-xs font-semibold"
                               >
                                 Rechazar

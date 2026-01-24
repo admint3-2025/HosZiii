@@ -411,8 +411,10 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
             const completeResponse = await fetch('/api/inspections/complete-and-notify', {
               method: 'POST',
               headers: { 'Content-Type': 'application/json' },
-              body: JSON.stringify({ inspectionId: inspection.id, inspectionType: 'rrhh' })
+              body: JSON.stringify({ inspectionId: inspection.id })
             })
+            
+            console.log('📬 Respuesta recibida, status:', completeResponse.status)
             
             if (completeResponse.ok) {
               const result = await completeResponse.json()
@@ -472,7 +474,7 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
               const completeResponse = await fetch('/api/inspections/complete-and-notify', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ inspectionId: data.id, inspectionType: 'rrhh' })
+                body: JSON.stringify({ inspectionId: data.id })
               })
               
               console.log('📬 Respuesta recibida, status:', completeResponse.status)
