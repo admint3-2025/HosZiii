@@ -573,7 +573,7 @@ export default function InspectionsInbox() {
                         </div>
                       </td>
                       <td className="py-2 pr-4 whitespace-nowrap">
-                        {r.items_cumple > 0 ? (
+                        {(r.items_cumple ?? 0) > 0 ? (
                           <span className="font-semibold text-slate-700">{Math.round((r.average_score || 0) * 10)}%</span>
                         ) : (
                           <span className="text-slate-400">—</span>
