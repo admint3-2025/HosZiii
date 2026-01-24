@@ -85,15 +85,26 @@ export default async function AssetDisposalsReportPage() {
     .select(`
       *,
       requester:profiles!asset_disposal_requests_requested_by_fkey(full_name),
-      reviewer:profiles!asset_disposal_requests_reviewed_by_fkey(full_name),
-      asset:assets(id, asset_tag, asset_type, asset_code)
+      reviewer:profiles!asset_disposal_requests_reviewed_by_fkey(full_name)
     `)
     .order('created_at', { ascending: false })
   
   console.log('[disposal-report] Query error:', error)
   console.log('[disposal-report] Requests count:', requests?.length)
 
-  const disposals = (requests ?? []) as DisposalRequest[]
+  // Mapear para agregar asset desde snapshot
+  const disposals = (requests ?? []).map(req => {
+    const assetSnapshot = req.asset_snapshot as any
+    return {
+      ...req,
+      asset: assetSnapshot ? {
+        id: assetSnapshot.id,
+        asset_tag: assetSnapshot.asset_tag,
+        asset_type: assetSnapshot.asset_type,
+        asset_code: assetSnapshot.asset_tag
+      } : null
+    }
+  }) as DisposalRequest[]
   
   // Conteos por estado
   const pending = disposals.filter(d => d.status === 'pending').length

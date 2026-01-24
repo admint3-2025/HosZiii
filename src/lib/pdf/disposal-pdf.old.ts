@@ -1,7 +1,10 @@
 import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { generateQRCode, getAssetQRContent } from '@/lib/qr/generator'
-import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
+import { createClient } from '@/lib/supabase/browser'
+
+// Logo ZIII embebido en base64 (SVG)
+const LOGO_BASE64 = 'data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHZpZXdCb3g9IjAgMCA1MTIgNTEyIj48cmVjdCB3aWR0aD0iNTEyIiBoZWlnaHQ9IjUxMiIgZmlsbD0iIzI1NjNlYiIgcng9IjY0Ii8+PHBhdGggZmlsbD0iI2ZmZiIgZD0iTTEzMiAxMzJIMzcyQzM4MiAxMzIgMzkwIDE0MCAzOTAgMTUwQzM5MCAxNjAgMzgyIDE2OCAzNzIgMTY4SDIzMkwzODQgMzI4QzM5MSAzMzYgMzkwIDM0OCAzODIgMzU1QzM3NCAzNjIgMzYyIDM2MSAzNTUgMzUzTDIwMCAxOTBWMzQ0SDM0MEMzNTAgMzQ0IDM1OCAzNTIgMzU4IDM2MkMzNTggMzcyIDM1MCAzODAgMzQwIDM4MEgxMzJDMTIyIDM4MCAxMTQgMzcyIDExNCAzNjJWMTUwQzExNCAxNDAgMTIyIDEzMiAxMzIgMTMyWiIvPjxyZWN0IGZpbGw9IiNmZmYiIHg9IjMwMiIgeT0iMjU2IiB3aWR0aD0iMjQiIGhlaWdodD0iMTA4IiByeD0iMTIiLz48cmVjdCBmaWxsPSIjZmZmIiB4PSIzMzYiIHk9IjIzNiIgd2lkdGg9IjI0IiBoZWlnaHQ9IjEyOCIgcng9IjEyIi8+PHJlY3QgZmlsbD0iI2RkZCIgeD0iMzcwIiB5PSIyMTQiIHdpZHRoPSIyNCIgaGVpZ2h0PSIxNTAiIHJ4PSIxMiIvPjwvc3ZnPg=='
 
 interface DisposalData {
   id?: string
@@ -28,7 +31,7 @@ interface DisposalData {
   changes: Array<{ field: string; from: string; to: string; date: string; by: string }>
 }
 
-// Generar código de verificación único
+// Generar código de verificación único basado en datos del documento
 function generateVerificationCode(data: DisposalData): string {
   const now = new Date()
   const timestamp = now.getTime().toString(36).toUpperCase()
@@ -38,7 +41,7 @@ function generateVerificationCode(data: DisposalData): string {
   return `ZIII-${assetHash}-${serial}-${timestamp}-${random}`
 }
 
-// Generar folio consecutivo
+// Generar folio consecutivo basado en timestamp con precisión de milisegundos
 function generateFolio(): string {
   const now = new Date()
   const year = now.getFullYear()
@@ -51,9 +54,8 @@ function generateFolio(): string {
   return `BAJA-${year}${month}${day}-${hour}${min}${sec}${ms}`
 }
 
-// Función auxiliar para construir el PDF
-async function buildPDF(data: DisposalData, folio: string, verificationCode: string, generatedAt: string, pdfDownloadUrl?: string): Promise<jsPDF> {
-  const doc = new jsPDF()
+// Función auxiliar para construir el contenido completo del PDF
+async function buildPDFContent(doc: jsPDF, data: DisposalData, folio: string, verificationCode: string, generatedAt: string, pdfDownloadUrl?: string) {
   const pageWidth = doc.internal.pageSize.getWidth()
   const pageHeight = doc.internal.pageSize.getHeight()
   const margin = 15
@@ -63,16 +65,19 @@ async function buildPDF(data: DisposalData, folio: string, verificationCode: str
   // HEADER
   // ═══════════════════════════════════════════════════════════════
   
-  doc.setFillColor(30, 64, 175)
+  // Fondo del header
+  doc.setFillColor(30, 64, 175) // blue-800
   doc.rect(0, 0, pageWidth, 32, 'F')
   
-  doc.setFillColor(59, 130, 246)
+  // Línea decorativa
+  doc.setFillColor(59, 130, 246) // blue-500
   doc.rect(0, 32, pageWidth, 3, 'F')
 
   // Logo ZIII
   try {
     let logoBase64 = ''
     try {
+      // Intentar cargar desde local
       const logoResponse = await fetch('/ziii-logo.png')
       const logoBlob = await logoResponse.blob()
       logoBase64 = await new Promise<string>((resolve) => {
@@ -81,6 +86,7 @@ async function buildPDF(data: DisposalData, folio: string, verificationCode: str
         reader.readAsDataURL(logoBlob)
       })
     } catch {
+      // Fallback: cargar desde URL externa
       const logoResponse = await fetch('https://systemach-sas.com/logo_ziii/ZIII%20logo.png')
       const logoBlob = await logoResponse.blob()
       logoBase64 = await new Promise<string>((resolve) => {
@@ -95,8 +101,10 @@ async function buildPDF(data: DisposalData, folio: string, verificationCode: str
     }
   } catch (error) {
     console.error('Error loading logo:', error)
+    // Continuar sin logo
   }
   
+  // Título principal
   doc.setTextColor(255, 255, 255)
   doc.setFontSize(16)
   doc.setFont('helvetica', 'bold')
@@ -106,10 +114,12 @@ async function buildPDF(data: DisposalData, folio: string, verificationCode: str
   doc.setFont('helvetica', 'normal')
   doc.text('Sistema de Gestión de Activos', margin + 28, 21)
 
+  // Tipo de documento (derecha)
   doc.setFontSize(11)
   doc.setFont('helvetica', 'bold')
   doc.text('SOLICITUD DE BAJA DE ACTIVO', pageWidth - margin, 12, { align: 'right' })
   
+  // Folio
   doc.setFontSize(8)
   doc.setFont('helvetica', 'normal')
   doc.text(`Folio: ${folio}`, pageWidth - margin, 20, { align: 'right' })
@@ -126,6 +136,7 @@ async function buildPDF(data: DisposalData, folio: string, verificationCode: str
   doc.setFont('helvetica', 'bold')
   doc.text('INFORMACIÓN DEL ACTIVO', margin, y)
   
+  // Línea bajo título
   doc.setDrawColor(30, 64, 175)
   doc.setLineWidth(0.5)
   doc.line(margin, y + 2, margin + 55, y + 2)
@@ -214,7 +225,7 @@ async function buildPDF(data: DisposalData, folio: string, verificationCode: str
   y = (doc as unknown as { lastAutoTable: { finalY: number } }).lastAutoTable.finalY + 8
 
   // ═══════════════════════════════════════════════════════════════
-  // HISTORIAL DE INCIDENCIAS
+  // HISTORIAL DE INCIDENCIAS (si existe)
   // ═══════════════════════════════════════════════════════════════
   
   if (data.tickets.length > 0) {
@@ -250,14 +261,15 @@ async function buildPDF(data: DisposalData, folio: string, verificationCode: str
   }
 
   // ═══════════════════════════════════════════════════════════════
-  // PÁGINA 2: FIRMAS Y QR
+  // FORZAR NUEVA PÁGINA PARA FIRMAS Y QR CODES
   // ═══════════════════════════════════════════════════════════════
   
+  // SIEMPRE iniciar firmas y QR en página 2 para evitar sobreposiciones
   doc.addPage()
   y = 20
 
   // ═══════════════════════════════════════════════════════════════
-  // AUTORIZACIONES
+  // AUTORIZACIONES - DISEÑO PROFESIONAL
   // ═══════════════════════════════════════════════════════════════
   
   doc.setTextColor(30, 64, 175)
@@ -279,11 +291,13 @@ async function buildPDF(data: DisposalData, folio: string, verificationCode: str
   signatures.forEach((sig, i) => {
     const x = margin + i * (boxWidth + 8)
     
+    // Caja con borde
     doc.setFillColor(255, 255, 255)
     doc.setDrawColor(180, 180, 180)
     doc.setLineWidth(0.3)
     doc.roundedRect(x, y, boxWidth, boxHeight, 2, 2, 'FD')
     
+    // Número de autorización
     doc.setFillColor(30, 64, 175)
     doc.circle(x + 8, y + 8, 5, 'F')
     doc.setTextColor(255, 255, 255)
@@ -291,20 +305,24 @@ async function buildPDF(data: DisposalData, folio: string, verificationCode: str
     doc.setFont('helvetica', 'bold')
     doc.text(String(i + 1), x + 8, y + 9.5, { align: 'center' })
     
+    // Rol
     doc.setTextColor(30, 64, 175)
     doc.setFontSize(7)
     doc.setFont('helvetica', 'bold')
     doc.text(sig.role, x + 15, y + 9)
     
+    // Descripción
     doc.setTextColor(120, 120, 120)
     doc.setFontSize(6)
     doc.setFont('helvetica', 'normal')
     doc.text(sig.desc, x + 15, y + 14)
     
+    // Línea de firma
     doc.setDrawColor(0, 0, 0)
     doc.setLineWidth(0.5)
     doc.line(x + 5, y + boxHeight - 18, x + boxWidth - 5, y + boxHeight - 18)
     
+    // Labels
     doc.setTextColor(80, 80, 80)
     doc.setFontSize(6)
     doc.text('Nombre:', x + 5, y + boxHeight - 12)
@@ -323,20 +341,22 @@ async function buildPDF(data: DisposalData, folio: string, verificationCode: str
   // CÓDIGOS QR Y VERIFICACIÓN
   // ═══════════════════════════════════════════════════════════════
   
-  doc.setFillColor(240, 249, 255)
-  doc.setDrawColor(59, 130, 246)
+  // Recuadro principal más alto para QR más grandes
+  doc.setFillColor(240, 249, 255) // blue-50
+  doc.setDrawColor(59, 130, 246) // blue-500
   doc.setLineWidth(0.3)
   doc.roundedRect(margin, y, pageWidth - margin * 2, 70, 2, 2, 'FD')
   
+  // Título
   doc.setTextColor(30, 64, 175)
   doc.setFontSize(9)
   doc.setFont('helvetica', 'bold')
   doc.text('CÓDIGOS DE IDENTIFICACIÓN Y VERIFICACIÓN', margin + 4, y + 6)
   
-  // QR del Activo (izquierda)
+  // Columna izquierda: QR del Activo con información estática
   const leftX = margin + 10
-  const qrSize = 45
   try {
+    // Generar QR con información del activo (no URL, para evitar 404 después de baja)
     const qrContent = getAssetQRContent({
       assetTag: data.assetTag,
       assetType: data.assetType,
@@ -347,8 +367,11 @@ async function buildPDF(data: DisposalData, folio: string, verificationCode: str
     })
     const qrImage = await generateQRCode(qrContent, { size: 400, margin: 1, errorCorrectionLevel: 'H' })
     
+    // QR code más grande y nítido
+    const qrSize = 45
     doc.addImage(qrImage, 'PNG', leftX, y + 10, qrSize, qrSize)
     
+    // Etiqueta
     doc.setTextColor(0, 0, 0)
     doc.setFontSize(7)
     doc.setFont('helvetica', 'bold')
@@ -362,7 +385,7 @@ async function buildPDF(data: DisposalData, folio: string, verificationCode: str
     console.warn('No se pudo generar QR del activo:', error)
   }
   
-  // Código de Verificación (centro)
+  // Columna central: Código de Verificación del documento
   const centerX = margin + (pageWidth - margin * 2) / 2
   doc.setTextColor(30, 64, 175)
   doc.setFontSize(7)
@@ -375,21 +398,52 @@ async function buildPDF(data: DisposalData, folio: string, verificationCode: str
   const vCodeLines = doc.splitTextToSize(verificationCode, 65)
   doc.text(vCodeLines, centerX, y + 19, { align: 'center' })
   
+  // Folio del documento
   doc.setFontSize(7)
   doc.setFont('helvetica', 'normal')
   doc.setTextColor(100, 100, 100)
   doc.text(`Folio: ${folio}`, centerX, y + 30, { align: 'center' })
   doc.text(`Generado: ${generatedAt}`, centerX, y + 35, { align: 'center' })
   
+  // Información adicional
   doc.setFontSize(6)
   doc.text('Este documento es válido con firmas autorizadas', centerX, y + 42, { align: 'center' })
   doc.text('Conserve este documento para registros contables', centerX, y + 47, { align: 'center' })
   
-  // QR del Documento (derecha) - CON URL DE DESCARGA
+  // Columna derecha: QR del documento (PDF)
   const rightX = pageWidth - margin - 55
+  const qrSize = 45
+  let pdfUrl = ''
+  
+  // PASO 1: Generar PDF inicial sin QR de descarga para obtener el blob
+  const fileName = `${folio}-${data.assetTag.replace(/[^A-Z0-9]/gi, '-')}.pdf`
+  
   try {
-    // Si tenemos URL de descarga, usarla; si no, usar datos JSON
-    const docQRContent = pdfDownloadUrl || JSON.stringify({
+    // Subir PDF a Supabase Storage si tenemos requestId
+    if (requestId) {
+      const tempBlob = doc.output('blob')
+      const supabase = createClient()
+      
+      const storagePath = `disposals/${folio}/${fileName}`
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from('assets')
+        .upload(storagePath, tempBlob, {
+          contentType: 'application/pdf',
+          upsert: true
+        })
+      
+      if (!uploadError && uploadData) {
+        // Obtener URL pública
+        const { data: urlData } = supabase.storage
+          .from('assets')
+          .getPublicUrl(storagePath)
+        
+        pdfUrl = urlData.publicUrl
+      }
+    }
+    
+    // Generar QR con URL de descarga si existe, si no con datos JSON
+    const docQRContent = pdfUrl || JSON.stringify({
       type: 'disposal',
       folio,
       assetTag: data.assetTag,
@@ -406,17 +460,35 @@ async function buildPDF(data: DisposalData, folio: string, verificationCode: str
     doc.text('QR Documento', rightX + qrSize / 2, y + qrSize + 12, { align: 'center' })
   } catch (error) {
     console.warn('Error al generar QR del documento:', error)
+    // QR de fallback sin URL
+    try {
+      const docQRData = JSON.stringify({
+        type: 'disposal',
+        folio,
+        assetTag: data.assetTag,
+        date: data.requestDate,
+        code: verificationCode
+      })
+      const docQrImage = await generateQRCode(docQRData, { size: 400, margin: 1, errorCorrectionLevel: 'H' })
+      doc.addImage(docQrImage, 'PNG', rightX, y + 10, qrSize, qrSize)
+      
+      doc.setTextColor(0, 0, 0)
+      doc.setFontSize(7)
+      doc.setFont('helvetica', 'bold')
+      doc.text('QR Documento', rightX + qrSize / 2, y + qrSize + 12, { align: 'center' })
+    } catch {}
   }
 
   y += 75
 
   // ═══════════════════════════════════════════════════════════════
-  // PIE DE PÁGINA
+  // PIE DE PÁGINA (en ambas páginas)
   // ═══════════════════════════════════════════════════════════════
   
   const addFooter = (pageNum: number, totalPages: number) => {
     const footerY = pageHeight - 12
     
+    // Línea separadora
     doc.setDrawColor(200, 200, 200)
     doc.setLineWidth(0.3)
     doc.line(margin, footerY - 5, pageWidth - margin, footerY - 5)
@@ -439,93 +511,21 @@ async function buildPDF(data: DisposalData, folio: string, verificationCode: str
     doc.text(`Pág. ${pageNum} de ${totalPages}`, pageWidth - margin, footerY + 4, { align: 'right' })
   }
   
+  // Agregar footer a página 2 (actual)
   addFooter(2, 2)
+  
+  // Regresar a página 1 para agregar su footer
   doc.setPage(1)
   addFooter(1, 2)
+  
+  // Volver a página 2 (última página antes de guardar)
   doc.setPage(2)
 
-  return doc
-}
-
-// Función principal exportada
-export async function generateDisposalPDF(data: DisposalData, requestId?: string): Promise<{ url: string; fileName: string }> {
-  // Generar códigos únicos
-  const folio = generateFolio()
-  const verificationCode = generateVerificationCode(data)
-  const generatedAt = new Date().toLocaleString('es-ES', {
-    day: '2-digit',
-    month: '2-digit',
-    year: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-    second: '2-digit'
-  })
+  // ═══════════════════════════════════════════════════════════════
+  // DESCARGAR Y RETORNAR
+  // ═══════════════════════════════════════════════════════════════
   
-  const fileName = `${folio}-${data.assetTag.replace(/[^A-Z0-9]/gi, '-')}.pdf`
-  let pdfUrl = ''
-
-  // Si tenemos requestId, generar PDF, subirlo, y regenerar con QR de descarga
-  if (requestId) {
-    try {
-      // PASO 1: Generar PDF inicial sin URL de descarga
-      const tempDoc = await buildPDF(data, folio, verificationCode, generatedAt)
-      const tempBlob = tempDoc.output('blob')
-      
-      // PASO 2: Subir a Supabase Storage
-      const supabase = createSupabaseBrowserClient()
-      const storagePath = `disposals/${folio}/${fileName}`
-      
-      const { error: uploadError } = await supabase.storage
-        .from('disposal-documents')
-        .upload(storagePath, tempBlob, {
-          contentType: 'application/pdf',
-          upsert: true
-        })
-      
-      if (!uploadError) {
-        // PASO 3: Obtener URL pública usando la URL base del entorno
-        const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-        if (supabaseUrl) {
-          // Construir URL correcta para Supabase local o remoto
-          pdfUrl = `${supabaseUrl}/storage/v1/object/public/disposal-documents/${storagePath}`
-        } else {
-          // Fallback: usar getPublicUrl()
-          const { data: urlData } = supabase.storage
-            .from('disposal-documents')
-            .getPublicUrl(storagePath)
-          pdfUrl = urlData.publicUrl
-        }
-        
-        // PASO 4: Regenerar PDF con URL en el QR
-        const finalDoc = await buildPDF(data, folio, verificationCode, generatedAt, pdfUrl)
-        const finalBlob = finalDoc.output('blob')
-        
-        // PASO 5: Actualizar PDF en Storage con versión que tiene QR de descarga
-        await supabase.storage
-          .from('disposal-documents')
-          .upload(storagePath, finalBlob, {
-            contentType: 'application/pdf',
-            upsert: true
-          })
-        
-        // PASO 6: Descargar el PDF final
-        finalDoc.save(fileName)
-      } else {
-        console.error('Error uploading to Supabase:', uploadError)
-        // Si falla, descargar el PDF temporal
-        tempDoc.save(fileName)
-      }
-    } catch (error) {
-      console.error('Error en proceso de PDF:', error)
-      // Fallback: generar PDF sin URL
-      const doc = await buildPDF(data, folio, verificationCode, generatedAt)
-      doc.save(fileName)
-    }
-  } else {
-    // Sin requestId, generar PDF sin URL de descarga
-    const doc = await buildPDF(data, folio, verificationCode, generatedAt)
-    doc.save(fileName)
-  }
-
+  doc.save(fileName)
+  
   return { url: pdfUrl, fileName }
 }

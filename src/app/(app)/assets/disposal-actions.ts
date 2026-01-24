@@ -62,12 +62,36 @@ const ticketStatusLabels: Record<string, string> = {
 async function getNotificationRecipients(assetId: string, requesterId: string) {
   const supabaseAdmin = createSupabaseAdminClient()
   
-  // Obtener activo con responsable
-  const { data: asset } = await supabaseAdmin
-    .from('assets')
-    .select('assigned_to, location_id, asset_tag')
+  // Obtener activo con responsable (IT o Mantenimiento)
+  let asset: any = null
+  
+  const { data: itAsset } = await supabaseAdmin
+    .from('assets_it')
+    .select('assigned_to_user_id, location_id, asset_code')
     .eq('id', assetId)
     .single()
+  
+  if (itAsset) {
+    asset = {
+      assigned_to: itAsset.assigned_to_user_id,
+      location_id: itAsset.location_id,
+      asset_tag: itAsset.asset_code
+    }
+  } else {
+    const { data: maintAsset } = await supabaseAdmin
+      .from('assets_maintenance')
+      .select('assigned_to_user_id, location_id, asset_code')
+      .eq('id', assetId)
+      .single()
+    
+    if (maintAsset) {
+      asset = {
+        assigned_to: maintAsset.assigned_to_user_id,
+        location_id: maintAsset.location_id,
+        asset_tag: maintAsset.asset_code
+      }
+    }
+  }
   
   const recipients: { id: string; email: string; name: string; role: string }[] = []
   const addedEmails = new Set<string>()
@@ -203,6 +227,18 @@ export async function createDisposalRequest(assetId: string, reason: string) {
   
   const requestId = data as string
   
+  // Obtener el snapshot guardado que tiene el asset_tag correcto
+  const { data: disposalRequest } = await supabaseAdmin
+    .from('asset_disposal_requests')
+    .select('asset_snapshot')
+    .eq('id', requestId)
+    .single()
+  
+  const assetSnapshot = disposalRequest?.asset_snapshot as any
+  const assetTag = assetSnapshot?.asset_tag || 'Activo'
+  
+  console.log('[createDisposalRequest] Asset tag from snapshot:', assetTag)
+  
   // Obtener info del solicitante
   const { data: requester } = await supabase
     .from('profiles')
@@ -210,16 +246,65 @@ export async function createDisposalRequest(assetId: string, reason: string) {
     .eq('id', user.id)
     .single()
   
-  // Obtener detalles del activo
-  const { data: asset } = await supabaseAdmin
-    .from('assets')
+  // Obtener detalles del activo (IT o Mantenimiento) para email
+  let asset: any = null
+  
+  // Intentar obtener de IT
+  const { data: itAsset } = await supabaseAdmin
+    .from('assets_it')
     .select(`
-      asset_tag, asset_type, brand, model, serial_number,
-      location, asset_location:locations(name, code),
-      assigned_user:profiles!assets_assigned_to_fkey(full_name)
+      asset_code, category, brand, model, serial_number,
+      asset_location:locations!location_id(name, code),
+      assigned_user:profiles!assigned_to_user_id(full_name)
     `)
     .eq('id', assetId)
     .single()
+  
+  if (itAsset) {
+    asset = {
+      asset_tag: itAsset.asset_code,
+      asset_type: itAsset.category,
+      brand: itAsset.brand,
+      model: itAsset.model,
+      serial_number: itAsset.serial_number,
+      asset_location: itAsset.asset_location,
+      assigned_user: itAsset.assigned_user
+    }
+  } else {
+    // Intentar obtener de Mantenimiento
+    const { data: maintAsset } = await supabaseAdmin
+      .from('assets_maintenance')
+      .select(`
+        asset_code, category, brand, model, serial_number,
+        asset_location:locations!location_id(name, code),
+        assigned_user:profiles!assigned_to_user_id(full_name)
+      `)
+      .eq('id', assetId)
+      .single()
+    
+    if (maintAsset) {
+      asset = {
+        asset_tag: maintAsset.asset_code,
+        asset_type: maintAsset.category,
+        brand: maintAsset.brand,
+        model: maintAsset.model,
+        serial_number: maintAsset.serial_number,
+        asset_location: maintAsset.asset_location,
+        assigned_user: maintAsset.assigned_user
+      }
+    }
+  }
+  
+  // Si no se pudo obtener asset de DB, usar snapshot
+  if (!asset) {
+    asset = {
+      asset_tag: assetTag,
+      asset_type: assetSnapshot?.asset_type,
+      brand: assetSnapshot?.brand,
+      model: assetSnapshot?.model,
+      serial_number: assetSnapshot?.serial_number
+    }
+  }
   
   // Obtener tickets/incidencias relacionados con este activo
   const { data: tickets } = await supabaseAdmin
@@ -239,7 +324,7 @@ export async function createDisposalRequest(assetId: string, reason: string) {
     .limit(10)
   
   // Obtener destinatarios
-  const { recipients, assetTag } = await getNotificationRecipients(assetId, user.id)
+  const { recipients } = await getNotificationRecipients(assetId, user.id)
   
   const locationArr = asset?.asset_location as unknown as { name: string; code: string }[] | null
   const locationInfo = locationArr?.[0] || null
@@ -521,13 +606,17 @@ export async function approveDisposalRequest(requestId: string, assetId: string,
   // Obtener solicitud antes de aprobar
   const { data: request } = await supabase
     .from('asset_disposal_requests')
-    .select('*, asset:assets(asset_tag)')
+    .select('*')
     .eq('id', requestId)
     .single()
   
   if (!request) {
     return { success: false, error: 'Solicitud no encontrada' }
   }
+  
+  // Obtener asset_tag del snapshot
+  const assetSnapshot = request.asset_snapshot as any
+  const assetTag = assetSnapshot?.asset_tag || 'Activo'
   
   // Aprobar via RPC
   const { error } = await supabase.rpc('approve_disposal_request', {
@@ -552,7 +641,6 @@ export async function approveDisposalRequest(requestId: string, assetId: string,
       .eq('id', user.id)
       .single()
     
-    const assetTag = (request.asset as { asset_tag: string })?.asset_tag || request.asset_snapshot?.asset_tag
     const baseUrl = getBaseUrl()
     
     const emailHtml = `
@@ -677,13 +765,17 @@ export async function rejectDisposalRequest(requestId: string, notes: string) {
   // Obtener solicitud
   const { data: request } = await supabase
     .from('asset_disposal_requests')
-    .select('*, asset:assets(asset_tag)')
+    .select('*')
     .eq('id', requestId)
     .single()
   
   if (!request) {
     return { success: false, error: 'Solicitud no encontrada' }
   }
+  
+  // Obtener asset_tag del snapshot
+  const assetSnapshot = request.asset_snapshot as any
+  const assetTag = assetSnapshot?.asset_tag || 'Activo'
   
   // Rechazar via RPC
   const { error } = await supabase.rpc('reject_disposal_request', {
@@ -716,8 +808,6 @@ export async function rejectDisposalRequest(requestId: string, notes: string) {
       .select('full_name')
       .eq('id', user.id)
       .single()
-    
-    const assetTag = (request.asset as { asset_tag: string })?.asset_tag || request.asset_snapshot?.asset_tag
     
     if (requesterEmail) {
       const emailHtml = `

@@ -102,7 +102,7 @@ export default function ExportPDFButton({ disposal }: ExportPDFButtonProps) {
           date: formatDate(c.changed_at),
           by: c.changed_by_name ?? 'Sistema'
         }))
-      })
+      }, disposal.id)
     } finally {
       setLoading(false)
     }
