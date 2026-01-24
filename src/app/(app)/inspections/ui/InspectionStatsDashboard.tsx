@@ -11,6 +11,7 @@ interface InspectionStatsDashboardProps {
   onNewInspection?: () => void
   isAdmin?: boolean
   isRRHH?: boolean
+  isGSH?: boolean
   onChangeProperty?: () => void
   onChangeDepartment?: () => void
 }
@@ -24,6 +25,7 @@ export default function InspectionStatsDashboard({
   onNewInspection,
   isAdmin,
   isRRHH,
+  isGSH,
   onChangeProperty,
   onChangeDepartment
 }: InspectionStatsDashboardProps) {
