@@ -366,18 +366,42 @@ export default function AssetDetailView({
           type: 'image/png',
         }))
 
+      // Cargar logo una vez para usarlo en todas las páginas
+      let logoBase64 = ''
+      try {
+        const logoResponse = await fetch('/ziii-logo.png')
+        const logoBlob = await logoResponse.blob()
+        logoBase64 = await new Promise<string>((resolve) => {
+          const reader = new FileReader()
+          reader.onloadend = () => resolve(reader.result as string)
+          reader.readAsDataURL(logoBlob)
+        })
+      } catch (error) {
+        console.error('Error loading logo:', error)
+      }
+
       const doc = new jsPDF({ unit: 'mm', format: 'a4' })
 
       const drawHeader = (subtitle: string) => {
         doc.setFillColor(15, 23, 42) // slate-900
         doc.rect(0, 0, 210, 24, 'F')
+        
+        // Logo ZIII (más grande: 20mm x 20mm)
+        if (logoBase64) {
+          try {
+            doc.addImage(logoBase64, 'PNG', 8, 2, 20, 20)
+          } catch (error) {
+            console.error('Error adding logo to PDF:', error)
+          }
+        }
+        
         doc.setTextColor(255, 255, 255)
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(16)
-        doc.text('ZIII HoS', 15, 15)
+        doc.text('ZIII HoS', 32, 15)
         doc.setFont('helvetica', 'normal')
         doc.setFontSize(9)
-        doc.text(subtitle, 15, 20)
+        doc.text(subtitle, 32, 20)
         doc.text(`Generado: ${new Date().toLocaleString('es-ES')}`, 195, 20, { align: 'right' })
       }
 
@@ -390,13 +414,13 @@ export default function AssetDetailView({
         doc.text(title.toUpperCase(), 17, y)
       }
 
-      const row = (label: string, value: string, x: number, y: number) => {
+      const row = (label: string, value: string, x: number, y: number, labelWidth = 40) => {
         doc.setTextColor(17, 24, 39)
         doc.setFont('helvetica', 'bold')
         doc.text(`${label}:`, x, y)
         doc.setFont('helvetica', 'normal')
         doc.setTextColor(31, 41, 55)
-        doc.text(value || 'N/A', x + 28, y)
+        doc.text(value || 'N/A', x + labelWidth, y)
       }
 
       // Página 1: Hoja de vida (no mezclar con incidencias/historial)
@@ -452,6 +476,21 @@ export default function AssetDetailView({
       row('Compra', asset.purchase_date ? new Date(asset.purchase_date).toLocaleDateString('es-ES') : 'N/A', 15, y)
       row('Garantía', asset.warranty_end_date ? new Date(asset.warranty_end_date).toLocaleDateString('es-ES') : 'N/A', 110, y)
       y += 10
+
+      // Especificaciones técnicas (solo para equipos de cómputo)
+      const isComputer = asset.asset_type === 'DESKTOP' || asset.asset_type === 'LAPTOP'
+      if (isComputer && (asset.processor || asset.ram_gb || asset.storage_gb || asset.os)) {
+        sectionTitle('Especificaciones técnicas', y)
+        y += 10
+        row('Procesador', asset.processor || 'N/A', 15, y)
+        y += 8
+        row('Memoria RAM', asset.ram_gb ? `${asset.ram_gb} GB` : 'N/A', 15, y)
+        y += 8
+        row('Almacenamiento', asset.storage_gb ? `${asset.storage_gb} GB` : 'N/A', 15, y)
+        y += 8
+        row('Sistema Operativo', asset.os || 'N/A', 15, y)
+        y += 10
+      }
 
       sectionTitle('Estadísticas', y)
       y += 10
@@ -576,9 +615,40 @@ export default function AssetDetailView({
           return new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime()
         })
 
+        const translateFieldName = (fieldName: string) => {
+          const translations: Record<string, string> = {
+            'model': 'Modelo',
+            'storage gb': 'Almacenamiento',
+            'storage_gb': 'Almacenamiento',
+            'ram gb': 'Memoria RAM',
+            'ram_gb': 'Memoria RAM',
+            'processor': 'Procesador',
+            'os': 'Sistema Operativo',
+            'created': 'Creado',
+            'asset tag': 'Etiqueta',
+            'asset_tag': 'Etiqueta',
+            'brand': 'Marca',
+            'serial number': 'Número de serie',
+            'serial_number': 'Número de serie',
+            'asset type': 'Tipo',
+            'asset_type': 'Tipo',
+            'status': 'Estado',
+            'location': 'Ubicación',
+            'department': 'Departamento',
+            'assigned to': 'Asignado a',
+            'assigned_to': 'Asignado a',
+            'purchase date': 'Fecha de compra',
+            'purchase_date': 'Fecha de compra',
+            'warranty end date': 'Fin de garantía',
+            'warranty_end_date': 'Fin de garantía',
+            'notes': 'Notas',
+          }
+          return translations[fieldName.toLowerCase()] || fieldName.replace(/_/g, ' ')
+        }
+
         const historyBody = historySorted.map(h => {
           const who = h.changed_by_name || h.changed_by_email || 'Sistema'
-          const field = (h.field_name || '').replace(/_/g, ' ')
+          const field = translateFieldName(h.field_name || '')
           return [
             formatDateShort(h.changed_at),
             compact(field, 22),
