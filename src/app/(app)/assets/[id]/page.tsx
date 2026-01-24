@@ -3,6 +3,29 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { notFound } from 'next/navigation'
 import AssetDetailView from './ui/AssetDetailView'
 
+async function fetchProfilesSafe(
+  adminClient: ReturnType<typeof createSupabaseAdminClient>,
+  userIds: string[],
+): Promise<Array<{ id: string; full_name: string | null; email: string | null }>> {
+  if (!userIds.length) return []
+
+  const primary = await adminClient.from('profiles').select('id, full_name, email').in('id', userIds)
+  if (!primary.error) {
+    return ((primary.data ?? []) as any[]).map((p) => ({
+      id: p.id as string,
+      full_name: (p.full_name as string) ?? null,
+      email: (p.email as string) ?? null,
+    }))
+  }
+
+  const fallback = await adminClient.from('profiles').select('id, full_name').in('id', userIds)
+  return ((fallback.data ?? []) as any[]).map((p) => ({
+    id: p.id as string,
+    full_name: (p.full_name as string) ?? null,
+    email: null,
+  }))
+}
+
 export default async function AssetDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
   const supabase = await createSupabaseServerClient()
@@ -196,12 +219,54 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
   const rawStats = Array.isArray(statsRows) && statsRows.length > 0 ? statsRows[0] as any : null
   
   // Obtener historial de cambios del activo
-  const { data: assetHistory } = await supabase
+  const { data: assetHistoryRaw } = await supabase
     .from('asset_changes')
     .select('*')
     .eq('asset_id', id)
     .order('changed_at', { ascending: false })
     .limit(100)
+
+  const changedByIds = Array.from(
+    new Set((assetHistoryRaw ?? []).map((h: any) => h.changed_by).filter(Boolean))
+  ) as string[]
+
+  const changedByMap = new Map<string, { full_name: string | null; email: string | null }>()
+  if (changedByIds.length > 0) {
+    const changedByProfiles = await fetchProfilesSafe(dbClient, changedByIds)
+    changedByProfiles.forEach((p) => {
+      changedByMap.set(p.id, { full_name: p.full_name, email: p.email })
+    })
+
+    // Fallback: si falta perfil (o nombre/email), intentar desde Auth Admin API
+    const idsNeedingAuthFallback = changedByIds.filter((uid) => {
+      const existing = changedByMap.get(uid)
+      return !existing || (!existing.full_name && !existing.email)
+    })
+
+    if (idsNeedingAuthFallback.length > 0) {
+      await Promise.all(
+        idsNeedingAuthFallback.map(async (uid) => {
+          const { data } = await dbClient.auth.admin.getUserById(uid)
+          const email = (data as any)?.user?.email ?? null
+
+          const existing = changedByMap.get(uid)
+          changedByMap.set(uid, {
+            full_name: existing?.full_name ?? email,
+            email: existing?.email ?? email,
+          })
+        }),
+      )
+    }
+  }
+
+  const assetHistory = (assetHistoryRaw ?? []).map((h: any) => {
+    const p = h.changed_by ? changedByMap.get(h.changed_by as string) : null
+    return {
+      ...h,
+      changed_by_name: h.changed_by_name ?? p?.full_name ?? p?.email ?? null,
+      changed_by_email: h.changed_by_email ?? p?.email ?? null,
+    }
+  })
 
   // Obtener solicitud de baja pendiente (si existe)
   const { data: pendingDisposalRequest } = await supabase

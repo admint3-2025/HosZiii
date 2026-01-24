@@ -56,41 +56,61 @@ export async function updateAssetWithLocationChange(
       return { success: false, error: 'LOCATION_CHANGE_REQUIRES_REASON' }
     }
 
-    // Actualizar directamente en assets_it usando el cliente admin
-    const { error: updateError } = await adminClient
-      .from('assets_it')
-      .update({
-        asset_code: updateData.asset_code,
-        name: updateData.asset_code, // Usar asset_code como nombre por defecto
-        category: updateData.asset_type,
-        status: updateData.status?.toUpperCase() || 'ACTIVE',
-        serial_number: updateData.serial_number,
-        model: updateData.model,
-        brand: updateData.brand,
-        department: updateData.department,
-        location_id: updateData.location_id,
-        assigned_to_user_id: updateData.assigned_to,
-        purchase_date: updateData.purchase_date,
-        warranty_expiry: updateData.warranty_end_date,
-        notes: updateData.notes,
-        processor: updateData.processor,
-        ram_gb: updateData.ram_gb,
-        storage_gb: updateData.storage_gb,
-        os: updateData.os,
-        image_url: updateData.image_url,
-        dynamic_specs: updateData.dynamic_specs || {},
-        updated_at: new Date().toISOString(),
-        // updated_by: user.id, // Comentado temporalmente - el trigger usa auth.uid()
-      })
-      .eq('id', assetId)
+    const now = new Date().toISOString()
 
-    if (updateError) {
-      console.error('Error updating asset_it:', updateError)
-      return { success: false, error: updateError.message }
+    // Actualizar el activo con el cliente autenticado primero.
+    // Esto permite que el trigger en DB lea auth.uid() y registre correctamente el usuario.
+    const baseUpdatePayload: Record<string, any> = {
+      asset_code: updateData.asset_code,
+      name: updateData.asset_code,
+      category: updateData.asset_type,
+      status: updateData.status?.toUpperCase() || 'ACTIVE',
+      serial_number: updateData.serial_number,
+      model: updateData.model,
+      brand: updateData.brand,
+      department: updateData.department,
+      location_id: updateData.location_id,
+      assigned_to_user_id: updateData.assigned_to,
+      purchase_date: updateData.purchase_date,
+      warranty_expiry: updateData.warranty_end_date,
+      notes: updateData.notes,
+      processor: updateData.processor,
+      ram_gb: updateData.ram_gb,
+      storage_gb: updateData.storage_gb,
+      os: updateData.os,
+      image_url: updateData.image_url,
+      dynamic_specs: updateData.dynamic_specs || {},
+      updated_at: now,
+      updated_by: user.id,
     }
 
-    // Los cambios ahora se registran automáticamente mediante el trigger track_asset_it_changes_trigger
-    // No es necesario registrar manualmente en asset_changes
+    const tryUpdate = async (client: typeof supabase | typeof adminClient) => {
+      // 1) Intento con updated_by
+      let res = await (client as any).from('assets_it').update(baseUpdatePayload).eq('id', assetId)
+
+      // 2) Si PostgREST no ve updated_by (cache), reintentar sin esa columna
+      if (res?.error?.message?.includes("'updated_by'") || res?.error?.message?.includes('updated_by')) {
+        const { updated_by: _ignored, ...withoutUpdatedBy } = baseUpdatePayload
+        res = await (client as any).from('assets_it').update(withoutUpdatedBy).eq('id', assetId)
+      }
+
+      return res
+    }
+
+    // Primero: cliente autenticado (para que auth.uid() exista en DB)
+    let updateRes = await tryUpdate(supabase)
+
+    // Fallback: service-role (si RLS bloquea el update con sesión)
+    if (updateRes?.error) {
+      updateRes = await tryUpdate(adminClient)
+    }
+
+    if (updateRes?.error) {
+      console.error('Error updating assets_it:', updateRes.error)
+      return { success: false, error: updateRes.error.message }
+    }
+
+    // Los cambios se registran automáticamente mediante el trigger track_asset_it_changes_trigger
 
     revalidatePath(`/assets/${assetId}`)
     revalidatePath('/assets')

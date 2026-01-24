@@ -55,103 +55,44 @@ export async function updateAssetWithLocationChange(
       return { success: false, error: 'LOCATION_CHANGE_REQUIRES_REASON' }
     }
 
-    // Actualizar directamente en assets_it usando el cliente admin
-    const { error: updateError } = await adminClient
-      .from('assets_it')
-      .update({
-        asset_code: updateData.asset_code,
-        name: updateData.asset_code, // Usar asset_code como nombre por defecto
-        category: updateData.asset_type,
-        status: updateData.status?.toUpperCase() || 'ACTIVE',
-        serial_number: updateData.serial_number,
-        model: updateData.model,
-        brand: updateData.brand,
-        location_id: updateData.location_id,
-        assigned_to_user_id: updateData.assigned_to,
-        purchase_date: updateData.purchase_date,
-        warranty_expiry: updateData.warranty_end_date,
-        notes: updateData.notes,
-        image_url: updateData.image_url,
-        updated_at: new Date().toISOString(),
-        // updated_by: user.id, // Comentado temporalmente - el trigger usa auth.uid()
-      })
-      .eq('id', assetId)
+    const now = new Date().toISOString()
 
-    if (updateError) {
-      console.error('Error updating asset_it:', updateError)
-      return { success: false, error: updateError.message }
+    const baseUpdatePayload: Record<string, any> = {
+      asset_code: updateData.asset_code,
+      name: updateData.asset_code,
+      category: updateData.asset_type,
+      status: updateData.status?.toUpperCase() || 'ACTIVE',
+      serial_number: updateData.serial_number,
+      model: updateData.model,
+      brand: updateData.brand,
+      department: updateData.department,
+      location_id: updateData.location_id,
+      assigned_to_user_id: updateData.assigned_to,
+      purchase_date: updateData.purchase_date,
+      warranty_expiry: updateData.warranty_end_date,
+      notes: updateData.notes,
+      image_url: updateData.image_url,
+      updated_at: now,
+      updated_by: user.id,
     }
 
-    // Registrar cambios en asset_changes si hay cambios relevantes
-    const changes: any[] = []
-    const changedAt = new Date().toISOString()
-
-    // Cambio de ubicación
-    if (oldAsset.location_id !== updateData.location_id) {
-      changes.push({
-        asset_id: assetId,
-        asset_tag: updateData.asset_code,
-        field_name: 'location_id',
-        change_type: 'UPDATE',
-        old_value: oldAsset.asset_location?.code || oldAsset.location_id || 'Sin sede',
-        new_value: updateData.location_id || 'Sin sede',
-        changed_by: user.id,
-        changed_at: changedAt,
-      })
-    }
-
-    // Cambio de estado
-    if (oldAsset.status?.toUpperCase() !== updateData.status?.toUpperCase()) {
-      changes.push({
-        asset_id: assetId,
-        asset_tag: updateData.asset_code,
-        field_name: 'status',
-        change_type: 'UPDATE',
-        old_value: oldAsset.status,
-        new_value: updateData.status?.toUpperCase(),
-        changed_by: user.id,
-        changed_at: changedAt,
-      })
-    }
-
-    // Cambio de asignación
-    if (oldAsset.assigned_to_user_id !== updateData.assigned_to) {
-      changes.push({
-        asset_id: assetId,
-        asset_tag: updateData.asset_code,
-        field_name: 'assigned_to',
-        change_type: 'UPDATE',
-        old_value: oldAsset.assigned_to_user_id || 'Sin asignar',
-        new_value: updateData.assigned_to || 'Sin asignar',
-        changed_by: user.id,
-        changed_at: changedAt,
-      })
-    }
-
-    // Cambio de imagen
-    if (oldAsset.image_url !== updateData.image_url) {
-      changes.push({
-        asset_id: assetId,
-        asset_tag: updateData.asset_code,
-        field_name: 'image_url',
-        change_type: 'UPDATE',
-        old_value: oldAsset.image_url || 'Sin imagen',
-        new_value: updateData.image_url || 'Imagen eliminada',
-        changed_by: user.id,
-        changed_at: changedAt,
-      })
-    }
-
-    // Insertar cambios en asset_changes
-    if (changes.length > 0) {
-      const { error: changesError } = await adminClient
-        .from('asset_changes')
-        .insert(changes)
-
-      if (changesError) {
-        console.error('Error inserting asset_changes (non-fatal):', changesError)
-        // No retornamos error porque el activo se actualizó correctamente
+    const tryUpdate = async (client: typeof supabase | typeof adminClient) => {
+      let res = await (client as any).from('assets_it').update(baseUpdatePayload).eq('id', assetId)
+      if (res?.error?.message?.includes("'updated_by'") || res?.error?.message?.includes('updated_by')) {
+        const { updated_by: _ignored, ...withoutUpdatedBy } = baseUpdatePayload
+        res = await (client as any).from('assets_it').update(withoutUpdatedBy).eq('id', assetId)
       }
+      return res
+    }
+
+    let updateRes = await tryUpdate(supabase)
+    if (updateRes?.error) {
+      updateRes = await tryUpdate(adminClient)
+    }
+
+    if (updateRes?.error) {
+      console.error('Error updating assets_it:', updateRes.error)
+      return { success: false, error: updateRes.error.message }
     }
 
     revalidatePath(`/admin/assets/${assetId}`)

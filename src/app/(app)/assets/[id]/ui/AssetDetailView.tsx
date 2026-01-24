@@ -1348,6 +1348,8 @@ export default function AssetDetailView({
                             </>
                           ) : change.changed_by_name ? (
                             change.changed_by_name
+                          ) : change.changed_by_email ? (
+                            change.changed_by_email
                           ) : (
                             <span className="text-gray-400 italic">Usuario no registrado</span>
                           )}

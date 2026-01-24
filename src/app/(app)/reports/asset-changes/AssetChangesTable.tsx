@@ -127,6 +127,10 @@ export default function AssetChangesTable({
                         <div className="font-semibold text-gray-900">
                           {change.changed_by_name}
                         </div>
+                      ) : change.changed_by_email ? (
+                        <div className="font-semibold text-gray-900">
+                          {change.changed_by_email}
+                        </div>
                       ) : (
                         <div className="text-gray-400 italic">Usuario no registrado</div>
                       )}
