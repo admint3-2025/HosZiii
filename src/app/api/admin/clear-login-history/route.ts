@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     const { error: deleteError } = await admin
       .from('login_audits')
       .delete()
-      .neq('id', '') // Trick para eliminar todos los registros
+      .gt('created_at', '1900-01-01') // Selecciona todos los registros
 
     if (deleteError) {
       return NextResponse.json(
