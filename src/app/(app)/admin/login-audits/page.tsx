@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import Link from 'next/link'
 import ClientDate from '@/components/ClientDate'
+import ClearHistoryButton from './ui/ClearHistoryButton'
 
 type Row = {
   id: string
@@ -331,6 +332,7 @@ export default async function Page({ searchParams }: { searchParams: any }) {
                 7d
               </Link>
             </div>
+            <ClearHistoryButton />
           </div>
         </form>
 
