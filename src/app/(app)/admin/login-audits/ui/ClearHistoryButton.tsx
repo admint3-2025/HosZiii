@@ -30,7 +30,8 @@ export default function ClearHistoryButton() {
         return
       }
 
-      alert('✅ Historial de sesiones eliminado correctamente')
+      const deleted = data.deleted || 0
+      alert(`✅ ${deleted} registro(s) eliminado(s) correctamente`)
       router.refresh()
     } catch (error: any) {
       alert(`❌ Error: ${error?.message}`)

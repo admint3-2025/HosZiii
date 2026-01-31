@@ -23,11 +23,29 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
-    // Limpiar tabla login_audits
+    // Primero obtener todos los IDs
+    const { data: allRecords, error: fetchError } = await admin
+      .from('login_audits')
+      .select('id')
+
+    if (fetchError) {
+      return NextResponse.json(
+        { error: 'Error obteniendo registros: ' + fetchError.message },
+        { status: 500 }
+      )
+    }
+
+    // Si no hay registros, retorna éxito
+    if (!allRecords || allRecords.length === 0) {
+      return NextResponse.json({ success: true, message: 'Historial ya estaba vacío', deleted: 0 })
+    }
+
+    // Obtener todos los IDs y borrar en lotes
+    const ids = allRecords.map((r: any) => r.id)
     const { error: deleteError } = await admin
       .from('login_audits')
       .delete()
-      .gt('created_at', '1900-01-01') // Selecciona todos los registros
+      .in('id', ids)
 
     if (deleteError) {
       return NextResponse.json(
@@ -36,7 +54,11 @@ export async function POST(req: NextRequest) {
       )
     }
 
-    return NextResponse.json({ success: true, message: 'Historial de sesiones eliminado correctamente' })
+    return NextResponse.json({ 
+      success: true, 
+      message: 'Historial de sesiones eliminado correctamente',
+      deleted: ids.length
+    })
   } catch (error: any) {
     return NextResponse.json(
       { error: 'Error: ' + error?.message },
