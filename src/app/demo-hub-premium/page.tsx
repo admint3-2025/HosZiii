@@ -1,6 +1,7 @@
 import React from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { redirect } from 'next/navigation'
 import {
   ShieldCheck,
   Settings,
@@ -11,11 +12,17 @@ import {
   Activity,
   ArrowRight,
 } from 'lucide-react'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { getSafeServerUser } from '@/lib/supabase/server'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import {
+  isMaintenanceAssetCategory,
+  isITAssetCategoryOrUnassigned,
+} from '@/lib/permissions/asset-category'
 
 type ColorKey = 'blue' | 'emerald' | 'amber' | 'purple'
 
 type ModuleCard = {
+  id: 'it-helpdesk' | 'mantenimiento' | 'corporativo' | 'administracion'
   title: string
   desc: string
   icon: React.ReactNode
@@ -27,61 +34,27 @@ type ModuleCard = {
 
 const logoUrl = 'https://systemach-sas.com/logo_ziii/ZIII%20logo.png'
 
-const modules: ModuleCard[] = [
-  {
-    title: 'IT - HELPDESK',
-    desc: 'Mesa de Ayuda y Desarrollo Técnico',
-    icon: <LifeBuoy className="w-10 h-10" />,
-    color: 'blue',
-    glowClass: 'from-blue-500/0 to-blue-500/10',
-    iconWrapClass:
-      'text-blue-400 shadow-blue-500/20 group-hover:bg-blue-500 group-hover:shadow-blue-500/40',
-    href: '/tickets?view=mine',
-  },
-  {
-    title: 'MANTENIMIENTO',
-    desc: 'Ingeniería e Infraestructura Hotelera',
-    icon: <Wrench className="w-10 h-10" />,
-    color: 'emerald',
-    glowClass: 'from-emerald-500/0 to-emerald-500/10',
-    iconWrapClass:
-      'text-emerald-400 shadow-emerald-500/20 group-hover:bg-emerald-500 group-hover:shadow-emerald-500/40',
-    href: '/mantenimiento/dashboard',
-  },
-  {
-    title: 'CORPORATIVO',
-    desc: 'Políticas, Academia y Cumplimiento',
-    icon: <ShieldCheck className="w-10 h-10" />,
-    color: 'amber',
-    glowClass: 'from-amber-500/0 to-amber-500/10',
-    iconWrapClass:
-      'text-amber-400 shadow-amber-500/20 group-hover:bg-amber-500 group-hover:shadow-amber-500/40',
-    href: '/corporativo/dashboard',
-  },
-  {
-    title: 'ADMINISTRACIÓN',
-    desc: 'Configuración de Sistema y Auditoría',
-    icon: <Settings className="w-10 h-10" />,
-    color: 'purple',
-    glowClass: 'from-purple-500/0 to-purple-500/10',
-    iconWrapClass:
-      'text-purple-400 shadow-purple-500/20 group-hover:bg-purple-500 group-hover:shadow-purple-500/40',
-    href: '/admin',
-  },
-]
-
-type LoginAuditRow = {
+type AuditRow = {
   id: string
   created_at: string
-  ip: string | null
-  event: string | null
-  success: boolean | null
-  email: string | null
+  action: string
+  entity_type: string | null
+  entity_id: string | null
 }
 
-function formatIp(ip: string | null): string {
-  if (!ip) return '—'
-  return ip.replace(/^::ffff:/, '')
+function actionLabel(action: string): string {
+  const map: Record<string, string> = {
+    CREATE: 'Nuevo',
+    UPDATE: 'Actualizado',
+    DELETE: 'Eliminado',
+    EXPORT: 'Exportado',
+    ASSIGN: 'Asignado',
+    COMMENT: 'Comentario',
+    CLOSE: 'Cerrado',
+    REOPEN: 'Reabierto',
+    LOGIN: 'Sesión iniciada',
+  }
+  return map[action] ?? action
 }
 
 function formatDateTime(iso: string): string {
@@ -97,19 +70,113 @@ function formatDateTime(iso: string): string {
 }
 
 export default async function DemoHubPremiumPage() {
-  const supabase = await createSupabaseServerClient()
-  const { data: { user } } = await supabase.auth.getUser()
-
-  let recent: LoginAuditRow[] = []
-  if (user?.id) {
-    const { data } = await supabase
-      .from('login_audits')
-      .select('id, created_at, ip, event, success, email')
-      .eq('user_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(5)
-    recent = (data as any) || []
+  const user = await getSafeServerUser()
+  if (!user) {
+    redirect('/login')
   }
+
+  const supabase = createSupabaseAdminClient()
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('id, role, asset_category, hub_visible_modules')
+    .eq('id', user.id)
+    .single()
+
+  if (!profile) {
+    redirect('/login')
+  }
+
+  const role = (profile as any).role as string
+  const assetCategory = (profile as any).asset_category as string | null
+  const hubVisibleModules = ((profile as any).hub_visible_modules ?? null) as
+    | Record<string, boolean>
+    | null
+
+  const isAdmin = role === 'admin'
+  const isCorporateAdmin = role === 'corporate_admin'
+  const isSupervisor = role === 'supervisor'
+  const isAgent = role === 'agent_l1' || role === 'agent_l2'
+
+  const canManageIT = isITAssetCategoryOrUnassigned(assetCategory)
+  const canManageMaintenance = isMaintenanceAssetCategory(assetCategory)
+
+  const itHref =
+    (isAdmin || isSupervisor) && (isAdmin || canManageIT)
+      ? '/dashboard'
+      : isAgent && canManageIT
+        ? '/dashboard'
+        : '/tickets?view=mine'
+
+  const maintenanceHref =
+    (isAdmin || isSupervisor) && (isAdmin || canManageMaintenance)
+      ? '/mantenimiento/dashboard'
+      : '/mantenimiento/tickets?view=mine'
+
+  const baseModules: ModuleCard[] = [
+    {
+      id: 'it-helpdesk',
+      title: 'IT - HELPDESK',
+      desc: 'Mesa de Ayuda y Desarrollo Técnico',
+      icon: <LifeBuoy className="w-10 h-10" />,
+      color: 'blue',
+      glowClass: 'from-blue-500/0 to-blue-500/10',
+      iconWrapClass:
+        'text-blue-400 shadow-blue-500/20 group-hover:bg-blue-500 group-hover:shadow-blue-500/40',
+      href: itHref,
+    },
+    {
+      id: 'mantenimiento',
+      title: 'MANTENIMIENTO',
+      desc: 'Ingeniería e Infraestructura Hotelera',
+      icon: <Wrench className="w-10 h-10" />,
+      color: 'emerald',
+      glowClass: 'from-emerald-500/0 to-emerald-500/10',
+      iconWrapClass:
+        'text-emerald-400 shadow-emerald-500/20 group-hover:bg-emerald-500 group-hover:shadow-emerald-500/40',
+      href: maintenanceHref,
+    },
+    {
+      id: 'corporativo',
+      title: 'CORPORATIVO',
+      desc: 'Políticas, Academia y Cumplimiento',
+      icon: <ShieldCheck className="w-10 h-10" />,
+      color: 'amber',
+      glowClass: 'from-amber-500/0 to-amber-500/10',
+      iconWrapClass:
+        'text-amber-400 shadow-amber-500/20 group-hover:bg-amber-500 group-hover:shadow-amber-500/40',
+      href: '/corporativo/dashboard',
+    },
+    {
+      id: 'administracion',
+      title: 'ADMINISTRACIÓN',
+      desc: 'Configuración de Sistema y Auditoría',
+      icon: <Settings className="w-10 h-10" />,
+      color: 'purple',
+      glowClass: 'from-purple-500/0 to-purple-500/10',
+      iconWrapClass:
+        'text-purple-400 shadow-purple-500/20 group-hover:bg-purple-500 group-hover:shadow-purple-500/40',
+      href: '/admin',
+    },
+  ]
+
+  const allowedByRole = (m: ModuleCard) => {
+    if (m.id === 'administracion') return isAdmin
+    if (m.id === 'corporativo') return isAdmin || isCorporateAdmin
+    return true
+  }
+
+  const modules = baseModules
+    .filter(allowedByRole)
+    .filter((m) => (hubVisibleModules ? hubVisibleModules[m.id] !== false : true))
+
+  const { data: recent } = await supabase
+    .from('audit_log')
+    .select('id, created_at, action, entity_type, entity_id')
+    .eq('actor_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(6)
+
+  const recentActivities: AuditRow[] = ((recent as any) ?? []) as AuditRow[]
 
   return (
     <div className="min-h-screen bg-[#06080d] text-slate-200 font-sans selection:bg-blue-500/30 flex flex-col items-center justify-center p-6 relative overflow-hidden">
@@ -231,7 +298,7 @@ export default async function DemoHubPremiumPage() {
               <div>
                 <div className="text-sm font-black text-white uppercase tracking-tight">Mis actividades recientes</div>
                 <div className="text-[10px] text-slate-500 font-mono tracking-tight">
-                  {user?.email ? user.email : 'Sin sesión activa'}
+                  {user.email}
                 </div>
               </div>
             </div>
@@ -245,38 +312,38 @@ export default async function DemoHubPremiumPage() {
 
           <div className="rounded-[2rem] border border-white/10 bg-white/[0.03] backdrop-blur-xl overflow-hidden shadow-[0_30px_60px_-15px_rgba(0,0,0,0.5)]">
             <div className="divide-y divide-white/5">
-              {recent.length > 0 ? (
-                recent.map((r) => (
+              {recentActivities.length > 0 ? (
+                recentActivities.map((r) => (
                   <div key={r.id} className="px-6 py-4 flex items-center justify-between gap-4">
                     <div className="min-w-0">
                       <div className="flex items-center gap-2">
                         <span
                           className={
-                            r.success === false
+                            r.action === 'DELETE'
                               ? 'inline-flex items-center px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-red-500/10 text-red-300 border border-red-500/20'
-                              : 'inline-flex items-center px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
+                              : r.action === 'CREATE'
+                                ? 'inline-flex items-center px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
+                                : 'inline-flex items-center px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-blue-500/10 text-blue-300 border border-blue-500/20'
                           }
                         >
-                          {r.success === false ? 'FALLO' : 'OK'}
+                          {r.action}
                         </span>
                         <span className="text-xs font-bold text-white truncate">
-                          {(r.event || 'LOGIN').toString()}
+                          {actionLabel(r.action)}
                         </span>
                       </div>
                       <div className="mt-1 text-[11px] text-slate-500 font-mono truncate">
-                        {formatDateTime(r.created_at)} • IP {formatIp(r.ip)}
+                        {formatDateTime(r.created_at)}
                       </div>
                     </div>
                     <div className="text-[11px] text-slate-600 font-mono truncate hidden sm:block">
-                      {r.email || user?.email || '—'}
+                      {r.entity_type ? `${r.entity_type}${r.entity_id ? `:${r.entity_id}` : ''}` : '—'}
                     </div>
                   </div>
                 ))
               ) : (
                 <div className="px-6 py-10 text-center text-slate-500">
-                  {user?.id
-                    ? 'No hay actividad reciente para mostrar.'
-                    : 'Inicia sesión para ver tu actividad reciente.'}
+                  No hay actividad reciente para mostrar.
                 </div>
               )}
             </div>
