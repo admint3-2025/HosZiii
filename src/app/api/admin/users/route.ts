@@ -75,11 +75,11 @@ export async function GET() {
 
   const { data: profiles, error: profErr } = await admin
     .from('profiles')
-    // NOTE: Select specific columns, excluding hub_visible_modules and active (may not exist in older DBs)
+    // Select only essential columns that exist in all DB versions
     .select(`
       id, role, full_name, department, phone, building, floor, position,
       supervisor_id, location_id, asset_category, allowed_departments,
-      can_view_beo, can_manage_assets, created_at, updated_at,
+      can_view_beo, can_manage_assets,
       locations(code,name)
     `)
     .in('id', ids)
