@@ -1,7 +1,6 @@
-'use client'
-
 import React from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import {
   ShieldCheck,
   Settings,
@@ -12,6 +11,7 @@ import {
   Activity,
   ArrowRight,
 } from 'lucide-react'
+import { createSupabaseServerClient } from '@/lib/supabase/server'
 
 type ColorKey = 'blue' | 'emerald' | 'amber' | 'purple'
 
@@ -22,6 +22,7 @@ type ModuleCard = {
   color: ColorKey
   glowClass: string
   iconWrapClass: string
+  href: string
 }
 
 const logoUrl = 'https://systemach-sas.com/logo_ziii/ZIII%20logo.png'
@@ -35,6 +36,7 @@ const modules: ModuleCard[] = [
     glowClass: 'from-blue-500/0 to-blue-500/10',
     iconWrapClass:
       'text-blue-400 shadow-blue-500/20 group-hover:bg-blue-500 group-hover:shadow-blue-500/40',
+    href: '/tickets?view=mine',
   },
   {
     title: 'MANTENIMIENTO',
@@ -44,6 +46,7 @@ const modules: ModuleCard[] = [
     glowClass: 'from-emerald-500/0 to-emerald-500/10',
     iconWrapClass:
       'text-emerald-400 shadow-emerald-500/20 group-hover:bg-emerald-500 group-hover:shadow-emerald-500/40',
+    href: '/mantenimiento/dashboard',
   },
   {
     title: 'CORPORATIVO',
@@ -53,6 +56,7 @@ const modules: ModuleCard[] = [
     glowClass: 'from-amber-500/0 to-amber-500/10',
     iconWrapClass:
       'text-amber-400 shadow-amber-500/20 group-hover:bg-amber-500 group-hover:shadow-amber-500/40',
+    href: '/corporativo/dashboard',
   },
   {
     title: 'ADMINISTRACIÓN',
@@ -62,10 +66,51 @@ const modules: ModuleCard[] = [
     glowClass: 'from-purple-500/0 to-purple-500/10',
     iconWrapClass:
       'text-purple-400 shadow-purple-500/20 group-hover:bg-purple-500 group-hover:shadow-purple-500/40',
+    href: '/admin',
   },
 ]
 
-export default function DemoHubPremiumPage() {
+type LoginAuditRow = {
+  id: string
+  created_at: string
+  ip: string | null
+  event: string | null
+  success: boolean | null
+  email: string | null
+}
+
+function formatIp(ip: string | null): string {
+  if (!ip) return '—'
+  return ip.replace(/^::ffff:/, '')
+}
+
+function formatDateTime(iso: string): string {
+  const d = new Date(iso)
+  if (Number.isNaN(d.getTime())) return iso
+  return d.toLocaleString('es-CO', {
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+  })
+}
+
+export default async function DemoHubPremiumPage() {
+  const supabase = await createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+
+  let recent: LoginAuditRow[] = []
+  if (user?.id) {
+    const { data } = await supabase
+      .from('login_audits')
+      .select('id, created_at, ip, event, success, email')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(5)
+    recent = (data as any) || []
+  }
+
   return (
     <div className="min-h-screen bg-[#06080d] text-slate-200 font-sans selection:bg-blue-500/30 flex flex-col items-center justify-center p-6 relative overflow-hidden">
       {/* Fondos difuminados para dar profundidad (Efecto Aurora) */}
@@ -130,15 +175,10 @@ export default function DemoHubPremiumPage() {
         {/* --- HUB DE ACCESOS (GRID) --- */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-20">
           {modules.map((mod) => (
-            <button
+            <Link
               key={mod.title}
-              type="button"
-              className="group relative h-72 bg-gradient-to-b from-white/[0.06] to-transparent border border-white/10 rounded-[3.5rem] p-10 overflow-hidden transition-all duration-700 hover:scale-[1.02] hover:border-white/30 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.5)] active:scale-95 text-left"
-              onClick={() => {
-                // demo only
-                // eslint-disable-next-line no-alert
-                alert(`Demo: abrir módulo ${mod.title}`)
-              }}
+              href={mod.href}
+              className="group relative h-60 md:h-64 bg-gradient-to-b from-white/[0.06] to-transparent border border-white/10 rounded-[3.5rem] p-8 md:p-9 overflow-hidden transition-all duration-700 hover:scale-[1.02] hover:border-white/30 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.5)] active:scale-95 text-left"
             >
               {/* Resplandor de color interno en hover */}
               <div
@@ -177,9 +217,71 @@ export default function DemoHubPremiumPage() {
                 unoptimized
                 className="absolute right-[-10%] top-[-10%] h-64 w-auto opacity-[0.03] grayscale brightness-200 group-hover:opacity-[0.08] group-hover:scale-110 transition-all duration-1000 pointer-events-none select-none"
               />
-            </button>
+            </Link>
           ))}
         </div>
+
+        {/* --- ACTIVIDAD RECIENTE --- */}
+        <section className="mb-16">
+          <div className="flex items-center justify-between px-2 mb-4">
+            <div className="flex items-center gap-3">
+              <div className="w-9 h-9 rounded-2xl bg-white/[0.04] border border-white/10 flex items-center justify-center">
+                <Activity size={18} className="text-blue-400" />
+              </div>
+              <div>
+                <div className="text-sm font-black text-white uppercase tracking-tight">Mis actividades recientes</div>
+                <div className="text-[10px] text-slate-500 font-mono tracking-tight">
+                  {user?.email ? user.email : 'Sin sesión activa'}
+                </div>
+              </div>
+            </div>
+            <div className="flex items-center gap-2 text-[10px] text-slate-500">
+              <span className="inline-flex items-center gap-2">
+                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.5)] animate-pulse" />
+                Activas
+              </span>
+            </div>
+          </div>
+
+          <div className="rounded-[2rem] border border-white/10 bg-white/[0.03] backdrop-blur-xl overflow-hidden shadow-[0_30px_60px_-15px_rgba(0,0,0,0.5)]">
+            <div className="divide-y divide-white/5">
+              {recent.length > 0 ? (
+                recent.map((r) => (
+                  <div key={r.id} className="px-6 py-4 flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={
+                            r.success === false
+                              ? 'inline-flex items-center px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-red-500/10 text-red-300 border border-red-500/20'
+                              : 'inline-flex items-center px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
+                          }
+                        >
+                          {r.success === false ? 'FALLO' : 'OK'}
+                        </span>
+                        <span className="text-xs font-bold text-white truncate">
+                          {(r.event || 'LOGIN').toString()}
+                        </span>
+                      </div>
+                      <div className="mt-1 text-[11px] text-slate-500 font-mono truncate">
+                        {formatDateTime(r.created_at)} • IP {formatIp(r.ip)}
+                      </div>
+                    </div>
+                    <div className="text-[11px] text-slate-600 font-mono truncate hidden sm:block">
+                      {r.email || user?.email || '—'}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="px-6 py-10 text-center text-slate-500">
+                  {user?.id
+                    ? 'No hay actividad reciente para mostrar.'
+                    : 'Inicia sesión para ver tu actividad reciente.'}
+                </div>
+              )}
+            </div>
+          </div>
+        </section>
 
         {/* --- FOOTER INFORMATIVO --- */}
         <footer className="flex flex-col md:flex-row items-center justify-between gap-8 px-6 py-8 border-t border-white/5">
