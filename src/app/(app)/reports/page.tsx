@@ -12,14 +12,15 @@ export default async function ReportsPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role,asset_category')
+    .select('role, asset_category, is_it_supervisor, is_maintenance_supervisor')
     .eq('id', user.id)
     .single()
 
   const isAdmin = profile?.role === 'admin'
   const isSupervisor = profile?.role === 'supervisor'
-  // corporate_admin también tiene permisos de supervisor
-  const isAdminOrSupervisor = isAdmin || isSupervisor || profile?.role === 'corporate_admin'
+  // corporate_admin con permisos de supervisión también tiene acceso
+  const isAdminOrSupervisor = isAdmin || isSupervisor || 
+    (profile?.role === 'corporate_admin' && (profile?.is_it_supervisor || profile?.is_maintenance_supervisor))
   
   // Determinar acceso a módulos
   const canAccessIT = isAdmin || profile?.asset_category === 'IT' || profile?.asset_category === null

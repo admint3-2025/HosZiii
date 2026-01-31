@@ -56,6 +56,8 @@ type UserRow = {
   asset_category: string | null
   allowed_departments: string[] | null
   hub_visible_modules?: any | null
+  is_it_supervisor?: boolean | null
+  is_maintenance_supervisor?: boolean | null
 }
 
 const ROLE_LABEL: Record<Role, string> = {
@@ -92,6 +94,8 @@ export default function UserList() {
   const [editAllowedDepartments, setEditAllowedDepartments] = useState<string[]>([])
   const [editCanViewBeo, setEditCanViewBeo] = useState(false)
   const [editCanManageAssets, setEditCanManageAssets] = useState(false)
+  const [editIsITSupervisor, setEditIsITSupervisor] = useState(false)
+  const [editIsMaintenanceSupervisor, setEditIsMaintenanceSupervisor] = useState(false)
 
   const [editHubModules, setEditHubModules] = useState<HubModules>(DEFAULT_HUB_MODULES)
   const [hubModalOpen, setHubModalOpen] = useState(false)
@@ -198,6 +202,8 @@ export default function UserList() {
     setEditAllowedDepartments(u.allowed_departments ?? [])
     setEditCanViewBeo(u.can_view_beo ?? false)
     setEditCanManageAssets(u.can_manage_assets ?? false)
+    setEditIsITSupervisor(u.is_it_supervisor ?? false)
+    setEditIsMaintenanceSupervisor(u.is_maintenance_supervisor ?? false)
 
     const hm = (u as any).hub_visible_modules
     if (hm && typeof hm === 'object') {
@@ -253,6 +259,8 @@ export default function UserList() {
           allowed_departments: editRole === 'corporate_admin' && editAllowedDepartments.length > 0 ? editAllowedDepartments : null,
           can_view_beo: editCanViewBeo,
           can_manage_assets: editCanManageAssets,
+          is_it_supervisor: editIsITSupervisor,
+          is_maintenance_supervisor: editIsMaintenanceSupervisor,
           hub_visible_modules: editHubModules,
         }),
       })
@@ -735,6 +743,48 @@ export default function UserList() {
                                     Puede gestionar inventario y activos
                                   </span>
                                 </label>
+
+                                {/* Permisos de supervisión para corporate_admin */}
+                                {editRole === 'corporate_admin' && (
+                                  <>
+                                    <div className="pt-2 border-t border-blue-200">
+                                      <div className="text-[11px] font-semibold text-blue-900 uppercase tracking-wide mb-2">
+                                        Permisos de Supervisión
+                                      </div>
+                                      
+                                      <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          checked={editIsITSupervisor}
+                                          onChange={(e) => setEditIsITSupervisor(e.target.checked)}
+                                          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
+                                        />
+                                        <span className="text-xs text-gray-700 flex items-center gap-1.5">
+                                          <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                                          </svg>
+                                          Supervisor de IT - HelpDesk
+                                        </span>
+                                      </label>
+
+                                      <label className="flex items-center gap-2 cursor-pointer">
+                                        <input
+                                          type="checkbox"
+                                          checked={editIsMaintenanceSupervisor}
+                                          onChange={(e) => setEditIsMaintenanceSupervisor(e.target.checked)}
+                                          className="w-4 h-4 rounded border-gray-300 text-orange-600 focus:ring-2 focus:ring-orange-500"
+                                        />
+                                        <span className="text-xs text-gray-700 flex items-center gap-1.5">
+                                          <svg className="w-4 h-4 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                          </svg>
+                                          Supervisor de Mantenimiento
+                                        </span>
+                                      </label>
+                                    </div>
+                                  </>
+                                )}
 
                                 <div className="pt-2 border-t border-blue-200">
                                   <label className="text-[11px] font-semibold text-blue-900 uppercase tracking-wide mb-2 block">

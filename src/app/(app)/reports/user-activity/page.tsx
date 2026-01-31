@@ -18,11 +18,11 @@ export default async function UserActivityReportPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, is_it_supervisor, is_maintenance_supervisor')
     .eq('id', user.id)
     .single()
 
-  if (!profile || !hasSupervisorPermissions(profile.role as any)) {
+  if (!profile || !hasSupervisorPermissions(profile as any)) {
     redirect('/dashboard')
   }
 

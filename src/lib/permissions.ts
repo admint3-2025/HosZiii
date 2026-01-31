@@ -27,12 +27,43 @@ export type Permission =
   | 'delete_tickets'
   | 'supervisor_access' // Nuevo: acceso de supervisor (reportes, asignación, etc)
 
+export interface UserProfile {
+  role: Role
+  is_it_supervisor?: boolean
+  is_maintenance_supervisor?: boolean
+  asset_category?: string | null
+}
+
 /**
- * Verifica si un rol incluye permisos de supervisor
- * corporate_admin y admin tienen permisos de supervisor por defecto
+ * Verifica si un usuario tiene permisos de supervisor para IT
  */
-export function hasSupervisorPermissions(role: Role): boolean {
-  return ['supervisor', 'corporate_admin', 'admin'].includes(role)
+export function isITSupervisor(profile: UserProfile): boolean {
+  if (profile.role === 'admin') return true
+  if (profile.role === 'supervisor' && profile.asset_category === 'IT') return true
+  if (profile.role === 'corporate_admin' && profile.is_it_supervisor === true) return true
+  return false
+}
+
+/**
+ * Verifica si un usuario tiene permisos de supervisor para Mantenimiento
+ */
+export function isMaintenanceSupervisor(profile: UserProfile): boolean {
+  if (profile.role === 'admin') return true
+  if (profile.role === 'supervisor' && profile.asset_category === 'MAINTENANCE') return true
+  if (profile.role === 'corporate_admin' && profile.is_maintenance_supervisor === true) return true
+  return false
+}
+
+/**
+ * Verifica si un rol incluye permisos de supervisor (cualquier área)
+ * Requiere el perfil completo para verificar permisos específicos de corporate_admin
+ */
+export function hasSupervisorPermissions(profile: UserProfile): boolean {
+  if (profile.role === 'admin' || profile.role === 'supervisor') return true
+  if (profile.role === 'corporate_admin') {
+    return profile.is_it_supervisor === true || profile.is_maintenance_supervisor === true
+  }
+  return false
 }
 
 /**
@@ -43,24 +74,37 @@ export function canManageTickets(role: Role): boolean {
 }
 
 /**
- * Verifica si un rol puede asignar/reasignar tickets
+ * Verifica si un usuario puede asignar/reasignar tickets
+ * Requiere perfil para verificar permisos de corporate_admin
  */
-export function canAssignTickets(role: Role): boolean {
-  return ['agent_l2', 'supervisor', 'corporate_admin', 'admin'].includes(role)
+export function canAssignTickets(profile: UserProfile): boolean {
+  if (['agent_l2', 'supervisor', 'admin'].includes(profile.role)) return true
+  if (profile.role === 'corporate_admin') {
+    return profile.is_it_supervisor === true || profile.is_maintenance_supervisor === true
+  }
+  return false
 }
 
 /**
- * Verifica si un rol puede ver todos los tickets (no solo asignados)
+ * Verifica si un usuario puede ver todos los tickets (no solo asignados)
  */
-export function canViewAllTickets(role: Role): boolean {
-  return ['supervisor', 'corporate_admin', 'admin', 'auditor'].includes(role)
+export function canViewAllTickets(profile: UserProfile): boolean {
+  if (['supervisor', 'admin', 'auditor'].includes(profile.role)) return true
+  if (profile.role === 'corporate_admin') {
+    return profile.is_it_supervisor === true || profile.is_maintenance_supervisor === true
+  }
+  return false
 }
 
 /**
- * Verifica si un rol puede acceder a reportes avanzados
+ * Verifica si un usuario puede acceder a reportes avanzados
  */
-export function canViewReports(role: Role): boolean {
-  return ['supervisor', 'corporate_admin', 'admin', 'auditor'].includes(role)
+export function canViewReports(profile: UserProfile): boolean {
+  if (['supervisor', 'admin', 'auditor'].includes(profile.role)) return true
+  if (profile.role === 'corporate_admin') {
+    return profile.is_it_supervisor === true || profile.is_maintenance_supervisor === true
+  }
+  return false
 }
 
 /**
@@ -71,40 +115,48 @@ export function canManageUsers(role: Role): boolean {
 }
 
 /**
- * Verifica si un rol puede eliminar tickets
+ * Verifica si un usuario puede eliminar tickets
  */
-export function canDeleteTickets(role: Role): boolean {
-  return ['admin', 'supervisor', 'corporate_admin'].includes(role)
+export function canDeleteTickets(profile: UserProfile): boolean {
+  if (['admin', 'supervisor'].includes(profile.role)) return true
+  if (profile.role === 'corporate_admin') {
+    return profile.is_it_supervisor === true || profile.is_maintenance_supervisor === true
+  }
+  return false
 }
 
 /**
- * Verifica si un rol puede editar activos de tickets
+ * Verifica si un usuario puede editar activos de tickets
  */
-export function canEditTicketAssets(role: Role): boolean {
-  return ['supervisor', 'corporate_admin', 'admin'].includes(role)
+export function canEditTicketAssets(profile: UserProfile): boolean {
+  if (['supervisor', 'admin'].includes(profile.role)) return true
+  if (profile.role === 'corporate_admin') {
+    return profile.is_it_supervisor === true || profile.is_maintenance_supervisor === true
+  }
+  return false
 }
 
 /**
  * Verifica si un usuario tiene un permiso específico
  */
-export function hasPermission(role: Role, permission: Permission): boolean {
-  const permissionMap: Record<Permission, (role: Role) => boolean> = {
+export function hasPermission(profile: UserProfile, permission: Permission): boolean {
+  const permissionMap: Record<Permission, (profile: UserProfile) => boolean> = {
     view_all_tickets: canViewAllTickets,
-    manage_tickets: canManageTickets,
+    manage_tickets: (p) => canManageTickets(p.role),
     assign_tickets: canAssignTickets,
-    close_tickets: canManageTickets,
+    close_tickets: (p) => canManageTickets(p.role),
     escalate_tickets: canAssignTickets,
     view_reports: canViewReports,
-    manage_users: canManageUsers,
+    manage_users: (p) => canManageUsers(p.role),
     manage_assets: canEditTicketAssets,
     view_beo: () => true, // Se verifica con can_view_beo en profile
     view_audit: canViewReports,
-    manage_locations: canManageUsers,
+    manage_locations: (p) => canManageUsers(p.role),
     delete_tickets: canDeleteTickets,
     supervisor_access: hasSupervisorPermissions,
   }
 
-  return permissionMap[permission]?.(role) ?? false
+  return permissionMap[permission]?.(profile) ?? false
 }
 
 /**
@@ -116,7 +168,8 @@ export function isAdminLike(role: Role): boolean {
 
 /**
  * Helper para verificar si es supervisor o tiene permisos equivalentes
+ * DEPRECATED: Usar hasSupervisorPermissions con perfil completo
  */
-export function isSupervisorLike(role: Role): boolean {
-  return hasSupervisorPermissions(role)
+export function isSupervisorLike(profile: UserProfile): boolean {
+  return hasSupervisorPermissions(profile)
 }

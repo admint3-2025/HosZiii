@@ -145,6 +145,14 @@ export async function PATCH(
     updates.can_manage_assets = Boolean(body.can_manage_assets)
   }
 
+  if (body?.is_it_supervisor !== undefined) {
+    updates.is_it_supervisor = Boolean(body.is_it_supervisor)
+  }
+
+  if (body?.is_maintenance_supervisor !== undefined) {
+    updates.is_maintenance_supervisor = Boolean(body.is_maintenance_supervisor)
+  }
+
   if (body?.asset_category !== undefined) {
     const assetCategory = typeof body.asset_category === 'string' && body.asset_category.trim() !== '' 
       ? body.asset_category.trim() 

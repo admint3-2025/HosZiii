@@ -13,7 +13,7 @@ export default async function MaintenanceReportsPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role,asset_category')
+    .select('role, asset_category, is_maintenance_supervisor')
     .eq('id', user.id)
     .single()
 
@@ -24,8 +24,9 @@ export default async function MaintenanceReportsPage() {
     redirect('/reports')
   }
 
-  // corporate_admin también tiene permisos de supervisor
-  const isAdminOrSupervisor = profile?.role === 'admin' || profile?.role === 'supervisor' || profile?.role === 'corporate_admin'
+  // corporate_admin con permisos de supervisión de mantenimiento también tiene acceso
+  const isAdminOrSupervisor = profile?.role === 'admin' || profile?.role === 'supervisor' || 
+    (profile?.role === 'corporate_admin' && profile?.is_maintenance_supervisor === true)
 
   // Obtener filtro de ubicaciones para reportes
   const locationFilter = await getReportsLocationFilter()
