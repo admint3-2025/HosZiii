@@ -259,6 +259,9 @@ export default function AppShellClient({
 
   // Determinar el módulo actual según la ruta
   const moduleContext = useMemo(() => {
+    // Rutas sin sidebar
+    if (pathname.startsWith('/profile')) return null
+    
     if (pathname.startsWith('/admin')) return 'admin'
     if (pathname.startsWith('/corporativo')) return 'corporativo'
     if (pathname.startsWith('/inspections')) return 'corporativo' // Inspecciones RRHH
