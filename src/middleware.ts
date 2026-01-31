@@ -96,6 +96,7 @@ export async function middleware(request: NextRequest) {
   const isProtectedPath =
     pathname === '/' ||
     pathname.startsWith('/hub') ||
+    pathname.startsWith('/demo-hub-premium') ||
     pathname.startsWith('/dashboard') ||
     pathname.startsWith('/tickets') ||
     pathname.startsWith('/reports') ||
@@ -151,6 +152,7 @@ export async function middleware(request: NextRequest) {
 
   const isAppRoute =
     pathname.startsWith('/hub') ||
+    pathname.startsWith('/demo-hub-premium') ||
     pathname.startsWith('/dashboard') ||
     pathname.startsWith('/tickets') ||
     pathname.startsWith('/reports') ||

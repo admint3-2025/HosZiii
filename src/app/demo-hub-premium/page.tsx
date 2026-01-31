@@ -13,11 +13,13 @@ import {
   ArrowRight,
 } from 'lucide-react'
 import { getSafeServerUser } from '@/lib/supabase/server'
-import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { createSupabaseServerClient } from '@/lib/supabase/server'
 import {
   isMaintenanceAssetCategory,
   isITAssetCategoryOrUnassigned,
 } from '@/lib/permissions/asset-category'
+
+export const dynamic = 'force-dynamic'
 
 type ColorKey = 'blue' | 'emerald' | 'amber' | 'purple'
 
@@ -75,15 +77,30 @@ export default async function DemoHubPremiumPage() {
     redirect('/login')
   }
 
-  const supabase = createSupabaseAdminClient()
-  const { data: profile } = await supabase
-    .from('profiles')
-    .select('id, role, asset_category, hub_visible_modules')
-    .eq('id', user.id)
-    .single()
+  const supabase = await createSupabaseServerClient()
+
+  let profile: {
+    id: string
+    role: string
+    asset_category: string | null
+    hub_visible_modules: Record<string, boolean> | null
+  } | null = null
+
+  try {
+    const { data } = await supabase
+      .from('profiles')
+      .select('id, role, asset_category, hub_visible_modules')
+      .eq('id', user.id)
+      .maybeSingle()
+    profile = (data as any) ?? null
+  } catch {
+    profile = null
+  }
 
   if (!profile) {
-    redirect('/login')
+    // Worst-case: don't crash the page in prod.
+    // Send user back to login so they can recover their session.
+    redirect('/login?recover=1')
   }
 
   const role = (profile as any).role as string
