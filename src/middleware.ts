@@ -41,8 +41,7 @@ export async function middleware(request: NextRequest) {
     // Validate by parsing the session cookie (not just existence).
     const cookieList = request.cookies.getAll().map((c) => ({ name: c.name, value: c.value }))
     const session = hasSessionCookie ? getSupabaseSessionFromCookies(cookieList, 'ziii-session') : null
-    const sessionHasUserId = !!session?.user?.id
-    const sessionIsValid = !!session && sessionHasUserId && !isSessionExpired(session)
+    const sessionIsValid = !!session && !isSessionExpired(session)
 
     if (sessionIsValid) {
       const hubUrl = request.nextUrl.clone()
@@ -97,7 +96,6 @@ export async function middleware(request: NextRequest) {
   const isProtectedPath =
     pathname === '/' ||
     pathname.startsWith('/hub') ||
-    pathname.startsWith('/demo-hub-premium') ||
     pathname.startsWith('/dashboard') ||
     pathname.startsWith('/tickets') ||
     pathname.startsWith('/reports') ||
@@ -153,7 +151,6 @@ export async function middleware(request: NextRequest) {
 
   const isAppRoute =
     pathname.startsWith('/hub') ||
-    pathname.startsWith('/demo-hub-premium') ||
     pathname.startsWith('/dashboard') ||
     pathname.startsWith('/tickets') ||
     pathname.startsWith('/reports') ||

@@ -1,351 +1,407 @@
-import React from 'react'
-import Image from 'next/image'
-import Link from 'next/link'
 import { redirect } from 'next/navigation'
-import {
-  ShieldCheck,
-  Settings,
-  Wrench,
-  LifeBuoy,
-  Activity,
-  ArrowRight,
-} from 'lucide-react'
-import { getSafeServerUser, createSupabaseServerClient } from '@/lib/supabase/server'
-import {
-  isMaintenanceAssetCategory,
-  isITAssetCategoryOrUnassigned,
-} from '@/lib/permissions/asset-category'
+import { headers } from 'next/headers'
+import Link from 'next/link'
+import type { ReactNode } from 'react'
 import SignOutButton from '@/components/SignOutButton'
 import NotificationBell from '@/components/NotificationBell'
+import { getSafeServerUser } from '@/lib/supabase/server'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { getAvatarInitial } from '@/lib/ui/avatar'
+import { formatDistanceToNow } from 'date-fns'
+import Footer from '@/components/Footer'
+import { es } from 'date-fns/locale'
+import { isMaintenanceAssetCategory, isITAssetCategoryOrUnassigned } from '@/lib/permissions/asset-category'
+
+// Tipos de actividad y sus configuraciones
+const activityConfig: Record<string, { label: string; icon: string; color: string }> = {
+  CREATE: { label: 'Nuevo', icon: '＋', color: 'text-emerald-400' },
+  UPDATE: { label: 'Actualizado', icon: '✎', color: 'text-blue-400' },
+  DELETE: { label: 'Eliminado', icon: '✕', color: 'text-red-400' },
+  EXPORT: { label: 'Exportado', icon: '↓', color: 'text-violet-400' },
+  ASSIGN: { label: 'Asignado', icon: '→', color: 'text-amber-400' },
+  COMMENT: { label: 'Comentario en', icon: '💬', color: 'text-cyan-400' },
+  CLOSE: { label: 'Cerrado', icon: '✓', color: 'text-green-400' },
+  REOPEN: { label: 'Reabierto', icon: '↻', color: 'text-orange-400' },
+  LOGIN: { label: 'Sesión iniciada', icon: '●', color: 'text-slate-400' },
+}
+
+const entityTypeLabels: Record<string, string> = {
+  ticket: 'Ticket',
+  tickets: 'Ticket',
+  ticket_it: 'Ticket IT',
+  ticket_maintenance: 'Ticket Mantenimiento',
+  tickets_maintenance: 'Ticket Mantenimiento',
+  user: 'Usuario',
+  users: 'Usuario',
+  asset: 'Activo',
+  assets: 'Activo IT',
+  assets_it: 'Activo IT',
+  assets_maintenance: 'Activo Mantenimiento',
+  asset_disposal_request: 'Solicitud de Baja',
+  report: 'Reporte',
+  location: 'Ubicación',
+  locations: 'Ubicación',
+  department: 'Departamento',
+  departments: 'Departamento',
+  profile: 'Perfil',
+  profiles: 'Usuario',
+  beo: 'Evento BEO',
+  knowledge_base: 'Base de Conocimientos',
+  inspection: 'Inspección',
+  inspections: 'Inspección',
+}
+
+// Definición de módulos del sistema
+type Module = {
+  id: string
+  name: string
+  description: string
+  icon: ReactNode
+  href?: string
+  getHref?: (profile: any) => string
+  bgGradient: string
+  iconBg: string
+  textColor: string
+  requiredRoles?: string[]
+  checkPermission?: (profile: any) => boolean
+}
+
+const modules: Module[] = [
+  {
+    id: 'it-helpdesk',
+    name: 'IT - HELPDESK',
+    description: 'Mesa de Ayuda: Soporte Técnico y Desarrollo',
+    icon: (
+      <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M18.364 5.636l-3.536 3.536m0 5.656l3.536 3.536M9.172 9.172L5.636 5.636m3.536 9.192l-3.536 3.536M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-5 0a4 4 0 11-8 0 4 4 0 018 0z" />
+      </svg>
+    ),
+    getHref: (profile: any) => {
+      const isAdminOrSupervisor = profile?.role === 'admin' || profile?.role === 'supervisor'
+      const isAgent = profile?.role === 'agent_l1' || profile?.role === 'agent_l2'
+      const canManageIT = isITAssetCategoryOrUnassigned(profile?.asset_category)
+      
+      // Admin, supervisor IT, o agentes IT van al dashboard
+      if (isAdminOrSupervisor && (profile?.role === 'admin' || canManageIT)) {
+        return '/dashboard'
+      }
+      if (isAgent && canManageIT) {
+        return '/dashboard'
+      }
+      // Usuarios normales (incluido corporate_admin) van a su bandeja de tickets
+      return '/tickets?view=mine'
+    },
+    bgGradient: 'from-blue-500 via-indigo-500 to-purple-600',
+    iconBg: 'bg-blue-100',
+    textColor: 'text-blue-900',
+    requiredRoles: ['admin', 'supervisor', 'agent_l1', 'agent_l2', 'requester', 'corporate_admin'],
+  },
+  {
+    id: 'mantenimiento',
+    name: 'MANTENIMIENTO',
+    description: 'Órdenes de Trabajo: Ingeniería, Equipos e Infraestructura',
+    icon: (
+      <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+      </svg>
+    ),
+    getHref: (profile: any) => {
+      const isAdminOrSupervisor = profile?.role === 'admin' || profile?.role === 'supervisor'
+      const canManageMaintenance = isMaintenanceAssetCategory(profile?.asset_category)
+      
+      // Admin o supervisor de mantenimiento van al dashboard
+      if (isAdminOrSupervisor && (profile?.role === 'admin' || canManageMaintenance)) {
+        return '/mantenimiento/dashboard'
+      }
+      // Usuarios normales (incluido corporate_admin) van a su bandeja de tickets
+      return '/mantenimiento/tickets?view=mine'
+    },
+    bgGradient: 'from-emerald-500 via-teal-500 to-cyan-600',
+    iconBg: 'bg-emerald-100',
+    textColor: 'text-emerald-900',
+    requiredRoles: ['admin', 'supervisor', 'agent_l1', 'agent_l2', 'requester', 'corporate_admin'],
+  },
+  {
+    id: 'corporativo',
+    name: 'CORPORATIVO',
+    description: 'Inspecciones, Políticas, Procedimientos, Academia',
+    icon: (
+      <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+      </svg>
+    ),
+    href: '/corporativo/dashboard',
+    bgGradient: 'from-amber-500 via-orange-500 to-red-600',
+    iconBg: 'bg-amber-100',
+    textColor: 'text-amber-900',
+    requiredRoles: ['admin', 'corporate_admin'],
+  },
+  {
+    id: 'administracion',
+    name: 'ADMINISTRACIÓN',
+    description: 'Configuración del Sistema: Usuarios, Permisos, Auditoría',
+    icon: (
+      <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+      </svg>
+    ),
+    href: '/admin',
+    bgGradient: 'from-violet-500 via-purple-500 to-fuchsia-600',
+    iconBg: 'bg-violet-100',
+    textColor: 'text-violet-900',
+    requiredRoles: ['admin'],
+  },
+]
 
 export const dynamic = 'force-dynamic'
 
-type ColorKey = 'blue' | 'emerald' | 'amber' | 'purple'
-
-type ModuleCard = {
-  id: 'it-helpdesk' | 'mantenimiento' | 'corporativo' | 'administracion'
-  title: string
-  desc: string
-  icon: React.ReactNode
-  color: ColorKey
-  glowClass: string
-  iconWrapClass: string
-  href: string
-}
-
-const logoUrl = 'https://systemach-sas.com/logo_ziii/ZIII%20logo.png'
-
-type AuditRow = {
-  id: string
-  created_at: string
-  action: string
-  entity_type: string | null
-  entity_id: string | null
-}
-
-function actionLabel(action: string): string {
-  const map: Record<string, string> = {
-    CREATE: 'Nuevo',
-    UPDATE: 'Actualizado',
-    DELETE: 'Eliminado',
-    EXPORT: 'Exportado',
-    ASSIGN: 'Asignado',
-    COMMENT: 'Comentario',
-    CLOSE: 'Cerrado',
-    REOPEN: 'Reabierto',
-    LOGIN: 'Sesión iniciada',
-  }
-  return map[action] ?? action
-}
-
-function formatDateTime(iso: string): string {
-  const d = new Date(iso)
-  if (Number.isNaN(d.getTime())) return iso
-  return d.toLocaleString('es-CO', {
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
-}
-
 export default async function HubPage() {
   const user = await getSafeServerUser()
+  
   if (!user) {
     redirect('/login')
   }
 
-  const supabase = await createSupabaseServerClient()
-
-  let profile: {
-    id: string
-    role: string
-    asset_category: string | null
-    hub_visible_modules: Record<string, boolean> | null
-  } | null = null
-
-  try {
-    const { data } = await supabase
-      .from('profiles')
-      .select('id, role, asset_category, hub_visible_modules')
-      .eq('id', user.id)
-      .maybeSingle()
-    profile = (data as any) ?? null
-  } catch {
-    profile = null
-  }
+  // Use admin client here to avoid any user-session refresh-token rotation on the server.
+  // We still scope all queries to the authenticated user's id.
+  const supabase = createSupabaseAdminClient()
+  
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('*')
+    .eq('id', user.id)
+    .single()
 
   if (!profile) {
-    redirect('/login?recover=1')
+    redirect('/login')
   }
 
-  const role = (profile as any).role as string
-  const assetCategory = (profile as any).asset_category as string | null
-  const hubVisibleModules = ((profile as any).hub_visible_modules ?? null) as
-    | Record<string, boolean>
-    | null
+  // Obtener actividades recientes del usuario
+  const { data: recentActivities } = await supabase
+    .from('audit_log')
+    .select('id, action, entity_type, entity_id, metadata, created_at')
+    .eq('actor_id', user.id)
+    .order('created_at', { ascending: false })
+    .limit(5)
 
-  const isAdmin = role === 'admin'
-  const isCorporateAdmin = role === 'corporate_admin'
-  const isSupervisor = role === 'supervisor'
-  const isAgent = role === 'agent_l1' || role === 'agent_l2'
+  // Determinar módulos accesibles según el rol del usuario
+  const accessibleByRole = modules.filter(module => {
+    if (!module.requiredRoles) return true
+    if (module.checkPermission) return module.checkPermission(profile)
+    return module.requiredRoles.includes(profile.role)
+  })
 
-  const canManageIT = isITAssetCategoryOrUnassigned(assetCategory)
-  const canManageMaintenance = isMaintenanceAssetCategory(assetCategory)
+  // Aplicar preferencias de módulos visibles del usuario (disponible para TODOS los usuarios)
+  const hubVisibleModules = (profile as any)?.hub_visible_modules as Record<string, boolean> | null
+  const accessibleModules = hubVisibleModules && typeof hubVisibleModules === 'object'
+    ? accessibleByRole.filter((m) => hubVisibleModules[m.id] !== false)
+    : accessibleByRole
 
-  const itHref =
-    (isAdmin || isSupervisor) && (isAdmin || canManageIT)
-      ? '/dashboard'
-      : isAgent && canManageIT
-        ? '/dashboard'
-        : '/tickets?view=mine'
+  // NO redirigir automáticamente si es el único módulo
+  // Los usuarios deben ver el hub para navegar entre sus módulos disponibles
+  // (comentado porque causaba loops infinitos con corporate_admin)
+  // if (accessibleModules.length === 1) {
+  //   redirect(accessibleModules[0].href)
+  // }
 
-  const maintenanceHref =
-    (isAdmin || isSupervisor) && (isAdmin || canManageMaintenance)
-      ? '/mantenimiento/dashboard'
-      : '/mantenimiento/tickets?view=mine'
-
-  const baseModules: ModuleCard[] = [
-    {
-      id: 'it-helpdesk',
-      title: 'IT - HELPDESK',
-      desc: 'Mesa de Ayuda y Desarrollo Técnico',
-      icon: <LifeBuoy className="w-10 h-10" />,
-      color: 'blue',
-      glowClass: 'from-blue-500/0 to-blue-500/10',
-      iconWrapClass:
-        'text-blue-400 shadow-blue-500/20 group-hover:bg-blue-500 group-hover:shadow-blue-500/40',
-      href: itHref,
-    },
-    {
-      id: 'mantenimiento',
-      title: 'MANTENIMIENTO',
-      desc: 'Ingeniería e Infraestructura Hotelera',
-      icon: <Wrench className="w-10 h-10" />,
-      color: 'emerald',
-      glowClass: 'from-emerald-500/0 to-emerald-500/10',
-      iconWrapClass:
-        'text-emerald-400 shadow-emerald-500/20 group-hover:bg-emerald-500 group-hover:shadow-emerald-500/40',
-      href: maintenanceHref,
-    },
-    {
-      id: 'corporativo',
-      title: 'CORPORATIVO',
-      desc: 'Políticas, Academia y Cumplimiento',
-      icon: <ShieldCheck className="w-10 h-10" />,
-      color: 'amber',
-      glowClass: 'from-amber-500/0 to-amber-500/10',
-      iconWrapClass:
-        'text-amber-400 shadow-amber-500/20 group-hover:bg-amber-500 group-hover:shadow-amber-500/40',
-      href: '/corporativo/dashboard',
-    },
-    {
-      id: 'administracion',
-      title: 'ADMINISTRACIÓN',
-      desc: 'Configuración de Sistema y Auditoría',
-      icon: <Settings className="w-10 h-10" />,
-      color: 'purple',
-      glowClass: 'from-purple-500/0 to-purple-500/10',
-      iconWrapClass:
-        'text-purple-400 shadow-purple-500/20 group-hover:bg-purple-500 group-hover:shadow-purple-500/40',
-      href: '/admin',
-    },
-  ]
-
-  const allowedByRole = (m: ModuleCard) => {
-    if (m.id === 'administracion') return isAdmin
-    if (m.id === 'corporativo') return isAdmin || isCorporateAdmin
-    return true
+  // Si no tiene acceso a ningún módulo (caso raro), mostrar mensaje
+  if (accessibleModules.length === 0) {
+    return (
+      <main className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-6">
+        <div className="card max-w-md text-center">
+          <div className="card-body p-8">
+            <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-red-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h1 className="text-xl font-bold text-gray-900 mb-2">Sin Acceso a Módulos</h1>
+            <p className="text-sm text-gray-600 mb-6">
+              Tu cuenta no tiene permisos asignados. Contacta al administrador del sistema.
+            </p>
+            <Link href="/login" className="btn btn-primary">
+              Cerrar Sesión
+            </Link>
+          </div>
+        </div>
+      </main>
+    )
   }
 
-  const modules = baseModules
-    .filter(allowedByRole)
-    .filter((m) => (hubVisibleModules ? hubVisibleModules[m.id] !== false : true))
+  // Datos de header
+  const hdrs = await headers()
+  const forwardedFor = hdrs.get('x-forwarded-for') || hdrs.get('x-real-ip') || ''
+  const clientIpRaw = forwardedFor.split(',')[0]?.trim() || ''
+  const clientIp = clientIpRaw.replace(/^::ffff:/i, '') || '—'
 
-  let recentActivities: AuditRow[] = []
-  try {
-    const { data } = await supabase
-      .from('audit_log')
-      .select('id, created_at, action, entity_type, entity_id')
-      .eq('actor_id', user.id)
-      .order('created_at', { ascending: false })
-      .limit(6)
-    recentActivities = ((data as any) ?? []) as AuditRow[]
-  } catch {
-    recentActivities = []
-  }
+  const roleLabel =
+    profile?.role === 'admin'
+      ? 'ADMINISTRADOR'
+      : profile?.role === 'corporate_admin'
+        ? 'ADMIN CORPORATIVO'
+      : profile?.role === 'agent_l1'
+        ? 'AGENTE L1'
+        : profile?.role === 'agent_l2'
+          ? 'AGENTE L2'
+          : profile?.role === 'supervisor'
+            ? (isMaintenanceAssetCategory(profile?.asset_category) ? 'MANTENIMIENTO - SUPERVISOR' : 'IT - SUPERVISOR')
+            : profile?.role === 'requester'
+              ? 'USUARIO'
+              : profile?.role === 'auditor'
+                ? 'AUDITOR'
+                : 'USUARIO'
 
   return (
-    <div className="min-h-screen bg-[#06080d] text-slate-200 font-sans selection:bg-blue-500/30 flex flex-col items-center justify-center p-6 relative overflow-hidden">
-      <div className="absolute top-0 left-0 w-full h-full pointer-events-none">
-        <div className="absolute top-[-10%] left-[-5%] w-[50%] h-[50%] bg-blue-600/10 blur-[150px] rounded-full" />
-        <div className="absolute bottom-[-10%] right-[-5%] w-[50%] h-[50%] bg-indigo-600/10 blur-[150px] rounded-full" />
-      </div>
+    <main className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900">
+      {/* Header fijo */}
+      <div className="sticky top-0 z-40 border-b border-slate-800/70 bg-gradient-to-r from-slate-900 via-slate-900 to-slate-900/90 backdrop-blur">
+        <div className="max-w-7xl mx-auto px-4 lg:px-6 xl:px-8 py-4">
+          <div className="flex items-center justify-between gap-4">
+            <div className="flex items-center gap-6 min-w-0">
+              <div className="flex items-center gap-3 flex-shrink-0">
+                <img
+                  src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png"
+                  alt="ZIII HoS"
+                  className="h-10 w-10 object-contain rounded-xl bg-white shadow-lg shadow-slate-900/40"
+                />
+                <div className="leading-tight">
+                  <p className="text-base font-bold text-white tracking-tight">ZIII HoS</p>
+                  <p className="text-[11px] text-slate-400 font-medium">ITIL v4 Service Desk</p>
+                </div>
+              </div>
 
-      <div className="w-full max-w-6xl relative z-10">
-        <header className="flex flex-col md:flex-row items-center justify-between mb-16 gap-8 px-4">
-          <div className="flex items-center gap-6">
-            <Image
-              src={logoUrl}
-              alt="ZIII Logo"
-              width={256}
-              height={256}
-              unoptimized
-              className="h-16 w-auto drop-shadow-[0_0_20px_rgba(59,130,246,0.3)] transition-transform hover:scale-105 duration-500"
-            />
-            <div className="h-12 w-[1px] bg-gradient-to-b from-transparent via-white/20 to-transparent hidden md:block" />
-            <div className="text-center md:text-left">
-              <h1 className="text-3xl font-black tracking-tighter text-white uppercase italic leading-none">
-                Centro de Trabajo
-              </h1>
-              <p className="text-[10px] text-blue-400 font-bold uppercase tracking-[0.5em] mt-1">
-                Hospitality Operations System
-              </p>
-            </div>
-          </div>
+              <div className="h-12 w-px bg-slate-800/70 hidden lg:block" />
 
-          <div className="flex items-center gap-4 bg-white/[0.03] border border-white/10 p-2 pr-6 rounded-[2rem] backdrop-blur-xl shadow-2xl">
-            <div className="w-12 h-12 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-700 flex items-center justify-center text-white font-black text-xl border-2 border-white/10 shadow-lg">
-              {user.email?.slice(0, 1)?.toUpperCase() ?? 'U'}
+              <div className="flex items-center gap-4 min-w-0">
+                <div className="w-12 h-12 rounded-2xl bg-gradient-to-br from-violet-500 via-purple-600 to-indigo-600 flex items-center justify-center text-white font-bold shadow-lg shadow-violet-500/30 ring-2 ring-violet-400/20">
+                  {getAvatarInitial({
+                    fullName: profile?.full_name,
+                    description: profile?.position,
+                    email: user?.email,
+                  })}
+                </div>
+                <div className="min-w-0">
+                  <div className="flex items-center gap-3 min-w-0">
+                    <p className="text-lg font-semibold text-white truncate" title={profile?.full_name || user?.email || ''}>
+                      {profile?.full_name || user?.email?.split('@')[0] || 'Usuario'}
+                    </p>
+                    <span className="flex-shrink-0 inline-flex items-center rounded-full border border-violet-400/30 bg-violet-500/20 px-2.5 py-0.5 text-[11px] font-bold text-violet-200 uppercase tracking-wide">
+                      {roleLabel}
+                    </span>
+                  </div>
+                  <div className="mt-1 flex flex-wrap items-center gap-2 text-xs text-slate-400">
+                    <span className="truncate" title={user?.email || ''}>{user?.email || '—'}</span>
+                    <span className="text-slate-600">•</span>
+                    <span className="uppercase truncate" title={profile?.position || ''}>{profile?.position || '—'}</span>
+                    <span className="text-slate-600">•</span>
+                    <span title={`IP: ${clientIp}`}>{clientIp}</span>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="flex flex-col">
-              <span className="text-xs font-black text-white uppercase tracking-tight">{user.email ?? 'Usuario'}</span>
-              <span className="text-[10px] text-slate-500 font-mono tracking-tighter">ONLINE</span>
-            </div>
-            <div className="flex items-center gap-2 ml-4">
+
+            <div className="flex items-center gap-3 flex-shrink-0">
+              <Link
+                href="/profile"
+                className="flex items-center gap-2 px-4 py-2 rounded-xl border border-slate-700 bg-slate-800/70 text-slate-200 hover:text-white hover:border-slate-600 transition-colors text-sm font-semibold"
+              >
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5.121 17.804A9 9 0 1112 21a9 9 0 01-6.879-3.196z" />
+                </svg>
+                Perfil
+              </Link>
               <NotificationBell />
               <SignOutButton />
             </div>
           </div>
-        </header>
+        </div>
+      </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 mb-20">
-          {modules.map((mod) => (
+      {/* Módulos Grid */}
+      <div className="max-w-7xl mx-auto px-6 py-12">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {accessibleModules.map((module) => {
+            const moduleHref = module.getHref ? module.getHref(profile) : (module.href || '#')
+            return (
             <Link
-              key={mod.title}
-              href={mod.href}
-              className="group relative h-60 md:h-64 bg-gradient-to-b from-white/[0.06] to-transparent border border-white/10 rounded-[3.5rem] p-8 md:p-9 overflow-hidden transition-all duration-700 hover:scale-[1.02] hover:border-white/30 shadow-[0_30px_60px_-15px_rgba(0,0,0,0.5)] active:scale-95 text-left"
+              key={module.id}
+              href={moduleHref}
+              className="group relative overflow-hidden rounded-2xl bg-slate-800/50 border border-slate-700/50 hover:border-slate-600 backdrop-blur-sm transition-all duration-300 hover:scale-[1.02] hover:shadow-2xl"
             >
-              <div
-                className={`absolute inset-0 bg-gradient-to-br ${mod.glowClass} opacity-0 group-hover:opacity-100 transition-opacity duration-700`}
-              />
+              <div className={`absolute inset-0 bg-gradient-to-br ${module.bgGradient} opacity-0 group-hover:opacity-10 transition-opacity duration-300`}></div>
 
-              <div className="relative z-10">
-                <div className="flex items-start justify-between">
-                  <div
-                    className={`p-6 rounded-[2.2rem] bg-[#1a1f2b] border border-white/10 group-hover:text-white transition-all duration-500 shadow-xl group-hover:-translate-y-2 ${mod.iconWrapClass}`}
-                  >
-                    {mod.icon}
+              <div className="relative z-10 p-8">
+                <div className="flex items-start gap-6">
+                  <div className={`${module.iconBg} p-4 rounded-2xl group-hover:scale-110 transition-transform duration-300 flex-shrink-0`}>
+                    <div className={module.textColor}>{module.icon}</div>
                   </div>
-                  <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-500">
-                    <ArrowRight size={28} className="text-white" />
+
+                  <div className="flex-1">
+                    <h2 className="text-2xl font-bold text-white mb-2 group-hover:text-white transition-colors">
+                      {module.name}
+                    </h2>
+                    <p className="text-slate-400 text-sm leading-relaxed">{module.description}</p>
+                  </div>
+
+                  <div className="opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                    <svg className="w-6 h-6 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                    </svg>
                   </div>
                 </div>
-
-                <h2 className="mt-8 text-2xl font-black tracking-tighter text-white leading-tight">
-                  {mod.title}
-                </h2>
-                <p className="mt-2 text-sm text-slate-400 leading-relaxed max-w-[80%]">
-                  {mod.desc}
-                </p>
               </div>
 
-              <Image
-                src={logoUrl}
-                alt=""
-                width={512}
-                height={512}
-                unoptimized
-                className="absolute right-[-10%] top-[-10%] h-64 w-auto opacity-[0.03] grayscale brightness-200 group-hover:opacity-[0.08] group-hover:scale-110 transition-all duration-1000 pointer-events-none select-none"
-              />
+              <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                <div className={`absolute top-0 left-0 w-full h-1 bg-gradient-to-r ${module.bgGradient}`}></div>
+              </div>
             </Link>
-          ))}
+            )
+          })}
         </div>
 
-        <section className="mb-16">
-          <div className="flex items-center justify-between px-2 mb-4">
-            <div className="flex items-center gap-3">
-              <div className="w-9 h-9 rounded-2xl bg-white/[0.04] border border-white/10 flex items-center justify-center">
-                <Activity size={18} className="text-blue-400" />
-              </div>
-              <div>
-                <div className="text-sm font-black text-white uppercase tracking-tight">Mis actividades recientes</div>
-                <div className="text-[10px] text-slate-500 font-mono tracking-tight">{user.email}</div>
-              </div>
+        {/* Actividad Reciente restaurada */}
+        <div className="mt-16">
+          <div className="mb-10">
+            <div className="flex items-center gap-2 mb-4">
+              <span className="text-slate-500 text-xs">◷</span>
+              <h3 className="text-xs font-medium text-slate-400 uppercase tracking-wider">Actividad Reciente</h3>
+              <div className="flex-1 h-px bg-slate-800"></div>
             </div>
-            <div className="flex items-center gap-2 text-[10px] text-slate-500">
-              <span className="inline-flex items-center gap-2">
-                <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shadow-[0_0_10px_rgba(52,211,153,0.5)] animate-pulse" />
-                Activas
-              </span>
-            </div>
-          </div>
-
-          <div className="rounded-[2rem] border border-white/10 bg-white/[0.03] backdrop-blur-xl overflow-hidden shadow-[0_30px_60px_-15px_rgba(0,0,0,0.5)]">
-            <div className="divide-y divide-white/5">
-              {recentActivities.length > 0 ? (
-                recentActivities.map((r) => (
-                  <div key={r.id} className="px-6 py-4 flex items-center justify-between gap-4">
-                    <div className="min-w-0">
-                      <div className="flex items-center gap-2">
-                        <span
-                          className={
-                            r.action === 'DELETE'
-                              ? 'inline-flex items-center px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-red-500/10 text-red-300 border border-red-500/20'
-                              : r.action === 'CREATE'
-                                ? 'inline-flex items-center px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-emerald-500/10 text-emerald-300 border border-emerald-500/20'
-                                : 'inline-flex items-center px-2 py-1 rounded-full text-[10px] font-black uppercase tracking-widest bg-blue-500/10 text-blue-300 border border-blue-500/20'
-                          }
-                        >
-                          {r.action}
-                        </span>
-                        <span className="text-xs font-bold text-white truncate">{actionLabel(r.action)}</span>
-                      </div>
-                      <div className="mt-1 text-[11px] text-slate-500 font-mono truncate">{formatDateTime(r.created_at)}</div>
+            <div className="space-y-1">
+              {recentActivities && recentActivities.length > 0 ? (
+                recentActivities.map((activity, idx) => {
+                  const config = activityConfig[activity.action] || { label: activity.action, icon: '•', color: 'text-slate-400' }
+                  const entityLabel = entityTypeLabels[activity.entity_type] || activity.entity_type.replace(/_/g, ' ')
+                  const metadata = activity.metadata as Record<string, any> | null
+                  const detail = metadata?.email || metadata?.title || metadata?.name || metadata?.asset_tag || metadata?.code || null
+                  const timeAgo = formatDistanceToNow(new Date(activity.created_at), { addSuffix: true, locale: es })
+                  return (
+                    <div 
+                      key={activity.id} 
+                      className="flex items-center gap-3 py-2 px-3 rounded-lg hover:bg-slate-800/40 transition-colors animate-in fade-in slide-in-from-left-2 duration-300"
+                      style={{ animationDelay: `${idx * 50}ms` }}
+                    >
+                      <span className={`text-sm ${config.color} flex-shrink-0 w-4 text-center`}>{config.icon}</span>
+                      <span className="text-sm text-slate-300 truncate flex-1">
+                        {config.label} {entityLabel}
+                        {detail && <span className="text-slate-400"> — {detail}</span>}
+                      </span>
+                      <span className="text-[10px] text-slate-600 flex-shrink-0">{timeAgo}</span>
                     </div>
-                    <div className="text-[11px] text-slate-600 font-mono truncate hidden sm:block">
-                      {r.entity_type ? `${r.entity_type}${r.entity_id ? `:${r.entity_id}` : ''}` : '—'}
-                    </div>
-                  </div>
-                ))
+                  )
+                })
               ) : (
-                <div className="px-6 py-10 text-center text-slate-500">No hay actividad reciente para mostrar.</div>
+                <p className="text-sm text-slate-600 py-2 px-3">Sin actividad reciente</p>
               )}
             </div>
           </div>
-        </section>
-
-        <footer className="flex flex-col md:flex-row items-center justify-between gap-8 px-6 py-8 border-t border-white/5">
-          <div className="flex items-center gap-6 text-slate-500">
-            <div className="flex items-center gap-2">
-              <Activity size={16} className="text-blue-500" />
-              <span className="text-[11px] font-black uppercase tracking-[0.4em]">Operaciones Activas</span>
-            </div>
-          </div>
-          <div className="text-[11px] text-slate-600 font-mono">ZIII HoS • {new Date().getFullYear()}</div>
-        </footer>
+        </div>
       </div>
-    </div>
+      {/* Footer sticky solo en el hub */}
+      <div className="fixed bottom-0 left-0 w-full z-50">
+        <Footer />
+      </div>
+    </main>
   )
 }
