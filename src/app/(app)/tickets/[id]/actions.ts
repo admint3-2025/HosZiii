@@ -45,7 +45,7 @@ export async function updateTicketStatus(input: UpdateTicketStatusInput) {
     .eq('id', user.id)
     .single()
 
-  if (!profile || !['agent_l1', 'agent_l2', 'supervisor', 'admin'].includes(profile.role)) {
+  if (!profile || !['agent_l1', 'agent_l2', 'supervisor', 'corporate_admin', 'admin'].includes(profile.role)) {
     return { error: 'No tienes permisos para cambiar el estado del ticket' }
   }
 
@@ -249,7 +249,7 @@ export async function assignTicketAsset(input: AssignAssetInput) {
     .eq('id', user.id)
     .single()
 
-  if (!profile || !['admin', 'supervisor'].includes(profile.role)) {
+  if (!profile || !['admin', 'supervisor', 'corporate_admin'].includes(profile.role)) {
     return { error: 'Solo admin o supervisor pueden editar el ticket' }
   }
 
@@ -336,7 +336,7 @@ export async function escalateTicket(ticketId: string, currentLevel: number, ass
     .eq('id', user.id)
     .single()
 
-  if (!userProfile || !['agent_l1', 'agent_l2', 'supervisor', 'admin'].includes(userProfile.role)) {
+  if (!userProfile || !['agent_l1', 'agent_l2', 'supervisor', 'corporate_admin', 'admin'].includes(userProfile.role)) {
     return { error: 'No tienes permisos para escalar tickets' }
   }
 
@@ -347,7 +347,7 @@ export async function escalateTicket(ticketId: string, currentLevel: number, ass
     .eq('id', assignToAgentId)
     .single()
 
-  if (!profile || !['agent_l2', 'supervisor', 'admin'].includes(profile.role)) {
+  if (!profile || !['agent_l2', 'supervisor', 'corporate_admin', 'admin'].includes(profile.role)) {
     return { error: 'El agente seleccionado no tiene permisos de nivel 2' }
   }
 
@@ -626,7 +626,7 @@ export async function reopenTicket(ticketId: string, reason: string) {
     .eq('id', user.id)
     .single()
 
-  if (!profile || !['agent_l1', 'agent_l2', 'supervisor', 'admin'].includes(profile.role)) {
+  if (!profile || !['agent_l1', 'agent_l2', 'supervisor', 'corporate_admin', 'admin'].includes(profile.role)) {
     return { error: 'No tienes permisos para reabrir tickets' }
   }
 
@@ -730,7 +730,7 @@ export async function softDeleteTicket(ticketId: string, reason: string) {
     .eq('id', user.id)
     .single()
 
-  if (!profile || !['agent_l1', 'agent_l2', 'supervisor', 'admin'].includes(profile.role)) {
+  if (!profile || !['agent_l1', 'agent_l2', 'supervisor', 'corporate_admin', 'admin'].includes(profile.role)) {
     return { error: 'No tienes permisos para eliminar tickets' }
   }
 
@@ -1017,7 +1017,7 @@ export async function sendTicketByEmail(input: SendTicketEmailInput) {
       .eq('id', user.id)
       .single()
 
-    if (!profile || !['admin', 'supervisor'].includes(profile.role)) {
+    if (!profile || !['admin', 'supervisor', 'corporate_admin'].includes(profile.role)) {
       return { error: 'Solo administradores y supervisores pueden enviar tickets por correo' }
     }
 

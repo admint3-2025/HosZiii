@@ -35,8 +35,8 @@ export default function TicketDetail({
   hasEscalationRequest?: boolean
   asset?: AssetInfo | null
 }) {
-  const canPerformActions = ["agent_l1", "agent_l2", "supervisor", "admin"].includes(userRole)
-  const canEditAsset = ["supervisor", "admin"].includes(userRole)
+  const canPerformActions = ["agent_l1", "agent_l2", "supervisor", "corporate_admin", "admin"].includes(userRole)
+  const canEditAsset = ["supervisor", "corporate_admin", "admin"].includes(userRole)
   const isRequester = ticket.current_user_id === ticket.requester_id
 
   return (

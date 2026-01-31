@@ -192,7 +192,7 @@ export default function TicketCreateFormModern({
       const allowedForOthers =
         !!profile &&
         (profile.role === 'admin' ||
-          (area === 'it' && ['agent_l1', 'agent_l2', 'supervisor'].includes(profile.role) && profile.asset_category === 'IT'))
+          (area === 'it' && ['agent_l1', 'agent_l2', 'supervisor', 'corporate_admin'].includes(profile.role) && profile.asset_category === 'IT'))
 
       if (allowedForOthers) {
         setCanCreateForOthers(true)

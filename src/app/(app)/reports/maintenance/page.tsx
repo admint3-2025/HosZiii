@@ -24,7 +24,8 @@ export default async function MaintenanceReportsPage() {
     redirect('/reports')
   }
 
-  const isAdminOrSupervisor = profile?.role === 'admin' || profile?.role === 'supervisor'
+  // corporate_admin también tiene permisos de supervisor
+  const isAdminOrSupervisor = profile?.role === 'admin' || profile?.role === 'supervisor' || profile?.role === 'corporate_admin'
 
   // Obtener filtro de ubicaciones para reportes
   const locationFilter = await getReportsLocationFilter()

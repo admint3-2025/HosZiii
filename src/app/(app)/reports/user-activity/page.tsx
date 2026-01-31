@@ -2,6 +2,7 @@ import { redirect } from 'next/navigation'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getReportsLocationFilter } from '@/lib/supabase/reports-filter'
+import { hasSupervisorPermissions } from '@/lib/permissions'
 import Link from 'next/link'
 
 export const metadata = {
@@ -21,7 +22,7 @@ export default async function UserActivityReportPage() {
     .eq('id', user.id)
     .single()
 
-  if (!profile || !['admin', 'supervisor'].includes(profile.role)) {
+  if (!profile || !hasSupervisorPermissions(profile.role as any)) {
     redirect('/dashboard')
   }
 

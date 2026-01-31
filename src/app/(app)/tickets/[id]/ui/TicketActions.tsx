@@ -393,7 +393,7 @@ export default function TicketActions({
             )}
 
             {/* Admin, Supervisor, L2: Pueden escalar directamente */}
-            {['admin', 'supervisor', 'agent_l2'].includes(userRole) && supportLevel === 1 && currentStatus !== 'CLOSED' && (
+            {['admin', 'supervisor', 'corporate_admin', 'agent_l2'].includes(userRole) && supportLevel === 1 && currentStatus !== 'CLOSED' && (
               <>
                 <div className="mt-1 space-y-2">
                   <select

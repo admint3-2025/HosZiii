@@ -41,7 +41,7 @@ export async function createTicket(input: CreateTicketInput) {
   // Solo admin o agentes/supervisores de IT pueden crear tickets IT para otros
   const canCreateForOthers = currentProfile && 
     (currentProfile.role === 'admin' || 
-     (['agent_l1', 'agent_l2', 'supervisor'].includes(currentProfile.role) && currentProfile.asset_category === 'IT'))
+     (['agent_l1', 'agent_l2', 'supervisor', 'corporate_admin'].includes(currentProfile.role) && currentProfile.asset_category === 'IT'))
 
   if (input.requester_id && !canCreateForOthers) {
     return { error: 'No tienes permisos para crear tickets IT para otros usuarios.' }

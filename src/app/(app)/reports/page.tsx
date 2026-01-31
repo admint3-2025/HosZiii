@@ -18,7 +18,8 @@ export default async function ReportsPage() {
 
   const isAdmin = profile?.role === 'admin'
   const isSupervisor = profile?.role === 'supervisor'
-  const isAdminOrSupervisor = isAdmin || isSupervisor
+  // corporate_admin también tiene permisos de supervisor
+  const isAdminOrSupervisor = isAdmin || isSupervisor || profile?.role === 'corporate_admin'
   
   // Determinar acceso a módulos
   const canAccessIT = isAdmin || profile?.asset_category === 'IT' || profile?.asset_category === null

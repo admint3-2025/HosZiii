@@ -120,7 +120,7 @@ export default function TicketCreateForm({
       setCurrentUserLocationId(profile?.location_id ?? null)
 
       // Solo admin o agentes/supervisores de IT pueden crear tickets IT para otros
-      if (profile && (profile.role === 'admin' || (['agent_l1', 'agent_l2', 'supervisor'].includes(profile.role) && profile.asset_category === 'IT'))) {
+      if (profile && (profile.role === 'admin' || (['agent_l1', 'agent_l2', 'supervisor', 'corporate_admin'].includes(profile.role) && profile.asset_category === 'IT'))) {
         setCanCreateForOthers(true)
         setLoadingUsers(true)
         
