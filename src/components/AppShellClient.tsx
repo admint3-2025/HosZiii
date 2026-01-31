@@ -609,6 +609,7 @@ export default function AppShellClient({
   return (
     <div className="flex h-screen bg-[#F8FAFC] font-sans text-slate-900 overflow-hidden">
       {/* Sidebar - Desktop */}
+      {moduleContext && (
       <aside className={`${sidebarOpen ? 'w-64' : 'w-20'} hidden lg:flex bg-slate-900 text-slate-300 transition-all duration-500 ease-in-out flex-col z-20 relative`}>
         <div className="absolute inset-0 bg-slate-900 z-0"></div>
         <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-black/50 to-transparent z-0"></div>
@@ -819,6 +820,7 @@ export default function AppShellClient({
           )}
         </nav>
       </aside>
+      )}
 
       {/* Main Content */}
       <div className="flex-1 flex flex-col h-full overflow-hidden relative">
@@ -935,7 +937,7 @@ export default function AppShellClient({
       </div>
 
       {/* Mobile navigation */}
-      <MobileSidebar userData={userData} />
+      {moduleContext && <MobileSidebar userData={userData} />}
     </div>
   )
 }
