@@ -7,8 +7,6 @@ import {
   Settings,
   Wrench,
   LifeBuoy,
-  Bell,
-  LogOut,
   Activity,
   ArrowRight,
 } from 'lucide-react'
@@ -17,6 +15,8 @@ import {
   isMaintenanceAssetCategory,
   isITAssetCategoryOrUnassigned,
 } from '@/lib/permissions/asset-category'
+import SignOutButton from '@/components/SignOutButton'
+import NotificationBell from '@/components/NotificationBell'
 
 export const dynamic = 'force-dynamic'
 
@@ -234,22 +234,8 @@ export default async function HubPage() {
               <span className="text-[10px] text-slate-500 font-mono tracking-tighter">ONLINE</span>
             </div>
             <div className="flex items-center gap-2 ml-4">
-              <button
-                type="button"
-                className="w-10 h-10 rounded-full bg-white/[0.02] border border-white/10 flex items-center justify-center hover:bg-white/[0.06] transition-colors"
-                aria-label="Notificaciones"
-              >
-                <Bell size={18} className="text-slate-300" />
-              </button>
-              <form action="/auth/signout" method="post">
-                <button
-                  type="submit"
-                  className="w-10 h-10 rounded-full bg-white/[0.02] border border-white/10 flex items-center justify-center hover:bg-white/[0.06] transition-colors"
-                  aria-label="Salir"
-                >
-                  <LogOut size={18} className="text-slate-300" />
-                </button>
-              </form>
+              <NotificationBell />
+              <SignOutButton />
             </div>
           </div>
         </header>
