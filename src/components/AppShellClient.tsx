@@ -245,6 +245,7 @@ export default function AppShellClient({
   userData 
 }: AppShellClientProps) {
   const pathname = usePathname()
+  const hideSidebar = pathname === '/profile' || pathname.startsWith('/profile/')
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({})
   const [clientIp, setClientIp] = useState<string | null>(null)
@@ -259,9 +260,6 @@ export default function AppShellClient({
 
   // Determinar el módulo actual según la ruta
   const moduleContext = useMemo(() => {
-    // Rutas sin sidebar
-    if (pathname.startsWith('/profile')) return null
-    
     if (pathname.startsWith('/admin')) return 'admin'
     if (pathname.startsWith('/corporativo')) return 'corporativo'
     if (pathname.startsWith('/inspections')) return 'corporativo' // Inspecciones RRHH
@@ -609,7 +607,7 @@ export default function AppShellClient({
   return (
     <div className="flex h-screen bg-[#F8FAFC] font-sans text-slate-900 overflow-hidden">
       {/* Sidebar - Desktop */}
-      {moduleContext && (
+      {!hideSidebar && (
       <aside className={`${sidebarOpen ? 'w-64' : 'w-20'} hidden lg:flex bg-slate-900 text-slate-300 transition-all duration-500 ease-in-out flex-col z-20 relative`}>
         <div className="absolute inset-0 bg-slate-900 z-0"></div>
         <div className="absolute bottom-0 left-0 w-full h-1/2 bg-gradient-to-t from-black/50 to-transparent z-0"></div>
@@ -937,7 +935,9 @@ export default function AppShellClient({
       </div>
 
       {/* Mobile navigation */}
-      {moduleContext && <MobileSidebar userData={userData} />}
+      {!hideSidebar && (
+        <MobileSidebar userData={userData} />
+      )}
     </div>
   )
 }
