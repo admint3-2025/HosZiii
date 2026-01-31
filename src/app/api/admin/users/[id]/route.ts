@@ -16,7 +16,10 @@ type HubModules = Record<HubModuleId, boolean>
 function isMissingHubModulesColumnError(err: unknown): boolean {
   const msg = (err as any)?.message
   if (typeof msg !== 'string') return false
-  return msg.toLowerCase().includes('hub_visible_modules') && msg.toLowerCase().includes('does not exist')
+  const msgLower = msg.toLowerCase()
+  // Catch both "does not exist" and "could not find the ... column ... in the schema cache"
+  return msgLower.includes('hub_visible_modules') && 
+         (msgLower.includes('does not exist') || msgLower.includes('schema cache'))
 }
 
 function parseHubModules(value: unknown): HubModules | null {

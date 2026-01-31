@@ -16,7 +16,10 @@ type HubModules = Record<HubModuleId, boolean>
 function isMissingHubModulesColumnError(err: unknown): boolean {
   const msg = (err as any)?.message
   if (typeof msg !== 'string') return false
-  return msg.toLowerCase().includes('hub_visible_modules') && msg.toLowerCase().includes('does not exist')
+  const msgLower = msg.toLowerCase()
+  // Catch both "does not exist" and "could not find the ... column ... in the schema cache"
+  return msgLower.includes('hub_visible_modules') && 
+         (msgLower.includes('does not exist') || msgLower.includes('schema cache'))
 }
 
 function parseHubModules(value: unknown): HubModules | null {
@@ -72,8 +75,13 @@ export async function GET() {
 
   const { data: profiles, error: profErr } = await admin
     .from('profiles')
-    // NOTE: Avoid selecting hub_modules explicitly because older DBs may not have the column yet.
-    .select('*,locations(code,name)')
+    // NOTE: Select specific columns, excluding hub_visible_modules (may not exist in older DBs)
+    .select(`
+      id, role, full_name, department, phone, building, floor, position,
+      supervisor_id, location_id, asset_category, allowed_departments,
+      can_view_beo, can_manage_assets, active, created_at, updated_at,
+      locations(code,name)
+    `)
     .in('id', ids)
 
   if (profErr) return new Response(profErr.message, { status: 500 })
