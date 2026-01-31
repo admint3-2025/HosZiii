@@ -19,7 +19,7 @@ export default async function TicketsPage({
   const { data: { user } } = await supabase.auth.getUser()
   const { data: profile } = user ? await supabase
     .from('profiles')
-    .select('department,role,asset_category')
+    .select('department, role, asset_category, is_it_supervisor, is_maintenance_supervisor')
     .eq('id', user.id)
     .single() : { data: null }
   
@@ -28,8 +28,14 @@ export default async function TicketsPage({
   const normalizedRole = String(profile?.role ?? '').trim().toLowerCase()
   const isAdmin = normalizedRole === 'admin'
   const canManageIT = isAdmin || isITAssetCategoryOrUnassigned(profile?.asset_category)
+  
+  // Verificar si tiene permisos de supervisor (rol supervisor O corporate_admin con permisos específicos)
+  const isITSupervisor = isAdmin || 
+    (normalizedRole === 'supervisor' && canManageIT) ||
+    (normalizedRole === 'corporate_admin' && profile?.is_it_supervisor === true)
+  
   // Solo admin y supervisores IT pueden ver la bandeja completa
-  const canViewQueue = isAdmin || (normalizedRole === 'supervisor' && canManageIT)
+  const canViewQueue = isITSupervisor
   const requestedView = params.view
   const defaultView = canViewQueue ? 'queue' : 'mine'
   const view = (requestedView === 'queue' || requestedView === 'mine')
@@ -47,7 +53,7 @@ export default async function TicketsPage({
   const viewBadge = (() => {
     const areaLabel = inferredServiceArea === 'maintenance' ? 'Mantenimiento' : 'IT'
     if (view === 'mine') return { label: 'Mis tickets', sub: null }
-    if (profile?.role === 'supervisor') return { label: 'Bandeja', sub: areaLabel }
+    if (isITSupervisor && !isAdmin) return { label: 'Bandeja', sub: areaLabel }
     if (isAdmin) return { label: 'Bandeja', sub: 'IT + Mantenimiento' }
     return { label: 'Bandeja', sub: null }
   })()

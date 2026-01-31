@@ -19,16 +19,22 @@ export default async function MaintenanceTicketsPage({
   const { data: { user } } = await supabase.auth.getUser()
   const { data: profile } = user ? await supabase
     .from('profiles')
-    .select('role,asset_category')
+    .select('role, asset_category, is_maintenance_supervisor')
     .eq('id', user.id)
     .single() : { data: null }
 
-  // TODOS los usuarios pueden ver SUS tickets de mantenimiento
-  // Solo admin/supervisor de mantenimiento pueden ver la bandeja completa
-  const isAdminOrSupervisor = profile?.role === 'admin' || profile?.role === 'supervisor'
-  // Admin, supervisores y técnicos (L1/L2) de mantenimiento pueden ver la bandeja
-  const canManageMaintenance = profile?.role === 'admin' || 
-    ((profile?.role === 'supervisor' || profile?.role === 'agent_l1' || profile?.role === 'agent_l2') && 
+  const normalizedRole = String(profile?.role ?? '').trim().toLowerCase()
+  const isAdmin = normalizedRole === 'admin'
+
+  // Verificar si tiene permisos de supervisor de mantenimiento
+  const isMaintenanceSupervisor = isAdmin || 
+    (normalizedRole === 'supervisor' && isMaintenanceAssetCategory(profile?.asset_category)) ||
+    (normalizedRole === 'corporate_admin' && profile?.is_maintenance_supervisor === true)
+
+  // Admin, supervisores de mantenimiento y técnicos (L1/L2) de mantenimiento pueden ver la bandeja
+  const canManageMaintenance = isAdmin || 
+    isMaintenanceSupervisor ||
+    ((normalizedRole === 'agent_l1' || normalizedRole === 'agent_l2') && 
      isMaintenanceAssetCategory(profile?.asset_category))
   
   // Determinar vista permitida
@@ -41,7 +47,7 @@ export default async function MaintenanceTicketsPage({
 
   const viewBadge = (() => {
     if (view === 'mine') return { label: 'Mis solicitudes', sub: null }
-    if (profile?.role === 'admin') return { label: 'Bandeja', sub: 'Todas' }
+    if (isAdmin) return { label: 'Bandeja', sub: 'Todas' }
     return { label: 'Bandeja', sub: 'Mantenimiento' }
   })()
   
