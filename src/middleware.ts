@@ -41,7 +41,8 @@ export async function middleware(request: NextRequest) {
     // Validate by parsing the session cookie (not just existence).
     const cookieList = request.cookies.getAll().map((c) => ({ name: c.name, value: c.value }))
     const session = hasSessionCookie ? getSupabaseSessionFromCookies(cookieList, 'ziii-session') : null
-    const sessionIsValid = !!session && !isSessionExpired(session)
+    const sessionHasUserId = !!session?.user?.id
+    const sessionIsValid = !!session && sessionHasUserId && !isSessionExpired(session)
 
     if (sessionIsValid) {
       const hubUrl = request.nextUrl.clone()
