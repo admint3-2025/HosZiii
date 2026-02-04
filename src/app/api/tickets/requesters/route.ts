@@ -17,8 +17,8 @@ export async function GET() {
     .eq('id', user.id)
     .single()
 
-  // Solo agentes, supervisores y admin pueden ver otros usuarios
-  if (!profile || !['agent_l1', 'agent_l2', 'supervisor', 'admin'].includes(profile.role)) {
+  // Solo agentes, supervisores, corporate_admin y admin pueden ver otros usuarios
+  if (!profile || !['agent_l1', 'agent_l2', 'supervisor', 'admin', 'corporate_admin'].includes(profile.role)) {
     return new Response('Forbidden', { status: 403 })
   }
 
