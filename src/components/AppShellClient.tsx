@@ -470,34 +470,20 @@ export default function AppShellClient({
     
     // Si hay un módulo definido (admin, helpdesk, corporativo, etc), usar ese menú
     if (moduleContext) {
-      const contextMenu = topMenuByModule[moduleContext] || []
-      
-      // Si el usuario es corporate_admin y NO está en módulo corporativo, agregar menú corporativo
-      if (moduleContext !== 'corporativo' && userData.role === 'corporate_admin') {
-        return [...contextMenu, ...(topMenuByModule['corporativo'] || [])]
-      }
-      
-      return contextMenu
+      return topMenuByModule[moduleContext] || []
     }
     
     // Si no hay módulo pero el usuario tiene permisos, mostrar menú por defecto
-    // Usuario corporativo: mostrar menú de helpdesk + corporativo (si tiene permisos IT)
-    if (userData.role === 'corporate_admin') {
-      if (canManageIT) {
-        return [...(topMenuByModule['helpdesk'] || []), ...(topMenuByModule['corporativo'] || [])]
-      }
-      return topMenuByModule['corporativo'] || []
-    }
     // Usuario de mantenimiento: mostrar menú de mantenimiento
     if (canManageMaintenance && !canManageIT) {
       return topMenuByModule['mantenimiento'] || []
     }
-    // Usuario de IT: mostrar menú de helpdesk
+    // Usuario de IT (incluyendo corporate_admin con permisos IT): mostrar menú de helpdesk
     if (canManageIT) {
       return topMenuByModule['helpdesk'] || []
     }
     return []
-  }, [moduleContext, canManageMaintenance, canManageIT, userData.role])
+  }, [moduleContext, canManageMaintenance, canManageIT])
 
   const activeCollapsible = useMemo(() => {
     return moduleContext ? collapsibleByModule[moduleContext] || [] : []
