@@ -4,12 +4,13 @@ import { useState, useEffect } from 'react'
 import { createSupabaseBrowserClient, getSafeUser } from '@/lib/supabase/browser'
 import RRHHInspectionManager from './RRHHInspectionManager'
 import GSHInspectionManager from './GSHInspectionManager'
+import MarketingInspectionManager from './MarketingInspectionManager'
 import type { InspectionRRHHArea } from '@/lib/services/inspections-rrhh.service'
 
 type Department = {
   id: string
   name: string
-  iconType: 'users' | 'building' | 'bed' | 'wrench' | 'monitor' | 'utensils' | 'key' | 'calculator'
+  iconType: 'users' | 'building' | 'bed' | 'wrench' | 'monitor' | 'utensils' | 'key' | 'calculator' | 'megaphone'
   color: string
 }
 
@@ -28,6 +29,7 @@ const DEPARTMENTS: Department[] = [
   { id: 'alimentos', name: 'ALIMENTOS Y BEBIDAS', iconType: 'utensils', color: 'from-red-500 to-red-600' },
   { id: 'llaves', name: 'AMA DE LLAVES', iconType: 'key', color: 'from-pink-500 to-pink-600' },
   { id: 'contabilidad', name: 'CONTABILIDAD', iconType: 'calculator', color: 'from-yellow-500 to-yellow-600' },
+  { id: 'marketing', name: 'MARKETING', iconType: 'megaphone', color: 'from-green-500 to-green-600' },
 ]
 
 const DepartmentIcon = ({ type, className }: { type: Department['iconType'], className?: string }) => {
@@ -72,6 +74,11 @@ const DepartmentIcon = ({ type, className }: { type: Department['iconType'], cla
     calculator: (
       <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" />
+      </svg>
+    ),
+    megaphone: (
+      <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z" />
       </svg>
     ),
   }
@@ -187,9 +194,10 @@ export default function InspectionFlowSelector({
     const filterByCurrentUser = context === 'self'
     const isRRHH = selectedDepartment.id === 'rrhh'
     const isGSH = selectedDepartment.id === 'gsh'
+    const isMarketing = selectedDepartment.id === 'marketing'
 
     // Lista de módulos implementados
-    const implementedModules = ['rrhh', 'gsh']
+    const implementedModules = ['rrhh', 'gsh', 'marketing']
     const isImplemented = implementedModules.includes(selectedDepartment.id)
 
     // Si el módulo no está implementado, mostrar mensaje de pendiente
@@ -218,6 +226,7 @@ export default function InspectionFlowSelector({
               <ul className="mt-2 text-sm text-blue-700 space-y-1">
                 <li>✓ Recursos Humanos (RRHH)</li>
                 <li>✓ Guest Service Handler (GSH)</li>
+                <li>✓ Marketing</li>
               </ul>
             </div>
             
@@ -265,6 +274,16 @@ export default function InspectionFlowSelector({
           {...commonProps}
           templateOverride={templateOverride}
           isGSH={true}
+        />
+      )
+    }
+
+    if (isMarketing) {
+      return (
+        <MarketingInspectionManager
+          {...commonProps}
+          templateOverride={templateOverride}
+          isMarketing={true}
         />
       )
     }
