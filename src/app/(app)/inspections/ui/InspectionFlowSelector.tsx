@@ -6,6 +6,12 @@ import RRHHInspectionManager from './RRHHInspectionManager'
 import GSHInspectionManager from './GSHInspectionManager'
 import MarketingInspectionManager from './MarketingInspectionManager'
 import type { InspectionRRHHArea } from '@/lib/services/inspections-rrhh.service'
+import { getDivisionCuartosInspectionTemplateAreas } from '@/lib/templates/inspection-division-cuartos-template'
+import { getMantenimientoInspectionTemplateAreas } from '@/lib/templates/inspection-mantenimiento-template'
+import { getSistemasInspectionTemplateAreas } from '@/lib/templates/inspection-sistemas-template'
+import { getAlimentosBebidasInspectionTemplateAreas } from '@/lib/templates/inspection-alimentos-bebidas-template'
+import { getAmaLlavesInspectionTemplateAreas } from '@/lib/templates/inspection-ama-llaves-template'
+import { getContabilidadInspectionTemplateAreas } from '@/lib/templates/inspection-contabilidad-template'
 
 type Department = {
   id: string
@@ -197,7 +203,7 @@ export default function InspectionFlowSelector({
     const isMarketing = selectedDepartment.id === 'marketing'
 
     // Lista de módulos implementados
-    const implementedModules = ['rrhh', 'gsh', 'marketing']
+    const implementedModules = ['rrhh', 'gsh', 'marketing', 'cuartos', 'mantenimiento', 'sistemas', 'alimentos', 'llaves', 'contabilidad']
     const isImplemented = implementedModules.includes(selectedDepartment.id)
 
     // Si el módulo no está implementado, mostrar mensaje de pendiente
@@ -248,6 +254,32 @@ export default function InspectionFlowSelector({
       )
     }
 
+    // Seleccionar template según departamento
+    let departmentTemplate: InspectionRRHHArea[] | null = null
+    
+    switch (selectedDepartment.id) {
+      case 'cuartos':
+        departmentTemplate = getDivisionCuartosInspectionTemplateAreas()
+        break
+      case 'mantenimiento':
+        departmentTemplate = getMantenimientoInspectionTemplateAreas()
+        break
+      case 'sistemas':
+        departmentTemplate = getSistemasInspectionTemplateAreas()
+        break
+      case 'alimentos':
+        departmentTemplate = getAlimentosBebidasInspectionTemplateAreas()
+        break
+      case 'llaves':
+        departmentTemplate = getAmaLlavesInspectionTemplateAreas()
+        break
+      case 'contabilidad':
+        departmentTemplate = getContabilidadInspectionTemplateAreas()
+        break
+      default:
+        departmentTemplate = null
+    }
+
     const commonProps = {
       locationId: selectedProperty.id,
       departmentName: selectedDepartment.name,
@@ -288,10 +320,13 @@ export default function InspectionFlowSelector({
       )
     }
 
+    // Para los nuevos departamentos, usar el template específico o el override
+    const finalTemplate = templateOverride || departmentTemplate
+
     return (
       <RRHHInspectionManager
         {...commonProps}
-        templateOverride={templateOverride}
+        templateOverride={finalTemplate}
         isRRHH={isRRHH}
       />
     )
