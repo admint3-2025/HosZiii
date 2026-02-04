@@ -30,7 +30,14 @@ const range = { s: { r: minRow, c: minCol }, e: { r: maxRow, c: maxCol } }
 const rows = XLSX.utils.sheet_to_json(ws, { header: 1, raw: true, defval: '', range })
 
 function norm(v) {
-  return typeof v === 'string' ? v.trim().replace(/\s+/g, ' ') : v
+  if (typeof v !== 'string') return v
+  const trimmed = v.trim().replace(/\s+/g, ' ')
+  return trimmed
+    .replace(/\bGDL SUR\b/g, 'EGDLS')
+    .replace(/\bQRO\b/g, 'EQRO')
+    .replace(/\bMTY\b/g, 'EMTY')
+    .replace(/\bQTO\b/g, 'EQRO')
+    .replace(/\bMYT\b/g, 'EMTY')
 }
 
 function isMostlyEmpty(row, from = 1, to = 10) {
@@ -44,6 +51,24 @@ function isMostlyEmpty(row, from = 1, to = 10) {
 function isHeaderRow(row) {
   const first = row?.[0]
   return String(first ?? '').toLowerCase().trim() === 'elemento'
+}
+
+function normalizeAreaName(name) {
+  if (typeof name !== 'string') return name
+  // Fix hotel code labels
+  return name
+    .replace(/\bGDL SUR\b/g, 'EGDLS')
+    .replace(/\bQTO\b/g, 'EQRO')
+    .replace(/\bMYT\b/g, 'EMTY')
+}
+
+function isHabitacionArea(name) {
+  return typeof name === 'string' && name.trim().toLowerCase().startsWith('habitación')
+}
+
+function habitacionBaseName(name) {
+  if (typeof name !== 'string') return name
+  return name.replace(/\s*\(\d+\)\s*$/g, '').trim()
 }
 
 const rawAreas = []
@@ -120,6 +145,37 @@ for (const a of nonEmptyAreas) {
   dedupedAreas.push(a)
 }
 
+// Normalize names (codes) and merge duplicated habitaciones into a single area.
+const normalizedAreas = dedupedAreas.map(a => ({
+  name: normalizeAreaName(a.name),
+  items: a.items,
+}))
+
+const mergedHabitaciones = []
+const habitacionIndex = new Map()
+for (const area of normalizedAreas) {
+  if (!isHabitacionArea(area.name)) {
+    mergedHabitaciones.push(area)
+    continue
+  }
+
+  const base = habitacionBaseName(area.name)
+  const existingIdx = habitacionIndex.get(base)
+  if (existingIdx === undefined) {
+    habitacionIndex.set(base, mergedHabitaciones.length)
+    mergedHabitaciones.push({ name: base, items: [...area.items] })
+    continue
+  }
+
+  const existing = mergedHabitaciones[existingIdx]
+  const seen = new Set(existing.items)
+  for (const item of area.items) {
+    if (seen.has(item)) continue
+    seen.add(item)
+    existing.items.push(item)
+  }
+}
+
 // Dedupe area names to satisfy unique constraint in DB
 const usedNames = new Map()
 function uniqueName(base) {
@@ -131,7 +187,7 @@ function uniqueName(base) {
 }
 
 const modelEntries = []
-for (const a of dedupedAreas) {
+for (const a of mergedHabitaciones) {
   const name = uniqueName(a.name)
   modelEntries.push([name, a.items])
 }
