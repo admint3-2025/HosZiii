@@ -381,6 +381,7 @@ export default function AppShellClient({
           { id: 'corp_home', label: 'Dashboard', icon: 'Dashboard', href: '/corporativo/dashboard' },
           { id: 'corp_inspecciones', label: 'Inspecciones', icon: 'ShieldCheck', href: '/corporativo/inspecciones' },
           { id: 'corp_inbox', label: 'Bandeja Inspecciones', icon: 'BarChart', href: '/inspections/inbox' },
+          { id: 'corp_academia', label: 'Academia', icon: 'GraduationCap', href: '/corporativo/academia' },
         ],
       },
     ],
