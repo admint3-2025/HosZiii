@@ -913,7 +913,15 @@ function AreaCard({
                 {item.cumplimiento_editable && !isReadOnly ? (
                   <select
                     value={item.cumplimiento_valor}
-                    onChange={(e) => onUpdateItem(area.area, item.id, 'cumplimiento_valor', e.target.value)}
+                    onChange={(e) => {
+                      const value = e.target.value as '' | 'Cumple' | 'No Cumple' | 'N/A'
+                      onUpdateItem(area.area, item.id, 'cumplimiento_valor', value)
+                      if (value !== 'Cumple') {
+                        onUpdateItem(area.area, item.id, 'calif_valor', 0)
+                      } else if (!item.calif_valor) {
+                        onUpdateItem(area.area, item.id, 'calif_valor', 10)
+                      }
+                    }}
                     className={`text-xs font-medium px-2 py-1 rounded border cursor-pointer ${
                       item.cumplimiento_valor === 'Cumple' 
                         ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 

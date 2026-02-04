@@ -3,6 +3,8 @@ node_modules/
 dist/
 .vercel/
 
+.tmp/
+
 .env
 .env.local
 .env.*.local

@@ -6,13 +6,15 @@ import InspectionStatsDashboard from './InspectionStatsDashboard'
 import InspectionDashboard from './InspectionDashboard'
 import { InspectionsRRHHService, type InspectionRRHH, type InspectionRRHHArea } from '@/lib/services/inspections-rrhh.service'
 import { InspectionRRHHPDFGenerator } from '@/lib/services/inspections-rrhh-pdf.service'
+import { getMarketingInspectionTemplateAreas } from '@/lib/templates/inspection-marketing-template'
+import type { User } from '@supabase/supabase-js'
 
 interface MarketingInspectionManagerProps {
   propertyCode: string
   propertyName: string
   locationId: string
   departmentName: string
-  currentUser: any
+  currentUser: User
   userName: string
   inspectionId?: string
   mode?: 'create' | 'edit' | 'view'
@@ -42,112 +44,6 @@ function cloneTemplate(template: InspectionRRHHArea[]): InspectionRRHHArea[] {
   }))
 }
 
-// Template de inspección para Marketing
-const MARKETING_TEMPLATE: InspectionRRHHArea[] = [
-  {
-    area_name: "Identidad de Marca",
-    area_order: 0,
-    items: [
-      { item_order: 0, descripcion: "Manual de identidad corporativa actualizado", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 1, descripcion: "Uso correcto de logotipos y colores institucionales", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 2, descripcion: "Consistencia visual en todos los puntos de contacto", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 3, descripcion: "Señalización y branding en instalaciones", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true }
-    ]
-  },
-  {
-    area_name: "Presencia Digital",
-    area_order: 1,
-    items: [
-      { item_order: 0, descripcion: "Sitio web actualizado y funcional", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 1, descripcion: "Optimización SEO implementada", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 2, descripcion: "Contenido web relevante y actualizado", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 3, descripcion: "Sistema de reservas online operativo", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 4, descripcion: "Google My Business actualizado", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true }
-    ]
-  },
-  {
-    area_name: "Redes Sociales",
-    area_order: 2,
-    items: [
-      { item_order: 0, descripcion: "Calendario de contenidos mensual", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 1, descripcion: "Frecuencia de publicación según estrategia", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 2, descripcion: "Engagement y respuesta a comentarios", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 3, descripcion: "Calidad del contenido visual", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 4, descripcion: "Crecimiento de seguidores y alcance", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true }
-    ]
-  },
-  {
-    area_name: "Campañas y Promociones",
-    area_order: 3,
-    items: [
-      { item_order: 0, descripcion: "Plan de campañas del periodo", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 1, descripcion: "Materiales promocionales actualizados", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 2, descripcion: "Seguimiento de resultados de campañas", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 3, descripcion: "Coordinación con otros departamentos", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true }
-    ]
-  },
-  {
-    area_name: "Email Marketing",
-    area_order: 4,
-    items: [
-      { item_order: 0, descripcion: "Base de datos de clientes actualizada", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 1, descripcion: "Campañas de email programadas", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 2, descripcion: "Segmentación de audiencias", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 3, descripcion: "Métricas de apertura y conversión", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true }
-    ]
-  },
-  {
-    area_name: "Fotografía y Contenido Visual",
-    area_order: 5,
-    items: [
-      { item_order: 0, descripcion: "Banco de imágenes actualizado", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 1, descripcion: "Calidad profesional de fotografías", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 2, descripcion: "Material audiovisual (videos, reels)", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 3, descripcion: "Repositorio organizado de assets", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true }
-    ]
-  },
-  {
-    area_name: "Alianzas y Colaboraciones",
-    area_order: 6,
-    items: [
-      { item_order: 0, descripcion: "Alianzas estratégicas activas", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 1, descripcion: "Colaboraciones con influencers/bloggers", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 2, descripcion: "Participación en eventos locales", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 3, descripcion: "Relaciones con medios de comunicación", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true }
-    ]
-  },
-  {
-    area_name: "Reputación Online",
-    area_order: 7,
-    items: [
-      { item_order: 0, descripcion: "Monitoreo de reseñas en plataformas (TripAdvisor, Google, etc.)", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 1, descripcion: "Respuesta oportuna a comentarios negativos", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 2, descripcion: "Estrategia para mejorar ratings", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 3, descripcion: "Gestión de crisis de reputación", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true }
-    ]
-  },
-  {
-    area_name: "Métricas y Análisis",
-    area_order: 8,
-    items: [
-      { item_order: 0, descripcion: "Dashboard de KPIs actualizado", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 1, descripcion: "Análisis mensual de resultados", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 2, descripcion: "ROI de campañas documentado", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 3, descripcion: "Reportes ejecutivos para dirección", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true }
-    ]
-  },
-  {
-    area_name: "Capacitación y Herramientas",
-    area_order: 9,
-    items: [
-      { item_order: 0, descripcion: "Equipo capacitado en herramientas digitales", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 1, descripcion: "Software y licencias actualizadas", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 2, descripcion: "Procesos documentados y estandarizados", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true },
-      { item_order: 3, descripcion: "Actualización en tendencias de marketing", tipo_dato: "Fijo", cumplimiento_valor: "", cumplimiento_editable: true, calif_valor: 0, calif_editable: true, comentarios_valor: "", comentarios_libre: true }
-    ]
-  }
-]
-
 export default function MarketingInspectionManager(props: MarketingInspectionManagerProps) {
   const router = useRouter()
   const [loading, setLoading] = useState(false)
@@ -163,7 +59,7 @@ export default function MarketingInspectionManager(props: MarketingInspectionMan
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
 
   // Template a usar (override o default)
-  const baseTemplate = props.templateOverride || MARKETING_TEMPLATE
+  const baseTemplate = props.templateOverride || getMarketingInspectionTemplateAreas()
 
   // Cargar stats e inspección inicial
   useEffect(() => {
