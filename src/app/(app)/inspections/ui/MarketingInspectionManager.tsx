@@ -1,19 +1,19 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import InspectionStatsDashboard from './InspectionStatsDashboard'
 import InspectionDashboard from './InspectionDashboard'
 import { InspectionsRRHHService, type InspectionRRHH, type InspectionRRHHArea } from '@/lib/services/inspections-rrhh.service'
 import { InspectionRRHHPDFGenerator } from '@/lib/services/inspections-rrhh-pdf.service'
-import type { User } from '@supabase/supabase-js'
 
 interface MarketingInspectionManagerProps {
   propertyCode: string
   propertyName: string
   locationId: string
   departmentName: string
+  currentUser: any
+  userName: string
   inspectionId?: string
   mode?: 'create' | 'edit' | 'view'
   templateOverride?: InspectionRRHHArea[] | null
@@ -162,8 +162,6 @@ export default function MarketingInspectionManager(props: MarketingInspectionMan
   const [showNavigationModal, setShowNavigationModal] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
 
-  const dashboardRef = useRef<{ getCurrentUser: () => Promise<User | null> }>(null)
-
   // Template a usar (override o default)
   const baseTemplate = props.templateOverride || MARKETING_TEMPLATE
 
@@ -189,22 +187,17 @@ export default function MarketingInspectionManager(props: MarketingInspectionMan
     setLoading(false)
   }
 
-  const handleNewInspection = async () => {
-    const user = dashboardRef.current ? await dashboardRef.current.getCurrentUser() : null
-    if (!user) {
-      alert('Usuario no identificado')
-      return
-    }
-
+  const handleNewInspection = () => {
     const newInspection: InspectionRRHH = {
       location_id: props.locationId,
       department: props.departmentName,
-      inspector_user_id: user.id,
-      inspector_name: user.email || 'Inspector',
-      inspection_date: new Date().toISOString().split('T')[0],
+      inspector_user_id: props.currentUser.id,
+      inspector_name: props.userName,
+      inspection_date: new Date().toISOString(),
       property_code: props.propertyCode,
       property_name: props.propertyName,
       status: 'draft',
+      general_comments: '',
       areas: cloneTemplate(baseTemplate)
     }
     setInspection(newInspection)
@@ -348,52 +341,6 @@ export default function MarketingInspectionManager(props: MarketingInspectionMan
     await generator.download(inspection)
   }
 
-  const handleFieldChange = (areaId: number, itemId: number, field: string, value: any) => {
-    console.log('handleFieldChange llamado:', { areaId, itemId, field, value })
-    setHasUnsavedChanges(true)
-    setInspection((prev) => {
-      if (!prev) return prev
-      const updated = {
-        ...prev,
-        areas: prev.areas.map((area, aIdx) => {
-          if (aIdx + 1 !== areaId) return area
-          console.log('Área encontrada:', { aIdx, areaId, area_name: area.area_name })
-          return {
-            ...area,
-            items: area.items.map((item, idx) => {
-              if (idx + 1 !== itemId) return item
-              console.log('Item encontrado:', { idx, itemId, field, value, itemActual: item })
-              return { ...item, [field]: value }
-            })
-          }
-        })
-      }
-      console.log('Nuevo estado inspection.areas[0].items[0]:', updated.areas[0]?.items[0])
-      return updated
-    })
-  }
-
-  // Convertir inspection a formato del dashboard
-  if (!inspection) {
-    return null
-  }
-
-  const dashboardData = inspection.areas.map((area) => ({
-    area: area.area_name,
-    items: area.items.map((item, idx) => ({
-      id: idx + 1,
-      descripcion: item.descripcion,
-      tipo_dato: item.tipo_dato,
-      cumplimiento_valor: item.cumplimiento_valor,
-      cumplimiento_editable: item.cumplimiento_editable,
-      calif_valor: item.calif_valor,
-      calif_editable: item.calif_editable,
-      comentarios_valor: item.comentarios_valor,
-      comentarios_libre: item.comentarios_libre
-    })),
-    calificacion_area_fija: area.calculated_score || 0
-  }))
-
   const handleUpdateItem = (areaName: string, itemId: number, field: string, value: any) => {
     console.log('=== handleUpdateItem LLAMADO ===', { areaName, itemId, field, value })
     setHasUnsavedChanges(true)
@@ -449,24 +396,45 @@ export default function MarketingInspectionManager(props: MarketingInspectionMan
       {/* Si formulario abierto O hay inspección cargada, mostrar el formulario */}
       {showFormulario && inspection ? (
         /* Mostrar el formulario rellenable */
-        <div>
-          <InspectionDashboard
-            departmentName={props.departmentName}
-            propertyCode={props.propertyCode}
-            propertyName={props.propertyName}
-            inspectionData={dashboardData}
-            onUpdateItem={handleUpdateItem}
-            trendData={trendData}
-            onSave={handleSaveInspection}
-            onGeneratePDF={handleGeneratePDF}
-            generalComments={generalComments}
-            onUpdateGeneralComments={setGeneralComments}
-            saving={saving}
-            inspectionStatus={inspection.status}
-            onUnsavedChanges={setHasUnsavedChanges}
-            onBack={handleBackToDashboard}
-          />
-        </div>
+        (() => {
+          // Convertir inspection a formato del dashboard
+          const dashboardData = inspection.areas.map((area) => ({
+            area: area.area_name,
+            items: area.items.map((item, idx) => ({
+              id: idx + 1,
+              descripcion: item.descripcion,
+              tipo_dato: item.tipo_dato,
+              cumplimiento_valor: item.cumplimiento_valor,
+              cumplimiento_editable: item.cumplimiento_editable,
+              calif_valor: item.calif_valor,
+              calif_editable: item.calif_editable,
+              comentarios_valor: item.comentarios_valor,
+              comentarios_libre: item.comentarios_libre
+            })),
+            calificacion_area_fija: area.calculated_score || 0
+          }))
+
+          return (
+            <div>
+              <InspectionDashboard
+                departmentName={props.departmentName}
+                propertyCode={props.propertyCode}
+                propertyName={props.propertyName}
+                inspectionData={dashboardData}
+                onUpdateItem={handleUpdateItem}
+                trendData={trendData}
+                onSave={handleSaveInspection}
+                onGeneratePDF={handleGeneratePDF}
+                generalComments={generalComments}
+                onUpdateGeneralComments={setGeneralComments}
+                saving={saving}
+                inspectionStatus={inspection.status}
+                onUnsavedChanges={setHasUnsavedChanges}
+                onBack={handleBackToDashboard}
+              />
+            </div>
+          )
+        })()
       ) : (
         /* Mostrar dashboard de estadísticas */
         <InspectionStatsDashboard
