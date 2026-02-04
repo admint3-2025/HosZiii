@@ -196,20 +196,74 @@ function toTsStringLiteral(value) {
   return JSON.stringify(value)
 }
 
+// Extract property codes from text (e.g., "EQRO y EMTY", "EGDLS, SLP, PUE")
+function extractPropertyCodes(text) {
+  if (typeof text !== 'string') return []
+  const known = ['EGDLS', 'EQRO', 'EMTY', 'ESLP', 'EPUE', 'EAGS', 'EAPTO', 'MIGS', 'MIRA', 'MSLP', 'ALZEN']
+  const found = new Set()
+  for (const code of known) {
+    if (text.includes(code)) found.add(code)
+  }
+  // Also handle full names
+  if (text.includes('QUERETARO')) found.add('EQRO')
+  if (text.includes('SLP')) found.add('ESLP')
+  if (text.includes('PUE')) found.add('EPUE')
+  if (text.includes('AGS')) found.add('EAGS')
+  return Array.from(found).sort()
+}
+
+// Remove property code references from text to keep it clean
+function cleanItemText(text) {
+  if (typeof text !== 'string') return text
+  return text
+    .replace(/\s*\(EGDLS.*?\)/g, '')
+    .replace(/\s*\(EQRO.*?\)/g, '')
+    .replace(/\s*\(EMTY.*?\)/g, '')
+    .replace(/\s*\(ESLP.*?\)/g, '')
+    .replace(/\s*\(EPUE.*?\)/g, '')
+    .replace(/\s*\(.*?QUERETARO.*?\)/g, '')
+    .replace(/\s*\(.*?SLP.*?PUE.*?\)/g, '')
+    .replace(/\s*\(.*?SEPARADOS.*?\)/g, '')
+    .trim()
+}
+
 let content = ''
 content += "// AUTO-GENERATED from docs-archived/FORMATO VERIFICACION HOTELES ENCORE .xlsx (sheet: Encore)\n"
 content += "// Do not edit manually; re-run: node scripts/generate-marketing-template-from-encore.mjs\n\n"
-content += "export const MARKETING_ENCORE_MODEL: Record<string, string[]> = {\n"
+content += "export interface MarketingItem {\n"
+content += "  text: string\n"
+content += "  appliesTo: string[]  // Empty = applies to all properties\n"
+content += "}\n\n"
+content += "export interface MarketingArea {\n"
+content += "  name: string\n"
+content += "  appliesTo: string[]\n"
+content += "  items: MarketingItem[]\n"
+content += "}\n\n"
+content += "export const MARKETING_ENCORE_MODEL: MarketingArea[] = [\n"
 
 for (const [areaName, items] of modelEntries) {
-  content += `  ${toTsStringLiteral(areaName)}: [\n`
+  const areaAppliesTo = extractPropertyCodes(areaName)
+  const cleanAreaName = cleanItemText(areaName)
+  
+  content += '  {\n'
+  content += `    name: ${toTsStringLiteral(cleanAreaName)},\n`
+  content += `    appliesTo: ${JSON.stringify(areaAppliesTo)},\n`
+  content += '    items: [\n'
+  
   for (const item of items) {
-    content += `    ${toTsStringLiteral(item)},\n`
+    const itemAppliesTo = extractPropertyCodes(item)
+    const cleanText = cleanItemText(item)
+    content += '      {\n'
+    content += `        text: ${toTsStringLiteral(cleanText)},\n`
+    content += `        appliesTo: ${JSON.stringify(itemAppliesTo)},\n`
+    content += '      },\n'
   }
-  content += '  ],\n'
+  
+  content += '    ],\n'
+  content += '  },\n'
 }
 
-content += '}\n'
+content += ']\n'
 
 fs.mkdirSync(path.dirname(outPath), { recursive: true })
 fs.writeFileSync(outPath, content, 'utf8')

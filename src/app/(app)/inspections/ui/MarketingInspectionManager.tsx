@@ -59,8 +59,8 @@ export default function MarketingInspectionManager(props: MarketingInspectionMan
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
   const pendingActionRef = useRef<(() => void) | null>(null)
 
-  // Template a usar (override o default)
-  const baseTemplate = props.templateOverride || getMarketingInspectionTemplateAreas()
+  // Template a usar (override o default filtrado por propiedad)
+  const baseTemplate = props.templateOverride || getMarketingInspectionTemplateAreas(props.propertyCode)
 
   // Cargar stats e inspección inicial
   useEffect(() => {
