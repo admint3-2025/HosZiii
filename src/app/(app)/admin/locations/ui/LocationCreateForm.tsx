@@ -11,6 +11,7 @@ type Result = {
 export default function LocationCreateForm() {
   const [name, setName] = useState('')
   const [code, setCode] = useState('')
+  const [businessType, setBusinessType] = useState<'hotel' | 'corporate' | 'office' | 'warehouse' | 'other'>('hotel')
   const [city, setCity] = useState('')
   const [state, setState] = useState('')
   const [country, setCountry] = useState('México')
@@ -44,6 +45,7 @@ export default function LocationCreateForm() {
         body: JSON.stringify({
           name: name.trim(),
           code: code.trim().toUpperCase(),
+          business_type: businessType,
           city: city.trim(),
           state: state.trim(),
           country: country.trim(),
@@ -64,6 +66,7 @@ export default function LocationCreateForm() {
       setResult(json)
       setName('')
       setCode('')
+      setBusinessType('hotel')
       setCity('')
       setState('')
       setCountry('México')
@@ -110,6 +113,26 @@ export default function LocationCreateForm() {
               autoComplete="off"
               maxLength={10}
             />
+          </div>
+
+          <div className="sm:col-span-2">
+            <label className="block text-[11px] font-medium text-gray-700">Tipo de Negocio *</label>
+            <select
+              className="input mt-1"
+              value={businessType}
+              onChange={(e) => setBusinessType(e.target.value as any)}
+            >
+              <option value="hotel">🏨 Propiedad Hotelera</option>
+              <option value="corporate">🏢 Corporativo / Oficina Central</option>
+              <option value="office">🏢 Oficina</option>
+              <option value="warehouse">🏭 Almacén / Bodega</option>
+              <option value="other">💼 Otro</option>
+            </select>
+            <p className="mt-1 text-[10px] text-gray-500">
+              {businessType === 'hotel' && 'Aparece en selectores de inspecciones hoteleras'}
+              {businessType === 'corporate' && 'NO aparece en selectores de hoteles (solo reportes corporativos)'}
+              {businessType !== 'hotel' && businessType !== 'corporate' && 'Uso administrativo general'}
+            </p>
           </div>
 
           <div>

@@ -16,7 +16,7 @@ export async function GET() {
 
   const { data: locations, error } = await admin
     .from('locations')
-    .select('id,name,code,city,state,country,address,phone,email,manager_name,is_active,created_at')
+    .select('id,name,code,business_type,city,state,country,address,phone,email,manager_name,is_active,created_at')
     .order('name')
 
   if (error) return new Response(error.message, { status: 500 })
@@ -44,6 +44,9 @@ export async function POST(request: Request) {
 
   const name = typeof body?.name === 'string' ? body.name.trim() : ''
   const code = typeof body?.code === 'string' ? body.code.trim().toUpperCase() : ''
+  const businessType = ['hotel', 'corporate', 'office', 'warehouse', 'other'].includes(body?.business_type)
+    ? body.business_type
+    : 'hotel'
   const city = typeof body?.city === 'string' ? body.city.trim() : ''
   const state = typeof body?.state === 'string' ? body.state.trim() : ''
   const country = typeof body?.country === 'string' ? body.country.trim() : 'México'
@@ -62,6 +65,7 @@ export async function POST(request: Request) {
     .insert({
       name,
       code,
+      business_type: businessType,
       city: city || null,
       state: state || null,
       country: country || null,

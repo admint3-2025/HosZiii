@@ -6,6 +6,7 @@ type LocationRow = {
   id: string
   name: string
   code: string
+  business_type: 'hotel' | 'corporate' | 'office' | 'warehouse' | 'other'
   city: string | null
   state: string | null
   country: string | null
@@ -24,6 +25,7 @@ export default function LocationList() {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editName, setEditName] = useState('')
   const [editCode, setEditCode] = useState('')
+  const [editBusinessType, setEditBusinessType] = useState<'hotel' | 'corporate' | 'office' | 'warehouse' | 'other'>('hotel')
   const [editCity, setEditCity] = useState('')
   const [editState, setEditState] = useState('')
   const [editCountry, setEditCountry] = useState('')
@@ -65,6 +67,7 @@ export default function LocationList() {
     setEditingId(loc.id)
     setEditName(loc.name)
     setEditCode(loc.code)
+    setEditBusinessType(loc.business_type)
     setEditCity(loc.city ?? '')
     setEditState(loc.state ?? '')
     setEditCountry(loc.country ?? 'México')
@@ -84,6 +87,7 @@ export default function LocationList() {
         body: JSON.stringify({
           name: editName.trim(),
           code: editCode.trim().toUpperCase(),
+          business_type: editBusinessType,
           city: editCity.trim(),
           state: editState.trim(),
           country: editCountry.trim(),
@@ -180,6 +184,7 @@ export default function LocationList() {
             <tr>
               <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">Nombre</th>
               <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">Código</th>
+              <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">Tipo</th>
               <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">Ciudad/Estado</th>
               <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">Contacto</th>
               <th className="px-3 py-2 font-semibold uppercase tracking-wider text-[10px]">Estado</th>
@@ -205,6 +210,26 @@ export default function LocationList() {
                     ) : (
                       <div className="inline-flex items-center px-2 py-0.5 rounded bg-indigo-50 border border-indigo-200 text-indigo-700 font-mono font-semibold text-[10px]">
                         {loc.code}
+                      </div>
+                    )}
+                  </td>
+
+                  <td className="px-3 py-2">
+                    {editing ? (
+                      <select className="input text-xs" value={editBusinessType} onChange={(e) => setEditBusinessType(e.target.value as any)}>
+                        <option value="hotel">🏨 Hotel</option>
+                        <option value="corporate">🏢 Corporativo</option>
+                        <option value="office">🏢 Oficina</option>
+                        <option value="warehouse">🏭 Almacén</option>
+                        <option value="other">💼 Otro</option>
+                      </select>
+                    ) : (
+                      <div className="text-xs">
+                        {loc.business_type === 'hotel' && <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 text-[10px]">🏨 Hotel</span>}
+                        {loc.business_type === 'corporate' && <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-purple-50 border border-purple-200 text-purple-700 text-[10px]">🏢 Corporativo</span>}
+                        {loc.business_type === 'office' && <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-50 border border-slate-200 text-slate-700 text-[10px]">🏢 Oficina</span>}
+                        {loc.business_type === 'warehouse' && <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-orange-50 border border-orange-200 text-orange-700 text-[10px]">🏭 Almacén</span>}
+                        {loc.business_type === 'other' && <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-gray-50 border border-gray-200 text-gray-700 text-[10px]">💼 Otro</span>}
                       </div>
                     )}
                   </td>
@@ -294,7 +319,7 @@ export default function LocationList() {
 
             {sorted.length === 0 ? (
               <tr>
-                <td className="px-3 py-8 text-center text-gray-500 text-xs" colSpan={6}>
+                <td className="px-3 py-8 text-center text-gray-500 text-xs" colSpan={7}>
                   {busy ? 'Cargando…' : 'No hay ubicaciones registradas'}
                 </td>
               </tr>

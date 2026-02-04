@@ -8,6 +8,7 @@ export type Location = {
   id: string
   name: string
   code: string
+  business_type: 'hotel' | 'corporate' | 'office' | 'warehouse' | 'other'
   address: string | null
   city: string | null
   state: string | null

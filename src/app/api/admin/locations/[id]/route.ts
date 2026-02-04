@@ -37,6 +37,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     updates.code = code
   }
 
+  if (body?.business_type !== undefined) {
+    const validTypes = ['hotel', 'corporate', 'office', 'warehouse', 'other']
+    if (validTypes.includes(body.business_type)) {
+      updates.business_type = body.business_type
+    }
+  }
+
   if (body?.city !== undefined) {
     updates.city = typeof body.city === 'string' ? body.city.trim() || null : null
   }

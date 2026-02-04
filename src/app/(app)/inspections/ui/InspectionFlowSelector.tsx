@@ -137,11 +137,13 @@ export default function InspectionFlowSelector({
 
         // En contexto corporativo: todas las sedes activas son inspeccionables.
         // El permiso especial del perfil filtra DEPARTAMENTOS (allowed_departments), no sedes.
+        // SOLO mostrar hoteles (business_type = 'hotel'), excluir corporativos y otros
         if (context === 'corporate' || isAdmin || isCorporateAdmin) {
           const { data, error } = await supabase
             .from('locations')
-            .select('id, code, name')
+            .select('id, code, name, business_type')
             .eq('is_active', true)
+            .eq('business_type', 'hotel')
             .order('code')
 
           if (error) {
@@ -153,7 +155,7 @@ export default function InspectionFlowSelector({
         } else {
           const { data, error } = await supabase
             .from('user_locations')
-            .select('location_id, locations(id, code, name)')
+            .select('location_id, locations!inner(id, code, name, business_type)')
             .eq('user_id', user.id)
 
           if (error) {
@@ -162,7 +164,7 @@ export default function InspectionFlowSelector({
           } else {
             const mapped = (data || [])
               .map((row: any) => row.locations)
-              .filter(Boolean)
+              .filter((l: any) => l && l.business_type === 'hotel')
               .map((l: any) => ({ id: l.id, code: l.code, name: l.name }))
             setAvailableProperties(mapped)
           }
