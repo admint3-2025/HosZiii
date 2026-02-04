@@ -1022,54 +1022,110 @@ export default function InspectionDashboard({
   saving = false,
   inspectionStatus = 'draft',
   onUnsavedChanges,
+  const isMarketing = departmentName?.toUpperCase().includes('MARKETING')
   onBack
 }: InspectionDashboardProps) {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
 
   const isReadOnly = inspectionStatus === 'completed' || inspectionStatus === 'approved'
+  const mapStatusLabel = (value: '' | 'Cumple' | 'No Cumple' | 'N/A') => {
+    if (!isMarketing) return value
+    if (value === 'Cumple') return 'Existe'
+    if (value === 'No Cumple') return 'No existe'
+    return value
+  }
 
   useEffect(() => {
     if (isReadOnly) setHasUnsavedChanges(false)
-  }, [isReadOnly])
+            <div className="col-span-2 text-center">{isMarketing ? 'Existencia' : 'Cumplimiento'}</div>
 
   // Detectar cambios sin guardar al cerrar ventana/pestaña
   useEffect(() => {
     const handleBeforeUnload = (e: BeforeUnloadEvent) => {
       if (hasUnsavedChanges) {
-        e.preventDefault()
-        e.returnValue = ''
-        return ''
-      }
-    }
-
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [hasUnsavedChanges])
-
-  // Notificar al padre cuando hay cambios sin guardar
-  useEffect(() => {
-    onUnsavedChanges?.(hasUnsavedChanges)
-  }, [hasUnsavedChanges, onUnsavedChanges])
-
-  const [internalInspectionData, setInternalInspectionData] = useState<InspectionArea[]>(INITIAL_INSPECTION_DATA)
-  const [internalGeneralComments, setInternalGeneralComments] = useState('')
-  const [hoveredBar, setHoveredBar] = useState<number | null>(null)
-
-  // Usar props si se proporcionan, caso contrario usar estado interno
-  const inspectionData = propInspectionData || internalInspectionData
-  const generalComments = propGeneralComments || internalGeneralComments
-
-  const handleUpdateItem = (areaName: string, itemId: number, field: string, value: any) => {
-    if (isReadOnly) return
-    console.log('=== InspectionDashboard.handleUpdateItem ===', { areaName, itemId, field, value, hasPropOnUpdateItem: !!propOnUpdateItem })
-    setHasUnsavedChanges(true)
-    if (propOnUpdateItem) {
-      console.log('Llamando propOnUpdateItem...')
-      propOnUpdateItem(areaName, itemId, field, value)
-    } else {
-      console.log('Usando estado interno (NO debería pasar)')
-      setInternalInspectionData(prev => prev.map(area => {
-        if (area.area !== areaName) return area
+                {item.cumplimiento_editable && !isReadOnly ? (
+                  isMarketing ? (
+                    <div className="inline-flex rounded-md border border-slate-200 overflow-hidden">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onUpdateItem(area.area, item.id, 'cumplimiento_valor', 'Cumple')
+                        }}
+                        className={`px-2 py-1 text-xs font-semibold transition-colors ${
+                          item.cumplimiento_valor === 'Cumple'
+                            ? 'bg-emerald-600 text-white'
+                            : 'bg-white text-slate-600 hover:bg-slate-50'
+                        }`}
+                        title="Existe"
+                      >
+                        Existe
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onUpdateItem(area.area, item.id, 'cumplimiento_valor', 'No Cumple')
+                          onUpdateItem(area.area, item.id, 'calif_valor', 0)
+                        }}
+                        className={`px-2 py-1 text-xs font-semibold transition-colors border-l border-slate-200 ${
+                          item.cumplimiento_valor === 'No Cumple'
+                            ? 'bg-red-600 text-white'
+                            : 'bg-white text-slate-600 hover:bg-slate-50'
+                        }`}
+                        title="No existe"
+                      >
+                        No existe
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          onUpdateItem(area.area, item.id, 'cumplimiento_valor', 'N/A')
+                          onUpdateItem(area.area, item.id, 'calif_valor', 0)
+                        }}
+                        className={`px-2 py-1 text-xs font-semibold transition-colors border-l border-slate-200 ${
+                          item.cumplimiento_valor === 'N/A'
+                            ? 'bg-amber-500 text-white'
+                            : 'bg-white text-slate-600 hover:bg-slate-50'
+                        }`}
+                        title="No aplica"
+                      >
+                        N/A
+                      </button>
+                    </div>
+                  ) : (
+                    <select
+                      value={item.cumplimiento_valor}
+                      onChange={(e) => {
+                        const value = e.target.value as '' | 'Cumple' | 'No Cumple' | 'N/A'
+                        onUpdateItem(area.area, item.id, 'cumplimiento_valor', value)
+                        if (value !== 'Cumple') {
+                          onUpdateItem(area.area, item.id, 'calif_valor', 0)
+                        } else if (!item.calif_valor) {
+                          onUpdateItem(area.area, item.id, 'calif_valor', 10)
+                        }
+                      }}
+                      className={`text-xs font-medium px-2 py-1 rounded border cursor-pointer ${
+                        item.cumplimiento_valor === 'Cumple' 
+                          ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
+                          : item.cumplimiento_valor === 'No Cumple'
+                          ? 'bg-red-50 text-red-700 border-red-200'
+                          : item.cumplimiento_valor === 'N/A'
+                          ? 'bg-amber-50 text-amber-700 border-amber-200'
+                          : 'bg-white text-slate-500 border-amber-300 ring-1 ring-amber-200'
+                      }`}
+                    >
+                      <option value="">Seleccionar...</option>
+                      <option value="Cumple">Cumple</option>
+                      <option value="No Cumple">No Cumple</option>
+                      <option value="N/A">N/A</option>
+                    </select>
+                  )
+                ) : (
+                  <span className={`text-xs font-medium px-2 py-1 rounded ${
+                    item.cumplimiento_valor === 'Cumple' ? 'bg-emerald-50 text-emerald-700' : item.cumplimiento_valor === 'No Cumple' ? 'bg-red-50 text-red-700' : 'bg-slate-100 text-slate-600'
+                  }`}>
+                    {mapStatusLabel(item.cumplimiento_valor)}
+                  </span>
+                )}
         return {
           ...area,
           items: area.items.map(item => {
