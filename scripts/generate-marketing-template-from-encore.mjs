@@ -41,8 +41,14 @@ function isMostlyEmpty(row, from = 1, to = 10) {
   return true
 }
 
+function isHeaderRow(row) {
+  const first = row?.[0]
+  return String(first ?? '').toLowerCase().trim() === 'elemento'
+}
+
 const rawAreas = []
 let currentArea = null
+let currentParentArea = null
 
 for (let i = 0; i < rows.length; i++) {
   const row = rows[i].map(norm)
@@ -53,8 +59,39 @@ for (let i = 0; i < rows.length; i++) {
   if (lower === 'elemento') continue
   if (lower.includes('total acumulado')) continue
 
-  if (typeof first === 'string' && isMostlyEmpty(row, 1, 10)) {
+  // Some sections include a subgroup label in column A and the first item text in column B,
+  // followed by the table header row (Elemento/Existencia/...). In that case we treat the
+  // subgroup as its own area to avoid emitting it as an item.
+  const nextRow = i + 1 < rows.length ? rows[i + 1].map(norm) : null
+  const nextFirstLower = nextRow ? String(nextRow[0] ?? '').toLowerCase().trim() : ''
+  const second = row[1]
+  const hasSecondText = typeof second === 'string' && second.trim().length > 0
+  if (
+    currentParentArea &&
+    typeof first === 'string' &&
+    hasSecondText &&
+    nextFirstLower === 'elemento'
+  ) {
+    const subgroup = first
+    // Column B can contain notes in the Excel; items are always taken from column A
+    // in the Elemento table. So we create the subgroup area and let the following
+    // table rows contribute the real items.
+    const subgroupArea = { name: `${currentParentArea.name} / ${subgroup}`, items: [] }
+    currentArea = subgroupArea
+    rawAreas.push(subgroupArea)
+    continue
+  }
+
+  // Treat a row as an area header if it is followed by the table header row.
+  // This happens in the Excel for some sections (notably some habitaciones)
+  // where the title row may also include notes in other columns.
+  const isAreaHeader =
+    typeof first === 'string' &&
+    (nextRow ? isHeaderRow(nextRow) : false || isMostlyEmpty(row, 1, 22))
+
+  if (isAreaHeader) {
     currentArea = { name: first, items: [] }
+    currentParentArea = currentArea
     rawAreas.push(currentArea)
     continue
   }
@@ -67,6 +104,22 @@ for (let i = 0; i < rows.length; i++) {
 // Filter empties
 const nonEmptyAreas = rawAreas.filter(a => a.items.length > 0)
 
+// Drop exact duplicates (same area name and identical item list).
+// The source Excel repeats some habitación blocks multiple times.
+const seenByName = new Map()
+const dedupedAreas = []
+for (const a of nonEmptyAreas) {
+  const key = JSON.stringify(a.items)
+  const prevKeys = seenByName.get(a.name)
+  if (prevKeys) {
+    if (prevKeys.has(key)) continue
+    prevKeys.add(key)
+  } else {
+    seenByName.set(a.name, new Set([key]))
+  }
+  dedupedAreas.push(a)
+}
+
 // Dedupe area names to satisfy unique constraint in DB
 const usedNames = new Map()
 function uniqueName(base) {
@@ -78,7 +131,7 @@ function uniqueName(base) {
 }
 
 const modelEntries = []
-for (const a of nonEmptyAreas) {
+for (const a of dedupedAreas) {
   const name = uniqueName(a.name)
   modelEntries.push([name, a.items])
 }
