@@ -828,12 +828,21 @@ function AreaCard({
   area,
   onUpdateItem,
   isReadOnly = false,
+  isMarketing = false,
 }: {
   area: InspectionArea
   onUpdateItem: (areaName: string, itemId: number, field: string, value: any) => void
   isReadOnly?: boolean
+  isMarketing?: boolean
 }) {
   const [expanded, setExpanded] = useState(false)
+
+  const mapStatusLabel = (value: '' | 'Cumple' | 'No Cumple' | 'N/A') => {
+    if (!isMarketing) return value
+    if (value === 'Cumple') return 'Existe'
+    if (value === 'No Cumple') return 'No existe'
+    return value
+  }
   
   const calculatedScore = useMemo(() => {
     const cumpleItems = area.items.filter(item => item.cumplimiento_valor === 'Cumple')
@@ -886,7 +895,7 @@ function AreaCard({
         <div className="border-t border-slate-100">
           <div className="grid grid-cols-12 gap-2 px-4 py-2 bg-slate-50 text-xs font-semibold text-slate-600 border-b border-slate-100">
             <div className="col-span-4">Descripción</div>
-            <div className="col-span-2 text-center">Cumplimiento</div>
+            <div className="col-span-2 text-center">{isMarketing ? 'Existencia' : 'Cumplimiento'}</div>
             <div className="col-span-2 text-center">Calificación</div>
             <div className="col-span-4">Comentarios</div>
           </div>
@@ -910,139 +919,6 @@ function AreaCard({
               </div>
               
               <div className="col-span-2 text-center">
-                {item.cumplimiento_editable && !isReadOnly ? (
-                  <select
-                    value={item.cumplimiento_valor}
-                    onChange={(e) => {
-                      const value = e.target.value as '' | 'Cumple' | 'No Cumple' | 'N/A'
-                      onUpdateItem(area.area, item.id, 'cumplimiento_valor', value)
-                      if (value !== 'Cumple') {
-                        onUpdateItem(area.area, item.id, 'calif_valor', 0)
-                      } else if (!item.calif_valor) {
-                        onUpdateItem(area.area, item.id, 'calif_valor', 10)
-                      }
-                    }}
-                    className={`text-xs font-medium px-2 py-1 rounded border cursor-pointer ${
-                      item.cumplimiento_valor === 'Cumple' 
-                        ? 'bg-emerald-50 text-emerald-700 border-emerald-200' 
-                        : item.cumplimiento_valor === 'No Cumple'
-                        ? 'bg-red-50 text-red-700 border-red-200'
-                        : item.cumplimiento_valor === 'N/A'
-                        ? 'bg-amber-50 text-amber-700 border-amber-200'
-                        : 'bg-white text-slate-500 border-amber-300 ring-1 ring-amber-200'
-                    }`}
-                  >
-                    <option value="">Seleccionar...</option>
-                    <option value="Cumple">Cumple</option>
-                    <option value="No Cumple">No Cumple</option>
-                    <option value="N/A">N/A</option>
-                  </select>
-                ) : (
-                  <span className={`text-xs font-medium px-2 py-1 rounded ${
-                    item.cumplimiento_valor === 'Cumple' ? 'bg-emerald-50 text-emerald-700' : item.cumplimiento_valor === 'No Cumple' ? 'bg-red-50 text-red-700' : 'bg-slate-100 text-slate-600'
-                  }`}>
-                    {item.cumplimiento_valor}
-                  </span>
-                )}
-              </div>
-              
-              <div className="col-span-2 text-center">
-                {item.calif_editable && item.cumplimiento_valor === 'Cumple' && !isReadOnly ? (
-                  <input
-                    type="number"
-                    min="0"
-                    max="10"
-                    value={item.calif_valor}
-                    onChange={(e) => onUpdateItem(area.area, item.id, 'calif_valor', parseInt(e.target.value) || 0)}
-                    className="w-14 text-center text-xs font-bold px-2 py-1 rounded border border-slate-200 focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
-                  />
-                ) : (
-                  <span className={`text-xs font-bold ${item.cumplimiento_valor !== 'Cumple' ? 'text-slate-400' : 'text-slate-700'}`}>
-                    {item.cumplimiento_valor === 'Cumple' ? item.calif_valor : item.cumplimiento_valor === 'N/A' ? 'N/A' : '-'}
-                  </span>
-                )}
-              </div>
-              
-              <div className="col-span-4">
-                {item.comentarios_libre && !isReadOnly ? (
-                  <input
-                    type="text"
-                    value={item.comentarios_valor}
-                    onChange={(e) => onUpdateItem(area.area, item.id, 'comentarios_valor', e.target.value)}
-                    placeholder="Agregar comentario..."
-                    className="w-full text-xs px-2 py-1 rounded border border-slate-200 focus:border-blue-400 focus:ring-1 focus:ring-blue-400 text-slate-600"
-                  />
-                ) : (
-                  <span className="text-xs text-slate-500">{item.comentarios_valor || '-'}</span>
-                )}
-              </div>
-            </div>
-          )})}
-          
-          <div className="flex items-center justify-between px-4 py-3 bg-slate-50">
-            <span className="text-xs text-slate-500">Promedio calculado del área</span>
-            <span className={`text-sm font-bold ${scoreColor.split(' ')[0]}`}>{calculatedScore}</span>
-          </div>
-        </div>
-      )}
-    </div>
-  )
-}
-
-// ============== COMPONENTE PRINCIPAL ==============
-
-interface InspectionDashboardProps {
-  departmentName: string
-  propertyCode: string
-  propertyName: string
-  inspectionData?: InspectionArea[]
-  onUpdateItem?: (areaName: string, itemId: number, field: string, value: any) => void
-  generalComments?: string
-  onUpdateGeneralComments?: (value: string) => void
-  trendData?: number[]
-  onSave?: (complete?: boolean) => void
-  onGeneratePDF?: () => void
-  saving?: boolean
-  inspectionStatus?: string
-  onUnsavedChanges?: (hasChanges: boolean) => void
-  onBack?: () => void
-}
-
-export default function InspectionDashboard({
-  departmentName,
-  propertyCode,
-  propertyName,
-  inspectionData: propInspectionData,
-  onUpdateItem: propOnUpdateItem,
-  generalComments: propGeneralComments = '',
-  onUpdateGeneralComments,
-  trendData: propTrendData,
-  onSave,
-  onGeneratePDF,
-  saving = false,
-  inspectionStatus = 'draft',
-  onUnsavedChanges,
-  const isMarketing = departmentName?.toUpperCase().includes('MARKETING')
-  onBack
-}: InspectionDashboardProps) {
-  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
-
-  const isReadOnly = inspectionStatus === 'completed' || inspectionStatus === 'approved'
-  const mapStatusLabel = (value: '' | 'Cumple' | 'No Cumple' | 'N/A') => {
-    if (!isMarketing) return value
-    if (value === 'Cumple') return 'Existe'
-    if (value === 'No Cumple') return 'No existe'
-    return value
-  }
-
-  useEffect(() => {
-    if (isReadOnly) setHasUnsavedChanges(false)
-            <div className="col-span-2 text-center">{isMarketing ? 'Existencia' : 'Cumplimiento'}</div>
-
-  // Detectar cambios sin guardar al cerrar ventana/pestaña
-  useEffect(() => {
-    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (hasUnsavedChanges) {
                 {item.cumplimiento_editable && !isReadOnly ? (
                   isMarketing ? (
                     <div className="inline-flex rounded-md border border-slate-200 overflow-hidden">
@@ -1126,6 +1002,132 @@ export default function InspectionDashboard({
                     {mapStatusLabel(item.cumplimiento_valor)}
                   </span>
                 )}
+              </div>
+              
+              <div className="col-span-2 text-center">
+                {item.calif_editable && item.cumplimiento_valor === 'Cumple' && !isReadOnly ? (
+                  <input
+                    type="number"
+                    min="0"
+                    max="10"
+                    value={item.calif_valor}
+                    onChange={(e) => onUpdateItem(area.area, item.id, 'calif_valor', parseInt(e.target.value) || 0)}
+                    className="w-14 text-center text-xs font-bold px-2 py-1 rounded border border-slate-200 focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
+                  />
+                ) : (
+                  <span className={`text-xs font-bold ${item.cumplimiento_valor !== 'Cumple' ? 'text-slate-400' : 'text-slate-700'}`}>
+                    {item.cumplimiento_valor === 'Cumple' ? item.calif_valor : item.cumplimiento_valor === 'N/A' ? 'N/A' : '-'}
+                  </span>
+                )}
+              </div>
+              
+              <div className="col-span-4">
+                {item.comentarios_libre && !isReadOnly ? (
+                  <input
+                    type="text"
+                    value={item.comentarios_valor}
+                    onChange={(e) => onUpdateItem(area.area, item.id, 'comentarios_valor', e.target.value)}
+                    placeholder="Agregar comentario..."
+                    className="w-full text-xs px-2 py-1 rounded border border-slate-200 focus:border-blue-400 focus:ring-1 focus:ring-blue-400 text-slate-600"
+                  />
+                ) : (
+                  <span className="text-xs text-slate-500">{item.comentarios_valor || '-'}</span>
+                )}
+              </div>
+            </div>
+          )})}
+          
+          <div className="flex items-center justify-between px-4 py-3 bg-slate-50">
+            <span className="text-xs text-slate-500">Promedio calculado del área</span>
+            <span className={`text-sm font-bold ${scoreColor.split(' ')[0]}`}>{calculatedScore}</span>
+          </div>
+        </div>
+      )}
+    </div>
+  )
+}
+
+// ============== COMPONENTE PRINCIPAL ==============
+
+interface InspectionDashboardProps {
+  departmentName: string
+  propertyCode: string
+  propertyName: string
+  inspectionData?: InspectionArea[]
+  onUpdateItem?: (areaName: string, itemId: number, field: string, value: any) => void
+  generalComments?: string
+  onUpdateGeneralComments?: (value: string) => void
+  trendData?: number[]
+  onSave?: (complete?: boolean) => void
+  onGeneratePDF?: () => void
+  saving?: boolean
+  inspectionStatus?: string
+  onUnsavedChanges?: (hasChanges: boolean) => void
+  onBack?: () => void
+}
+
+export default function InspectionDashboard({
+  departmentName,
+  propertyCode,
+  propertyName,
+  inspectionData: propInspectionData,
+  onUpdateItem: propOnUpdateItem,
+  generalComments: propGeneralComments = '',
+  onUpdateGeneralComments,
+  trendData: propTrendData,
+  onSave,
+  onGeneratePDF,
+  saving = false,
+  inspectionStatus = 'draft',
+  onUnsavedChanges,
+  onBack
+}: InspectionDashboardProps) {
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+
+  const isReadOnly = inspectionStatus === 'completed' || inspectionStatus === 'approved'
+
+  useEffect(() => {
+    if (isReadOnly) setHasUnsavedChanges(false)
+  }, [isReadOnly])
+
+  // Detectar cambios sin guardar al cerrar ventana/pestaña
+  useEffect(() => {
+    const handleBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (hasUnsavedChanges) {
+        e.preventDefault()
+        e.returnValue = ''
+        return ''
+      }
+    }
+
+    window.addEventListener('beforeunload', handleBeforeUnload)
+    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
+  }, [hasUnsavedChanges])
+
+  // Notificar al padre cuando hay cambios sin guardar
+  useEffect(() => {
+    onUnsavedChanges?.(hasUnsavedChanges)
+  }, [hasUnsavedChanges, onUnsavedChanges])
+
+  const [internalInspectionData, setInternalInspectionData] = useState<InspectionArea[]>(INITIAL_INSPECTION_DATA)
+  const [internalGeneralComments, setInternalGeneralComments] = useState('')
+  const [hoveredBar, setHoveredBar] = useState<number | null>(null)
+
+  // Usar props si se proporcionan, caso contrario usar estado interno
+  const inspectionData = propInspectionData || internalInspectionData
+  const generalComments = propGeneralComments || internalGeneralComments
+
+  const handleUpdateItem = (areaName: string, itemId: number, field: string, value: any) => {
+    if (isReadOnly) return
+    console.log('=== InspectionDashboard.handleUpdateItem ===', { areaName, itemId, field, value, hasPropOnUpdateItem: !!propOnUpdateItem })
+    setHasUnsavedChanges(true)
+    if (propOnUpdateItem) {
+      console.log('Llamando propOnUpdateItem...')
+      propOnUpdateItem(areaName, itemId, field, value)
+    } else {
+      console.log('Usando estado interno (NO debería pasar)')
+      setInternalInspectionData(prev => prev.map(area => {
+        if (area.area !== areaName) return area
         return {
           ...area,
           items: area.items.map(item => {
@@ -1381,7 +1383,13 @@ export default function InspectionDashboard({
           {isReadOnly ? 'Detalle de Áreas (solo lectura)' : 'Detalle de Áreas (click para expandir)'}
         </h2>
         {inspectionData.map((area) => (
-          <AreaCard key={area.area} area={area} onUpdateItem={handleUpdateItem} isReadOnly={isReadOnly} />
+          <AreaCard
+            key={area.area}
+            area={area}
+            onUpdateItem={handleUpdateItem}
+            isReadOnly={isReadOnly}
+            isMarketing={departmentName?.toUpperCase().includes('MARKETING')}
+          />
         ))}
       </div>
 
