@@ -1295,20 +1295,29 @@ function AreaCard({
                               </button>
                             </div>
                           </div>
+                        ) : !itemDbId ? (
+                          <div
+                            onClick={() => {
+                              if (!isReadOnly) alert('Debe guardar la inspección primero (botón "Guardar borrador") para poder agregar evidencias fotográficas.')
+                            }}
+                            className="h-20 rounded-md border border-dashed border-slate-200 text-slate-400 bg-slate-50 flex items-center justify-center text-[11px] cursor-pointer hover:bg-slate-100 transition-colors"
+                          >
+                            📷 Agregar foto {slot}
+                          </div>
                         ) : (
                           <label
                             className={`h-20 rounded-md border border-dashed flex items-center justify-center text-[11px] cursor-pointer transition-colors ${
-                              isReadOnly || !itemDbId
+                              isReadOnly || isUp
                                 ? 'border-slate-200 text-slate-400 bg-slate-50 cursor-not-allowed'
                                 : 'border-slate-300 text-slate-600 hover:border-slate-400 hover:bg-white'
                             }`}
                           >
-                            {isUp ? 'Subiendo...' : `Agregar foto ${slot}`}
+                            {isUp ? 'Subiendo...' : `📷 Agregar foto ${slot}`}
                             <input
                               type="file"
                               accept="image/jpeg,image/png,image/webp,image/gif"
                               className="hidden"
-                              disabled={isReadOnly || !itemDbId || isUp}
+                              disabled={isReadOnly || isUp}
                               onChange={(e) => {
                                 const f = e.target.files?.[0]
                                 if (f) void handlePick(slot, f)
