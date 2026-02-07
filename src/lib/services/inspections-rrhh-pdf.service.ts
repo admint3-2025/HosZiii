@@ -148,6 +148,15 @@ export class InspectionRRHHPDFGenerator {
     this.doc.save(fname)
   }
 
+  private getReportTitle(inspection: InspectionRRHH): string {
+    const department = inspection.department?.trim?.() ?? ''
+    const normalizedDepartment = department
+      ? department.replace(/\s+/g, ' ').toUpperCase()
+      : 'RECURSOS HUMANOS'
+
+    return `INSPECCIÓN DE ${normalizedDepartment}`
+  }
+
   private addHeader(inspection: InspectionRRHH): void {
     const logoX = this.margin
     const logoY = this.currentY
@@ -214,7 +223,7 @@ export class InspectionRRHHPDFGenerator {
     // Título (auto-ajusta para no montarse con el status)
     this.doc.setTextColor(30, 41, 59)
     this.doc.setFont('helvetica', 'bold')
-    const title = 'INSPECCIÓN DE RECURSOS HUMANOS'
+    const title = this.getReportTitle(inspection)
     let titleFontSize = 18
     this.doc.setFontSize(titleFontSize)
     while (titleFontSize > 12 && this.doc.getTextWidth(title) > maxTextWidth) {
