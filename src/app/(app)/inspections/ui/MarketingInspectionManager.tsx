@@ -8,6 +8,7 @@ import { InspectionsRRHHService, type InspectionRRHH, type InspectionRRHHArea } 
 import { InspectionRRHHPDFGenerator } from '@/lib/services/inspections-rrhh-pdf.service'
 import { getMarketingInspectionTemplateAreas } from '@/lib/templates/inspection-marketing-template'
 import type { User } from '@supabase/supabase-js'
+import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 
 interface MarketingInspectionManagerProps {
   propertyCode: string
@@ -58,6 +59,43 @@ export default function MarketingInspectionManager(props: MarketingInspectionMan
   const [showNavigationModal, setShowNavigationModal] = useState(false)
   const [pendingNavigation, setPendingNavigation] = useState<string | null>(null)
   const pendingActionRef = useRef<(() => void) | null>(null)
+
+  const handleEvidenceUpsert = (itemDbId: string, evidence: any) => {
+    setHasUnsavedChanges(true)
+    setInspection((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        areas: prev.areas.map((area) => ({
+          ...area,
+          items: area.items.map((item) => {
+            if (item.id !== itemDbId) return item
+            const existing = (item as any).evidences || []
+            const withoutSlot = existing.filter((e: any) => e?.slot !== evidence?.slot)
+            return { ...item, evidences: [...withoutSlot, evidence] }
+          })
+        }))
+      }
+    })
+  }
+
+  const handleEvidenceRemove = (itemDbId: string, slot: 1 | 2) => {
+    setHasUnsavedChanges(true)
+    setInspection((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        areas: prev.areas.map((area) => ({
+          ...area,
+          items: area.items.map((item) => {
+            if (item.id !== itemDbId) return item
+            const existing = (item as any).evidences || []
+            return { ...item, evidences: existing.filter((e: any) => e?.slot !== slot) }
+          })
+        }))
+      }
+    })
+  }
 
   // Template a usar (override o default filtrado por propiedad)
   const baseTemplate = props.templateOverride || getMarketingInspectionTemplateAreas(props.propertyCode)
@@ -358,8 +396,38 @@ export default function MarketingInspectionManager(props: MarketingInspectionMan
     const brandLogoKey = lower === 'none' ? null : !selected.startsWith('http') ? selected : null
     const brandLogoUrl = lower === 'none' ? null : selected.startsWith('http') ? selected : null
 
+    const supabase = createSupabaseBrowserClient()
+    const inspectionWithSignedEvidence: InspectionRRHH = {
+      ...inspection,
+      areas: await Promise.all(
+        (inspection.areas || []).map(async (area: any) => ({
+          ...area,
+          items: await Promise.all(
+            (area.items || []).map(async (item: any) => {
+              const evidences = (item.evidences || [])
+              if (evidences.length === 0) return item
+
+              const updatedEvidences = await Promise.all(
+                evidences.map(async (ev: any) => {
+                  if (ev?.signed_url) return ev
+                  if (!ev?.storage_path) return ev
+                  const { data, error } = await supabase.storage
+                    .from('inspection-evidences')
+                    .createSignedUrl(String(ev.storage_path), 3600)
+                  if (error || !data?.signedUrl) return { ...ev, signed_url: null }
+                  return { ...ev, signed_url: data.signedUrl }
+                })
+              )
+
+              return { ...item, evidences: updatedEvidences }
+            })
+          )
+        }))
+      )
+    }
+
     const generator = new InspectionRRHHPDFGenerator({ brandLogoKey, brandLogoUrl })
-    await generator.download(inspection)
+    await generator.download(inspectionWithSignedEvidence)
   }
 
   const handleUpdateItem = (areaName: string, itemId: number, field: string, value: any) => {
@@ -423,6 +491,7 @@ export default function MarketingInspectionManager(props: MarketingInspectionMan
             area: area.area_name,
             items: area.items.map((item, idx) => ({
               id: idx + 1,
+              db_id: item.id,
               descripcion: item.descripcion,
               tipo_dato: item.tipo_dato,
               cumplimiento_valor: item.cumplimiento_valor,
@@ -430,7 +499,8 @@ export default function MarketingInspectionManager(props: MarketingInspectionMan
               calif_valor: item.calif_valor,
               calif_editable: item.calif_editable,
               comentarios_valor: item.comentarios_valor,
-              comentarios_libre: item.comentarios_libre
+              comentarios_libre: item.comentarios_libre,
+              evidences: (item as any).evidences || []
             })),
             calificacion_area_fija: area.calculated_score || 0
           }))
@@ -441,6 +511,8 @@ export default function MarketingInspectionManager(props: MarketingInspectionMan
                 departmentName={props.departmentName}
                 propertyCode={props.propertyCode}
                 propertyName={props.propertyName}
+                inspectionId={inspection.id}
+                inspectionType="rrhh"
                 inspectionData={dashboardData}
                 onUpdateItem={handleUpdateItem}
                 trendData={trendData}
@@ -451,6 +523,8 @@ export default function MarketingInspectionManager(props: MarketingInspectionMan
                 saving={saving}
                 inspectionStatus={inspection.status}
                 onUnsavedChanges={setHasUnsavedChanges}
+                onEvidenceUpsert={handleEvidenceUpsert}
+                onEvidenceRemove={handleEvidenceRemove}
                 onBack={handleBackToDashboard}
               />
             </div>

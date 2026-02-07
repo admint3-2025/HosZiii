@@ -19,6 +19,8 @@ export class InspectionGSHPDFGenerator {
   private readonly brandLogoUrl: string | null
   private readonly brandLogoKey: string | null
 
+  private readonly evidenceImageCache = new Map<string, { dataUrl: string; format: 'PNG' | 'JPEG' | 'WEBP' }>()
+
   // Logo corporativo
   private static readonly LOGO_URL = 'https://systemach-sas.com/logo_ziii/ZIII%20logo.png'
   private static readonly BRAND_LOGO_URL = 'https://systemach-sas.com/logo_ziii/alzendhlogo.png'
@@ -131,7 +133,7 @@ export class InspectionGSHPDFGenerator {
     this.addStatusBanner(inspection)
     this.addKPISummary(inspection)
     this.addPerformanceChart(inspection)
-    this.addAreasDetail(inspection)
+    await this.addAreasDetail(inspection)
     this.addGeneralComments(inspection)
     this.addFooter(inspection)
 
@@ -564,7 +566,20 @@ export class InspectionGSHPDFGenerator {
     }
   }
 
-  private addAreasDetail(inspection: InspectionGSH): void {
+  private async getEvidenceImage(url: string): Promise<{ dataUrl: string; format: 'PNG' | 'JPEG' | 'WEBP' } | null> {
+    if (!url) return null
+    const cached = this.evidenceImageCache.get(url)
+    if (cached) return cached
+    try {
+      const img = await this.fetchImageAsDataUrl(url)
+      this.evidenceImageCache.set(url, img)
+      return img
+    } catch {
+      return null
+    }
+  }
+
+  private async addAreasDetail(inspection: InspectionGSH): Promise<void> {
     // Título de sección
     this.doc.setTextColor(30, 41, 59)
     this.doc.setFontSize(11)
@@ -572,7 +587,8 @@ export class InspectionGSHPDFGenerator {
     this.doc.text('DETALLE POR ÁREA', this.margin, this.currentY)
     this.currentY += 6
 
-    inspection.areas.forEach((area, areaIdx) => {
+    for (let areaIdx = 0; areaIdx < inspection.areas.length; areaIdx++) {
+      const area = inspection.areas[areaIdx]
       // Check page break
       if (this.currentY > this.pageHeight - 60) {
         this.doc.addPage()
@@ -602,17 +618,37 @@ export class InspectionGSHPDFGenerator {
 
       this.currentY += 12
 
+      const thumbsByRowIdx = new Map<number, Array<{ dataUrl: string; format: 'PNG' | 'JPEG' | 'WEBP' }>>()
+      await Promise.all(
+        (area.items || []).map(async (item: any, rowIdx: number) => {
+          const evidences = (item?.evidences || [])
+            .slice()
+            .sort((a: any, b: any) => Number(a?.slot ?? 0) - Number(b?.slot ?? 0))
+            .slice(0, 2)
+
+          const thumbs: Array<{ dataUrl: string; format: 'PNG' | 'JPEG' | 'WEBP' }> = []
+          for (const ev of evidences) {
+            const url = String(ev?.signed_url || '')
+            if (!url) continue
+            const img = await this.getEvidenceImage(url)
+            if (img) thumbs.push(img)
+          }
+          if (thumbs.length > 0) thumbsByRowIdx.set(rowIdx, thumbs)
+        })
+      )
+
       // Tabla de items
       const tableData = area.items.map((item) => [
         item.descripcion,
         item.cumplimiento_valor || '-',
         item.cumplimiento_valor === 'Cumple' ? item.calif_valor.toString() : item.cumplimiento_valor === 'N/A' ? 'N/A' : '-',
-        item.comentarios_valor || '-'
+        item.comentarios_valor || '-',
+        ''
       ])
 
       autoTable(this.doc, {
         startY: this.currentY,
-        head: [['Descripción', 'Cumplimiento', 'Calif.', 'Comentarios']],
+        head: [['Descripción', 'Cumplimiento', 'Calif.', 'Comentarios', 'Evidencias']],
         body: tableData,
         theme: 'plain',
         styles: {
@@ -629,16 +665,43 @@ export class InspectionGSHPDFGenerator {
           fontSize: 8
         },
         columnStyles: {
-          0: { cellWidth: 70 },
+          0: { cellWidth: 60 },
           1: { cellWidth: 25, halign: 'center' },
           2: { cellWidth: 15, halign: 'center' },
-          3: { cellWidth: 60 }
+          3: { cellWidth: 50 },
+          4: { cellWidth: 30, halign: 'center' }
         },
-        margin: { left: this.margin, right: this.margin }
+        margin: { left: this.margin, right: this.margin },
+        didParseCell: (data) => {
+          if (data.section === 'body' && data.column.index === 4) {
+            data.cell.styles.minCellHeight = 18
+            data.cell.text = ['']
+          }
+        },
+        didDrawCell: (data) => {
+          if (data.section !== 'body' || data.column.index !== 4) return
+          const thumbs = thumbsByRowIdx.get(data.row.index)
+          if (!thumbs || thumbs.length === 0) return
+
+          const thumbSize = 14
+          const gap = 1
+          const totalW = thumbs.length === 1 ? thumbSize : thumbSize * 2 + gap
+          const startX = data.cell.x + Math.max(0, (data.cell.width - totalW) / 2)
+          const startY = data.cell.y + Math.max(0, (data.cell.height - thumbSize) / 2)
+
+          thumbs.slice(0, 2).forEach((img, i) => {
+            const x = startX + i * (thumbSize + gap)
+            try {
+              this.doc.addImage(img.dataUrl, img.format, x, startY, thumbSize, thumbSize)
+            } catch {
+              // silencioso
+            }
+          })
+        }
       })
 
       this.currentY = ((this.doc as any).lastAutoTable?.finalY ?? this.currentY + 20) + 5
-    })
+    }
 
     this.addSeparator()
   }

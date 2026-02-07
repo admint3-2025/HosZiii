@@ -2,10 +2,12 @@
 
 import { useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 
 // Tipos
 type InspectionItem = {
   id: number
+  db_id?: string
   descripcion: string
   tipo_dato: string
   cumplimiento_valor: '' | 'Cumple' | 'No Cumple' | 'N/A'
@@ -14,6 +16,23 @@ type InspectionItem = {
   calif_editable: boolean
   comentarios_valor: string
   comentarios_libre: boolean
+  evidences?: InspectionItemEvidence[]
+}
+
+type EvidenceSlot = 1 | 2
+
+type InspectionItemEvidence = {
+  id: string
+  inspection_id: string
+  item_id: string
+  slot: EvidenceSlot
+  storage_path: string
+  file_name: string | null
+  file_size: number | null
+  mime_type: string | null
+  uploaded_by: string | null
+  created_at: string
+  signed_url?: string | null
 }
 
 type InspectionArea = {
@@ -829,13 +848,23 @@ function AreaCard({
   onUpdateItem,
   isReadOnly = false,
   isMarketing = false,
+  inspectionId,
+  inspectionType,
+  onEvidenceUpsert,
+  onEvidenceRemove,
 }: {
   area: InspectionArea
   onUpdateItem: (areaName: string, itemId: number, field: string, value: any) => void
   isReadOnly?: boolean
   isMarketing?: boolean
+  inspectionId?: string
+  inspectionType?: 'rrhh' | 'gsh'
+  onEvidenceUpsert?: (itemDbId: string, evidence: InspectionItemEvidence) => void
+  onEvidenceRemove?: (itemDbId: string, slot: EvidenceSlot) => void
 }) {
   const [expanded, setExpanded] = useState(false)
+  const [evidenceUrls, setEvidenceUrls] = useState<Record<string, string>>({})
+  const [uploading, setUploading] = useState<Record<string, boolean>>({})
 
   const mapStatusLabel = (value: '' | 'Cumple' | 'No Cumple' | 'N/A') => {
     if (!isMarketing) return value
@@ -902,10 +931,181 @@ function AreaCard({
           
           {area.items.map((item) => {
             const isPending = !item.cumplimiento_valor
+            const itemDbId = item.db_id
+            const itemEvidences = (item.evidences || []).slice().sort((a, b) => (a.slot ?? 0) - (b.slot ?? 0))
+
+            const getEvidenceForSlot = (slot: EvidenceSlot) => itemEvidences.find((e) => e.slot === slot) || null
+
+            const ensureSignedUrl = async (ev: InspectionItemEvidence | null) => {
+              if (!ev) return null
+              const key = ev.id
+              if (evidenceUrls[key]) return evidenceUrls[key]
+              try {
+                const supabase = createSupabaseBrowserClient()
+                const { data, error } = await supabase.storage
+                  .from('inspection-evidences')
+                  .createSignedUrl(ev.storage_path, 3600)
+                if (error || !data?.signedUrl) return null
+                setEvidenceUrls((prev) => ({ ...prev, [key]: data.signedUrl }))
+                return data.signedUrl
+              } catch {
+                return null
+              }
+            }
+
+            const compressImageForUpload = async (file: File): Promise<File> => {
+              const maxDim = 1280
+              const quality = 0.75
+
+              const bitmap = await new Promise<HTMLImageElement>((resolve, reject) => {
+                const img = new Image()
+                img.onload = () => resolve(img)
+                img.onerror = () => reject(new Error('No se pudo leer la imagen'))
+                img.src = URL.createObjectURL(file)
+              })
+
+              const w = bitmap.naturalWidth || (bitmap as any).width
+              const h = bitmap.naturalHeight || (bitmap as any).height
+              const scale = Math.min(1, maxDim / Math.max(w, h))
+              const outW = Math.max(1, Math.round(w * scale))
+              const outH = Math.max(1, Math.round(h * scale))
+
+              const canvas = document.createElement('canvas')
+              canvas.width = outW
+              canvas.height = outH
+              const ctx = canvas.getContext('2d')
+              if (!ctx) throw new Error('No se pudo procesar la imagen')
+              ctx.drawImage(bitmap, 0, 0, outW, outH)
+
+              const blob: Blob = await new Promise((resolve, reject) => {
+                canvas.toBlob(
+                  (b) => (b ? resolve(b) : reject(new Error('No se pudo comprimir la imagen'))),
+                  'image/jpeg',
+                  quality
+                )
+              })
+
+              const safeName = file.name.replace(/\.[^.]+$/, '')
+              return new File([blob], `${safeName || 'evidencia'}.jpg`, { type: 'image/jpeg' })
+            }
+
+            const handlePick = async (slot: EvidenceSlot, file: File) => {
+              if (!inspectionId || !inspectionType || !itemDbId) {
+                alert('No se pudo asociar evidencia (falta inspección o ítem).')
+                return
+              }
+
+              const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
+              if (!validTypes.includes(file.type)) {
+                alert('Tipo de archivo no válido. Use JPG, PNG, WebP o GIF.')
+                return
+              }
+
+              if (file.size > 10 * 1024 * 1024) {
+                alert('La imagen es demasiado grande. Máximo 10MB.')
+                return
+              }
+
+              const uploadKey = `${itemDbId}:${slot}`
+              setUploading((prev) => ({ ...prev, [uploadKey]: true }))
+
+              try {
+                const supabase = createSupabaseBrowserClient()
+                const { data: userData } = await supabase.auth.getUser()
+                const userId = userData?.user?.id ?? null
+
+                const processed = await compressImageForUpload(file)
+
+                const storagePath = `inspections/${inspectionType}/${inspectionId}/${itemDbId}/slot-${slot}.jpg`
+                const { error: upErr } = await supabase.storage
+                  .from('inspection-evidences')
+                  .upload(storagePath, processed, { cacheControl: '3600', upsert: true })
+                if (upErr) throw upErr
+
+                const table = inspectionType === 'rrhh'
+                  ? 'inspections_rrhh_item_evidences'
+                  : 'inspections_gsh_item_evidences'
+
+                const { data: evRow, error: evErr } = await supabase
+                  .from(table)
+                  .upsert({
+                    inspection_id: inspectionId,
+                    item_id: itemDbId,
+                    slot,
+                    storage_path: storagePath,
+                    file_name: processed.name,
+                    file_size: processed.size,
+                    mime_type: processed.type,
+                    uploaded_by: userId
+                  }, { onConflict: 'item_id,slot' })
+                  .select('*')
+                  .single()
+
+                if (evErr || !evRow) throw evErr
+
+                const { data: signed, error: sErr } = await supabase.storage
+                  .from('inspection-evidences')
+                  .createSignedUrl(storagePath, 3600)
+
+                const evidence: InspectionItemEvidence = {
+                  id: String((evRow as any).id),
+                  inspection_id: String((evRow as any).inspection_id),
+                  item_id: String((evRow as any).item_id),
+                  slot: Number((evRow as any).slot) as EvidenceSlot,
+                  storage_path: String((evRow as any).storage_path),
+                  file_name: (evRow as any).file_name ?? null,
+                  file_size: typeof (evRow as any).file_size === 'number' ? (evRow as any).file_size : ((evRow as any).file_size ? Number((evRow as any).file_size) : null),
+                  mime_type: (evRow as any).mime_type ?? null,
+                  uploaded_by: (evRow as any).uploaded_by ?? null,
+                  created_at: String((evRow as any).created_at),
+                  signed_url: sErr ? null : (signed?.signedUrl ?? null)
+                }
+
+                if (evidence.signed_url) {
+                  setEvidenceUrls((prev) => ({ ...prev, [evidence.id]: evidence.signed_url as string }))
+                }
+
+                onEvidenceUpsert?.(itemDbId, evidence)
+              } catch (e: any) {
+                console.error('Error subiendo evidencia:', e)
+                alert(e?.message || 'No se pudo subir la evidencia')
+              } finally {
+                setUploading((prev) => ({ ...prev, [uploadKey]: false }))
+              }
+            }
+
+            const handleRemove = async (slot: EvidenceSlot) => {
+              if (!inspectionId || !inspectionType || !itemDbId) return
+              const existing = getEvidenceForSlot(slot)
+              if (!existing) return
+
+              const ok = window.confirm('¿Eliminar esta evidencia?')
+              if (!ok) return
+
+              const uploadKey = `${itemDbId}:${slot}`
+              setUploading((prev) => ({ ...prev, [uploadKey]: true }))
+              try {
+                const supabase = createSupabaseBrowserClient()
+                await supabase.storage.from('inspection-evidences').remove([existing.storage_path])
+
+                const table = inspectionType === 'rrhh'
+                  ? 'inspections_rrhh_item_evidences'
+                  : 'inspections_gsh_item_evidences'
+                await supabase.from(table).delete().eq('id', existing.id)
+
+                onEvidenceRemove?.(itemDbId, slot)
+              } catch (e: any) {
+                console.error('Error eliminando evidencia:', e)
+                alert(e?.message || 'No se pudo eliminar la evidencia')
+              } finally {
+                setUploading((prev) => ({ ...prev, [uploadKey]: false }))
+              }
+            }
+
             return (
             <div 
               key={item.id} 
-              className={`grid grid-cols-12 gap-2 px-4 py-3 border-b items-center ${
+              className={`grid grid-cols-12 gap-2 px-4 py-3 border-b items-start ${
                 isPending 
                   ? 'bg-amber-50/50 border-amber-100 hover:bg-amber-50' 
                   : 'border-slate-50 hover:bg-slate-50'
@@ -1034,6 +1234,94 @@ function AreaCard({
                   <span className="text-xs text-slate-500">{item.comentarios_valor || '-'}</span>
                 )}
               </div>
+
+              {/* Evidencias fotográficas (2 slots) */}
+              <div className="col-span-12 pt-2">
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-semibold text-slate-600">Evidencias fotográficas</span>
+                  {!itemDbId && (
+                    <span className="text-[11px] text-slate-400">(no disponible)</span>
+                  )}
+                </div>
+
+                <div className="mt-2 grid grid-cols-2 gap-2 max-w-[260px]">
+                  {([1, 2] as EvidenceSlot[]).map((slot) => {
+                    const ev = getEvidenceForSlot(slot)
+                    const uploadKey = `${itemDbId || 'noid'}:${slot}`
+                    const isUp = !!uploading[uploadKey]
+
+                    const url = ev ? (evidenceUrls[ev.id] || ev.signed_url || '') : ''
+                    if (ev && !url) {
+                      // Lazy resolve on render (best-effort)
+                      void ensureSignedUrl(ev)
+                    }
+
+                    return (
+                      <div key={slot} className="relative">
+                        {ev && url ? (
+                          <div className="relative h-20 rounded-md border border-slate-200 bg-slate-50 overflow-hidden">
+                            {/* eslint-disable-next-line @next/next/no-img-element */}
+                            <img
+                              src={url}
+                              alt={`Evidencia ${slot}`}
+                              className="w-full h-full object-cover"
+                            />
+                            <div className="absolute top-1 right-1 flex gap-1">
+                              <label
+                                className="px-2 py-1 text-[10px] bg-white/90 border border-slate-200 rounded hover:bg-white cursor-pointer"
+                                title="Reemplazar"
+                              >
+                                {isUp ? '...' : 'Cambiar'}
+                                <input
+                                  type="file"
+                                  accept="image/jpeg,image/png,image/webp,image/gif"
+                                  className="hidden"
+                                  disabled={isReadOnly || isUp}
+                                  onChange={(e) => {
+                                    const f = e.target.files?.[0]
+                                    if (f) void handlePick(slot, f)
+                                    e.currentTarget.value = ''
+                                  }}
+                                />
+                              </label>
+                              <button
+                                type="button"
+                                disabled={isReadOnly || isUp}
+                                onClick={() => void handleRemove(slot)}
+                                className="px-2 py-1 text-[10px] bg-white/90 border border-slate-200 rounded hover:bg-white disabled:opacity-50"
+                                title="Eliminar"
+                              >
+                                Eliminar
+                              </button>
+                            </div>
+                          </div>
+                        ) : (
+                          <label
+                            className={`h-20 rounded-md border border-dashed flex items-center justify-center text-[11px] cursor-pointer transition-colors ${
+                              isReadOnly || !itemDbId
+                                ? 'border-slate-200 text-slate-400 bg-slate-50 cursor-not-allowed'
+                                : 'border-slate-300 text-slate-600 hover:border-slate-400 hover:bg-white'
+                            }`}
+                          >
+                            {isUp ? 'Subiendo...' : `Agregar foto ${slot}`}
+                            <input
+                              type="file"
+                              accept="image/jpeg,image/png,image/webp,image/gif"
+                              className="hidden"
+                              disabled={isReadOnly || !itemDbId || isUp}
+                              onChange={(e) => {
+                                const f = e.target.files?.[0]
+                                if (f) void handlePick(slot, f)
+                                e.currentTarget.value = ''
+                              }}
+                            />
+                          </label>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              </div>
             </div>
           )})}
           
@@ -1053,6 +1341,8 @@ interface InspectionDashboardProps {
   departmentName: string
   propertyCode: string
   propertyName: string
+  inspectionId?: string
+  inspectionType?: 'rrhh' | 'gsh'
   inspectionData?: InspectionArea[]
   onUpdateItem?: (areaName: string, itemId: number, field: string, value: any) => void
   generalComments?: string
@@ -1064,12 +1354,16 @@ interface InspectionDashboardProps {
   inspectionStatus?: string
   onUnsavedChanges?: (hasChanges: boolean) => void
   onBack?: () => void
+  onEvidenceUpsert?: (itemDbId: string, evidence: InspectionItemEvidence) => void
+  onEvidenceRemove?: (itemDbId: string, slot: EvidenceSlot) => void
 }
 
 export default function InspectionDashboard({
   departmentName,
   propertyCode,
   propertyName,
+  inspectionId,
+  inspectionType,
   inspectionData: propInspectionData,
   onUpdateItem: propOnUpdateItem,
   generalComments: propGeneralComments = '',
@@ -1080,7 +1374,9 @@ export default function InspectionDashboard({
   saving = false,
   inspectionStatus = 'draft',
   onUnsavedChanges,
-  onBack
+  onBack,
+  onEvidenceUpsert,
+  onEvidenceRemove
 }: InspectionDashboardProps) {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
 
@@ -1389,6 +1685,10 @@ export default function InspectionDashboard({
             onUpdateItem={handleUpdateItem}
             isReadOnly={isReadOnly}
             isMarketing={departmentName?.toUpperCase().includes('MARKETING')}
+            inspectionId={inspectionId}
+            inspectionType={inspectionType}
+            onEvidenceUpsert={onEvidenceUpsert}
+            onEvidenceRemove={onEvidenceRemove}
           />
         ))}
       </div>

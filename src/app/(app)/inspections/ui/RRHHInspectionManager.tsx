@@ -8,6 +8,7 @@ import InspectionDashboard from './InspectionDashboard'
 import { InspectionsRRHHService, type InspectionRRHH, type InspectionRRHHArea } from '@/lib/services/inspections-rrhh.service'
 import { InspectionRRHHPDFGenerator } from '@/lib/services/inspections-rrhh-pdf.service'
 import type { User } from '@supabase/supabase-js'
+import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 
 interface RRHHInspectionManagerProps {
   inspectionId?: string
@@ -524,6 +525,36 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
   const handleGeneratePDF = async () => {
     if (!inspection) return
 
+    const supabase = createSupabaseBrowserClient()
+    const inspectionWithSignedEvidence: InspectionRRHH = {
+      ...inspection,
+      areas: await Promise.all(
+        (inspection.areas || []).map(async (area: any) => ({
+          ...area,
+          items: await Promise.all(
+            (area.items || []).map(async (item: any) => {
+              const evidences = (item.evidences || [])
+              if (evidences.length === 0) return item
+
+              const updatedEvidences = await Promise.all(
+                evidences.map(async (ev: any) => {
+                  if (ev?.signed_url) return ev
+                  if (!ev?.storage_path) return ev
+                  const { data, error } = await supabase.storage
+                    .from('inspection-evidences')
+                    .createSignedUrl(String(ev.storage_path), 3600)
+                  if (error || !data?.signedUrl) return { ...ev, signed_url: null }
+                  return { ...ev, signed_url: data.signedUrl }
+                })
+              )
+
+              return { ...item, evidences: updatedEvidences }
+            })
+          )
+        }))
+      )
+    }
+
     const storageKey = `inspection:pdf:brandLogo:${inspection.property_code || 'default'}`
     const previous = typeof window !== 'undefined' ? window.localStorage.getItem(storageKey) : null
     const input = typeof window !== 'undefined'
@@ -545,7 +576,7 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
     const brandLogoUrl = lower === 'none' ? null : selected.startsWith('http') ? selected : null
 
     const generator = new InspectionRRHHPDFGenerator({ brandLogoKey, brandLogoUrl })
-    await generator.download(inspection)
+    await generator.download(inspectionWithSignedEvidence)
   }
 
   if (loading) {
@@ -700,6 +731,7 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
     area: area.area_name,
     items: area.items.map((item, idx) => ({
       id: idx + 1,
+      db_id: item.id,
       descripcion: item.descripcion,
       tipo_dato: item.tipo_dato,
       cumplimiento_valor: item.cumplimiento_valor,
@@ -707,10 +739,48 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
       calif_valor: item.calif_valor,
       calif_editable: item.calif_editable,
       comentarios_valor: item.comentarios_valor,
-      comentarios_libre: item.comentarios_libre
+      comentarios_libre: item.comentarios_libre,
+      evidences: (item as any).evidences || []
     })),
     calificacion_area_fija: area.calculated_score || 0
   }))
+
+  const handleEvidenceUpsert = (itemDbId: string, evidence: any) => {
+    setHasUnsavedChanges(true)
+    setInspection((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        areas: prev.areas.map((area) => ({
+          ...area,
+          items: area.items.map((item) => {
+            if (item.id !== itemDbId) return item
+            const existing = (item as any).evidences || []
+            const withoutSlot = existing.filter((e: any) => e?.slot !== evidence?.slot)
+            return { ...item, evidences: [...withoutSlot, evidence] }
+          })
+        }))
+      }
+    })
+  }
+
+  const handleEvidenceRemove = (itemDbId: string, slot: 1 | 2) => {
+    setHasUnsavedChanges(true)
+    setInspection((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        areas: prev.areas.map((area) => ({
+          ...area,
+          items: area.items.map((item) => {
+            if (item.id !== itemDbId) return item
+            const existing = (item as any).evidences || []
+            return { ...item, evidences: existing.filter((e: any) => e?.slot !== slot) }
+          })
+        }))
+      }
+    })
+  }
 
   const handleUpdateItem = (areaName: string, itemId: number, field: string, value: any) => {
     console.log('=== handleUpdateItem LLAMADO ===', { areaName, itemId, field, value })
@@ -772,6 +842,8 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
             departmentName={props.departmentName}
             propertyCode={props.propertyCode}
             propertyName={props.propertyName}
+            inspectionId={inspection.id}
+            inspectionType="rrhh"
             inspectionData={dashboardData}
             onUpdateItem={handleUpdateItem}
             generalComments={generalComments}
@@ -782,6 +854,8 @@ export default function RRHHInspectionManager(props: RRHHInspectionManagerProps)
             saving={saving}
             inspectionStatus={inspection.status}
             onUnsavedChanges={setHasUnsavedChanges}
+            onEvidenceUpsert={handleEvidenceUpsert}
+            onEvidenceRemove={handleEvidenceRemove}
             onBack={() => {
               const goBack = props.onChangeProperty || (() => {
                 window.location.href = '/inspections'

@@ -9,6 +9,7 @@ import { InspectionsGSHService, type InspectionGSH, type InspectionGSHArea } fro
 import { InspectionGSHPDFGenerator } from '@/lib/services/inspections-gsh-pdf.service'
 import type { User } from '@supabase/supabase-js'
 import { getGSHInspectionTemplate } from '@/lib/templates/inspection-gsh-template'
+import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 
 interface GSHInspectionManagerProps {
   inspectionId?: string
@@ -427,6 +428,36 @@ export default function GSHInspectionManager(props: GSHInspectionManagerProps) {
   const handleGeneratePDF = async () => {
     if (!inspection) return
 
+    const supabase = createSupabaseBrowserClient()
+    const inspectionWithSignedEvidence: InspectionGSH = {
+      ...inspection,
+      areas: await Promise.all(
+        (inspection.areas || []).map(async (area: any) => ({
+          ...area,
+          items: await Promise.all(
+            (area.items || []).map(async (item: any) => {
+              const evidences = (item.evidences || [])
+              if (evidences.length === 0) return item
+
+              const updatedEvidences = await Promise.all(
+                evidences.map(async (ev: any) => {
+                  if (ev?.signed_url) return ev
+                  if (!ev?.storage_path) return ev
+                  const { data, error } = await supabase.storage
+                    .from('inspection-evidences')
+                    .createSignedUrl(String(ev.storage_path), 3600)
+                  if (error || !data?.signedUrl) return { ...ev, signed_url: null }
+                  return { ...ev, signed_url: data.signedUrl }
+                })
+              )
+
+              return { ...item, evidences: updatedEvidences }
+            })
+          )
+        }))
+      )
+    }
+
     const storageKey = `inspection:pdf:brandLogo:${inspection.property_code || 'default'}`
     const previous = typeof window !== 'undefined' ? window.localStorage.getItem(storageKey) : null
     const input = typeof window !== 'undefined'
@@ -448,7 +479,7 @@ export default function GSHInspectionManager(props: GSHInspectionManagerProps) {
     const brandLogoUrl = lower === 'none' ? null : selected.startsWith('http') ? selected : null
 
     const generator = new InspectionGSHPDFGenerator({ brandLogoKey, brandLogoUrl })
-    await generator.download(inspection)
+    await generator.download(inspectionWithSignedEvidence)
   }
 
   if (loading) {
@@ -603,6 +634,7 @@ export default function GSHInspectionManager(props: GSHInspectionManagerProps) {
     area: area.area_name,
     items: area.items.map((item, idx) => ({
       id: idx + 1,
+      db_id: item.id,
       descripcion: item.descripcion,
       tipo_dato: item.tipo_dato,
       cumplimiento_valor: item.cumplimiento_valor,
@@ -610,10 +642,48 @@ export default function GSHInspectionManager(props: GSHInspectionManagerProps) {
       calif_valor: item.calif_valor,
       calif_editable: item.calif_editable,
       comentarios_valor: item.comentarios_valor,
-      comentarios_libre: item.comentarios_libre
+      comentarios_libre: item.comentarios_libre,
+      evidences: (item as any).evidences || []
     })),
     calificacion_area_fija: area.calculated_score || 0
   }))
+
+  const handleEvidenceUpsert = (itemDbId: string, evidence: any) => {
+    setHasUnsavedChanges(true)
+    setInspection((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        areas: prev.areas.map((area) => ({
+          ...area,
+          items: area.items.map((item) => {
+            if (item.id !== itemDbId) return item
+            const existing = (item as any).evidences || []
+            const withoutSlot = existing.filter((e: any) => e?.slot !== evidence?.slot)
+            return { ...item, evidences: [...withoutSlot, evidence] }
+          })
+        }))
+      }
+    })
+  }
+
+  const handleEvidenceRemove = (itemDbId: string, slot: 1 | 2) => {
+    setHasUnsavedChanges(true)
+    setInspection((prev) => {
+      if (!prev) return prev
+      return {
+        ...prev,
+        areas: prev.areas.map((area) => ({
+          ...area,
+          items: area.items.map((item) => {
+            if (item.id !== itemDbId) return item
+            const existing = (item as any).evidences || []
+            return { ...item, evidences: existing.filter((e: any) => e?.slot !== slot) }
+          })
+        }))
+      }
+    })
+  }
 
   const handleUpdateItem = (areaName: string, itemId: number, field: string, value: any) => {
     console.log('=== handleUpdateItem LLAMADO ===', { areaName, itemId, field, value })
@@ -675,6 +745,8 @@ export default function GSHInspectionManager(props: GSHInspectionManagerProps) {
             departmentName={props.departmentName}
             propertyCode={props.propertyCode}
             propertyName={props.propertyName}
+            inspectionId={inspection.id}
+            inspectionType="gsh"
             inspectionData={dashboardData}
             onUpdateItem={handleUpdateItem}
             generalComments={generalComments}
@@ -685,6 +757,8 @@ export default function GSHInspectionManager(props: GSHInspectionManagerProps) {
             saving={saving}
             inspectionStatus={inspection.status}
             onUnsavedChanges={setHasUnsavedChanges}
+            onEvidenceUpsert={handleEvidenceUpsert}
+            onEvidenceRemove={handleEvidenceRemove}
             onBack={() => {
               const goBack = props.onChangeProperty || (() => {
                 window.location.href = '/inspections'

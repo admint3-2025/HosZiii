@@ -2,6 +2,22 @@ import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 
 export type InspectionRRHHStatus = 'draft' | 'completed' | 'approved' | 'rejected'
 
+export type InspectionItemEvidenceSlot = 1 | 2
+
+export interface InspectionRRHHItemEvidence {
+  id: string
+  inspection_id: string
+  item_id: string
+  slot: InspectionItemEvidenceSlot
+  storage_path: string
+  file_name: string | null
+  file_size: number | null
+  mime_type: string | null
+  uploaded_by: string | null
+  created_at: string
+  signed_url?: string | null
+}
+
 export interface InspectionRRHHItem {
   id?: string
   area_id?: string
@@ -15,6 +31,7 @@ export interface InspectionRRHHItem {
   calif_editable: boolean
   comentarios_valor: string
   comentarios_libre: boolean
+  evidences?: InspectionRRHHItemEvidence[]
 }
 
 export interface InspectionRRHHArea {
@@ -171,6 +188,37 @@ export class InspectionsRRHHService {
         return { data: null, error: itemsError }
       }
 
+      // Obtener evidencias (hasta 2 por item)
+      const { data: evidences, error: evidencesError } = await supabase
+        .from('inspections_rrhh_item_evidences')
+        .select('*')
+        .eq('inspection_id', inspectionId)
+        .order('slot')
+
+      if (evidencesError) {
+        return { data: null, error: evidencesError }
+      }
+
+      const evidencesByItem = new Map<string, InspectionRRHHItemEvidence[]>()
+      for (const ev of (evidences || []) as any[]) {
+        const itemId = String(ev.item_id)
+        const arr = evidencesByItem.get(itemId) ?? []
+        arr.push({
+          id: String(ev.id),
+          inspection_id: String(ev.inspection_id),
+          item_id: String(ev.item_id),
+          slot: Number(ev.slot) as any,
+          storage_path: String(ev.storage_path),
+          file_name: ev.file_name ?? null,
+          file_size: typeof ev.file_size === 'number' ? ev.file_size : (ev.file_size ? Number(ev.file_size) : null),
+          mime_type: ev.mime_type ?? null,
+          uploaded_by: ev.uploaded_by ?? null,
+          created_at: String(ev.created_at),
+          signed_url: null
+        })
+        evidencesByItem.set(itemId, arr)
+      }
+
       // Construir estructura
       const areasWithItems: InspectionRRHHArea[] = (areas || []).map((area: any) => ({
         id: area.id,
@@ -192,7 +240,8 @@ export class InspectionsRRHHService {
             calif_valor: item.calif_valor,
             calif_editable: item.calif_editable,
             comentarios_valor: item.comentarios_valor,
-            comentarios_libre: item.comentarios_libre
+            comentarios_libre: item.comentarios_libre,
+            evidences: evidencesByItem.get(String(item.id)) ?? []
           }))
       }))
 
