@@ -15,11 +15,15 @@ export class InspectionGSHPDFGenerator {
   private brandLogoDataUrl?: string
   private brandLogoFormat?: 'PNG' | 'JPEG' | 'WEBP'
 
+  private readonly systemLogoUrl: string | null
+  private readonly brandLogoUrl: string | null
+  private readonly brandLogoKey: string | null
+
   // Logo corporativo
   private static readonly LOGO_URL = 'https://systemach-sas.com/logo_ziii/ZIII%20logo.png'
   private static readonly BRAND_LOGO_URL = 'https://systemach-sas.com/logo_ziii/alzendhlogo.png'
 
-  constructor() {
+  constructor(options?: { systemLogoUrl?: string | null; brandLogoUrl?: string | null; brandLogoKey?: string | null }) {
     this.doc = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
@@ -29,6 +33,10 @@ export class InspectionGSHPDFGenerator {
     this.pageHeight = this.doc.internal.pageSize.getHeight()
     this.margin = 15
     this.currentY = this.margin
+
+    this.systemLogoUrl = options?.systemLogoUrl ?? InspectionGSHPDFGenerator.LOGO_URL
+    this.brandLogoUrl = options?.brandLogoUrl ?? null
+    this.brandLogoKey = options?.brandLogoKey ?? null
   }
 
   private async fetchImageAsDataUrl(url: string): Promise<{ dataUrl: string; format: 'PNG' | 'JPEG' | 'WEBP' }> {
@@ -37,6 +45,10 @@ export class InspectionGSHPDFGenerator {
 
     const blob = await res.blob()
     const mime = (blob.type || '').toLowerCase()
+
+    if (!mime.startsWith('image/')) {
+      throw new Error('not an image')
+    }
 
     const format: 'PNG' | 'JPEG' | 'WEBP' = mime.includes('png')
       ? 'PNG'
@@ -59,15 +71,17 @@ export class InspectionGSHPDFGenerator {
   private async loadLogo(): Promise<void> {
     if (this.logoDataUrl) return
 
+    if (!this.systemLogoUrl) return
+
     try {
       // Intento directo (si el host permite CORS)
-      const { dataUrl, format } = await this.fetchImageAsDataUrl(InspectionGSHPDFGenerator.LOGO_URL)
+      const { dataUrl, format } = await this.fetchImageAsDataUrl(this.systemLogoUrl)
       this.logoDataUrl = dataUrl
       this.logoFormat = format
       return
     } catch {
       // Fallback: proxy same-origin para evitar bloqueos CORS
-      const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(InspectionGSHPDFGenerator.LOGO_URL)}`
+      const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(this.systemLogoUrl)}`
       try {
         const { dataUrl, format } = await this.fetchImageAsDataUrl(proxyUrl)
         this.logoDataUrl = dataUrl
@@ -81,14 +95,22 @@ export class InspectionGSHPDFGenerator {
   private async loadBrandLogo(): Promise<void> {
     if (this.brandLogoDataUrl) return
 
+    const resolvedUrl = this.brandLogoKey
+      ? `/api/brand-logo?brand=${encodeURIComponent(this.brandLogoKey)}`
+      : this.brandLogoUrl ?? InspectionGSHPDFGenerator.BRAND_LOGO_URL
+
+    if (!resolvedUrl) return
+
     // Logo fijo para este formato (con fallback de proxy por CORS)
     try {
-      const { dataUrl, format } = await this.fetchImageAsDataUrl(InspectionGSHPDFGenerator.BRAND_LOGO_URL)
+      const { dataUrl, format } = await this.fetchImageAsDataUrl(resolvedUrl)
       this.brandLogoDataUrl = dataUrl
       this.brandLogoFormat = format
       return
     } catch {
-      const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(InspectionGSHPDFGenerator.BRAND_LOGO_URL)}`
+      if (resolvedUrl.startsWith('/')) return
+
+      const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(resolvedUrl)}`
       try {
         const { dataUrl, format } = await this.fetchImageAsDataUrl(proxyUrl)
         this.brandLogoDataUrl = dataUrl

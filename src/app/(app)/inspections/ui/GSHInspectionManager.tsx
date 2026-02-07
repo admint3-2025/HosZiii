@@ -427,7 +427,27 @@ export default function GSHInspectionManager(props: GSHInspectionManagerProps) {
   const handleGeneratePDF = async () => {
     if (!inspection) return
 
-    const generator = new InspectionGSHPDFGenerator()
+    const storageKey = `inspection:pdf:brandLogo:${inspection.property_code || 'default'}`
+    const previous = typeof window !== 'undefined' ? window.localStorage.getItem(storageKey) : null
+    const input = typeof window !== 'undefined'
+      ? window.prompt(
+          "Logo del cliente para el PDF (opcional).\n\n- Escribe una URL https://...\n- O una clave interna (ej: alzen)\n- O 'none' para no mostrar logo\n\nDeja vacío para usar el último/default.",
+          previous ?? 'alzen'
+        )
+      : null
+
+    const normalized = (input ?? '').trim()
+    const selected = normalized.length > 0 ? normalized : (previous ?? 'alzen')
+
+    if (typeof window !== 'undefined') {
+      window.localStorage.setItem(storageKey, selected)
+    }
+
+    const lower = selected.toLowerCase()
+    const brandLogoKey = lower === 'none' ? null : !selected.startsWith('http') ? selected : null
+    const brandLogoUrl = lower === 'none' ? null : selected.startsWith('http') ? selected : null
+
+    const generator = new InspectionGSHPDFGenerator({ brandLogoKey, brandLogoUrl })
     await generator.download(inspection)
   }
 
