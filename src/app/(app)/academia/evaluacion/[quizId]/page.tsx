@@ -51,10 +51,10 @@ export default function QuizPage() {
       const quizRes = await fetch(`/api/academy/quizzes/${quizId}`);
       if (!quizRes.ok) {
         if (quizRes.status === 404) {
-          setError('Evaluaci+ no encontrada');
+          setError('Evaluaci贸n no encontrada');
           return;
         }
-        throw new Error('Error al cargar la evaluaci+');
+        throw new Error('Error al cargar la evaluaci贸n');
       }
       const quizData = await quizRes.json();
       setQuiz(quizData);
@@ -129,7 +129,7 @@ export default function QuizPage() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Error al iniciar la evaluaci+');
+        throw new Error(data.error || 'Error al iniciar la evaluaci贸n');
       }
 
       const attemptData = await res.json();
@@ -179,7 +179,7 @@ export default function QuizPage() {
 
       if (!res.ok) {
         const data = await res.json();
-        throw new Error(data.error || 'Error al enviar la evaluaci+');
+        throw new Error(data.error || 'Error al enviar la evaluaci贸n');
       }
 
       const resultData = await res.json();
@@ -216,7 +216,7 @@ export default function QuizPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] text-gray-500">
         <AlertCircle className="w-12 h-12 mb-4 text-red-500" />
-        <p className="text-lg">{error || 'Evaluaci+ no encontrada'}</p>
+        <p className="text-lg">{error || 'Evaluaci贸n no encontrada'}</p>
         <button
           onClick={() => router.back()}
           className="mt-4 text-blue-600 hover:underline flex items-center gap-2"
@@ -261,12 +261,12 @@ export default function QuizPage() {
             </div>
             {quiz.time_limit_minutes && (
               <div className="text-center">
-                <p className="text-gray-500">Tiempo l+ite</p>
+                <p className="text-gray-500">Tiempo l铆mite</p>
                 <p className="text-xl font-bold text-gray-900">{quiz.time_limit_minutes} min</p>
               </div>
             )}
             <div className="text-center">
-              <p className="text-gray-500">Puntaje m+imo</p>
+              <p className="text-gray-500">Puntaje m铆nimo</p>
               <p className="text-xl font-bold text-gray-900">{quiz.passing_score}%</p>
             </div>
           </div>
@@ -275,7 +275,7 @@ export default function QuizPage() {
             <div className="bg-green-50 border border-green-200 rounded-lg p-4 mb-6">
               <p className="text-green-700 flex items-center justify-center gap-2">
                 <Check className="w-5 h-5" />
-                Ya aprobaste esta evaluaci+ anteriormente
+                Ya aprobaste esta evaluaci贸n anteriormente
               </p>
             </div>
           )}
@@ -313,7 +313,7 @@ export default function QuizPage() {
             ) : (
               <>
                 <ClipboardCheck className="w-5 h-5" />
-                {previousAttempts.length > 0 ? 'Intentar de nuevo' : 'Comenzar evaluaci+'}
+                {previousAttempts.length > 0 ? 'Intentar de nuevo' : 'Comenzar evaluaci贸n'}
               </>
             )}
           </button>
@@ -340,12 +340,12 @@ export default function QuizPage() {
           </div>
 
           <h1 className="text-2xl font-bold text-gray-900 mb-2">
-            {passed ? '-鞦elicidades!' : 'No aprobaste'}
+            {passed ? '隆Felicidades!' : 'No aprobaste'}
           </h1>
           <p className="text-gray-600 mb-6">
             {passed
-              ? 'Has aprobado la evaluaci+ exitosamente.'
-              : 'No alcanzaste el puntaje m+imo requerido.'}
+              ? 'Has aprobado la evaluaci贸n exitosamente.'
+              : 'No alcanzaste el puntaje m铆nimo requerido.'}
           </p>
 
           <div className="bg-gray-50 rounded-lg p-6 mb-6">
@@ -354,7 +354,7 @@ export default function QuizPage() {
               {attempt.score}%
             </p>
             <p className="text-sm text-gray-500 mt-2">
-              Puntaje m+imo: {quiz.passing_score}%
+              Puntaje m铆nimo: {quiz.passing_score}%
             </p>
           </div>
 
@@ -495,7 +495,7 @@ export default function QuizPage() {
               ) : (
                 <>
                   <Check className="w-5 h-5" />
-                  Enviar evaluaci+
+                  Enviar evaluaci贸n
                 </>
               )}
             </button>
@@ -513,7 +513,7 @@ export default function QuizPage() {
 
       {/* Quick navigation */}
       <div className="mt-8 bg-gray-50 rounded-lg p-4">
-        <p className="text-sm font-medium text-gray-700 mb-3">Navegaci+ r+韕ida</p>
+        <p className="text-sm font-medium text-gray-700 mb-3">Navegaci贸n r谩pida</p>
         <div className="flex flex-wrap gap-2">
           {quiz.questions.map((q, i) => (
             <button

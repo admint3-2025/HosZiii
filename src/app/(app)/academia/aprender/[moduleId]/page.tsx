@@ -68,10 +68,10 @@ export default function ContentViewerPage() {
       const moduleRes = await fetch(`/api/academy/modules/${moduleId}`);
       if (!moduleRes.ok) {
         if (moduleRes.status === 404) {
-          setError('M+ulo no encontrado');
+          setError('M贸dulo no encontrado');
           return;
         }
-        throw new Error('Error al cargar el m+ulo');
+        throw new Error('Error al cargar el m贸dulo');
       }
       const moduleData = await moduleRes.json();
 
@@ -288,7 +288,7 @@ export default function ContentViewerPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[400px] text-gray-500">
         <AlertCircle className="w-12 h-12 mb-4 text-red-500" />
-        <p className="text-lg">{error || 'M+ulo no encontrado'}</p>
+        <p className="text-lg">{error || 'M贸dulo no encontrado'}</p>
         <button
           onClick={() => router.back()}
           className="mt-4 text-blue-600 hover:underline flex items-center gap-2"
@@ -412,8 +412,8 @@ export default function ContentViewerPage() {
                 <div className="flex items-center gap-3">
                   <ClipboardCheck className="w-8 h-8 text-blue-600" />
                   <div>
-                    <h3 className="font-semibold text-blue-900">-鞨as completado todo el contenido!</h3>
-                    <p className="text-sm text-blue-700">Ahora puedes realizar la evaluaci+ del m+ulo.</p>
+                    <h3 className="font-semibold text-blue-900">隆Has completado todo el contenido!</h3>
+                    <p className="text-sm text-blue-700">Ahora puedes realizar la evaluaci贸n del m贸dulo.</p>
                   </div>
                 </div>
                 <button
@@ -421,7 +421,7 @@ export default function ContentViewerPage() {
                   className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center gap-2"
                 >
                   <ClipboardCheck className="w-5 h-5" />
-                  Ir a la evaluaci+
+                  Ir a la evaluaci贸n
                 </button>
               </div>
             </div>
@@ -431,7 +431,7 @@ export default function ContentViewerPage() {
         {/* Content sidebar */}
         <div className="lg:col-span-1">
           <div className="bg-white rounded-lg border p-4 sticky top-4">
-            <h3 className="font-semibold text-gray-900 mb-4">Contenido del m+ulo</h3>
+            <h3 className="font-semibold text-gray-900 mb-4">Contenido del m贸dulo</h3>
             <div className="space-y-2">
               {module.contents.map((content, index) => {
                 const ContentIcon = getContentIcon(content.content_type);
