@@ -212,6 +212,7 @@ export default function UserList() {
         'it-helpdesk': hm['it-helpdesk'] ?? true,
         mantenimiento: hm['mantenimiento'] ?? true,
         corporativo: hm['corporativo'] ?? true,
+        academia: hm['academia'] ?? true,
         administracion: hm['administracion'] ?? true,
       })
     } else {
