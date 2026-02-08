@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useId, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 
@@ -824,6 +824,66 @@ function ChartCard({ title, children, className = '' }: { title: string; childre
   )
 }
 
+// ============== VISOR DE EVIDENCIAS A TAMAÑO REAL ==============
+
+function EvidenceLightbox({
+  url,
+  alt,
+  onClose,
+}: {
+  url: string
+  alt: string
+  onClose: () => void
+}) {
+  // Cerrar con Escape
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [onClose])
+
+  // Bloquear scroll del body mientras está abierto
+  useEffect(() => {
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = '' }
+  }, [])
+
+  return (
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      {/* Botón cerrar */}
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 z-[10000] p-2 rounded-full bg-white/20 hover:bg-white/40 transition-colors text-white"
+        title="Cerrar (Esc)"
+      >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+
+      {/* Indicador de controles */}
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[10000] px-4 py-2 rounded-full bg-white/20 text-white text-xs">
+        Clic fuera o presiona Esc para cerrar
+      </div>
+
+      {/* Imagen a tamaño real */}
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={url}
+        alt={alt}
+        onClick={(e) => e.stopPropagation()}
+        className="max-w-[95vw] max-h-[90vh] object-contain rounded-lg shadow-2xl cursor-default select-none"
+        draggable={false}
+      />
+    </div>
+  )
+}
+
 // ============== COMPONENTES DE EDICIÓN ==============
 
 function ChevronIcon({ expanded }: { expanded: boolean }) {
@@ -865,6 +925,18 @@ function AreaCard({
   const [expanded, setExpanded] = useState(false)
   const [evidenceUrls, setEvidenceUrls] = useState<Record<string, string>>({})
   const [uploading, setUploading] = useState<Record<string, boolean>>({})
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
+  const [lightboxAlt, setLightboxAlt] = useState('')
+
+  const openLightbox = useCallback((url: string, alt: string) => {
+    setLightboxUrl(url)
+    setLightboxAlt(alt)
+  }, [])
+
+  const closeLightbox = useCallback(() => {
+    setLightboxUrl(null)
+    setLightboxAlt('')
+  }, [])
 
   const mapStatusLabel = (value: '' | 'Cumple' | 'No Cumple' | 'N/A') => {
     if (!isMarketing) return value
@@ -1259,13 +1331,24 @@ function AreaCard({
                     return (
                       <div key={slot} className="relative">
                         {ev && url ? (
-                          <div className="relative h-20 rounded-md border border-slate-200 bg-slate-50 overflow-hidden">
+                          <div className="relative h-20 rounded-md border border-slate-200 bg-slate-50 overflow-hidden group">
                             {/* eslint-disable-next-line @next/next/no-img-element */}
                             <img
                               src={url}
                               alt={`Evidencia ${slot}`}
-                              className="w-full h-full object-cover"
+                              className="w-full h-full object-cover cursor-pointer"
+                              onClick={() => openLightbox(url, `Evidencia ${slot} – ${item.descripcion}`)}
+                              title="Clic para ver a tamaño completo"
                             />
+                            {/* Botón de ver superpuesto */}
+                            <button
+                              type="button"
+                              onClick={() => openLightbox(url, `Evidencia ${slot} – ${item.descripcion}`)}
+                              className="absolute bottom-1 left-1 px-2 py-1 text-[10px] bg-black/60 text-white rounded hover:bg-black/80 transition-opacity opacity-0 group-hover:opacity-100"
+                              title="Ver imagen a tamaño completo"
+                            >
+                              🔍 Ver
+                            </button>
                             <div className="absolute top-1 right-1 flex gap-1">
                               <label
                                 className="px-2 py-1 text-[10px] bg-white/90 border border-slate-200 rounded hover:bg-white cursor-pointer"
@@ -1339,6 +1422,15 @@ function AreaCard({
             <span className={`text-sm font-bold ${scoreColor.split(' ')[0]}`}>{calculatedScore}</span>
           </div>
         </div>
+      )}
+
+      {/* Visor de evidencia a tamaño real */}
+      {lightboxUrl && (
+        <EvidenceLightbox
+          url={lightboxUrl}
+          alt={lightboxAlt}
+          onClose={closeLightbox}
+        />
       )}
     </div>
   )
