@@ -178,100 +178,58 @@ function DonutChart({ segments, total }: { segments: PieSegment[]; total: number
   )
 }
 
-// Componente de KPI Card - Rediseñado con Sparkline
+// Componente de KPI compacto
 function KPICard({ 
   title, 
   value, 
-  subtitle, 
   trend, 
+  icon,
   color = 'blue',
   data = []
 }: { 
   title: string
   value: string | number
-  subtitle?: string
   trend?: { value: number; direction: 'up' | 'down' }
+  icon?: React.ReactNode
   color?: 'blue' | 'green' | 'amber' | 'purple' | 'red'
   data?: number[]
 }) {
-  // Sparkline mini
-  const Sparkline = ({ data, positive }: { data: number[], positive: boolean }) => {
-    if (!data || data.length === 0) return null
-    const max = Math.max(...data)
-    const min = Math.min(...data)
-    const points = data.map((d, i) => {
-      const x = (i / (data.length - 1)) * 100
-      const y = 100 - ((d - min) / (max - min || 1)) * 100
-      return `${x},${y}`
-    }).join(' ')
-
-    return (
-      <svg viewBox="0 0 100 100" className="w-full h-full overflow-visible">
-        <defs>
-          <linearGradient id={`grad-kpi-${color}`} x1="0%" y1="0%" x2="0%" y2="100%">
-            <stop offset="0%" stopColor={positive ? '#10b981' : '#ef4444'} stopOpacity="0.15" />
-            <stop offset="100%" stopColor={positive ? '#10b981' : '#ef4444'} stopOpacity="0" />
-          </linearGradient>
-        </defs>
-        <path
-          d={`M0,100 L0,${100 - ((data[0] - min) / (max - min || 1)) * 100} ${points.split(' ').map((p) => `L${p}`).join(' ')} L100,100 Z`}
-          fill={`url(#grad-kpi-${color})`}
-          className="opacity-0 group-hover:opacity-100 transition-opacity duration-500"
-        />
-        <polyline
-          fill="none"
-          stroke={positive ? '#10b981' : '#ef4444'}
-          strokeWidth="2"
-          points={points}
-          vectorEffect="non-scaling-stroke"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-        />
-      </svg>
-    )
+  const colorMap = {
+    blue: { bg: 'bg-blue-50', border: 'border-blue-200', accent: '#3b82f6', iconBg: 'bg-blue-500' },
+    green: { bg: 'bg-emerald-50', border: 'border-emerald-200', accent: '#10b981', iconBg: 'bg-emerald-500' },
+    amber: { bg: 'bg-amber-50', border: 'border-amber-200', accent: '#f59e0b', iconBg: 'bg-amber-500' },
+    purple: { bg: 'bg-purple-50', border: 'border-purple-200', accent: '#8b5cf6', iconBg: 'bg-purple-500' },
+    red: { bg: 'bg-red-50', border: 'border-red-200', accent: '#ef4444', iconBg: 'bg-red-500' },
   }
+  const c = colorMap[color]
 
   return (
-    <div className="bg-white rounded-xl p-5 relative overflow-hidden group cursor-default transition-all duration-300 hover:border-blue-300 hover:shadow-lg border border-gray-200">
-      {/* Hover Glow Effect */}
-      <div className={`absolute top-0 left-0 w-full h-[2px] transition-all duration-500 transform scale-x-0 group-hover:scale-x-100 ${trend?.direction === 'up' ? 'bg-emerald-500' : 'bg-red-500'}`}></div>
-
-      <div className="relative z-10 flex flex-col h-24 justify-between">
-        {/* Header */}
-        <div className="flex justify-between items-start">
-          <span className="text-[10px] font-bold text-gray-500 uppercase tracking-widest group-hover:text-gray-700 transition-colors">{title}</span>
-          
-          {/* Trend Badge */}
-          {trend && (
-            <div className={`flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded transition-all duration-300 
-              ${trend.direction === 'up' ? 'text-emerald-600 bg-emerald-50 group-hover:bg-emerald-100' : 'text-red-600 bg-red-50 group-hover:bg-red-100'}`}>
-              {trend.direction === 'up' ? <ArrowUpRight size={12} /> : <ArrowDownRight size={12} />}
-              {trend.value}%
-            </div>
-          )}
+    <div className={`bg-white rounded-lg px-3 py-2.5 relative overflow-hidden group cursor-default transition-all duration-200 hover:shadow-md border border-gray-200`}>
+      <div className="flex items-center gap-2.5">
+        {icon && (
+          <div className={`flex-shrink-0 p-1.5 ${c.iconBg} rounded text-white`}>
+            {icon}
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <div className="text-[9px] font-bold text-gray-400 uppercase tracking-wider leading-none">{title}</div>
+          <div className="flex items-baseline gap-2 mt-0.5">
+            <span className="text-xl font-bold text-gray-900 tabular-nums leading-tight">{value}</span>
+            {trend && (
+              <span className={`inline-flex items-center text-[9px] font-bold tabular-nums
+                ${trend.direction === 'up' ? 'text-emerald-600' : 'text-red-600'}`}>
+                {trend.direction === 'up' ? <ArrowUpRight size={10} /> : <ArrowDownRight size={10} />}
+                {trend.value}%
+              </span>
+            )}
+          </div>
         </div>
-
-        {/* Value */}
-        <div className="flex items-end justify-between mt-2">
-          <span className="text-3xl font-bold text-gray-900 tracking-tighter group-hover:translate-x-1 transition-transform duration-300">
-            {value}
-          </span>
-        </div>
-        
-        {/* Hidden Context - Revealed on Hover */}
-        {subtitle && (
-          <div className="h-0 group-hover:h-auto overflow-hidden opacity-0 group-hover:opacity-100 transition-all duration-300 ease-out flex items-center justify-between mt-2 pt-2 border-t border-dashed border-gray-200/0 group-hover:border-gray-300">
-            <span className="text-[10px] text-gray-500 font-medium">{subtitle}</span>
+        {data.length > 0 && (
+          <div className="w-14 h-8 opacity-30 flex-shrink-0">
+            <MiniSparkline data={data} color={c.accent} />
           </div>
         )}
       </div>
-
-      {/* Sparkline Background */}
-      {data.length > 0 && (
-        <div className="absolute bottom-0 right-0 w-1/2 h-16 opacity-20 group-hover:opacity-40 transition-opacity duration-500 pointer-events-none">
-          <Sparkline data={data} positive={trend?.direction === 'up' || false} />
-        </div>
-      )}
     </div>
   )
 }
@@ -533,7 +491,7 @@ export default function CorporateDashboardClient() {
   }
 
   return (
-    <div className="space-y-6 bg-gray-50">
+    <div className="space-y-3 bg-gray-50">
       <style>{`
         @keyframes slideIn {
           from { opacity: 0; transform: translateY(10px); }
@@ -543,348 +501,203 @@ export default function CorporateDashboardClient() {
           from { stroke-dashoffset: 220; }
           to { stroke-dashoffset: 0; }
         }
-        @keyframes fadeInUp {
-          from {
-            opacity: 0;
-            transform: translateY(12px);
-          }
-          to {
-            opacity: 1;
-            transform: translateY(0);
-          }
-        }
         .animate-enter {
-          animation: slideIn 0.4s ease-out forwards;
-        }
-        .animate-fadeInUp {
-          animation: fadeInUp 0.5s ease-out;
-          opacity: 0;
+          animation: slideIn 0.3s ease-out forwards;
         }
       `}</style>
 
-      {/* Header con última actualización */}
+      {/* Header compacto */}
       <div className="flex items-center justify-between">
         <div>
-          <h2 className="text-2xl font-bold text-gray-900">Panel de Control Corporativo</h2>
-          <p className="text-sm text-gray-600 mt-1">
-            Visión ejecutiva del cumplimiento organizacional
-          </p>
+          <h2 className="text-lg font-bold text-gray-900">Panel de Control Corporativo</h2>
+          <p className="text-xs text-gray-500">Visión ejecutiva del cumplimiento organizacional</p>
         </div>
         <button
           onClick={handleRefresh}
           disabled={refreshing}
-          className="flex items-center gap-2 px-4 py-2 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50"
+          className="flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors disabled:opacity-50 text-xs"
         >
-          <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
-          <span className="text-sm font-medium text-gray-700">Actualizar</span>
+          <RefreshCw size={13} className={refreshing ? 'animate-spin' : ''} />
+          <span className="font-medium text-gray-700">Actualizar</span>
         </button>
       </div>
 
-      {/* KPIs Principales con animación de entrada */}
+      {/* KPIs - Strip compacto */}
       {stats && (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4 animate-enter">
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 animate-enter">
           <KPICard
-            title="SEDES ACTIVAS"
+            title="SEDES"
             value={stats.totalLocations}
-            subtitle="Ubicaciones monitoreadas"
             trend={{ value: 8, direction: 'up' }}
             color="blue"
+            icon={<Icons.Building />}
             data={generateSparklineData(stats.totalLocations)}
           />
           <KPICard
-            title="CUMPLIMIENTO GLOBAL"
+            title="CUMPLIMIENTO"
             value={`${stats.avgComplianceScore}%`}
-            subtitle="Promedio de todas las sedes"
             trend={{ value: 4, direction: 'up' }}
             color="green"
+            icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
             data={stats.complianceTrend.slice(-7).map(t => t.score)}
           />
           <KPICard
             title="INSPECCIONES"
             value={stats.totalInspections}
-            subtitle="Total de inspecciones realizadas"
             trend={{ value: 15, direction: 'up' }}
             color="amber"
+            icon={<Icons.ClipboardCheck />}
             data={generateSparklineData(stats.totalInspections)}
           />
           <KPICard
-            title="USUARIOS ACTIVOS"
+            title="USUARIOS"
             value={stats.totalUsers}
-            subtitle="Personal registrado en el sistema"
             trend={{ value: 12, direction: 'up' }}
             color="purple"
+            icon={<Icons.Users />}
             data={generateSparklineData(stats.totalUsers)}
           />
         </div>
       )}
 
-      {/* Grid para Panel IT/Mantenimiento y Estado de Inspecciones */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-enter" style={{ animationDelay: '0.1s' }}>
-        {/* Panel Integrado: IT Helpdesk & Mantenimiento - Tabla tipo inspecciones */}
-        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:border-gray-300 transition-colors">
-          <div className="px-6 py-4 border-b border-gray-200 bg-gray-50/50 flex justify-between items-center">
-            <h3 className="text-[11px] font-bold text-gray-700 flex items-center gap-2 uppercase tracking-wider">
-              <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <circle cx="12" cy="12" r="3" strokeWidth={2} />
-              </svg>
-              OPERACIONES EN TIEMPO REAL
-            </h3>
-            <div className="flex items-center gap-2">
-              <Link href="/dashboard" className="text-blue-600 hover:text-blue-700 text-[10px] font-semibold transition-colors">VER IT →</Link>
-              <span className="text-gray-300">|</span>
-              <Link href="/mantenimiento/dashboard" className="text-amber-600 hover:text-amber-700 text-[10px] font-semibold transition-colors">VER MTTO →</Link>
+      {/* Grid 3 columnas: IT | Mantenimiento | Inspecciones */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 animate-enter" style={{ animationDelay: '0.1s' }}>
+        
+        {/* IT Helpdesk - Compacto */}
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+          <div className="px-3 py-2 border-b border-gray-100 flex justify-between items-center">
+            <div className="flex items-center gap-1.5">
+              <div className="p-1 bg-blue-500 rounded">
+                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                </svg>
+              </div>
+              <span className="text-[10px] font-bold text-gray-700 uppercase tracking-wider">IT Helpdesk</span>
             </div>
+            <Link href="/dashboard" className="text-blue-600 hover:text-blue-700 text-[9px] font-semibold">VER →</Link>
           </div>
-          
-          <div className="flex-1 overflow-hidden">
-            <table className="w-full text-left text-xs">
-              <thead className="bg-gray-50 text-gray-600 font-mono uppercase border-b border-gray-200">
-                <tr>
-                  <th className="px-5 py-3 font-semibold text-[10px]">Módulo</th>
-                  <th className="px-5 py-3 font-semibold text-[10px] text-center">Métrica</th>
-                  <th className="px-5 py-3 font-semibold text-[10px] text-center">Valor</th>
-                  <th className="px-5 py-3 font-semibold text-[10px] text-right">Tendencia</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-200">
-                {/* IT Helpdesk */}
-                {itStats ? (
+          {itStats ? (
+            <div className="p-3 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-gray-500 font-medium">Abiertos</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-bold text-blue-600 tabular-nums">{itStats.open}</span>
+                  <span className="text-[9px] text-gray-400">({itStats.total > 0 ? Math.round((itStats.open / itStats.total) * 100) : 0}%)</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-gray-500 font-medium">Cerrados</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-bold text-emerald-600 tabular-nums">{itStats.closed}</span>
+                  <span className="text-[9px] text-gray-400">({itStats.total > 0 ? Math.round((itStats.closed / itStats.total) * 100) : 0}%)</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-gray-500 font-medium">Escalados</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-bold text-red-600 tabular-nums">{itStats.escalated}</span>
+                  <span className="text-[9px] text-gray-400">({itStats.total > 0 ? Math.round((itStats.escalated / itStats.total) * 100) : 0}%)</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between pt-1.5 border-t border-gray-100">
+                <span className="text-[10px] text-gray-700 font-bold">Total</span>
+                <span className="text-sm font-bold text-gray-900 tabular-nums">{itStats.total}</span>
+              </div>
+              {/* Barra de proporción */}
+              <div className="flex h-1.5 rounded-full overflow-hidden bg-gray-100 mt-1">
+                {itStats.total > 0 && (
                   <>
-                    <tr className="hover:bg-blue-50/30 transition-colors group cursor-pointer">
-                      <td className="px-5 py-3" rowSpan={4}>
-                        <div className="flex items-center gap-2">
-                          <div className="p-1.5 bg-blue-500 rounded">
-                            <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                            </svg>
-                          </div>
-                          <div>
-                            <div className="font-semibold text-gray-900 text-xs group-hover:text-blue-700 transition-colors">IT Helpdesk</div>
-                            <div className="text-[10px] text-gray-500 font-mono">TICKETS</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-5 py-3 text-center">
-                        <span className="text-gray-700 font-medium">Abiertos</span>
-                      </td>
-                      <td className="px-5 py-3 text-center">
-                        <span className="text-lg font-bold text-blue-600 tabular-nums">{itStats.open}</span>
-                        <span className="text-[10px] text-gray-500 ml-1">({itStats.total > 0 ? Math.round((itStats.open / itStats.total) * 100) : 0}%)</span>
-                      </td>
-                      <td className="px-5 py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <div className="w-16 h-6">
-                            <MiniSparkline data={generateSparklineData(itStats.open)} color="#3b82f6" />
-                          </div>
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-100 text-emerald-700 border border-emerald-200 rounded text-[10px] font-bold uppercase">
-                            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                            </svg>
-                            8%
-                          </span>
-                        </div>
-                      </td>
-                    </tr>
-                    <tr className="hover:bg-green-50/30 transition-colors group cursor-pointer">
-                      <td className="px-5 py-3 text-center">
-                        <span className="text-gray-700 font-medium">Cerrados</span>
-                      </td>
-                      <td className="px-5 py-3 text-center">
-                        <span className="text-lg font-bold text-emerald-600 tabular-nums">{itStats.closed}</span>
-                        <span className="text-[10px] text-gray-500 ml-1">({itStats.total > 0 ? Math.round((itStats.closed / itStats.total) * 100) : 0}%)</span>
-                      </td>
-                      <td className="px-5 py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <div className="w-16 h-6">
-                            <MiniSparkline data={generateSparklineData(itStats.closed)} color="#10b981" />
-                          </div>
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-100 text-emerald-700 border border-emerald-200 rounded text-[10px] font-bold uppercase">
-                            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                            </svg>
-                            5%
-                          </span>
-                        </div>
-                      </td>
-                    </tr>
-                    <tr className="hover:bg-red-50/30 transition-colors group cursor-pointer">
-                      <td className="px-5 py-3 text-center">
-                        <span className="text-gray-700 font-medium">Escalados</span>
-                      </td>
-                      <td className="px-5 py-3 text-center">
-                        <span className="text-lg font-bold text-red-600 tabular-nums">{itStats.escalated}</span>
-                        <span className="text-[10px] text-gray-500 ml-1">({itStats.total > 0 ? Math.round((itStats.escalated / itStats.total) * 100) : 0}%)</span>
-                      </td>
-                      <td className="px-5 py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <div className="w-16 h-6">
-                            <MiniSparkline data={generateSparklineData(itStats.escalated || 1)} color="#ef4444" />
-                          </div>
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-red-100 text-red-700 border border-red-200 rounded text-[10px] font-bold uppercase">
-                            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                            </svg>
-                            0%
-                          </span>
-                        </div>
-                      </td>
-                    </tr>
-                    <tr className="hover:bg-purple-50/30 transition-colors group cursor-pointer border-b-2 border-gray-300">
-                      <td className="px-5 py-3 text-center">
-                        <span className="text-gray-700 font-medium">Total</span>
-                      </td>
-                      <td className="px-5 py-3 text-center">
-                        <span className="text-lg font-bold text-purple-600 tabular-nums">{itStats.total}</span>
-                        <span className="text-[10px] text-gray-500 ml-1">(100%)</span>
-                      </td>
-                      <td className="px-5 py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <div className="w-16 h-6">
-                            <MiniSparkline data={generateSparklineData(itStats.total)} color="#8b5cf6" />
-                          </div>
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-100 text-emerald-700 border border-emerald-200 rounded text-[10px] font-bold uppercase">
-                            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                            </svg>
-                            2%
-                          </span>
-                        </div>
-                      </td>
-                    </tr>
+                    <div className="bg-blue-500 transition-all" style={{ width: `${(itStats.open / itStats.total) * 100}%` }} />
+                    <div className="bg-emerald-500 transition-all" style={{ width: `${(itStats.closed / itStats.total) * 100}%` }} />
+                    <div className="bg-red-500 transition-all" style={{ width: `${(itStats.escalated / itStats.total) * 100}%` }} />
                   </>
-                ) : (
-                  <tr>
-                    <td colSpan={4} className="px-5 py-8 text-center text-gray-400 text-xs">Cargando IT...</td>
-                  </tr>
                 )}
-                
-                {/* Mantenimiento */}
-                {maintenanceStats ? (
-                  <>
-                    <tr className="hover:bg-amber-50/30 transition-colors group cursor-pointer">
-                      <td className="px-5 py-3" rowSpan={4}>
-                        <div className="flex items-center gap-2">
-                          <div className="p-1.5 bg-amber-500 rounded">
-                            <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                            </svg>
-                          </div>
-                          <div>
-                            <div className="font-semibold text-gray-900 text-xs group-hover:text-amber-700 transition-colors">Mantenimiento</div>
-                            <div className="text-[10px] text-gray-500 font-mono">TICKETS</div>
-                          </div>
-                        </div>
-                      </td>
-                      <td className="px-5 py-3 text-center">
-                        <span className="text-gray-700 font-medium">Abiertos</span>
-                      </td>
-                      <td className="px-5 py-3 text-center">
-                        <span className="text-lg font-bold text-amber-600 tabular-nums">{maintenanceStats.open}</span>
-                        <span className="text-[10px] text-gray-500 ml-1">({maintenanceStats.total > 0 ? Math.round((maintenanceStats.open / maintenanceStats.total) * 100) : 0}%)</span>
-                      </td>
-                      <td className="px-5 py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <div className="w-16 h-6">
-                            <MiniSparkline data={generateSparklineData(maintenanceStats.open)} color="#f59e0b" />
-                          </div>
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-100 text-emerald-700 border border-emerald-200 rounded text-[10px] font-bold uppercase">
-                            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                            </svg>
-                            8%
-                          </span>
-                        </div>
-                      </td>
-                    </tr>
-                    <tr className="hover:bg-green-50/30 transition-colors group cursor-pointer">
-                      <td className="px-5 py-3 text-center">
-                        <span className="text-gray-700 font-medium">Cerrados</span>
-                      </td>
-                      <td className="px-5 py-3 text-center">
-                        <span className="text-lg font-bold text-emerald-600 tabular-nums">{maintenanceStats.closed}</span>
-                        <span className="text-[10px] text-gray-500 ml-1">({maintenanceStats.total > 0 ? Math.round((maintenanceStats.closed / maintenanceStats.total) * 100) : 0}%)</span>
-                      </td>
-                      <td className="px-5 py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <div className="w-16 h-6">
-                            <MiniSparkline data={generateSparklineData(maintenanceStats.closed)} color="#10b981" />
-                          </div>
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-100 text-emerald-700 border border-emerald-200 rounded text-[10px] font-bold uppercase">
-                            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                            </svg>
-                            5%
-                          </span>
-                        </div>
-                      </td>
-                    </tr>
-                    <tr className="hover:bg-red-50/30 transition-colors group cursor-pointer">
-                      <td className="px-5 py-3 text-center">
-                        <span className="text-gray-700 font-medium">Escalados</span>
-                      </td>
-                      <td className="px-5 py-3 text-center">
-                        <span className="text-lg font-bold text-red-600 tabular-nums">{maintenanceStats.escalated}</span>
-                        <span className="text-[10px] text-gray-500 ml-1">({maintenanceStats.total > 0 ? Math.round((maintenanceStats.escalated / maintenanceStats.total) * 100) : 0}%)</span>
-                      </td>
-                      <td className="px-5 py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <div className="w-16 h-6">
-                            <MiniSparkline data={generateSparklineData(maintenanceStats.escalated || 1)} color="#ef4444" />
-                          </div>
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-red-100 text-red-700 border border-red-200 rounded text-[10px] font-bold uppercase">
-                            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M19 14l-7 7m0 0l-7-7m7 7V3" />
-                            </svg>
-                            0%
-                          </span>
-                        </div>
-                      </td>
-                    </tr>
-                    <tr className="hover:bg-purple-50/30 transition-colors group cursor-pointer">
-                      <td className="px-5 py-3 text-center">
-                        <span className="text-gray-700 font-medium">Total</span>
-                      </td>
-                      <td className="px-5 py-3 text-center">
-                        <span className="text-lg font-bold text-purple-600 tabular-nums">{maintenanceStats.total}</span>
-                        <span className="text-[10px] text-gray-500 ml-1">(100%)</span>
-                      </td>
-                      <td className="px-5 py-3 text-right">
-                        <div className="flex items-center justify-end gap-2">
-                          <div className="w-16 h-6">
-                            <MiniSparkline data={generateSparklineData(maintenanceStats.total)} color="#8b5cf6" />
-                          </div>
-                          <span className="inline-flex items-center gap-0.5 px-1.5 py-0.5 bg-emerald-100 text-emerald-700 border border-emerald-200 rounded text-[10px] font-bold uppercase">
-                            <svg className="w-2.5 h-2.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={3} d="M5 10l7-7m0 0l7 7m-7-7v18" />
-                            </svg>
-                            2%
-                          </span>
-                        </div>
-                      </td>
-                    </tr>
-                  </>
-                ) : (
-                  <tr>
-                    <td colSpan={4} className="px-5 py-8 text-center text-gray-400 text-xs">Cargando Mantenimiento...</td>
-                  </tr>
-                )}
-              </tbody>
-            </table>
-          </div>
+              </div>
+              <div className="flex gap-2 text-[8px] text-gray-400 mt-0.5">
+                <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-blue-500" />Abiertos</span>
+                <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />Cerrados</span>
+                <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-red-500" />Escalados</span>
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 text-center text-gray-400 text-xs">Cargando...</div>
+          )}
         </div>
 
-        {/* Estado de Inspecciones - Tabla */}
-        {stats && (
-          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden hover:border-gray-300 transition-colors">
-            <div className="px-6 py-4 border-b border-gray-200 bg-gray-50/50 flex justify-between items-center">
-              <h3 className="text-[11px] font-bold text-gray-700 flex items-center gap-2 uppercase tracking-wider">
-                <svg className="w-3 h-3 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+        {/* Mantenimiento - Compacto */}
+        <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+          <div className="px-3 py-2 border-b border-gray-100 flex justify-between items-center">
+            <div className="flex items-center gap-1.5">
+              <div className="p-1 bg-amber-500 rounded">
+                <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
                 </svg>
-                ESTADO DE INSPECCIONES
-              </h3>
-              <span className="text-[10px] text-gray-500 font-medium">Tendencia vs última actualización</span>
+              </div>
+              <span className="text-[10px] font-bold text-gray-700 uppercase tracking-wider">Mantenimiento</span>
+            </div>
+            <Link href="/mantenimiento/dashboard" className="text-amber-600 hover:text-amber-700 text-[9px] font-semibold">VER →</Link>
+          </div>
+          {maintenanceStats ? (
+            <div className="p-3 space-y-1.5">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-gray-500 font-medium">Abiertos</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-bold text-amber-600 tabular-nums">{maintenanceStats.open}</span>
+                  <span className="text-[9px] text-gray-400">({maintenanceStats.total > 0 ? Math.round((maintenanceStats.open / maintenanceStats.total) * 100) : 0}%)</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-gray-500 font-medium">Cerrados</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-bold text-emerald-600 tabular-nums">{maintenanceStats.closed}</span>
+                  <span className="text-[9px] text-gray-400">({maintenanceStats.total > 0 ? Math.round((maintenanceStats.closed / maintenanceStats.total) * 100) : 0}%)</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] text-gray-500 font-medium">Escalados</span>
+                <div className="flex items-center gap-1.5">
+                  <span className="text-sm font-bold text-red-600 tabular-nums">{maintenanceStats.escalated}</span>
+                  <span className="text-[9px] text-gray-400">({maintenanceStats.total > 0 ? Math.round((maintenanceStats.escalated / maintenanceStats.total) * 100) : 0}%)</span>
+                </div>
+              </div>
+              <div className="flex items-center justify-between pt-1.5 border-t border-gray-100">
+                <span className="text-[10px] text-gray-700 font-bold">Total</span>
+                <span className="text-sm font-bold text-gray-900 tabular-nums">{maintenanceStats.total}</span>
+              </div>
+              <div className="flex h-1.5 rounded-full overflow-hidden bg-gray-100 mt-1">
+                {maintenanceStats.total > 0 && (
+                  <>
+                    <div className="bg-amber-500 transition-all" style={{ width: `${(maintenanceStats.open / maintenanceStats.total) * 100}%` }} />
+                    <div className="bg-emerald-500 transition-all" style={{ width: `${(maintenanceStats.closed / maintenanceStats.total) * 100}%` }} />
+                    <div className="bg-red-500 transition-all" style={{ width: `${(maintenanceStats.escalated / maintenanceStats.total) * 100}%` }} />
+                  </>
+                )}
+              </div>
+              <div className="flex gap-2 text-[8px] text-gray-400 mt-0.5">
+                <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-amber-500" />Abiertos</span>
+                <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-emerald-500" />Cerrados</span>
+                <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-red-500" />Escalados</span>
+              </div>
+            </div>
+          ) : (
+            <div className="p-4 text-center text-gray-400 text-xs">Cargando...</div>
+          )}
+        </div>
+
+        {/* Inspecciones - Compacto */}
+        {stats && (
+          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div className="px-3 py-2 border-b border-gray-100 flex justify-between items-center">
+              <div className="flex items-center gap-1.5">
+                <div className="p-1 bg-indigo-500 rounded">
+                  <svg className="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
+                  </svg>
+                </div>
+                <span className="text-[10px] font-bold text-gray-700 uppercase tracking-wider">Inspecciones</span>
+              </div>
+              <Link href="/corporativo/inspecciones" className="text-indigo-600 hover:text-indigo-700 text-[9px] font-semibold">VER →</Link>
             </div>
 
             {(() => {
@@ -895,103 +708,55 @@ export default function CorporateDashboardClient() {
                 const nv = typeof v === 'number' ? v : Number(v) || 0
                 aggregated[nk] = (aggregated[nk] || 0) + nv
               })
-
               const total = Object.values(aggregated).reduce((a, b) => a + b, 0)
 
-              const statusMeta: Record<string, { label: string; color: string; bgHover: string }> = {
-                completed: { label: 'Completadas', color: '#f59e0b', bgHover: 'hover:bg-amber-50/30' },
-                approved: { label: 'Aprobadas', color: '#10b981', bgHover: 'hover:bg-emerald-50/30' },
-                rejected: { label: 'Rechazadas', color: '#ef4444', bgHover: 'hover:bg-red-50/30' },
-                pending: { label: 'Pendientes', color: '#3b82f6', bgHover: 'hover:bg-blue-50/30' },
-                in_review: { label: 'En Revisión', color: '#6366f1', bgHover: 'hover:bg-indigo-50/30' },
-                draft: { label: 'Borrador', color: '#94a3b8', bgHover: 'hover:bg-gray-50' }
+              const statusMeta: Record<string, { label: string; color: string }> = {
+                completed: { label: 'Completadas', color: '#f59e0b' },
+                approved: { label: 'Aprobadas', color: '#10b981' },
+                rejected: { label: 'Rechazadas', color: '#ef4444' },
+                pending: { label: 'Pendientes', color: '#3b82f6' },
+                in_review: { label: 'En Revisión', color: '#6366f1' },
+                draft: { label: 'Borrador', color: '#94a3b8' }
               }
-
               const keys = Object.keys(aggregated).sort((a, b) => (aggregated[b] || 0) - (aggregated[a] || 0))
 
               return (
-                <div className="flex-1 overflow-hidden">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-gray-50 text-gray-600 font-mono uppercase border-b border-gray-200">
-                      <tr>
-                        <th className="px-5 py-3 font-semibold text-[10px]">Estado</th>
-                        <th className="px-5 py-3 font-semibold text-[10px] text-center">Porcentaje</th>
-                        <th className="px-5 py-3 font-semibold text-[10px] text-center">Cantidad</th>
-                        <th className="px-5 py-3 font-semibold text-[10px] text-right">Tendencia</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {keys.length > 0 ? (
-                        <>
-                          {keys.map((k, index) => {
-                            const count = aggregated[k] || 0
-                            const percentage = total > 0 ? (count / total) * 100 : 0
-                            const meta = statusMeta[k] || { label: k, color: '#64748b', bgHover: 'hover:bg-gray-50' }
-                            const label = meta.label
-                            const color = meta.color
-                            const delta = inspectionTrends[k] || 0
-                            const history = inspectionHistory[k] || [count, count, count, count]
-                            const isLast = index === keys.length - 1
-
-                            return (
-                              <tr key={k} className={`${meta.bgHover} transition-colors group cursor-pointer ${isLast ? 'border-b-2 border-gray-300' : ''}`}>
-                                <td className="px-5 py-3">
-                                  <div className="flex items-center gap-2">
-                                    <span className="w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
-                                    <span className="text-gray-900 font-semibold">{label}</span>
-                                  </div>
-                                </td>
-                                <td className="px-5 py-3 text-center">
-                                  <div className="flex items-center justify-center gap-2">
-                                    <div className="flex-1 max-w-[80px] h-2 bg-gray-100 rounded-full overflow-hidden">
-                                      <div
-                                        className="h-full rounded-full transition-all duration-700"
-                                        style={{ width: `${percentage}%`, backgroundColor: color }}
-                                      />
-                                    </div>
-                                    <span className="text-gray-700 font-medium tabular-nums">{Math.round(percentage)}%</span>
-                                  </div>
-                                </td>
-                                <td className="px-5 py-3 text-center">
-                                  <span className="text-lg font-bold tabular-nums" style={{ color }}>{count}</span>
-                                </td>
-                                <td className="px-5 py-3 text-right">
-                                  <div className="flex items-center justify-end gap-2">
-                                    <div className="w-16 h-6">
-                                      <MiniSparkline data={history} color={color} />
-                                    </div>
-                                    <TrendBadge delta={delta} />
-                                  </div>
-                                </td>
-                              </tr>
-                            )
-                          })}
-                          {/* Total Row */}
-                          <tr className="bg-gray-50 font-bold">
-                            <td className="px-5 py-3">
-                              <div className="flex items-center gap-2">
-                                <span className="w-2 h-2 rounded-full bg-gray-500" />
-                                <span className="text-gray-900 font-bold uppercase text-xs">Total</span>
+                <div className="p-3 space-y-1.5">
+                  {keys.length > 0 ? (
+                    <>
+                      {keys.map(k => {
+                        const count = aggregated[k] || 0
+                        const pct = total > 0 ? Math.round((count / total) * 100) : 0
+                        const meta = statusMeta[k] || { label: k, color: '#64748b' }
+                        const delta = inspectionTrends[k] || 0
+                        return (
+                          <div key={k} className="flex items-center justify-between">
+                            <div className="flex items-center gap-1.5">
+                              <span className="w-1.5 h-1.5 rounded-full flex-shrink-0" style={{ backgroundColor: meta.color }} />
+                              <span className="text-[10px] text-gray-600 font-medium">{meta.label}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <div className="w-16 h-1 bg-gray-100 rounded-full overflow-hidden">
+                                <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: meta.color }} />
                               </div>
-                            </td>
-                            <td className="px-5 py-3 text-center">
-                              <span className="text-gray-700 font-bold">100%</span>
-                            </td>
-                            <td className="px-5 py-3 text-center">
-                              <span className="text-lg font-bold text-gray-900 tabular-nums">{total}</span>
-                            </td>
-                            <td className="px-5 py-3 text-right">
-                              <span className="text-[10px] text-gray-500 font-mono uppercase">Inspecciones</span>
-                            </td>
-                          </tr>
-                        </>
-                      ) : (
-                        <tr>
-                          <td colSpan={4} className="px-5 py-8 text-center text-gray-400 text-xs">No hay datos de inspecciones</td>
-                        </tr>
-                      )}
-                    </tbody>
-                  </table>
+                              <span className="text-sm font-bold tabular-nums w-6 text-right" style={{ color: meta.color }}>{count}</span>
+                              {delta !== 0 && (
+                                <span className={`text-[8px] font-bold ${delta > 0 ? 'text-emerald-600' : 'text-red-600'}`}>
+                                  {delta > 0 ? '+' : ''}{delta}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        )
+                      })}
+                      <div className="flex items-center justify-between pt-1.5 border-t border-gray-100">
+                        <span className="text-[10px] text-gray-700 font-bold">Total</span>
+                        <span className="text-sm font-bold text-gray-900 tabular-nums">{total}</span>
+                      </div>
+                    </>
+                  ) : (
+                    <div className="py-4 text-center text-gray-400 text-xs">Sin datos</div>
+                  )}
                 </div>
               )
             })()}
@@ -999,32 +764,33 @@ export default function CorporateDashboardClient() {
         )}
       </div>
 
-      {/* Ranking de Sedes */}
+      {/* Grid inferior: Ranking | Áreas Críticas | Pendientes */}
       {stats && (
-        <div className="bg-white border border-gray-200 rounded-xl p-6 animate-enter" style={{ animationDelay: '0.15s' }}>
-            <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <div className="w-1 h-4 bg-amber-500 rounded-full"></div>
-              RANKING DE SEDES
-              <span className="ml-auto text-xs text-gray-500 font-normal">Top 5</span>
-            </h3>
-            <div className="space-y-2">
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 animate-enter" style={{ animationDelay: '0.15s' }}>
+          {/* Ranking de Sedes - Compacto */}
+          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div className="px-3 py-2 border-b border-gray-100 flex justify-between items-center">
+              <span className="text-[10px] font-bold text-gray-700 uppercase tracking-wider flex items-center gap-1.5">
+                <div className="w-1 h-3 bg-amber-500 rounded-full"></div>
+                Ranking Sedes
+              </span>
+              <span className="text-[9px] text-gray-400">Top 5</span>
+            </div>
+            <div className="p-2 space-y-0.5">
               {stats.locationRanking.slice(0, 5).map((location, index) => (
-                <div key={location.location_id} className="flex items-center gap-3 p-3 rounded-lg hover:bg-gray-50 transition-colors group">
-                  <div className={`flex-shrink-0 w-8 h-8 rounded-lg flex items-center justify-center font-bold text-sm ${
+                <div key={location.location_id} className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-gray-50 transition-colors">
+                  <span className={`flex-shrink-0 w-5 h-5 rounded text-[10px] font-bold flex items-center justify-center ${
                     index === 0 ? 'bg-amber-100 text-amber-700' :
                     index === 1 ? 'bg-gray-100 text-gray-600' :
                     index === 2 ? 'bg-orange-100 text-orange-600' :
-                    'bg-gray-50 text-gray-500'
+                    'bg-gray-50 text-gray-400'
                   }`}>
                     {index + 1}
-                  </div>
+                  </span>
                   <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <p className="text-sm font-semibold text-gray-900 truncate">{location.property_name}</p>
-                      <span className="text-xs text-gray-500 font-mono">{location.property_code}</span>
-                    </div>
-                    <div className="mt-1 flex items-center gap-2">
-                      <div className="flex-1 bg-gray-100 rounded-full h-1.5 overflow-hidden">
+                    <p className="text-[11px] font-semibold text-gray-900 truncate">{location.property_name}</p>
+                    <div className="flex items-center gap-1 mt-0.5">
+                      <div className="flex-1 bg-gray-100 rounded-full h-1 overflow-hidden">
                         <div
                           className={`h-full transition-all duration-500 ${
                             location.avgScore >= 90 ? 'bg-emerald-500' :
@@ -1036,89 +802,84 @@ export default function CorporateDashboardClient() {
                       </div>
                     </div>
                   </div>
-                  <ScoreCircle score={location.avgScore} size="sm" />
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
-      {/* Áreas de Atención y Pendientes */}
-      {stats && (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6 animate-enter" style={{ animationDelay: '0.2s' }}>
-          {/* Áreas Críticas */}
-          <div className="bg-white border border-gray-200 rounded-xl p-6">
-            <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center gap-2">
-              <AlertTriangle size={16} className="text-red-500" />
-              ÁREAS DE ATENCIÓN
-            </h3>
-            <div className="space-y-2">
-              {stats.criticalAreas.map((area, index) => (
-                <div key={`${area.area_name}-${index}`} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-900">{area.area_name}</p>
-                    <p className="text-xs text-gray-500 mt-0.5">{area.inspectionCount} inspecciones</p>
-                  </div>
-                  <span className="text-lg font-bold text-red-600">{area.avgScore}<span className="text-xs text-gray-400">/10</span></span>
+                  <span className={`text-[11px] font-bold tabular-nums ${
+                    location.avgScore >= 90 ? 'text-emerald-600' :
+                    location.avgScore >= 75 ? 'text-amber-600' :
+                    'text-red-600'
+                  }`}>{location.avgScore}%</span>
                 </div>
               ))}
             </div>
           </div>
 
-          {/* Pendientes de Revisión */}
-          <div className="bg-white border border-gray-200 rounded-xl p-6">
-            <h3 className="text-sm font-semibold text-gray-900 mb-4 flex items-center justify-between">
-              <div className="flex items-center gap-2">
-                <div className="w-2 h-2 rounded-full bg-amber-500 animate-pulse"></div>
-                PENDIENTES DE REVISIÓN
-              </div>
-              <span className="px-2 py-1 bg-amber-50 text-amber-700 text-xs font-bold rounded">{pendingReviews.length}</span>
-            </h3>
-            <div className="space-y-2 max-h-64 overflow-y-auto">
-              {pendingReviews.map((review) => (
-                <div key={review.id} className="p-3 border border-gray-200 rounded-lg hover:border-gray-300 transition-colors">
-                  <div className="flex items-start justify-between mb-2">
-                    <div className="flex-1">
-                      <p className="text-sm font-semibold text-gray-900">{review.property_name}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        {new Date(review.created_at).toLocaleDateString('es-ES', { 
-                          day: '2-digit', 
-                          month: 'short',
-                          hour: '2-digit',
-                          minute: '2-digit'
-                        })}
-                      </p>
+          {/* Áreas de Atención - Compacto */}
+          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div className="px-3 py-2 border-b border-gray-100 flex items-center gap-1.5">
+              <AlertTriangle size={12} className="text-red-500" />
+              <span className="text-[10px] font-bold text-gray-700 uppercase tracking-wider">Áreas de Atención</span>
+            </div>
+            <div className="p-2">
+              {stats.criticalAreas.length > 0 ? (
+                <div className="space-y-1">
+                  {stats.criticalAreas.map((area, index) => (
+                    <div key={`${area.area_name}-${index}`} className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-red-50/50 transition-colors">
+                      <div className="flex-1 min-w-0">
+                        <p className="text-[11px] font-semibold text-gray-900 truncate">{area.area_name}</p>
+                        <p className="text-[9px] text-gray-400">{area.inspectionCount} insp.</p>
+                      </div>
+                      <span className="text-sm font-bold text-red-600 tabular-nums">{area.avgScore}<span className="text-[9px] text-gray-400">/10</span></span>
                     </div>
-                    <span className="px-2 py-1 bg-amber-50 text-amber-700 text-xs font-medium rounded">
-                      {review.score}%
-                    </span>
-                  </div>
-                  <div className="flex gap-2 mt-3">
-                    <button
-                      onClick={() => handleApprove(review.id)}
-                      className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 bg-emerald-500 text-white text-xs font-medium rounded-lg hover:bg-emerald-600 transition-colors"
-                    >
-                      <Check size={14} /> Aprobar
-                    </button>
-                    <button
-                      onClick={() => handleReject(review.id)}
-                      className="flex-1 flex items-center justify-center gap-1 px-3 py-1.5 bg-red-500 text-white text-xs font-medium rounded-lg hover:bg-red-600 transition-colors"
-                    >
-                      <X size={14} /> Rechazar
-                    </button>
-                    <Link
-                      href={`/inspections/${review.id}`}
-                      className="px-3 py-1.5 bg-gray-200 text-gray-700 text-xs font-medium rounded-lg hover:bg-gray-300 transition-colors"
-                    >
-                      Ver
-                    </Link>
-                  </div>
+                  ))}
                 </div>
-              ))}
-              {pendingReviews.length === 0 && (
-                <div className="py-8 text-center text-emerald-600">
-                  <Check size={32} className="mx-auto mb-2" />
-                  <p className="text-sm font-medium">No hay pendientes</p>
+              ) : (
+                <div className="py-4 text-center text-emerald-500 text-xs">
+                  <Check size={16} className="mx-auto mb-1" />
+                  Sin áreas críticas
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Pendientes de Revisión - Compacto */}
+          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div className="px-3 py-2 border-b border-gray-100 flex justify-between items-center">
+              <div className="flex items-center gap-1.5">
+                <div className="w-1.5 h-1.5 rounded-full bg-amber-500 animate-pulse"></div>
+                <span className="text-[10px] font-bold text-gray-700 uppercase tracking-wider">Pendientes</span>
+              </div>
+              <span className="px-1.5 py-0.5 bg-amber-50 text-amber-700 text-[9px] font-bold rounded">{pendingReviews.length}</span>
+            </div>
+            <div className="p-2 max-h-48 overflow-y-auto">
+              {pendingReviews.length > 0 ? (
+                <div className="space-y-1">
+                  {pendingReviews.map((review) => (
+                    <div key={review.id} className="px-2 py-1.5 border border-gray-100 rounded hover:border-gray-200 transition-colors">
+                      <div className="flex items-center justify-between mb-1">
+                        <p className="text-[11px] font-semibold text-gray-900 truncate flex-1">{review.property_name}</p>
+                        <span className="text-[9px] font-bold text-amber-600 ml-2">{review.score}%</span>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <span className="text-[8px] text-gray-400">
+                          {new Date(review.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
+                        </span>
+                        <div className="flex-1" />
+                        <button onClick={() => handleApprove(review.id)} className="px-1.5 py-0.5 bg-emerald-500 text-white text-[8px] font-bold rounded hover:bg-emerald-600">
+                          <Check size={10} />
+                        </button>
+                        <button onClick={() => handleReject(review.id)} className="px-1.5 py-0.5 bg-red-500 text-white text-[8px] font-bold rounded hover:bg-red-600">
+                          <X size={10} />
+                        </button>
+                        <Link href={`/inspections/${review.id}`} className="px-1.5 py-0.5 bg-gray-200 text-gray-600 text-[8px] font-bold rounded hover:bg-gray-300">
+                          Ver
+                        </Link>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="py-4 text-center text-emerald-500 text-xs">
+                  <Check size={16} className="mx-auto mb-1" />
+                  Sin pendientes
                 </div>
               )}
             </div>
@@ -1126,73 +887,37 @@ export default function CorporateDashboardClient() {
         </div>
       )}
 
-      {/* Quick Actions */}
-      <div className="bg-white border border-gray-200 rounded-xl p-5 hover:border-gray-300 hover:shadow-lg transition-all">
-        <h3 className="text-sm font-semibold text-gray-900 mb-4">⚡ ACCESOS RÁPIDOS</h3>
-        <div className="grid grid-cols-2 gap-3">
-          <Link
-            href="/corporativo/inspecciones"
-            className="p-4 bg-gradient-to-br from-amber-50 to-orange-50 border border-amber-200 rounded-lg hover:shadow-md transition-all group"
-          >
-            <div className="flex flex-col items-center text-center gap-2">
-              <div className="p-2 bg-amber-500 rounded-lg text-white group-hover:scale-110 transition-transform">
-                <Icons.ClipboardCheck />
-              </div>
-              <div>
-                <div className="font-semibold text-gray-900 text-sm">Inspecciones</div>
-                <div className="text-xs text-gray-600">Gestionar</div>
-              </div>
-            </div>
-          </Link>
-
-          <button className="p-4 bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-lg opacity-60 cursor-not-allowed">
-            <div className="flex flex-col items-center text-center gap-2">
-              <div className="p-2 bg-gray-400 rounded-lg text-white">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
-                </svg>
-              </div>
-              <div>
-                <div className="font-semibold text-gray-700 text-sm">Políticas</div>
-                <div className="text-xs text-gray-500">Próximamente</div>
-              </div>
-            </div>
-          </button>
-
-          <button className="p-4 bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-lg opacity-60 cursor-not-allowed">
-            <div className="flex flex-col items-center text-center gap-2">
-              <div className="p-2 bg-gray-400 rounded-lg text-white">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
-                </svg>
-              </div>
-              <div>
-                <div className="font-semibold text-gray-700 text-sm">Procedimientos</div>
-                <div className="text-xs text-gray-500">Próximamente</div>
-              </div>
-            </div>
-          </button>
-
-          <button className="p-4 bg-gradient-to-br from-gray-50 to-gray-100 border border-gray-200 rounded-lg opacity-60 cursor-not-allowed">
-            <div className="flex flex-col items-center text-center gap-2">
-              <div className="p-2 bg-gray-400 rounded-lg text-white">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
-                </svg>
-              </div>
-              <div>
-                <div className="font-semibold text-gray-700 text-sm">Academia</div>
-                <div className="text-xs text-gray-500">Próximamente</div>
-              </div>
-            </div>
-          </button>
-        </div>
+      {/* Accesos rápidos - Inline compacto */}
+      <div className="flex items-center gap-2 animate-enter" style={{ animationDelay: '0.2s' }}>
+        <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Accesos:</span>
+        <Link
+          href="/corporativo/inspecciones"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg hover:border-amber-300 hover:bg-amber-50 transition-all text-xs font-medium text-gray-700 hover:text-amber-700"
+        >
+          <Icons.ClipboardCheck />
+          Inspecciones
+        </Link>
+        <Link
+          href="/corporativo/academia"
+          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-all text-xs font-medium text-gray-700 hover:text-blue-700"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+          </svg>
+          Academia
+        </Link>
+        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 border border-gray-100 rounded-lg text-xs font-medium text-gray-400 cursor-not-allowed">
+          Políticas <span className="text-[8px]">(pronto)</span>
+        </span>
+        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 border border-gray-100 rounded-lg text-xs font-medium text-gray-400 cursor-not-allowed">
+          Procedimientos <span className="text-[8px]">(pronto)</span>
+        </span>
       </div>
 
-      {/* Footer */}
-      <div className="text-center text-xs text-gray-500 py-4 border-t border-gray-200">
-        Dashboard Corporativo ZIII • Datos actualizados en tiempo real
+      {/* Footer mínimo */}
+      <div className="text-center text-[9px] text-gray-400 py-2">
+        ZIII Dashboard Corporativo • Datos en tiempo real
       </div>
     </div>
   )
