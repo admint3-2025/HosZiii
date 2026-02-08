@@ -2,7 +2,7 @@
 -- Disponible para TODOS los usuarios, no solo administradores
 
 ALTER TABLE public.profiles 
-ADD COLUMN IF NOT EXISTS hub_visible_modules JSONB DEFAULT '{"it-helpdesk": true, "mantenimiento": true, "corporativo": true, "administracion": true}'::jsonb;
+ADD COLUMN IF NOT EXISTS hub_visible_modules JSONB DEFAULT '{"it-helpdesk": true, "mantenimiento": true, "corporativo": true, "academia": true, "administracion": true}'::jsonb;
 
 -- Índice para búsquedas eficientes
 CREATE INDEX IF NOT EXISTS idx_profiles_hub_visible_modules ON public.profiles USING gin (hub_visible_modules);

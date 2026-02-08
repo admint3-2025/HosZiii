@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { sendMail } from '@/lib/email/mailer'
 import { criticalInspectionAlertTemplate } from '@/lib/email/templates'
 
@@ -101,19 +102,37 @@ export async function POST(req: NextRequest) {
 
     console.log(`[notify-critical] Se encontraron ${criticalItems.length} ítems críticos`)
 
-    // 5. Obtener todos los administradores del sistema
-    const { data: admins, error: adminsError } = await supabase
+    // 5. Obtener administradores y corporate_admin del sistema
+    // Usar admin client para acceder a auth.users y verificar que NO estén baneados
+    const supabaseAdmin = createSupabaseAdminClient()
+    
+    const { data: profiles, error: profilesError } = await supabaseAdmin
       .from('profiles')
-      .select('id, full_name, email')
-      .eq('role', 'admin')
-      .eq('is_active', true)
+      .select('id, full_name, email, role')
+      .in('role', ['admin', 'corporate_admin'])
 
-    if (adminsError || !admins || admins.length === 0) {
-      console.error('[notify-critical] Error obteniendo administradores:', adminsError)
-      return NextResponse.json({ error: 'No se encontraron administradores' }, { status: 500 })
+    if (profilesError || !profiles || profiles.length === 0) {
+      console.error('[notify-critical] Error obteniendo perfiles corporativos:', profilesError)
+      return NextResponse.json({ error: 'No se encontraron administradores o corporate_admin' }, { status: 500 })
     }
 
-    console.log(`[notify-critical] Enviando notificaciones a ${admins.length} administradores`)
+    // Filtrar solo usuarios NO baneados consultando auth.users
+    const userIds = profiles.map(p => p.id)
+    const { data: authUsers } = await supabaseAdmin.auth.admin.listUsers()
+    const activeUserIds = new Set(
+      (authUsers.users || [])
+        .filter(u => !u.banned_until || new Date(u.banned_until) < new Date())
+        .map(u => u.id)
+    )
+
+    const admins = profiles.filter(p => activeUserIds.has(p.id))
+
+    if (!admins || admins.length === 0) {
+      console.error('[notify-critical] No se encontraron administradores activos')
+      return NextResponse.json({ error: 'No se encontraron administradores activos' }, { status: 500 })
+    }
+
+    console.log(`[notify-critical] Enviando notificaciones a ${admins.length} usuarios corporativos (admin/corporate_admin)`)
 
     // 6. Preparar URL de la inspección (dinámica según tipo)
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
