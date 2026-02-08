@@ -21,6 +21,7 @@ export default function NotificationBell() {
   const [isOpen, setIsOpen] = useState(false)
   const [isLoading, setIsLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
+  const [userRole, setUserRole] = useState<string | null>(null)
   const supabase = useMemo(() => createSupabaseBrowserClient(), [])
 
   const loadNotifications = useCallback(async () => {
@@ -33,24 +34,42 @@ export default function NotificationBell() {
 
       if (error) throw error
 
-      setNotifications(data || [])
-      setUnreadCount(data?.filter((n: any) => !n.is_read).length || 0)
+      let filteredData = data || []
+
+      // FILTRO DE SEGURIDAD: Ocultar notificaciones de inspección a usuarios NO corporativos
+      if (userRole && userRole !== 'admin' && userRole !== 'corporate_admin') {
+        filteredData = filteredData.filter(n => n.type !== 'inspection_critical')
+      }
+
+      setNotifications(filteredData)
+      setUnreadCount(filteredData?.filter((n: any) => !n.is_read).length || 0)
     } catch (error) {
       console.error('Error cargando notificaciones:', error)
     } finally {
       setIsLoading(false)
     }
-  }, [supabase])
+  }, [supabase, userRole])
 
-  // Obtener usuario actual de forma segura
+  // Obtener usuario actual y su rol de forma segura
   useEffect(() => {
-    async function getUser() {
+    async function getUserAndRole() {
       const user = await getSafeUser(supabase)
       if (user) {
         setUserId(user.id)
+        
+        // Obtener rol del usuario desde profiles
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role')
+          .eq('id', user.id)
+          .single()
+        
+        if (profile) {
+          setUserRole(profile.role)
+        }
       }
     }
-    getUser()
+    getUserAndRole()
   }, [supabase])
 
   // Cargar notificaciones iniciales y suscribirse a cambios
@@ -75,6 +94,14 @@ export default function NotificationBell() {
           
           if (payload.eventType === 'INSERT') {
             const newNotif = payload.new as Notification
+            
+            // FILTRO DE SEGURIDAD: Ignorar notificaciones de inspección para usuarios NO corporativos
+            if (newNotif.type === 'inspection_critical' && 
+                userRole && userRole !== 'admin' && userRole !== 'corporate_admin') {
+              console.log('[NotificationBell] Notificación de inspección ignorada para rol:', userRole)
+              return
+            }
+            
             setNotifications((prev) => [newNotif, ...prev])
             setUnreadCount((prev) => prev + 1)
             
@@ -112,7 +139,7 @@ export default function NotificationBell() {
       console.log('[NotificationBell] Unsubscribing from channel')
       supabase.removeChannel(channel)
     }
-  }, [userId, loadNotifications, supabase])
+  }, [userId, userRole, loadNotifications, supabase])
 
   // Solicitar permisos de notificaciones del navegador
   useEffect(() => {
