@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { validateFile, formatFileSize, getFileIcon } from '@/lib/storage/attachments'
 
 type AttachmentFile = {
@@ -17,6 +17,27 @@ export default function AttachmentUploader({ onFilesChange, maxFiles = 5 }: Prop
   const [files, setFiles] = useState<AttachmentFile[]>([])
   const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
+  const [lightboxAlt, setLightboxAlt] = useState('')
+
+  const openLightbox = useCallback((url: string, alt: string) => {
+    setLightboxUrl(url)
+    setLightboxAlt(alt)
+  }, [])
+
+  const closeLightbox = useCallback(() => {
+    setLightboxUrl(null)
+    setLightboxAlt('')
+  }, [])
+
+  useEffect(() => {
+    return () => {
+      for (const item of files) {
+        if (item.preview) URL.revokeObjectURL(item.preview)
+      }
+    }
+  }, [files])
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const selectedFiles = Array.from(e.target.files || [])
@@ -53,6 +74,7 @@ export default function AttachmentUploader({ onFilesChange, maxFiles = 5 }: Prop
   const removeFile = (index: number) => {
     // Liberar URL de preview
     if (files[index].preview) {
+      if (lightboxUrl === files[index].preview) closeLightbox()
       URL.revokeObjectURL(files[index].preview!)
     }
 
@@ -124,7 +146,8 @@ export default function AttachmentUploader({ onFilesChange, maxFiles = 5 }: Prop
                     <img
                       src={item.preview}
                       alt={item.file.name}
-                      className="w-12 h-12 object-cover rounded border border-gray-300"
+                      className="w-12 h-12 object-cover rounded border border-gray-300 cursor-zoom-in"
+                      onClick={() => openLightbox(item.preview!, item.file.name)}
                     />
                   </>
                 ) : (
@@ -159,6 +182,64 @@ export default function AttachmentUploader({ onFilesChange, maxFiles = 5 }: Prop
           ))}
         </div>
       )}
+
+      {lightboxUrl && (
+        <EvidenceLightbox url={lightboxUrl} alt={lightboxAlt || 'Imagen'} onClose={closeLightbox} />
+      )}
+    </div>
+  )
+}
+
+function EvidenceLightbox({
+  url,
+  alt,
+  onClose,
+}: {
+  url: string
+  alt: string
+  onClose: () => void
+}) {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handleKeyDown)
+    return () => document.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
+
+  useEffect(() => {
+    const originalOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = originalOverflow
+    }
+  }, [])
+
+  return (
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div className="relative max-w-5xl w-full" onClick={e => e.stopPropagation()}>
+        <button
+          onClick={onClose}
+          className="absolute -top-2 -right-2 bg-white/10 hover:bg-white/20 text-white rounded-full p-2 transition"
+          aria-label="Cerrar"
+        >
+          <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={url} alt={alt} className="w-full max-h-[80vh] object-contain rounded-lg shadow-xl" />
+
+        <div className="mt-3 text-center text-sm text-white/80">
+          Clic fuera o presiona Esc para cerrar
+        </div>
+      </div>
     </div>
   )
 }

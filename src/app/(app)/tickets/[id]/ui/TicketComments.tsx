@@ -1,19 +1,29 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient, getSafeUser } from '@/lib/supabase/browser'
 import { getSignedUrl } from '@/lib/storage/attachments'
 import { getAvatarInitial } from '@/lib/ui/avatar'
 
-function AttachmentLink({ attachment, isImage }: { attachment: any; isImage: boolean }) {
-  const [url, setUrl] = useState<string | null>(null)
-
+function AttachmentLink({
+  attachment,
+  isImage,
+  onOpenImage,
+}: {
+  attachment: any
+  isImage: boolean
+  onOpenImage: (url: string, alt: string) => void
+}) {
   async function handleClick(e: React.MouseEvent) {
     e.preventDefault()
     const signedUrl = await getSignedUrl(attachment.storage_path)
     if (signedUrl) {
-      window.open(signedUrl, '_blank')
+      if (isImage) {
+        onOpenImage(signedUrl, attachment.file_name || 'Imagen')
+      } else {
+        window.open(signedUrl, '_blank')
+      }
     }
   }
 
@@ -63,6 +73,8 @@ export default function TicketComments({
   const [reopening, setReopening] = useState(false)
   const [attachments, setAttachments] = useState<File[]>([])
   const [previewUrls, setPreviewUrls] = useState<string[]>([])
+  const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
+  const [lightboxAlt, setLightboxAlt] = useState('')
 
   // Verificar si el ticket está cerrado
   const isClosed = ticketStatus === 'CLOSED'
@@ -76,6 +88,16 @@ export default function TicketComments({
 
   // Los usuarios estándar no pueden comentar en tickets cerrados
   const canComment = !isClosed || userRole !== 'requester'
+
+  const openLightbox = useCallback((url: string, alt: string) => {
+    setLightboxUrl(url)
+    setLightboxAlt(alt)
+  }, [])
+
+  const closeLightbox = useCallback(() => {
+    setLightboxUrl(null)
+    setLightboxAlt('')
+  }, [])
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || [])
@@ -298,6 +320,7 @@ export default function TicketComments({
                           key={att.id}
                           attachment={att}
                           isImage={isImage}
+                          onOpenImage={openLightbox}
                         />
                       )
                     })}
@@ -432,7 +455,8 @@ export default function TicketComments({
                     <img
                       src={url}
                       alt={attachments[idx].name}
-                      className="w-full h-24 object-cover rounded-lg border border-gray-300"
+                      className="w-full h-24 object-cover rounded-lg border border-gray-300 cursor-pointer"
+                      onClick={() => openLightbox(url, attachments[idx].name)}
                     />
                     <button
                       type="button"
@@ -473,6 +497,65 @@ export default function TicketComments({
         </form>
         ) : null}
       </div>
+
+      {lightboxUrl && (
+        <EvidenceLightbox url={lightboxUrl} alt={lightboxAlt || 'Imagen'} onClose={closeLightbox} />
+      )}
     </section>
+  )
+}
+
+function EvidenceLightbox({
+  url,
+  alt,
+  onClose,
+}: {
+  url: string
+  alt: string
+  onClose: () => void
+}) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [onClose])
+
+  useEffect(() => {
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [])
+
+  return (
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 z-[10000] p-2 rounded-full bg-white/20 hover:bg-white/40 transition-colors text-white"
+        title="Cerrar (Esc)"
+      >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[10000] px-4 py-2 rounded-full bg-white/20 text-white text-xs">
+        Clic fuera o presiona Esc para cerrar
+      </div>
+
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={url}
+        alt={alt}
+        onClick={(e) => e.stopPropagation()}
+        className="max-w-[95vw] max-h-[90vh] object-contain rounded-lg shadow-2xl cursor-default select-none"
+        draggable={false}
+      />
+    </div>
   )
 }

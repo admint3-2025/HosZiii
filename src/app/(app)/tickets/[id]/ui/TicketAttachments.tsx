@@ -213,44 +213,7 @@ const [attachments, setAttachments] = useState<Attachment[]>([])
 
       {/* Modal de vista previa */}
       {previewImage && (
-        <div 
-          className="fixed inset-0 z-[9999] bg-black flex items-center justify-center p-8"
-          onClick={() => setPreviewImage(null)}
-          onKeyDown={(e) => e.key === 'Escape' && setPreviewImage(null)}
-          tabIndex={0}
-        >
-          <div className="relative max-w-7xl max-h-[90vh] w-full" onClick={(e) => e.stopPropagation()}>
-
-            {/* Nombre del archivo */}
-            <div className="absolute -top-12 left-0 text-white text-sm font-medium">
-              {previewImage.file_name}
-            </div>
-
-            {/* Imagen */}
-            <div 
-              className="flex items-center justify-center"
-              onClick={(e) => e.stopPropagation()}
-            >
-              <ImagePreviewModal attachment={previewImage} />
-            </div>
-
-            {/* Acciones */}
-            <div className="absolute -bottom-14 left-0 right-0 flex justify-center gap-3">
-              <button
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleDownload(previewImage)
-                }}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 transition-colors flex items-center gap-2"
-              >
-                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4" />
-                </svg>
-                Descargar
-              </button>
-            </div>
-          </div>
-        </div>
+        <AttachmentLightbox attachment={previewImage} onClose={() => setPreviewImage(null)} />
       )}
     </div>
   )
@@ -282,34 +245,82 @@ function AttachmentPreview({ attachment }: { attachment: Attachment }) {
   )
 }
 
-// Componente para vista previa completa en modal
-function ImagePreviewModal({ attachment }: { attachment: Attachment }) {
+function AttachmentLightbox({
+  attachment,
+  onClose,
+}: {
+  attachment: Attachment
+  onClose: () => void
+}) {
   const [signedUrl, setSignedUrl] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [onClose])
+
+  useEffect(() => {
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [])
+
+  useEffect(() => {
+    let cancelled = false
     async function loadUrl() {
       setLoading(true)
       const url = await getSignedUrl(attachment.storage_path)
+      if (cancelled) return
       setSignedUrl(url)
       setLoading(false)
     }
     loadUrl()
+    return () => {
+      cancelled = true
+    }
   }, [attachment.storage_path])
 
-  if (loading || !signedUrl) {
-    return (
-      <div className="flex items-center justify-center w-full h-96">
-        <svg className="animate-spin w-12 h-12 text-white" fill="none" viewBox="0 0 24 24">
-          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
-          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
-        </svg>
-      </div>
-    )
-  }
-
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={signedUrl} alt={attachment.file_name} className="max-w-full max-h-[80vh] object-contain rounded-lg shadow-2xl" />
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 z-[10000] p-2 rounded-full bg-white/20 hover:bg-white/40 transition-colors text-white"
+        title="Cerrar (Esc)"
+      >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[10000] px-4 py-2 rounded-full bg-white/20 text-white text-xs">
+        Clic fuera o presiona Esc para cerrar
+      </div>
+
+      {loading || !signedUrl ? (
+        <div className="flex items-center justify-center w-full h-96" onClick={(e) => e.stopPropagation()}>
+          <svg className="animate-spin w-12 h-12 text-white" fill="none" viewBox="0 0 24 24">
+            <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+            <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+          </svg>
+        </div>
+      ) : (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={signedUrl}
+          alt={attachment.file_name}
+          onClick={(e) => e.stopPropagation()}
+          className="max-w-[95vw] max-h-[90vh] object-contain rounded-lg shadow-2xl cursor-default select-none"
+          draggable={false}
+        />
+      )}
+    </div>
   )
 }

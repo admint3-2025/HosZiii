@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 import { useRouter } from 'next/navigation'
 
@@ -62,6 +62,7 @@ export default function MaintenanceTicketAttachments({
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
+  const [previewAlt, setPreviewAlt] = useState<string>('')
 
   useEffect(() => {
     loadAttachments()
@@ -104,11 +105,17 @@ export default function MaintenanceTicketAttachments({
     if (data?.signedUrl) {
       if (attachment.file_type.startsWith('image/')) {
         setPreviewUrl(data.signedUrl)
+        setPreviewAlt(attachment.file_name)
       } else {
         window.open(data.signedUrl, '_blank')
       }
     }
   }
+
+  const closePreview = useCallback(() => {
+    setPreviewUrl(null)
+    setPreviewAlt('')
+  }, [])
 
   async function handleDelete(attachmentId: string) {
     if (!confirm('¿Estás seguro de eliminar este archivo?')) return
@@ -293,22 +300,63 @@ export default function MaintenanceTicketAttachments({
 
       {/* Modal de preview */}
       {previewUrl && (
-        <div 
-          className="fixed inset-0 z-[9999] bg-black flex items-center justify-center p-8"
-          onClick={() => setPreviewUrl(null)}
-          onKeyDown={(e) => e.key === 'Escape' && setPreviewUrl(null)}
-          tabIndex={0}
-        >
-          <div className="relative max-w-4xl max-h-[90vh]" onClick={(e) => e.stopPropagation()}>
-            <img
-              src={previewUrl}
-              alt="Preview"
-              className="max-w-full max-h-[85vh] object-contain rounded-lg"
-              onClick={(e) => e.stopPropagation()}
-            />
-          </div>
-        </div>
+        <EvidenceLightbox url={previewUrl} alt={previewAlt || 'Preview'} onClose={closePreview} />
       )}
     </>
+  )
+}
+
+function EvidenceLightbox({
+  url,
+  alt,
+  onClose,
+}: {
+  url: string
+  alt: string
+  onClose: () => void
+}) {
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    document.addEventListener('keydown', handler)
+    return () => document.removeEventListener('keydown', handler)
+  }, [onClose])
+
+  useEffect(() => {
+    document.body.style.overflow = 'hidden'
+    return () => {
+      document.body.style.overflow = ''
+    }
+  }, [])
+
+  return (
+    <div
+      className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/80 backdrop-blur-sm"
+      onClick={onClose}
+    >
+      <button
+        onClick={onClose}
+        className="absolute top-4 right-4 z-[10000] p-2 rounded-full bg-white/20 hover:bg-white/40 transition-colors text-white"
+        title="Cerrar (Esc)"
+      >
+        <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </button>
+
+      <div className="absolute bottom-4 left-1/2 -translate-x-1/2 z-[10000] px-4 py-2 rounded-full bg-white/20 text-white text-xs">
+        Clic fuera o presiona Esc para cerrar
+      </div>
+
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={url}
+        alt={alt}
+        onClick={(e) => e.stopPropagation()}
+        className="max-w-[95vw] max-h-[90vh] object-contain rounded-lg shadow-2xl cursor-default select-none"
+        draggable={false}
+      />
+    </div>
   )
 }
