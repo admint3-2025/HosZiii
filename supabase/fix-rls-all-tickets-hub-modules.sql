@@ -168,7 +168,7 @@ ORDER BY tablename, policyname;
 -- Verificar acceso de Edith De la Torre
 SELECT 
   p.full_name,
-  p.email,
+  u.email,
   p.role,
   p.asset_category,
   (p.hub_visible_modules->>'it-helpdesk')::boolean as tiene_it_hub,
