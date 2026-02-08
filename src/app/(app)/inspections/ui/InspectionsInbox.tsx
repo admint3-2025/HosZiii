@@ -550,7 +550,6 @@ export default function InspectionsInbox() {
                       <td className="py-2 pr-4">
                         <span className="inline-flex items-center gap-1">
                           {r.department || '—'}
-                          <span className="text-[10px] text-slate-400 font-mono">({r.inspection_type.toUpperCase()})</span>
                         </span>
                       </td>
                       <td className="py-2 pr-4">
