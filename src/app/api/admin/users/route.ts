@@ -80,6 +80,7 @@ export async function GET() {
       id, role, full_name, department, phone, building, floor, position,
       supervisor_id, location_id, asset_category, allowed_departments,
       can_view_beo, can_manage_assets, is_it_supervisor, is_maintenance_supervisor,
+      hub_visible_modules,
       locations(code,name)
     `)
     .in('id', ids)

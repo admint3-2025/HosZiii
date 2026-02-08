@@ -287,11 +287,32 @@ export default function UserList() {
   const cancelHubModal = () => {
     setHubModalOpen(false)
   }
-  const confirmHubModal = () => {
+  const confirmHubModal = async () => {
     const enabled = Object.values(editHubModules).some(Boolean)
     if (!enabled) {
       setError('Selecciona al menos 1 módulo visible')
       return
+    }
+    // Guardar directamente en BD para el usuario editado
+    if (editingId) {
+      setBusy(true)
+      try {
+        const res = await fetch(`/api/admin/users/${editingId}`, {
+          method: 'PATCH',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ hub_visible_modules: editHubModules }),
+        })
+        if (!res.ok) {
+          const text = await res.text()
+          setError(text || `Error ${res.status} al guardar vista del Hub`)
+          return
+        }
+      } catch (e: any) {
+        setError(e?.message ?? 'Error al guardar vista del Hub')
+        return
+      } finally {
+        setBusy(false)
+      }
     }
     setHubModalOpen(false)
   }

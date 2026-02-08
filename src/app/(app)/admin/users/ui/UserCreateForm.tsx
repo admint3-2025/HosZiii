@@ -66,7 +66,6 @@ export default function UserCreateForm() {
 
   const [adminHubModules, setAdminHubModules] = useState<HubModules>(DEFAULT_HUB_MODULES)
   const [adminHubModalOpen, setAdminHubModalOpen] = useState(false)
-  const [roleBeforeAdmin, setRoleBeforeAdmin] = useState<Role>('requester')
 
   useEffect(() => {
     async function loadLocations() {
@@ -97,12 +96,10 @@ export default function UserCreateForm() {
       return
     }
 
-    if (role === 'admin') {
-      const enabled = Object.values(adminHubModules).some(Boolean)
-      if (!enabled) {
-        setError('Selecciona al menos 1 módulo visible para el Administrador')
-        return
-      }
+    const enabled = Object.values(adminHubModules).some(Boolean)
+    if (!enabled) {
+      setError('Selecciona al menos 1 módulo visible en la Vista del Hub')
+      return
     }
 
     setBusy(true)
@@ -124,7 +121,7 @@ export default function UserCreateForm() {
           allowed_departments: role === 'corporate_admin' && allowedDepartments.length > 0 ? allowedDepartments : null,
           can_view_beo: canViewBeo,
           can_manage_assets: canManageAssets,
-          hub_visible_modules: role === 'admin' ? adminHubModules : null,
+          hub_visible_modules: adminHubModules,
           invite,
           ...(invite ? {} : { password }),
         }),
@@ -169,21 +166,14 @@ export default function UserCreateForm() {
 
   const cancelAdminHubModal = () => {
     setAdminHubModalOpen(false)
-    // revertir rol si todavía no quedó aplicado
-    if (role === 'admin') {
-      // keep
-      return
-    }
-    setRole(roleBeforeAdmin)
   }
 
   const confirmAdminHubModal = () => {
     const enabled = Object.values(adminHubModules).some(Boolean)
     if (!enabled) {
-      setError('Selecciona al menos 1 módulo visible para el Administrador')
+      setError('Selecciona al menos 1 módulo visible')
       return
     }
-    setRole('admin')
     setAdminHubModalOpen(false)
   }
 
@@ -282,15 +272,7 @@ export default function UserCreateForm() {
             <select
               className="select mt-1"
               value={role}
-              onChange={(e) => {
-                const nextRole = e.target.value as Role
-                if (nextRole === 'admin') {
-                  setRoleBeforeAdmin(role)
-                  setAdminHubModalOpen(true)
-                  return
-                }
-                setRole(nextRole)
-              }}
+              onChange={(e) => setRole(e.target.value as Role)}
             >
               {ROLES.map((r) => (
                 <option key={r.value} value={r.value}>
@@ -300,30 +282,28 @@ export default function UserCreateForm() {
             </select>
           </div>
 
-          {role === 'admin' && (
-            <div className="sm:col-span-2 p-3 border-2 border-violet-200 bg-violet-50 rounded-lg">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <div className="text-[11px] font-semibold text-violet-900 uppercase tracking-wide">
-                    Vista del Hub (Administrador)
-                  </div>
-                  <div className="text-[11px] text-violet-800 mt-1">
-                    Visible: {Object.entries(adminHubModules)
-                      .filter(([, v]) => v)
-                      .map(([k]) => k)
-                      .join(', ') || '—'}
-                  </div>
+          <div className="sm:col-span-2 p-3 border-2 border-violet-200 bg-violet-50 rounded-lg">
+            <div className="flex items-start justify-between gap-3">
+              <div>
+                <div className="text-[11px] font-semibold text-violet-900 uppercase tracking-wide">
+                  Vista del Hub
                 </div>
-                <button
-                  type="button"
-                  className="btn btn-secondary"
-                  onClick={openAdminHubModal}
-                >
-                  Configurar
-                </button>
+                <div className="text-[11px] text-violet-800 mt-1">
+                  Visible: {Object.entries(adminHubModules)
+                    .filter(([, v]) => v)
+                    .map(([k]) => k)
+                    .join(', ') || '—'}
+                </div>
               </div>
+              <button
+                type="button"
+                className="btn btn-secondary"
+                onClick={openAdminHubModal}
+              >
+                Configurar
+              </button>
             </div>
-          )}
+          </div>
 
           <div className="sm:col-span-2">
             <MultiLocationSelector
@@ -457,7 +437,7 @@ export default function UserCreateForm() {
           <div className="absolute inset-0 bg-black/40" onClick={cancelAdminHubModal} />
           <div className="relative w-full max-w-lg rounded-xl bg-white border border-slate-200 shadow-xl overflow-hidden">
             <div className="p-4 border-b border-slate-100 bg-slate-50">
-              <h2 className="text-sm font-bold text-slate-900">Configurar vista del Hub (Administrador)</h2>
+              <h2 className="text-sm font-bold text-slate-900">Configurar vista del Hub</h2>
               <p className="text-xs text-slate-600 mt-1">
                 Selecciona qué módulos verá en el Hub. Puedes cambiarlo después editando el usuario.
               </p>
@@ -491,9 +471,6 @@ export default function UserCreateForm() {
             </div>
 
             <div className="p-4 border-t border-slate-100 bg-white flex items-center justify-between gap-2">
-              <div className="text-xs text-slate-500">
-                Rol seleccionado: <span className="font-semibold">{roleLabel('admin')}</span>
-              </div>
               <div className="flex items-center gap-2">
                 <button type="button" className="btn btn-secondary" onClick={cancelAdminHubModal}>
                   Cancelar
