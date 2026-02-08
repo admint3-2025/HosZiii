@@ -85,7 +85,10 @@ export default async function TicketsPage({
   // Aplicar filtros
   if (view === 'mine') {
     if (user?.id) {
-      query = query.eq('requester_id', user.id)
+      // "Mis tickets" incluye tickets creados por mí o asignados a mí.
+      // Esto evita que técnicos (agent_l1/agent_l2) queden sin visibilidad
+      // de tickets asignados cuando no tienen acceso a la bandeja completa.
+      query = query.or(`requester_id.eq.${user.id},assigned_agent_id.eq.${user.id}`)
     } else {
       // Sin usuario: no mostrar tickets
       query = query.eq('id', 'none')
