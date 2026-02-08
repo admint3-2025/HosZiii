@@ -869,7 +869,7 @@ export default function CorporateDashboardClient() {
                         <button onClick={() => handleReject(review.id)} className="px-1.5 py-0.5 bg-red-500 text-white text-[8px] font-bold rounded hover:bg-red-600">
                           <X size={10} />
                         </button>
-                        <Link href={`/inspections/${review.id}`} className="px-1.5 py-0.5 bg-gray-200 text-gray-600 text-[8px] font-bold rounded hover:bg-gray-300">
+                        <Link href={`/inspections/rrhh/${review.id}`} className="px-1.5 py-0.5 bg-gray-200 text-gray-600 text-[8px] font-bold rounded hover:bg-gray-300">
                           Ver
                         </Link>
                       </div>

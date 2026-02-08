@@ -474,7 +474,7 @@ export default function CorporateDashboardClient() {
                     <Icons.X /> Rechazar
                   </button>
                   <Link
-                    href={`/inspections/${review.id}`}
+                    href={`/inspections/rrhh/${review.id}`}
                     className="px-3 py-1.5 bg-gray-200 text-gray-700 text-sm rounded-lg hover:bg-gray-300 transition-colors"
                   >
                     Ver
