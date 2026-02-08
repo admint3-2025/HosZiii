@@ -898,7 +898,7 @@ export default function CorporateDashboardClient() {
           Inspecciones
         </Link>
         <Link
-          href="/corporativo/academia"
+          href="/academia"
           className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-all text-xs font-medium text-gray-700 hover:text-blue-700"
         >
           <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

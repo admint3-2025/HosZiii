@@ -124,7 +124,7 @@ export default function MyProgressDashboard({
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => router.push('/corporativo/academia')}
+            onClick={() => router.push('/academia')}
             className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -223,7 +223,7 @@ export default function MyProgressDashboard({
                   <Play className="w-12 h-12 text-gray-300 mx-auto mb-4" />
                   <p className="text-gray-500">No tienes cursos en progreso</p>
                   <button
-                    onClick={() => router.push('/corporativo/academia')}
+                    onClick={() => router.push('/academia')}
                     className="mt-4 text-blue-600 hover:underline"
                   >
                     Explorar catálogo
@@ -237,7 +237,7 @@ export default function MyProgressDashboard({
                       <div
                         key={enrollment.id}
                         className="flex items-center gap-4 p-4 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors cursor-pointer"
-                        onClick={() => router.push(`/corporativo/academia/curso/${enrollment.course_id}`)}
+                        onClick={() => router.push(`/academia/curso/${enrollment.course_id}`)}
                       >
                         <div className="w-20 h-14 bg-gradient-to-br from-blue-500 to-blue-600 rounded-lg flex items-center justify-center flex-shrink-0">
                           {enrollment.course.thumbnail_url ? (
@@ -318,7 +318,7 @@ export default function MyProgressDashboard({
                       </div>
                       {enrollment.course.certificate_template && (
                         <button
-                          onClick={() => router.push(`/corporativo/academia/curso/${enrollment.course_id}`)}
+                          onClick={() => router.push(`/academia/curso/${enrollment.course_id}`)}
                           className="px-3 py-1.5 text-sm bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center gap-1"
                         >
                           <Award className="w-4 h-4" />

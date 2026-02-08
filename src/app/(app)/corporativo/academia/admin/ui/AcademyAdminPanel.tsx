@@ -234,7 +234,7 @@ export default function AcademyAdminPanel({ areas, courses: initialCourses, stat
       <div className="flex items-center justify-between mb-6">
         <div className="flex items-center gap-4">
           <button
-            onClick={() => router.push('/corporativo/academia')}
+            onClick={() => router.push('/academia')}
             className="flex items-center gap-2 text-gray-600 hover:text-gray-900"
           >
             <ArrowLeft className="w-5 h-5" />

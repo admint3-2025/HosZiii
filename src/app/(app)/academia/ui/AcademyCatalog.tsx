@@ -71,7 +71,7 @@ export default function AcademyCatalog({ areas, courses, isAdmin, userName }: Ac
 
             <div className="flex items-center gap-4">
               <Link
-                href="/corporativo/academia/mi-progreso"
+                href="/academia/mi-progreso"
                 className="flex items-center gap-2 px-4 py-2 bg-white/20 hover:bg-white/30 rounded-xl transition-colors"
               >
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -238,7 +238,7 @@ function CourseCard({ course }: { course: CourseWithEnrollment }) {
 
   return (
     <Link
-      href={`/corporativo/academia/curso/${course.id}`}
+      href={`/academia/curso/${course.id}`}
       className="group bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden hover:shadow-lg hover:border-amber-200 transition-all duration-300"
     >
       {/* Thumbnail */}

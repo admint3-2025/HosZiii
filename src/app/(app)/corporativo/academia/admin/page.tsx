@@ -21,7 +21,7 @@ export default async function AcademyAdminPage() {
     .single();
 
   if (!profile || !['admin', 'corporate_admin'].includes(profile.role)) {
-    redirect('/corporativo/academia');
+    redirect('/academia');
   }
 
   // Get all areas

@@ -205,7 +205,7 @@ export default function CourseDetailPage() {
   const getDifficultyLabel = (level: string) => {
     switch (level) {
       case 'basic':
-        return 'B谩sico';
+        return 'B+韘ico';
       case 'intermediate':
         return 'Intermedio';
       case 'advanced':
@@ -237,11 +237,11 @@ export default function CourseDetailPage() {
         <AlertCircle className="w-12 h-12 mb-4 text-red-500" />
         <p className="text-lg">{error || 'Curso no encontrado'}</p>
         <button
-          onClick={() => router.push('/corporativo/academia')}
+          onClick={() => router.push('/academia')}
           className="mt-4 text-blue-600 hover:underline flex items-center gap-2"
         >
           <ArrowLeft className="w-4 h-4" />
-          Volver al cat谩logo
+          Volver al cat+韑ogo
         </button>
       </div>
     );
@@ -254,11 +254,11 @@ export default function CourseDetailPage() {
     <div className="max-w-6xl mx-auto px-4 py-6">
       {/* Back button */}
       <button
-        onClick={() => router.push('/corporativo/academia')}
+        onClick={() => router.push('/academia')}
         className="flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6"
       >
         <ArrowLeft className="w-5 h-5" />
-        Volver al cat谩logo
+        Volver al cat+韑ogo
       </button>
 
       {/* Course header */}
@@ -306,7 +306,7 @@ export default function CourseDetailPage() {
               </span>
               <span className="flex items-center gap-1">
                 <BookOpen className="w-4 h-4" />
-                {course.modules?.length || 0} m贸dulos
+                {course.modules?.length || 0} m+ulos
               </span>
               <span className="flex items-center gap-1">
                 <Users className="w-4 h-4" />
@@ -341,7 +341,7 @@ export default function CourseDetailPage() {
                   ) : (
                     <>
                       {course.modules_with_progress.filter((m) => m.progress?.status === 'completed').length} de{' '}
-                      {course.modules_with_progress.length} m贸dulos completados
+                      {course.modules_with_progress.length} m+ulos completados
                     </>
                   )}
                 </p>
@@ -375,7 +375,7 @@ export default function CourseDetailPage() {
 
         {course.modules_with_progress.length === 0 ? (
           <p className="text-gray-500 text-center py-8">
-            Este curso a煤n no tiene m贸dulos disponibles.
+            Este curso a+ no tiene m+ulos disponibles.
           </p>
         ) : (
           <div className="space-y-3">
@@ -444,7 +444,7 @@ export default function CourseDetailPage() {
                                 key={content.id}
                                 onClick={() => {
                                   if (!module.isLocked) {
-                                    router.push(`/corporativo/academia/aprender/${module.id}?content=${content.id}`);
+                                    router.push(`/academia/aprender/${module.id}?content=${content.id}`);
                                   }
                                 }}
                                 disabled={module.isLocked}
@@ -474,7 +474,7 @@ export default function CourseDetailPage() {
                         <button
                           onClick={() => {
                             if (!module.isLocked && module.quizzes) {
-                              router.push(`/corporativo/academia/evaluacion/${module.quizzes[0].id}`);
+                              router.push(`/academia/evaluacion/${module.quizzes[0].id}`);
                             }
                           }}
                           disabled={module.isLocked}
@@ -485,18 +485,18 @@ export default function CourseDetailPage() {
                           }`}
                         >
                           <ClipboardCheck className="w-5 h-5" />
-                          Realizar evaluaci贸n
+                          Realizar evaluaci+
                         </button>
                       )}
 
                       {/* Start learning button */}
                       {!module.isLocked && module.progress?.status !== 'completed' && (
                         <button
-                          onClick={() => router.push(`/corporativo/academia/aprender/${module.id}`)}
+                          onClick={() => router.push(`/academia/aprender/${module.id}`)}
                           className="mt-3 w-full flex items-center justify-center gap-2 p-3 rounded-lg font-medium bg-green-600 text-white hover:bg-green-700 transition-colors"
                         >
                           <Play className="w-5 h-5" />
-                          {module.progress?.status === 'in_progress' ? 'Continuar m贸dulo' : 'Comenzar m贸dulo'}
+                          {module.progress?.status === 'in_progress' ? 'Continuar m+ulo' : 'Comenzar m+ulo'}
                         </button>
                       )}
                     </div>
@@ -516,11 +516,11 @@ export default function CourseDetailPage() {
               <Award className="w-8 h-8 text-yellow-700" />
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-bold text-yellow-800">隆Felicidades!</h3>
+              <h3 className="text-lg font-bold text-yellow-800">-鞦elicidades!</h3>
               <p className="text-yellow-700">Has completado el curso exitosamente.</p>
             </div>
             <button
-              onClick={() => router.push(`/corporativo/academia/mi-progreso?certificate=${courseId}`)}
+              onClick={() => router.push(`/academia/mi-progreso?certificate=${courseId}`)}
               className="px-4 py-2 bg-yellow-600 text-white rounded-lg font-medium hover:bg-yellow-700 flex items-center gap-2"
             >
               <Star className="w-5 h-5" />

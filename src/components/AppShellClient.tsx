@@ -263,6 +263,7 @@ export default function AppShellClient({
     if (pathname.startsWith('/admin')) return 'admin'
     if (pathname.startsWith('/corporativo')) return 'corporativo'
     if (pathname.startsWith('/inspections')) return 'corporativo' // Inspecciones RRHH
+    if (pathname.startsWith('/academia')) return 'academia'
     // Reportes: mantener en `Administración` para que el sidebar no cambie
     // al entrar a reportes específicos (IT/Mantenimiento). El centro
     // de reportes debe permanecer bajo el contexto de admin visual.
@@ -381,7 +382,16 @@ export default function AppShellClient({
           { id: 'corp_home', label: 'Dashboard', icon: 'Dashboard', href: '/corporativo/dashboard' },
           { id: 'corp_inspecciones', label: 'Inspecciones', icon: 'ShieldCheck', href: '/corporativo/inspecciones' },
           { id: 'corp_inbox', label: 'Bandeja Inspecciones', icon: 'BarChart', href: '/inspections/inbox' },
-          { id: 'corp_academia', label: 'Academia', icon: 'GraduationCap', href: '/corporativo/academia' },
+          { id: 'corp_academia', label: 'Admin Academia', icon: 'GraduationCap', href: '/corporativo/academia/admin' },
+        ],
+      },
+    ],
+    academia: [
+      {
+        group: 'Academia',
+        items: [
+          { id: 'academia_catalog', label: 'Catálogo', icon: 'GraduationCap', href: '/academia' },
+          { id: 'academia_progress', label: 'Mi Progreso', icon: 'BarChart', href: '/academia/mi-progreso' },
         ],
       },
     ],
