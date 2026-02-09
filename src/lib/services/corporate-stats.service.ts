@@ -232,7 +232,7 @@ export class CorporateStatsService {
       const criticalAreas = Array.from(areaMap.entries())
         .map(([area_name, items]) => {
           const scores = items.map(i => i.score)
-          const avgScore = Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10)
+          const avgScore = Math.round(scores.reduce((a, b) => a + b, 0) / scores.length)
           // Ordenar por fecha desc y tomar las 3 más recientes para el tooltip
           const sortedItems = [...items].sort((a, b) => 
             new Date(b.inspection_date).getTime() - new Date(a.inspection_date).getTime()
@@ -248,11 +248,11 @@ export class CorporateStatsService {
               department: i.department,
               inspector_name: i.inspector_name,
               inspection_date: i.inspection_date,
-              score: Math.round(i.score * 10)
+              score: Math.round(i.score)
             }))
           }
         })
-        .filter(a => a.avgScore < 80)
+        .filter(a => a.avgScore < 8)
         .sort((a, b) => a.avgScore - b.avgScore)
         .slice(0, 5)
 
