@@ -36,6 +36,16 @@ export interface CorporateStats {
     area_name: string
     avgScore: number
     inspectionCount: number
+    // Detalles para tooltip
+    recentInspections: {
+      inspection_id: string
+      property_code: string
+      property_name: string
+      department: string
+      inspector_name: string
+      inspection_date: string
+      score: number
+    }[]
   }[]
   
   // Usuarios activos en inspecciones
@@ -176,25 +186,72 @@ export class CorporateStatsService {
         score: Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10)
       }))
 
-      // 8. Áreas críticas (promedio bajo)
+      // 8. Áreas críticas (promedio bajo) - con detalle para tooltip
       const { data: areasData } = await supabase
         .from('inspections_rrhh_areas')
-        .select('area_name, calculated_score, inspection_id')
+        .select(`
+          area_name,
+          calculated_score,
+          inspection_id,
+          inspections_rrhh!inner (
+            id,
+            property_code,
+            property_name,
+            department,
+            inspector_name,
+            inspection_date
+          )
+        `)
 
-      const areaMap = new Map<string, number[]>()
+      interface AreaDetailItem {
+        score: number
+        inspection_id: string
+        property_code: string
+        property_name: string
+        department: string
+        inspector_name: string
+        inspection_date: string
+      }
+      const areaMap = new Map<string, AreaDetailItem[]>()
       areasData?.forEach((a: any) => {
         if (!areaMap.has(a.area_name)) {
           areaMap.set(a.area_name, [])
         }
-        areaMap.get(a.area_name)!.push(a.calculated_score || 0)
+        const insp = a.inspections_rrhh
+        areaMap.get(a.area_name)!.push({
+          score: a.calculated_score || 0,
+          inspection_id: insp?.id || a.inspection_id,
+          property_code: insp?.property_code || '',
+          property_name: insp?.property_name || '',
+          department: insp?.department || '',
+          inspector_name: insp?.inspector_name || '',
+          inspection_date: insp?.inspection_date || ''
+        })
       })
 
       const criticalAreas = Array.from(areaMap.entries())
-        .map(([area_name, scores]) => ({
-          area_name,
-          avgScore: Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10),
-          inspectionCount: scores.length
-        }))
+        .map(([area_name, items]) => {
+          const scores = items.map(i => i.score)
+          const avgScore = Math.round((scores.reduce((a, b) => a + b, 0) / scores.length) * 10)
+          // Ordenar por fecha desc y tomar las 3 más recientes para el tooltip
+          const sortedItems = [...items].sort((a, b) => 
+            new Date(b.inspection_date).getTime() - new Date(a.inspection_date).getTime()
+          )
+          return {
+            area_name,
+            avgScore,
+            inspectionCount: items.length,
+            recentInspections: sortedItems.slice(0, 3).map(i => ({
+              inspection_id: i.inspection_id,
+              property_code: i.property_code,
+              property_name: i.property_name,
+              department: i.department,
+              inspector_name: i.inspector_name,
+              inspection_date: i.inspection_date,
+              score: Math.round(i.score * 10)
+            }))
+          }
+        })
         .filter(a => a.avgScore < 80)
         .sort((a, b) => a.avgScore - b.avgScore)
         .slice(0, 5)

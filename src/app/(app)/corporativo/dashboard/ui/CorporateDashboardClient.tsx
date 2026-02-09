@@ -10,7 +10,12 @@ import {
   Check,
   X,
   AlertTriangle,
-  RefreshCw
+  RefreshCw,
+  ChevronDown,
+  ChevronUp,
+  MapPin,
+  User,
+  Calendar
 } from 'lucide-react'
 
 // Iconos SVG inline
@@ -292,6 +297,7 @@ export default function CorporateDashboardClient() {
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [loaded, setLoaded] = useState(false)
+  const [expandedAreaIndex, setExpandedAreaIndex] = useState<number | null>(null)
 
   const [inspectionTrends, setInspectionTrends] = useState<Record<string, number>>({})
   const [inspectionHistory, setInspectionHistory] = useState<Record<string, number[]>>({})
@@ -812,24 +818,100 @@ export default function CorporateDashboardClient() {
             </div>
           </div>
 
-          {/* Áreas de Atención - Compacto */}
+          {/* Áreas de Atención - Con detalle expandible */}
           <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
             <div className="px-3 py-2 border-b border-gray-100 flex items-center gap-1.5">
               <AlertTriangle size={12} className="text-red-500" />
               <span className="text-[10px] font-bold text-gray-700 uppercase tracking-wider">Áreas de Atención</span>
+              <span className="text-[8px] text-gray-400 ml-auto">Clic para ver detalle</span>
             </div>
             <div className="p-2">
               {stats.criticalAreas.length > 0 ? (
                 <div className="space-y-1">
-                  {stats.criticalAreas.map((area, index) => (
-                    <div key={`${area.area_name}-${index}`} className="flex items-center justify-between px-2 py-1.5 rounded hover:bg-red-50/50 transition-colors">
-                      <div className="flex-1 min-w-0">
-                        <p className="text-[11px] font-semibold text-gray-900 truncate">{area.area_name}</p>
-                        <p className="text-[9px] text-gray-400">{area.inspectionCount} insp.</p>
+                  {stats.criticalAreas.map((area, index) => {
+                    const isExpanded = expandedAreaIndex === index
+                    return (
+                      <div key={`${area.area_name}-${index}`}>
+                        {/* Fila principal - clickeable */}
+                        <button
+                          onClick={() => setExpandedAreaIndex(isExpanded ? null : index)}
+                          className={`w-full flex items-center justify-between px-2 py-1.5 rounded transition-colors ${
+                            isExpanded ? 'bg-red-50 ring-1 ring-red-200' : 'hover:bg-red-50/50'
+                          }`}
+                        >
+                          <div className="flex-1 min-w-0 text-left">
+                            <p className="text-[11px] font-semibold text-gray-900 truncate">{area.area_name}</p>
+                            <p className="text-[9px] text-gray-400">{area.inspectionCount} insp.</p>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <span className="text-sm font-bold text-red-600 tabular-nums">
+                              {area.avgScore}<span className="text-[9px] text-gray-400">/10</span>
+                            </span>
+                            {isExpanded ? (
+                              <ChevronUp size={12} className="text-gray-400" />
+                            ) : (
+                              <ChevronDown size={12} className="text-gray-400" />
+                            )}
+                          </div>
+                        </button>
+
+                        {/* Panel expandido con detalles */}
+                        {isExpanded && area.recentInspections && area.recentInspections.length > 0 && (
+                          <div className="mt-1 ml-2 mr-1 p-2 bg-gray-50 border border-gray-200 rounded-md space-y-2 animate-in fade-in slide-in-from-top-1 duration-200">
+                            <p className="text-[9px] font-semibold text-gray-500 uppercase tracking-wider mb-1">
+                              Inspecciones recientes con bajo puntaje
+                            </p>
+                            {area.recentInspections.map((insp, i) => (
+                              <div
+                                key={`${insp.inspection_id}-${i}`}
+                                className="p-2 bg-white border border-gray-100 rounded-md hover:border-red-200 transition-colors"
+                              >
+                                <div className="flex items-start justify-between gap-2 mb-1">
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-[10px] font-bold text-gray-900 truncate">
+                                      {insp.property_code} - {insp.property_name}
+                                    </p>
+                                  </div>
+                                  <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
+                                    insp.score >= 70 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                                  }`}>
+                                    {insp.score}%
+                                  </span>
+                                </div>
+                                <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[9px] text-gray-500">
+                                  <span className="inline-flex items-center gap-0.5">
+                                    <MapPin size={9} className="text-gray-400" />
+                                    {insp.department || 'Sin depto.'}
+                                  </span>
+                                  <span className="inline-flex items-center gap-0.5">
+                                    <User size={9} className="text-gray-400" />
+                                    {insp.inspector_name || 'Sin inspector'}
+                                  </span>
+                                  <span className="inline-flex items-center gap-0.5">
+                                    <Calendar size={9} className="text-gray-400" />
+                                    {insp.inspection_date
+                                      ? new Date(insp.inspection_date).toLocaleDateString('es-MX', {
+                                          day: '2-digit',
+                                          month: 'short',
+                                          year: '2-digit'
+                                        })
+                                      : '-'}
+                                  </span>
+                                </div>
+                                <Link
+                                  href={`/inspections/rrhh/${insp.inspection_id}`}
+                                  className="mt-1.5 inline-flex items-center gap-1 text-[9px] font-medium text-blue-600 hover:text-blue-700 hover:underline"
+                                >
+                                  Ver inspección completa
+                                  <ArrowUpRight size={10} />
+                                </Link>
+                              </div>
+                            ))}
+                          </div>
+                        )}
                       </div>
-                      <span className="text-sm font-bold text-red-600 tabular-nums">{area.avgScore}<span className="text-[9px] text-gray-400">/10</span></span>
-                    </div>
-                  ))}
+                    )
+                  })}
                 </div>
               ) : (
                 <div className="py-4 text-center text-emerald-500 text-xs">
