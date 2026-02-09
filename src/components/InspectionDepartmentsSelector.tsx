@@ -9,6 +9,7 @@ const INSPECTION_DEPARTMENTS = [
   { id: 'cuartos', name: 'DIV. CUARTOS' },
   { id: 'mantenimiento', name: 'MANTENIMIENTO' },
   { id: 'sistemas', name: 'SISTEMAS' },
+  { id: 'marketing', name: 'MARKETING' },
   { id: 'alimentos', name: 'ALIMENTOS Y BEBIDAS' },
   { id: 'llaves', name: 'AMA DE LLAVES' },
   { id: 'contabilidad', name: 'CONTABILIDAD' },
