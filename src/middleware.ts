@@ -265,9 +265,9 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    // HELP DESK IT (activos / beo): restringir a IT (admin o asset_category IT/null)
+    // HELP DESK IT (activos / beo): restringir a IT
     // Nota: usuarios de mantenimiento pueden crear tickets IT, pero NO acceder a inventario IT / BEO.
-    // corporate_admin: verificar hub_visible_modules['it-helpdesk']
+    // corporate_admin: requiere hub_visible_modules['it-helpdesk']=true Y is_it_supervisor=true
     if (pathname.startsWith('/assets') || pathname.startsWith('/beo')) {
       if (!userId) {
         const loginUrl = request.nextUrl.clone()
@@ -277,15 +277,15 @@ export async function middleware(request: NextRequest) {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role, asset_category, hub_visible_modules')
+        .select('role, asset_category, hub_visible_modules, is_it_supervisor')
         .eq('id', userId)
         .single()
 
       const isCorporateAdmin = profile?.role === 'corporate_admin'
       const hubModules = profile?.hub_visible_modules as Record<string, boolean> | null
-      const canManageIT = profile?.role === 'admin' || 
-        (isCorporateAdmin && hubModules?.['it-helpdesk'] === true) ||
-        (!isCorporateAdmin && isITAssetCategoryOrUnassigned(profile?.asset_category))
+      const canManageIT = profile?.role === 'admin' ||
+        (!isCorporateAdmin && isITAssetCategoryOrUnassigned(profile?.asset_category)) ||
+        (isCorporateAdmin && hubModules?.['it-helpdesk'] === true && profile?.is_it_supervisor === true)
 
       if (!canManageIT) {
         const redirectUrl = request.nextUrl.clone()
@@ -294,8 +294,8 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    // DASHBOARD (IT): Solo para admin y usuarios con permiso IT
-    // corporate_admin debe tener hub_visible_modules['it-helpdesk'] = true
+    // DASHBOARD (IT): Solo para admin y usuarios operativos IT
+    // corporate_admin requiere hub_visible_modules['it-helpdesk']=true Y is_it_supervisor=true
     if (pathname === '/dashboard' || pathname.startsWith('/dashboard/')) {
       if (!userId) {
         const loginUrl = request.nextUrl.clone()
@@ -305,16 +305,15 @@ export async function middleware(request: NextRequest) {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role, asset_category, hub_visible_modules')
+        .select('role, asset_category, hub_visible_modules, is_it_supervisor')
         .eq('id', userId)
         .single()
 
       const isCorporateAdmin = profile?.role === 'corporate_admin'
       const hubModules = profile?.hub_visible_modules as Record<string, boolean> | null
       
-      // corporate_admin sin permiso IT no puede acceder al dashboard IT
-      if (isCorporateAdmin && hubModules?.['it-helpdesk'] !== true) {
-        // Redirigir al hub si no tiene permiso IT
+      // corporate_admin sin supervisor IT no puede acceder al dashboard IT
+      if (isCorporateAdmin && !(hubModules?.['it-helpdesk'] === true && profile?.is_it_supervisor === true)) {
         const redirectUrl = request.nextUrl.clone()
         redirectUrl.pathname = '/'
         return NextResponse.redirect(redirectUrl)
@@ -328,26 +327,6 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    // TICKETS (IT): Restringir bandeja para corporate_admin sin permiso IT
-    if ((pathname === '/tickets' || pathname.startsWith('/tickets/')) && !pathname.includes('/tickets/new')) {
-      if (userId) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('role, hub_visible_modules')
-          .eq('id', userId)
-          .single()
-
-        const isCorporateAdmin = profile?.role === 'corporate_admin'
-        const hubModules = profile?.hub_visible_modules as Record<string, boolean> | null
-        
-        // corporate_admin sin permiso IT no puede ver la bandeja de tickets IT
-        if (isCorporateAdmin && hubModules?.['it-helpdesk'] !== true) {
-          const redirectUrl = request.nextUrl.clone()
-          redirectUrl.pathname = '/'
-          return NextResponse.redirect(redirectUrl)
-        }
-      }
-    }
   }
 
   return response

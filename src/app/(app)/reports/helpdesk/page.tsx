@@ -13,7 +13,7 @@ export default async function HelpdeskReportsPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role,asset_category,hub_visible_modules')
+    .select('role,asset_category,hub_visible_modules,is_it_supervisor')
     .eq('id', user.id)
     .single()
 
@@ -22,7 +22,7 @@ export default async function HelpdeskReportsPage() {
   const hubModules = profile?.hub_visible_modules as Record<string, boolean> | null
   const isCorporateAdmin = profile?.role === 'corporate_admin'
   const canAccessIT = profile?.role === 'admin' || 
-    (isCorporateAdmin && hubModules?.['it-helpdesk'] === true) ||
+    (isCorporateAdmin && hubModules?.['it-helpdesk'] === true && profile?.is_it_supervisor === true) ||
     (!isCorporateAdmin && (profile?.asset_category === 'IT' || profile?.asset_category === null))
   if (!canAccessIT) {
     redirect('/reports')
@@ -30,7 +30,7 @@ export default async function HelpdeskReportsPage() {
 
   // corporate_admin solo si tiene permiso IT
   const isAdminOrSupervisor = profile?.role === 'admin' || 
-    (isCorporateAdmin && hubModules?.['it-helpdesk'] === true) || 
+    (isCorporateAdmin && hubModules?.['it-helpdesk'] === true && profile?.is_it_supervisor === true) || 
     profile?.role === 'supervisor'
 
   // Obtener filtro de ubicaciones para reportes

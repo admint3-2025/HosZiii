@@ -9,6 +9,8 @@ interface UserData {
   canViewBeo: boolean
   assetCategory: string | null
   hubModules: Record<string, boolean> | null
+  isITSupervisor: boolean
+  isMaintenanceSupervisor: boolean
 }
 
 export default function MobileSidebar({ userData }: { userData: UserData }) {
@@ -16,7 +18,7 @@ export default function MobileSidebar({ userData }: { userData: UserData }) {
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/")
 
   const isCorporateAdmin = userData.role === 'corporate_admin'
-  const canManageIT = userData.role === 'admin' || 
+  const hasITModule = userData.role === 'admin' ||
     (isCorporateAdmin && userData.hubModules?.['it-helpdesk'] === true) ||
     (!isCorporateAdmin && isITAssetCategoryOrUnassigned(userData.assetCategory))
 
@@ -24,12 +26,16 @@ export default function MobileSidebar({ userData }: { userData: UserData }) {
 
   const dashboardHref = isMaintenanceContext ? '/mantenimiento/dashboard' : '/dashboard'
 
+  const canManageIT = userData.role === 'admin' ||
+    (!isCorporateAdmin && isITAssetCategoryOrUnassigned(userData.assetCategory))
+
   const ticketsHref = (() => {
     if (isMaintenanceContext) {
       return (userData.role === 'admin' || userData.role === 'supervisor') ? '/mantenimiento/tickets?view=queue' : '/mantenimiento/tickets?view=mine'
     }
     // Helpdesk (IT)
-    if (canManageIT && (userData.role === 'admin' || userData.role === 'supervisor')) return '/tickets?view=queue'
+    if (hasITModule && (userData.role === 'admin' || userData.role === 'supervisor')) return '/tickets?view=queue'
+    if (hasITModule && isCorporateAdmin && userData.isITSupervisor) return '/tickets?view=queue'
     return '/tickets?view=mine'
   })()
 
