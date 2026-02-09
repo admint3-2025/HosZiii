@@ -2,6 +2,16 @@ import { redirect } from 'next/navigation'
 import { createSupabaseServerClient, getSafeServerUser } from '@/lib/supabase/server'
 import CorporateDashboardClient from './ui/CorporateDashboardClient'
 
+export type HubVisibleModules = {
+  'it-helpdesk'?: boolean
+  'mantenimiento'?: boolean
+  'inspecciones-rrhh'?: boolean
+  'academia'?: boolean
+  'beo'?: boolean
+  'ama-de-llaves'?: boolean
+  [key: string]: boolean | undefined
+}
+
 export default async function CorporativoDashboard() {
   const user = await getSafeServerUser()
   
@@ -13,7 +23,7 @@ export default async function CorporativoDashboard() {
   
   const { data: profile } = await supabase
     .from('profiles')
-    .select('full_name, role')
+    .select('full_name, role, hub_visible_modules')
     .eq('id', user.id)
     .single()
 
@@ -21,6 +31,12 @@ export default async function CorporativoDashboard() {
   if (!profile || !['admin', 'corporate_admin'].includes(profile.role)) {
     redirect('/hub')
   }
+
+  // Para admin, todos los módulos están disponibles
+  // Para corporate_admin, usar hub_visible_modules
+  const hubModules = profile.role === 'admin' 
+    ? null // null significa acceso total
+    : (profile.hub_visible_modules as HubVisibleModules | null)
 
   return (
     <main className="min-h-screen p-4 md:p-6 space-y-6 bg-gray-50">
@@ -48,8 +64,8 @@ export default async function CorporativoDashboard() {
         </div>
       </div>
 
-      {/* Dashboard Client Component */}
-      <CorporateDashboardClient />
+      {/* Dashboard Client Component - filtrado por módulos del perfil */}
+      <CorporateDashboardClient hubModules={hubModules} isAdmin={profile.role === 'admin'} />
     </main>
   )
 }

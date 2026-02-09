@@ -18,6 +18,22 @@ import {
   Calendar
 } from 'lucide-react'
 
+// Tipo para hub_visible_modules
+type HubVisibleModules = {
+  'it-helpdesk'?: boolean
+  'mantenimiento'?: boolean
+  'inspecciones-rrhh'?: boolean
+  'academia'?: boolean
+  'beo'?: boolean
+  'ama-de-llaves'?: boolean
+  [key: string]: boolean | undefined
+}
+
+interface CorporateDashboardClientProps {
+  hubModules: HubVisibleModules | null // null = admin con acceso total
+  isAdmin: boolean
+}
+
 // Iconos SVG inline
 const Icons = {
   Building: () => (
@@ -289,7 +305,7 @@ function ScoreCircle({ score, size = 'md' }: { score: number; size?: 'sm' | 'md'
   )
 }
 
-export default function CorporateDashboardClient() {
+export default function CorporateDashboardClient({ hubModules, isAdmin }: CorporateDashboardClientProps) {
   const [stats, setStats] = useState<CorporateStats | null>(null)
   const [pendingReviews, setPendingReviews] = useState<any[]>([])
   const [itStats, setItStats] = useState<any>(null)
@@ -302,6 +318,27 @@ export default function CorporateDashboardClient() {
   const [inspectionTrends, setInspectionTrends] = useState<Record<string, number>>({})
   const [inspectionHistory, setInspectionHistory] = useState<Record<string, number[]>>({})
   const prevInspectionsRef = useRef<Record<string, number> | null>(null)
+
+  // Helper para verificar si un módulo está visible
+  // Si hubModules es null (admin), todos los módulos están visibles
+  // Si hubModules existe pero el módulo no está definido o es true, está visible 
+  // Solo se oculta si está explícitamente en false
+  const isModuleVisible = (moduleKey: string): boolean => {
+    if (isAdmin || hubModules === null) return true
+    if (!hubModules) return true
+    // Si el módulo está explícitamente en false, no está visible
+    // Si no está definido o es true, está visible
+    return hubModules[moduleKey] !== false
+  }
+
+  // Verificar permisos de cada sección
+  const showIT = isModuleVisible('it-helpdesk')
+  const showMaintenance = isModuleVisible('mantenimiento')
+  const showInspections = isModuleVisible('inspecciones-rrhh')
+  const showAcademia = isModuleVisible('academia')
+
+  // Calcular cuántas columnas mostrar en el grid principal
+  const visibleModulesCount = [showIT, showMaintenance, showInspections].filter(Boolean).length
 
   const normalizeStatus = (status: unknown) => {
     if (typeof status !== 'string') return ''
@@ -381,15 +418,25 @@ export default function CorporateDashboardClient() {
 
   const loadData = async () => {
     try {
-      const { data, error } = await CorporateStatsService.getFullStats()
-      if (error) throw error
-      setStats(data)
+      // Solo cargar estadísticas de inspecciones si el módulo está visible
+      if (showInspections) {
+        const { data, error } = await CorporateStatsService.getFullStats()
+        if (error) throw error
+        setStats(data)
 
-      const { data: pending } = await CorporateStatsService.getPendingReviews()
-      setPendingReviews(pending || [])
+        const { data: pending } = await CorporateStatsService.getPendingReviews()
+        setPendingReviews(pending || [])
+      }
 
-      await loadITStats()
-      await loadMaintenanceStats()
+      // Solo cargar IT si está visible
+      if (showIT) {
+        await loadITStats()
+      }
+      
+      // Solo cargar mantenimiento si está visible
+      if (showMaintenance) {
+        await loadMaintenanceStats()
+      }
     } catch (error) {
       console.error('Error al cargar datos:', error)
     } finally {
@@ -516,7 +563,16 @@ export default function CorporateDashboardClient() {
       <div className="flex items-center justify-between">
         <div>
           <h2 className="text-lg font-bold text-gray-900">Panel de Control Corporativo</h2>
-          <p className="text-xs text-gray-500">Visión ejecutiva del cumplimiento organizacional</p>
+          <p className="text-xs text-gray-500">
+            {isAdmin 
+              ? 'Visión ejecutiva del cumplimiento organizacional' 
+              : `Vista departamental: ${[
+                  showIT && 'IT',
+                  showMaintenance && 'Mantenimiento', 
+                  showInspections && 'Inspecciones'
+                ].filter(Boolean).join(', ') || 'Sin módulos asignados'}`
+            }
+          </p>
         </div>
         <button
           onClick={handleRefresh}
@@ -528,48 +584,95 @@ export default function CorporateDashboardClient() {
         </button>
       </div>
 
-      {/* KPIs - Strip compacto */}
-      {stats && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-2 animate-enter">
-          <KPICard
-            title="SEDES"
-            value={stats.totalLocations}
-            trend={{ value: 8, direction: 'up' }}
-            color="blue"
-            icon={<Icons.Building />}
-            data={generateSparklineData(stats.totalLocations)}
-          />
-          <KPICard
-            title="CUMPLIMIENTO"
-            value={`${stats.avgComplianceScore}%`}
-            trend={{ value: 4, direction: 'up' }}
-            color="green"
-            icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
-            data={stats.complianceTrend.slice(-7).map(t => t.score)}
-          />
-          <KPICard
-            title="INSPECCIONES"
-            value={stats.totalInspections}
-            trend={{ value: 15, direction: 'up' }}
-            color="amber"
-            icon={<Icons.ClipboardCheck />}
-            data={generateSparklineData(stats.totalInspections)}
-          />
-          <KPICard
-            title="USUARIOS"
-            value={stats.totalUsers}
-            trend={{ value: 12, direction: 'up' }}
-            color="purple"
-            icon={<Icons.Users />}
-            data={generateSparklineData(stats.totalUsers)}
-          />
+      {/* KPIs - Strip compacto - mostrar según módulos visibles */}
+      {(stats || itStats || maintenanceStats) && (
+        <div className={`grid grid-cols-2 ${
+          visibleModulesCount <= 2 ? 'lg:grid-cols-2' : 'lg:grid-cols-4'
+        } gap-2 animate-enter`}>
+          {/* Sedes - solo si hay datos de inspecciones */}
+          {showInspections && stats && (
+            <KPICard
+              title="SEDES"
+              value={stats.totalLocations}
+              trend={{ value: 8, direction: 'up' }}
+              color="blue"
+              icon={<Icons.Building />}
+              data={generateSparklineData(stats.totalLocations)}
+            />
+          )}
+          
+          {/* Cumplimiento - solo si inspecciones visible */}
+          {showInspections && stats && (
+            <KPICard
+              title="CUMPLIMIENTO"
+              value={`${stats.avgComplianceScore}%`}
+              trend={{ value: 4, direction: 'up' }}
+              color="green"
+              icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>}
+              data={stats.complianceTrend.slice(-7).map(t => t.score)}
+            />
+          )}
+          
+          {/* Tickets IT - solo si IT visible */}
+          {showIT && itStats && (
+            <KPICard
+              title="TICKETS IT"
+              value={itStats.total}
+              trend={{ value: itStats.total > 0 ? Math.round((itStats.open / itStats.total) * 100) : 0, direction: itStats.open > itStats.closed ? 'up' : 'down' }}
+              color="blue"
+              icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" /></svg>}
+              data={generateSparklineData(itStats.total)}
+            />
+          )}
+          
+          {/* Tickets Mantenimiento - solo si visible */}
+          {showMaintenance && maintenanceStats && (
+            <KPICard
+              title="TICKETS MANT."
+              value={maintenanceStats.total}
+              trend={{ value: maintenanceStats.total > 0 ? Math.round((maintenanceStats.open / maintenanceStats.total) * 100) : 0, direction: maintenanceStats.open > maintenanceStats.closed ? 'up' : 'down' }}
+              color="amber"
+              icon={<svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>}
+              data={generateSparklineData(maintenanceStats.total)}
+            />
+          )}
+          
+          {/* Inspecciones - solo si visible */}
+          {showInspections && stats && (
+            <KPICard
+              title="INSPECCIONES"
+              value={stats.totalInspections}
+              trend={{ value: 15, direction: 'up' }}
+              color="purple"
+              icon={<Icons.ClipboardCheck />}
+              data={generateSparklineData(stats.totalInspections)}
+            />
+          )}
+          
+          {/* Usuarios - solo para admin */}
+          {isAdmin && stats && (
+            <KPICard
+              title="USUARIOS"
+              value={stats.totalUsers}
+              trend={{ value: 12, direction: 'up' }}
+              color="purple"
+              icon={<Icons.Users />}
+              data={generateSparklineData(stats.totalUsers)}
+            />
+          )}
         </div>
       )}
 
-      {/* Grid 3 columnas: IT | Mantenimiento | Inspecciones */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 animate-enter" style={{ animationDelay: '0.1s' }}>
+      {/* Grid columnas: IT | Mantenimiento | Inspecciones - solo secciones visibles */}
+      {visibleModulesCount > 0 && (
+        <div className={`grid grid-cols-1 ${
+          visibleModulesCount === 1 ? 'lg:grid-cols-1' :
+          visibleModulesCount === 2 ? 'lg:grid-cols-2' :
+          'lg:grid-cols-3'
+        } gap-2 animate-enter`} style={{ animationDelay: '0.1s' }}>
         
-        {/* IT Helpdesk - Compacto */}
+        {/* IT Helpdesk - Solo si visible */}
+        {showIT && (
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
           <div className="px-3 py-2 border-b border-gray-100 flex justify-between items-center">
             <div className="flex items-center gap-1.5">
@@ -629,8 +732,10 @@ export default function CorporateDashboardClient() {
             <div className="p-4 text-center text-gray-400 text-xs">Cargando...</div>
           )}
         </div>
+        )}
 
-        {/* Mantenimiento - Compacto */}
+        {/* Mantenimiento - Solo si visible */}
+        {showMaintenance && (
         <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
           <div className="px-3 py-2 border-b border-gray-100 flex justify-between items-center">
             <div className="flex items-center gap-1.5">
@@ -690,9 +795,10 @@ export default function CorporateDashboardClient() {
             <div className="p-4 text-center text-gray-400 text-xs">Cargando...</div>
           )}
         </div>
+        )}
 
-        {/* Inspecciones - Compacto */}
-        {stats && (
+        {/* Inspecciones - Solo si visible */}
+        {showInspections && stats && (
           <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
             <div className="px-3 py-2 border-b border-gray-100 flex justify-between items-center">
               <div className="flex items-center gap-1.5">
@@ -769,9 +875,10 @@ export default function CorporateDashboardClient() {
           </div>
         )}
       </div>
+      )}
 
-      {/* Grid inferior: Ranking | Áreas Críticas | Pendientes */}
-      {stats && (
+      {/* Grid inferior: Ranking | Áreas Críticas | Pendientes - Solo si inspecciones visible */}
+      {showInspections && stats && (
         <div className="grid grid-cols-1 lg:grid-cols-3 gap-2 animate-enter" style={{ animationDelay: '0.15s' }}>
           {/* Ranking de Sedes - Compacto */}
           <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
@@ -971,37 +1078,71 @@ export default function CorporateDashboardClient() {
         </div>
       )}
 
-      {/* Accesos rápidos - Inline compacto */}
-      <div className="flex items-center gap-2 animate-enter" style={{ animationDelay: '0.2s' }}>
+      {/* Accesos rápidos - Inline compacto - Solo mostrar accesos visibles */}
+      <div className="flex flex-wrap items-center gap-2 animate-enter" style={{ animationDelay: '0.2s' }}>
         <span className="text-[9px] font-bold text-gray-400 uppercase tracking-wider">Accesos:</span>
-        <Link
-          href="/corporativo/inspecciones"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg hover:border-amber-300 hover:bg-amber-50 transition-all text-xs font-medium text-gray-700 hover:text-amber-700"
-        >
-          <Icons.ClipboardCheck />
-          Inspecciones
-        </Link>
-        <Link
-          href="/academia"
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-all text-xs font-medium text-gray-700 hover:text-blue-700"
-        >
-          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
-          </svg>
-          Academia
-        </Link>
-        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 border border-gray-100 rounded-lg text-xs font-medium text-gray-400 cursor-not-allowed">
-          Políticas <span className="text-[8px]">(pronto)</span>
-        </span>
-        <span className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-gray-50 border border-gray-100 rounded-lg text-xs font-medium text-gray-400 cursor-not-allowed">
-          Procedimientos <span className="text-[8px]">(pronto)</span>
-        </span>
+        
+        {/* IT Dashboard */}
+        {showIT && (
+          <Link
+            href="/dashboard"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 transition-all text-xs font-medium text-gray-700 hover:text-blue-700"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+            </svg>
+            IT Helpdesk
+          </Link>
+        )}
+        
+        {/* Mantenimiento Dashboard */}
+        {showMaintenance && (
+          <Link
+            href="/mantenimiento/dashboard"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg hover:border-amber-300 hover:bg-amber-50 transition-all text-xs font-medium text-gray-700 hover:text-amber-700"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+            Mantenimiento
+          </Link>
+        )}
+        
+        {/* Inspecciones */}
+        {showInspections && (
+          <Link
+            href="/corporativo/inspecciones"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg hover:border-indigo-300 hover:bg-indigo-50 transition-all text-xs font-medium text-gray-700 hover:text-indigo-700"
+          >
+            <Icons.ClipboardCheck />
+            Inspecciones
+          </Link>
+        )}
+        
+        {/* Academia */}
+        {showAcademia && (
+          <Link
+            href="/academia"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg hover:border-purple-300 hover:bg-purple-50 transition-all text-xs font-medium text-gray-700 hover:text-purple-700"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l9-5-9-5-9 5 9 5z" />
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 14l6.16-3.422a12.083 12.083 0 01.665 6.479A11.952 11.952 0 0012 20.055a11.952 11.952 0 00-6.824-2.998 12.078 12.078 0 01.665-6.479L12 14z" />
+            </svg>
+            Academia
+          </Link>
+        )}
+        
+        {/* Si no hay ningún módulo visible, mostrar mensaje */}
+        {!showIT && !showMaintenance && !showInspections && !showAcademia && (
+          <span className="text-xs text-gray-400 italic">No hay módulos asignados</span>
+        )}
       </div>
 
       {/* Footer mínimo */}
       <div className="text-center text-[9px] text-gray-400 py-2">
-        ZIII Dashboard Corporativo • Datos en tiempo real
+        ZIII Dashboard Corporativo • {isAdmin ? 'Vista completa' : 'Vista departamental'}
       </div>
     </div>
   )
