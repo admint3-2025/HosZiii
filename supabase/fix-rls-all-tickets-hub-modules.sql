@@ -18,7 +18,7 @@ DROP POLICY IF EXISTS "tickets_select" ON public.tickets;
 DROP POLICY IF EXISTS "tickets_select_with_hub" ON public.tickets;
 DROP POLICY IF EXISTS "tickets_select_with_hub_modules" ON public.tickets;
 
--- Crear política unificada para tickets (tabla legacy)
+-- Crear política unificada para tickets (tabla legacy - IT)
 CREATE POLICY "tickets_select_with_hub_modules"
 ON public.tickets
 FOR SELECT
@@ -37,19 +37,27 @@ USING (
       -- Usuario es asignado
       tickets.assigned_agent_id = auth.uid()
       OR
-      -- Tiene permiso operativo y ticket en ubicación accesible
+      -- Supervisor/agentes con permiso IT
       (
-        p.role IN ('supervisor', 'agent_l1', 'agent_l2', 'corporate_admin')
+        p.role IN ('supervisor', 'agent_l1', 'agent_l2')
         AND (
-          -- Ubicación del ticket coincide
           tickets.location_id = p.location_id
-          OR
-          tickets.location_id IN (
+          OR tickets.location_id IN (
             SELECT location_id FROM public.user_locations WHERE user_id = auth.uid()
           )
-          OR
-          -- Corporate admin sin ubicación ve todo
-          (p.role = 'corporate_admin' AND p.location_id IS NULL)
+        )
+      )
+      OR
+      -- corporate_admin: SOLO si tiene hub_visible_modules['it-helpdesk'] = true
+      (
+        p.role = 'corporate_admin'
+        AND (p.hub_visible_modules->>'it-helpdesk')::boolean = true
+        AND (
+          tickets.location_id = p.location_id
+          OR tickets.location_id IN (
+            SELECT location_id FROM public.user_locations WHERE user_id = auth.uid()
+          )
+          OR p.location_id IS NULL
         )
       )
     )
@@ -85,18 +93,28 @@ USING (
       tickets_it.assigned_agent_id = auth.uid()
       OR
       -- Tiene permiso IT (asset_category O hub_visible_modules)
+      -- corporate_admin DEBE tener hub_visible_modules['it-helpdesk'] = true
       (
-        p.role IN ('supervisor', 'agent_l1', 'agent_l2', 'corporate_admin')
-        AND (
-          p.asset_category = 'IT' 
-          OR (p.hub_visible_modules->>'it-helpdesk')::boolean = true
-        )
+        p.role IN ('supervisor', 'agent_l1', 'agent_l2')
+        AND p.asset_category = 'IT'
         AND (
           tickets_it.location_id = p.location_id
           OR tickets_it.location_id IN (
             SELECT location_id FROM public.user_locations WHERE user_id = auth.uid()
           )
-          OR (p.role = 'corporate_admin' AND p.location_id IS NULL)
+        )
+      )
+      OR
+      -- corporate_admin: SOLO si tiene hub_visible_modules['it-helpdesk'] = true
+      (
+        p.role = 'corporate_admin'
+        AND (p.hub_visible_modules->>'it-helpdesk')::boolean = true
+        AND (
+          tickets_it.location_id = p.location_id
+          OR tickets_it.location_id IN (
+            SELECT location_id FROM public.user_locations WHERE user_id = auth.uid()
+          )
+          OR p.location_id IS NULL -- Sin ubicación = ve todas las ubicaciones permitidas
         )
       )
     )
@@ -132,19 +150,28 @@ USING (
       -- Usuario es asignado
       tickets_maintenance.assigned_to = auth.uid()
       OR
-      -- Tiene permiso MANTENIMIENTO (asset_category O hub_visible_modules)
+      -- Tiene permiso MANTENIMIENTO por asset_category
       (
-        p.role IN ('supervisor', 'agent_l1', 'agent_l2', 'corporate_admin')
-        AND (
-          p.asset_category = 'MAINTENANCE' 
-          OR (p.hub_visible_modules->>'mantenimiento')::boolean = true
-        )
+        p.role IN ('supervisor', 'agent_l1', 'agent_l2')
+        AND p.asset_category = 'MAINTENANCE'
         AND (
           tickets_maintenance.location_id = p.location_id
           OR tickets_maintenance.location_id IN (
             SELECT location_id FROM public.user_locations WHERE user_id = auth.uid()
           )
-          OR (p.role = 'corporate_admin' AND p.location_id IS NULL)
+        )
+      )
+      OR
+      -- corporate_admin: SOLO si tiene hub_visible_modules['mantenimiento'] = true
+      (
+        p.role = 'corporate_admin'
+        AND (p.hub_visible_modules->>'mantenimiento')::boolean = true
+        AND (
+          tickets_maintenance.location_id = p.location_id
+          OR tickets_maintenance.location_id IN (
+            SELECT location_id FROM public.user_locations WHERE user_id = auth.uid()
+          )
+          OR p.location_id IS NULL
         )
       )
     )
@@ -220,19 +247,28 @@ USING (
       -- Admin ve todo
       p.role = 'admin'
       OR
-      -- Tiene permiso IT (asset_category O hub_visible_modules)
+      -- Tiene permiso IT por asset_category
       (
-        p.role IN ('supervisor', 'agent_l1', 'agent_l2', 'corporate_admin')
-        AND (
-          p.asset_category = 'IT' 
-          OR (p.hub_visible_modules->>'it-helpdesk')::boolean = true
-        )
+        p.role IN ('supervisor', 'agent_l1', 'agent_l2')
+        AND p.asset_category = 'IT'
         AND (
           assets_it.location_id = p.location_id
           OR assets_it.location_id IN (
             SELECT location_id FROM public.user_locations WHERE user_id = auth.uid()
           )
-          OR (p.role = 'corporate_admin' AND p.location_id IS NULL)
+        )
+      )
+      OR
+      -- corporate_admin: SOLO si tiene hub_visible_modules['it-helpdesk'] = true
+      (
+        p.role = 'corporate_admin'
+        AND (p.hub_visible_modules->>'it-helpdesk')::boolean = true
+        AND (
+          assets_it.location_id = p.location_id
+          OR assets_it.location_id IN (
+            SELECT location_id FROM public.user_locations WHERE user_id = auth.uid()
+          )
+          OR p.location_id IS NULL
         )
       )
     )
@@ -257,19 +293,28 @@ USING (
       -- Admin ve todo
       p.role = 'admin'
       OR
-      -- Tiene permiso MANTENIMIENTO (asset_category O hub_visible_modules)
+      -- Tiene permiso MANTENIMIENTO por asset_category
       (
-        p.role IN ('supervisor', 'agent_l1', 'agent_l2', 'corporate_admin')
-        AND (
-          p.asset_category = 'MAINTENANCE' 
-          OR (p.hub_visible_modules->>'mantenimiento')::boolean = true
-        )
+        p.role IN ('supervisor', 'agent_l1', 'agent_l2')
+        AND p.asset_category = 'MAINTENANCE'
         AND (
           assets_maintenance.location_id = p.location_id
           OR assets_maintenance.location_id IN (
             SELECT location_id FROM public.user_locations WHERE user_id = auth.uid()
           )
-          OR (p.role = 'corporate_admin' AND p.location_id IS NULL)
+        )
+      )
+      OR
+      -- corporate_admin: SOLO si tiene hub_visible_modules['mantenimiento'] = true
+      (
+        p.role = 'corporate_admin'
+        AND (p.hub_visible_modules->>'mantenimiento')::boolean = true
+        AND (
+          assets_maintenance.location_id = p.location_id
+          OR assets_maintenance.location_id IN (
+            SELECT location_id FROM public.user_locations WHERE user_id = auth.uid()
+          )
+          OR p.location_id IS NULL
         )
       )
     )
