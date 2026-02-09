@@ -2,46 +2,45 @@ import Link from 'next/link'
 
 export default function Footer() {
   return (
-    <footer className="bg-gradient-to-br from-slate-900 via-slate-900/95 to-slate-800 text-slate-200">
-      <div className="max-w-7xl mx-auto px-6 py-10">
-        <div className="flex flex-col md:flex-row items-center justify-between gap-6 border-t border-slate-800/50 pt-6">
-          <div className="flex items-center gap-3">
+    <footer className="bg-slate-900/95 border-t border-slate-800/50 backdrop-blur">
+      <div className="max-w-7xl mx-auto px-4 py-2">
+        <div className="flex items-center justify-between gap-4">
+          {/* Logo + Nombre */}
+          <div className="flex items-center gap-2">
             <img
               src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png"
-              alt="ZIII HoS"
-              className="h-8 w-8 object-contain"
+              alt="ZIII"
+              className="h-5 w-5 object-contain"
             />
-            <div>
-              <p className="text-sm font-semibold text-white tracking-tight">ZIII <span className="text-indigo-400 font-light">Hospitality OS</span></p>
-              <p className="text-[10px] text-slate-500">Sistema de Gestión Hotelera</p>
-            </div>
+            <span className="text-xs text-slate-400">
+              <span className="font-medium text-slate-300">ZIII</span> Hospitality OS
+            </span>
           </div>
 
-          <div className="flex items-center gap-6 text-sm">
-            <Link href="/profile" className="text-slate-400 hover:text-white transition-colors">
+          {/* Links */}
+          <div className="flex items-center gap-4 text-[11px]">
+            <Link href="/profile" className="text-slate-500 hover:text-slate-300 transition-colors">
               Mi Perfil
             </Link>
             <span className="text-slate-700">|</span>
-            <Link href="/admin/knowledge-base" className="text-slate-400 hover:text-white transition-colors">
+            <Link href="/admin/knowledge-base" className="text-slate-500 hover:text-slate-300 transition-colors">
               Ayuda
             </Link>
           </div>
 
-          <div className="text-right">
-            <p className="text-[10px] text-slate-600 uppercase tracking-wider mb-1">Versión 2.1.0</p>
-            <p className="text-xs text-slate-500">© {new Date().getFullYear()} ZIII HoS</p>
+          {/* Version + Status */}
+          <div className="flex items-center gap-3 text-[10px] text-slate-600">
+            <span>v2.1.0</span>
+            <span className="text-slate-700">•</span>
+            <span>© {new Date().getFullYear()} ZIII HoS</span>
+            <span className="flex items-center gap-1">
+              <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
+              <span className="uppercase tracking-wider">Activo</span>
+            </span>
           </div>
-        </div>
-
-        <div className="mt-8 flex items-center justify-center gap-3">
-          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent"></div>
-          <div className="flex items-center gap-2">
-            <span className="w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse"></span>
-            <span className="text-[10px] text-slate-500 uppercase tracking-widest">Sistema Activo</span>
-          </div>
-          <div className="h-px flex-1 bg-gradient-to-r from-transparent via-slate-700 to-transparent"></div>
         </div>
       </div>
     </footer>
   )
 }
+

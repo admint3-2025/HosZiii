@@ -377,7 +377,7 @@ export default async function HubPage() {
         </div>
 
         {/* Actividad Reciente restaurada */}
-        <div className="mt-16 pb-40">
+        <div className="mt-16 pb-16">
           <div className="mb-10">
             <div className="flex items-center gap-2 mb-4">
               <span className="text-slate-500 text-xs">◷</span>
