@@ -294,7 +294,8 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    // DASHBOARD (IT): Solo para admin y usuarios con asset_category = 'IT' o null
+    // DASHBOARD (IT): Solo para admin y usuarios con permiso IT
+    // corporate_admin debe tener hub_visible_modules['it-helpdesk'] = true
     if (pathname === '/dashboard' || pathname.startsWith('/dashboard/')) {
       if (!userId) {
         const loginUrl = request.nextUrl.clone()
@@ -304,15 +305,47 @@ export async function middleware(request: NextRequest) {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role, asset_category')
+        .select('role, asset_category, hub_visible_modules')
         .eq('id', userId)
         .single()
 
-      // Si es MAINTENANCE, redirigir a mantenimiento
-      if (isMaintenanceAssetCategory(profile?.asset_category) && profile?.role !== 'admin') {
+      const isCorporateAdmin = profile?.role === 'corporate_admin'
+      const hubModules = profile?.hub_visible_modules as Record<string, boolean> | null
+      
+      // corporate_admin sin permiso IT no puede acceder al dashboard IT
+      if (isCorporateAdmin && hubModules?.['it-helpdesk'] !== true) {
+        // Redirigir al hub si no tiene permiso IT
+        const redirectUrl = request.nextUrl.clone()
+        redirectUrl.pathname = '/'
+        return NextResponse.redirect(redirectUrl)
+      }
+
+      // Si es MAINTENANCE (y no es corporate_admin con permisos), redirigir a mantenimiento
+      if (!isCorporateAdmin && isMaintenanceAssetCategory(profile?.asset_category) && profile?.role !== 'admin') {
         const redirectUrl = request.nextUrl.clone()
         redirectUrl.pathname = '/mantenimiento/dashboard'
         return NextResponse.redirect(redirectUrl)
+      }
+    }
+
+    // TICKETS (IT): Restringir bandeja para corporate_admin sin permiso IT
+    if ((pathname === '/tickets' || pathname.startsWith('/tickets/')) && !pathname.includes('/tickets/new')) {
+      if (userId) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('role, hub_visible_modules')
+          .eq('id', userId)
+          .single()
+
+        const isCorporateAdmin = profile?.role === 'corporate_admin'
+        const hubModules = profile?.hub_visible_modules as Record<string, boolean> | null
+        
+        // corporate_admin sin permiso IT no puede ver la bandeja de tickets IT
+        if (isCorporateAdmin && hubModules?.['it-helpdesk'] !== true) {
+          const redirectUrl = request.nextUrl.clone()
+          redirectUrl.pathname = '/'
+          return NextResponse.redirect(redirectUrl)
+        }
       }
     }
   }
