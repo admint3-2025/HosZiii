@@ -24,42 +24,40 @@ ON public.tickets
 FOR SELECT
 TO authenticated
 USING (
+  -- Admin ve todo
+  auth.uid() IN (SELECT id FROM public.profiles WHERE role = 'admin')
+  OR
+  -- Usuario es solicitante (TODOS pueden ver sus propios tickets)
+  tickets.requester_id = auth.uid()
+  OR
+  -- Usuario es asignado (TODOS pueden ver tickets asignados a ellos)
+  tickets.assigned_agent_id = auth.uid()
+  OR
+  -- Staff IT operativo (supervisor/agentes con asset_category IT)
   EXISTS (
     SELECT 1 FROM public.profiles p
     WHERE p.id = auth.uid()
+    AND p.role IN ('supervisor', 'agent_l1', 'agent_l2')
+    AND p.asset_category = 'IT'
     AND (
-      -- Admin ve todo
-      p.role = 'admin'
-      OR
-      -- Usuario es solicitante
-      tickets.requester_id = auth.uid()
-      OR
-      -- Usuario es asignado
-      tickets.assigned_agent_id = auth.uid()
-      OR
-      -- Supervisor/agentes con permiso IT
-      (
-        p.role IN ('supervisor', 'agent_l1', 'agent_l2')
-        AND p.asset_category = 'IT'
-        AND (
-          tickets.location_id = p.location_id
-          OR tickets.location_id IN (
-            SELECT location_id FROM public.user_locations WHERE user_id = auth.uid()
-          )
-        )
+      tickets.location_id = p.location_id
+      OR tickets.location_id IN (
+        SELECT location_id FROM public.user_locations WHERE user_id = auth.uid()
       )
-      OR
-      -- corporate_admin: SOLO si tiene hub_visible_modules['it-helpdesk'] = true
-      (
-        p.role = 'corporate_admin'
-        AND (p.hub_visible_modules->>'it-helpdesk')::boolean = true
-        AND p.is_it_supervisor = true
-        AND (
-          tickets.location_id = p.location_id
-          OR tickets.location_id IN (
-            SELECT location_id FROM public.user_locations WHERE user_id = auth.uid()
-          )
-        )
+    )
+  )
+  OR
+  -- corporate_admin CON supervisor IT: ve toda la bandeja de su(s) sede(s)
+  EXISTS (
+    SELECT 1 FROM public.profiles p
+    WHERE p.id = auth.uid()
+    AND p.role = 'corporate_admin'
+    AND (p.hub_visible_modules->>'it-helpdesk')::boolean = true
+    AND p.is_it_supervisor = true
+    AND (
+      tickets.location_id = p.location_id
+      OR tickets.location_id IN (
+        SELECT location_id FROM public.user_locations WHERE user_id = auth.uid()
       )
     )
   )
@@ -80,43 +78,40 @@ ON public.tickets_it
 FOR SELECT
 TO authenticated
 USING (
+  -- Admin ve todo
+  auth.uid() IN (SELECT id FROM public.profiles WHERE role = 'admin')
+  OR
+  -- Usuario es solicitante (TODOS pueden ver sus propios tickets)
+  tickets_it.requester_id = auth.uid()
+  OR
+  -- Usuario es asignado (TODOS pueden ver tickets asignados a ellos)
+  tickets_it.assigned_agent_id = auth.uid()
+  OR
+  -- Staff IT operativo (supervisor/agentes con asset_category IT)
   EXISTS (
     SELECT 1 FROM public.profiles p
     WHERE p.id = auth.uid()
+    AND p.role IN ('supervisor', 'agent_l1', 'agent_l2')
+    AND p.asset_category = 'IT'
     AND (
-      -- Admin ve todo
-      p.role = 'admin'
-      OR
-      -- Usuario es solicitante
-      tickets_it.requester_id = auth.uid()
-      OR
-      -- Usuario es asignado
-      tickets_it.assigned_agent_id = auth.uid()
-      OR
-      -- Tiene permiso IT (asset_category O hub_visible_modules)
-      -- corporate_admin DEBE tener hub_visible_modules['it-helpdesk'] = true
-      (
-        p.role IN ('supervisor', 'agent_l1', 'agent_l2')
-        AND p.asset_category = 'IT'
-        AND (
-          tickets_it.location_id = p.location_id
-          OR tickets_it.location_id IN (
-            SELECT location_id FROM public.user_locations WHERE user_id = auth.uid()
-          )
-        )
+      tickets_it.location_id = p.location_id
+      OR tickets_it.location_id IN (
+        SELECT location_id FROM public.user_locations WHERE user_id = auth.uid()
       )
-      OR
-      -- corporate_admin: SOLO si tiene hub_visible_modules['it-helpdesk'] = true
-      (
-        p.role = 'corporate_admin'
-        AND (p.hub_visible_modules->>'it-helpdesk')::boolean = true
-        AND p.is_it_supervisor = true
-        AND (
-          tickets_it.location_id = p.location_id
-          OR tickets_it.location_id IN (
-            SELECT location_id FROM public.user_locations WHERE user_id = auth.uid()
-          )
-        )
+    )
+  )
+  OR
+  -- corporate_admin CON supervisor IT: ve toda la bandeja de su(s) sede(s)
+  EXISTS (
+    SELECT 1 FROM public.profiles p
+    WHERE p.id = auth.uid()
+    AND p.role = 'corporate_admin'
+    AND (p.hub_visible_modules->>'it-helpdesk')::boolean = true
+    AND p.is_it_supervisor = true
+    AND (
+      tickets_it.location_id = p.location_id
+      OR tickets_it.location_id IN (
+        SELECT location_id FROM public.user_locations WHERE user_id = auth.uid()
       )
     )
   )
@@ -138,42 +133,40 @@ ON public.tickets_maintenance
 FOR SELECT
 TO authenticated
 USING (
+  -- Admin ve todo
+  auth.uid() IN (SELECT id FROM public.profiles WHERE role = 'admin')
+  OR
+  -- Usuario es solicitante (TODOS pueden ver sus propios tickets)
+  tickets_maintenance.requester_id = auth.uid()
+  OR
+  -- Usuario es asignado (TODOS pueden ver tickets asignados a ellos)
+  tickets_maintenance.assigned_to = auth.uid()
+  OR
+  -- Staff Mantenimiento operativo (supervisor/agentes con asset_category MAINTENANCE)
   EXISTS (
     SELECT 1 FROM public.profiles p
     WHERE p.id = auth.uid()
+    AND p.role IN ('supervisor', 'agent_l1', 'agent_l2')
+    AND p.asset_category = 'MAINTENANCE'
     AND (
-      -- Admin ve todo
-      p.role = 'admin'
-      OR
-      -- Usuario es solicitante
-      tickets_maintenance.requester_id = auth.uid()
-      OR
-      -- Usuario es asignado
-      tickets_maintenance.assigned_to = auth.uid()
-      OR
-      -- Tiene permiso MANTENIMIENTO por asset_category
-      (
-        p.role IN ('supervisor', 'agent_l1', 'agent_l2')
-        AND p.asset_category = 'MAINTENANCE'
-        AND (
-          tickets_maintenance.location_id = p.location_id
-          OR tickets_maintenance.location_id IN (
-            SELECT location_id FROM public.user_locations WHERE user_id = auth.uid()
-          )
-        )
+      tickets_maintenance.location_id = p.location_id
+      OR tickets_maintenance.location_id IN (
+        SELECT location_id FROM public.user_locations WHERE user_id = auth.uid()
       )
-      OR
-      -- corporate_admin: SOLO si tiene hub_visible_modules['mantenimiento'] = true
-      (
-        p.role = 'corporate_admin'
-        AND (p.hub_visible_modules->>'mantenimiento')::boolean = true
-        AND p.is_maintenance_supervisor = true
-        AND (
-          tickets_maintenance.location_id = p.location_id
-          OR tickets_maintenance.location_id IN (
-            SELECT location_id FROM public.user_locations WHERE user_id = auth.uid()
-          )
-        )
+    )
+  )
+  OR
+  -- corporate_admin CON supervisor Mantenimiento: ve toda la bandeja de su(s) sede(s)
+  EXISTS (
+    SELECT 1 FROM public.profiles p
+    WHERE p.id = auth.uid()
+    AND p.role = 'corporate_admin'
+    AND (p.hub_visible_modules->>'mantenimiento')::boolean = true
+    AND p.is_maintenance_supervisor = true
+    AND (
+      tickets_maintenance.location_id = p.location_id
+      OR tickets_maintenance.location_id IN (
+        SELECT location_id FROM public.user_locations WHERE user_id = auth.uid()
       )
     )
   )

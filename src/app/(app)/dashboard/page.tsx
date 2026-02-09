@@ -27,16 +27,23 @@ export default async function DashboardPage() {
   const user = await getSafeServerUser()
   const { data: profile } = user ? await supabase
     .from('profiles')
-    .select('role,department,asset_category')
+    .select('role,department,asset_category,hub_visible_modules,is_it_supervisor')
     .eq('id', user.id)
     .single() : { data: null }
 
   const normalizedRole = String(profile?.role ?? '').trim().toLowerCase()
   const isAdminOrSupervisor = normalizedRole === 'admin' || normalizedRole === 'supervisor'
   const isAgent = normalizedRole === 'agent_l1' || normalizedRole === 'agent_l2'
+
+  const hubModules = (profile?.hub_visible_modules ?? null) as Record<string, boolean> | null
+  const isITCorporateSupervisor =
+    normalizedRole === 'corporate_admin' &&
+    hubModules?.['it-helpdesk'] === true &&
+    profile?.is_it_supervisor === true
   
   // Si es usuario estándar (no admin/supervisor/agente), redirigir a sus tickets
-  if (!isAdminOrSupervisor && !isAgent) {
+  // corporate_admin solo puede ver dashboard IT si tiene módulo IT + flag supervisor IT.
+  if (!isAdminOrSupervisor && !isAgent && !isITCorporateSupervisor) {
     redirect('/tickets?view=mine')
   }
   
@@ -52,7 +59,7 @@ export default async function DashboardPage() {
     return 'it'
   })()
 
-  const ticketsIndexHref = isAdminOrSupervisor ? '/tickets?view=queue' : '/tickets?view=mine'
+  const ticketsIndexHref = (isAdminOrSupervisor || isITCorporateSupervisor) ? '/tickets?view=queue' : '/tickets?view=mine'
 
   // Admin siempre ve TODO sin filtros de ubicación
   const isAdmin = normalizedRole === 'admin'
@@ -84,7 +91,7 @@ export default async function DashboardPage() {
     
     let q = query
     // Supervisores y agentes solo ven tickets de su área de servicio
-    if (normalizedRole === 'supervisor' || isAgent) {
+    if (normalizedRole === 'supervisor' || isAgent || isITCorporateSupervisor) {
       // Si inferredServiceArea es válido, filtrar por él
       // Si es null o undefined, mostrar todos (fallback para datos legacy)
       if (inferredServiceArea === 'it' || inferredServiceArea === 'maintenance') {
