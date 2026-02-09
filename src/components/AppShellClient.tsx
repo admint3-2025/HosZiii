@@ -264,7 +264,7 @@ export default function AppShellClient({
   // Determinar el módulo actual según la ruta
   const moduleContext = useMemo(() => {
     if (pathname.startsWith('/admin')) return 'admin'
-    if (pathname.startsWith('/politicas') || pathname.startsWith('/corporativo/politicas')) return 'politicas'
+    if (pathname.startsWith('/politicas')) return 'politicas'
     if (pathname.startsWith('/corporativo')) return 'corporativo'
     if (pathname.startsWith('/inspections')) return 'corporativo' // Inspecciones RRHH
     if (pathname.startsWith('/academia')) return 'academia'
@@ -397,6 +397,7 @@ export default function AppShellClient({
           { id: 'corp_inspecciones', label: 'Inspecciones', icon: 'ShieldCheck', href: '/corporativo/inspecciones' },
           { id: 'corp_inbox', label: 'Bandeja Inspecciones', icon: 'BarChart', href: '/inspections/inbox' },
           { id: 'corp_academia', label: 'Admin Academia', icon: 'GraduationCap', href: '/corporativo/academia/admin' },
+          { id: 'corp_politicas', label: 'Admin Políticas', icon: 'Book', href: '/corporativo/politicas/admin' },
         ],
       },
     ],
@@ -413,10 +414,7 @@ export default function AppShellClient({
       {
         group: 'Políticas',
         items: [
-          { id: 'pol_catalog', label: 'Todas las Políticas', icon: 'ShieldCheck', href: '/politicas' },
-          ...((isAdminLike || isCorporateAdmin)
-            ? ([{ id: 'pol_admin', label: 'Administrar', icon: 'Briefcase', href: '/corporativo/politicas/admin' }] as MenuSection['items'])
-            : []),
+          { id: 'pol_catalog', label: 'Todas las Políticas', icon: 'Book', href: '/politicas' },
         ],
       },
     ],
