@@ -22,10 +22,15 @@ const DEPARTMENTS: Department[] = [
   { id: 'cuartos', name: 'DIV. CUARTOS' },
   { id: 'mantenimiento', name: 'MANTENIMIENTO' },
   { id: 'sistemas', name: 'SISTEMAS' },
+  { id: 'marketing', name: 'MARKETING' },
   { id: 'alimentos', name: 'ALIMENTOS Y BEBIDAS' },
   { id: 'llaves', name: 'AMA DE LLAVES' },
   { id: 'contabilidad', name: 'CONTABILIDAD' },
 ]
+
+const ALL_DEPARTMENTS_OPTION: Department = { id: 'all', name: 'TODOS' }
+
+const normalizeDepartmentName = (value: string) => value.trim().toLowerCase()
 
 export default function CorporateInspectionsDashboard({
   onNewInspection,
@@ -34,6 +39,7 @@ export default function CorporateInspectionsDashboard({
 }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [accessWarning, setAccessWarning] = useState<string | null>(null)
 
   const [role, setRole] = useState<string | null>(null)
   const [allowedDepartments, setAllowedDepartments] = useState<string[] | null>(null)
@@ -47,14 +53,24 @@ export default function CorporateInspectionsDashboard({
   const [stats, setStats] = useState<any>(null)
 
   const visibleDepartments = useMemo(() => {
-    // Filtrar departamentos por allowed_departments del perfil
-    if (!allowedDepartments || allowedDepartments.length === 0) {
-      return DEPARTMENTS
+    if (role === 'admin') {
+      return [ALL_DEPARTMENTS_OPTION, ...DEPARTMENTS]
     }
-    return DEPARTMENTS.filter((d) => 
-      allowedDepartments.some(ad => ad.toLowerCase() === d.name.toLowerCase())
-    )
-  }, [allowedDepartments])
+
+    // Para corporate_admin, los departamentos visibles vienen del perfil (allowed_departments)
+    if (!allowedDepartments || allowedDepartments.length === 0) {
+      return []
+    }
+
+    const allowedSet = new Set(allowedDepartments.map(normalizeDepartmentName))
+    const filtered = DEPARTMENTS.filter((d) => allowedSet.has(normalizeDepartmentName(d.name)))
+
+    if (filtered.length <= 1) {
+      return filtered
+    }
+
+    return [ALL_DEPARTMENTS_OPTION, ...filtered]
+  }, [allowedDepartments, role])
 
   // Obtener ubicaciones asignadas al usuario (para mostrar sus inspecciones)
   const userLocationIds = useMemo(() => {
@@ -122,7 +138,7 @@ export default function CorporateInspectionsDashboard({
       setLocations(mapped)
       setSelectedLocationIds(mapped.map((l) => l.id))
 
-      setSelectedDepartment((prev) => prev ?? visibleDepartments[0] ?? null)
+      setSelectedDepartment((prev) => prev ?? null)
       setLoading(false)
     }
 
@@ -131,9 +147,40 @@ export default function CorporateInspectionsDashboard({
   }, [])
 
   useEffect(() => {
+    if (loading) return
+
+    if (!visibleDepartments || visibleDepartments.length === 0) {
+      setSelectedDepartment(null)
+      return
+    }
+
+    setSelectedDepartment((prev) => {
+      if (!prev) return visibleDepartments[0]
+      const stillVisible = visibleDepartments.some((d) => d.id === prev.id)
+      return stillVisible ? prev : visibleDepartments[0]
+    })
+  }, [loading, visibleDepartments])
+
+  useEffect(() => {
     const loadStats = async () => {
       if (loading) return
-      if (!selectedDepartment) return
+
+      setAccessWarning(null)
+
+      if (!selectedDepartment) {
+        // Si no hay departamentos visibles (p.ej. corporate_admin sin allowed_departments)
+        if (role !== 'admin') {
+          setAccessWarning('No tienes departamentos asignados. Solicita al administrador que te asigne permisos de inspección.')
+          setStats({
+            totalInspections: 0,
+            pendingApproval: 0,
+            averageScore: 0,
+            recentInspections: [],
+          })
+        }
+        return
+      }
+
       if (!selectedLocationIds || selectedLocationIds.length === 0) {
         setStats({
           totalInspections: 0,
@@ -146,9 +193,62 @@ export default function CorporateInspectionsDashboard({
 
       setStatsLoading(true)
       try {
-        // NO filtrar por departamento - mostrar todas las inspecciones de las ubicaciones asignadas
+        const isAllDepartments = selectedDepartment.id === ALL_DEPARTMENTS_OPTION.id
+
+        let department: string | undefined
+        let departments: string[] | undefined
+
+        if (role === 'admin') {
+          if (!isAllDepartments) {
+            department = selectedDepartment.name
+          }
+        } else {
+          // corporate_admin: restringir SIEMPRE a sus allowed_departments
+          if (!allowedDepartments || allowedDepartments.length === 0) {
+            setAccessWarning('No tienes departamentos asignados. Solicita al administrador que te asigne permisos de inspección.')
+            setStats({
+              totalInspections: 0,
+              pendingApproval: 0,
+              averageScore: 0,
+              recentInspections: [],
+            })
+            return
+          }
+
+          const allowedSet = new Set(allowedDepartments.map(normalizeDepartmentName))
+          const allowedCanonical = DEPARTMENTS.filter((d) => allowedSet.has(normalizeDepartmentName(d.name))).map((d) => d.name)
+
+          if (allowedCanonical.length === 0) {
+            setAccessWarning('No tienes departamentos asignados. Solicita al administrador que te asigne permisos de inspección.')
+            setStats({
+              totalInspections: 0,
+              pendingApproval: 0,
+              averageScore: 0,
+              recentInspections: [],
+            })
+            return
+          }
+
+          if (isAllDepartments) {
+            departments = allowedCanonical
+          } else {
+            const isAllowed = allowedSet.has(normalizeDepartmentName(selectedDepartment.name))
+            if (!isAllowed) {
+              setStats({
+                totalInspections: 0,
+                pendingApproval: 0,
+                averageScore: 0,
+                recentInspections: [],
+              })
+              return
+            }
+            department = selectedDepartment.name
+          }
+        }
+
         const { data, error } = await InspectionsRRHHService.getLocationsStats(selectedLocationIds, {
-          department: undefined,
+          department,
+          departments,
           filterByCurrentUser: false,
           recentLimit: 12,
         })
@@ -165,7 +265,7 @@ export default function CorporateInspectionsDashboard({
     }
 
     loadStats()
-  }, [loading, selectedLocationIds])
+  }, [allowedDepartments, loading, role, selectedDepartment, selectedLocationIds])
 
   const selectedLocationsLabel = useMemo(() => {
     if (role === 'admin' && selectedLocationIds.length === locations.length) return 'Todas las sedes'
@@ -212,6 +312,13 @@ export default function CorporateInspectionsDashboard({
       <div className="p-4 space-y-4">
         {/* Filtros */}
         <div className="bg-white border border-slate-200 rounded-lg p-4">
+          {accessWarning && (
+            <div className="mb-3 bg-amber-50 border border-amber-200 rounded-lg p-3">
+              <p className="text-amber-900 text-xs font-semibold">Permisos</p>
+              <p className="text-amber-800 text-xs mt-1">{accessWarning}</p>
+            </div>
+          )}
+
           <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
             <div className="flex-1">
               <label className="block text-xs font-semibold text-slate-700">Departamento</label>
@@ -221,6 +328,7 @@ export default function CorporateInspectionsDashboard({
                   const dept = visibleDepartments.find((d) => d.id === e.target.value) || null
                   setSelectedDepartment(dept)
                 }}
+                disabled={visibleDepartments.length === 0}
                 className="mt-1 w-full md:max-w-sm border border-slate-300 rounded-md px-3 py-2 text-sm bg-white"
               >
                 {visibleDepartments.map((d) => (

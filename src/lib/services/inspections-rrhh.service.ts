@@ -559,6 +559,7 @@ export class InspectionsRRHHService {
     options?: {
       filterByCurrentUser?: boolean
       department?: string
+      departments?: string[]
       recentLimit?: number
     }
   ): Promise<{ data: any; error: any }> {
@@ -579,6 +580,7 @@ export class InspectionsRRHHService {
 
     const filterByCurrentUser = options?.filterByCurrentUser ?? false
     const department = options?.department
+    const departments = options?.departments
     const recentLimit = options?.recentLimit ?? 10
 
     let currentUserId: string | null = null
@@ -590,6 +592,7 @@ export class InspectionsRRHHService {
     const applyFilters = (query: any) => {
       query = query.in('location_id', locationIds)
       if (department) query = query.eq('department', department)
+      else if (departments && departments.length > 0) query = query.in('department', departments)
       if (currentUserId) query = query.eq('inspector_user_id', currentUserId)
       return query
     }
