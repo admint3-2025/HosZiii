@@ -264,6 +264,7 @@ export default function AppShellClient({
   // Determinar el módulo actual según la ruta
   const moduleContext = useMemo(() => {
     if (pathname.startsWith('/admin')) return 'admin'
+    if (pathname.startsWith('/politicas') || pathname.startsWith('/corporativo/politicas')) return 'politicas'
     if (pathname.startsWith('/corporativo')) return 'corporativo'
     if (pathname.startsWith('/inspections')) return 'corporativo' // Inspecciones RRHH
     if (pathname.startsWith('/academia')) return 'academia'
@@ -408,6 +409,17 @@ export default function AppShellClient({
         ],
       },
     ],
+    politicas: [
+      {
+        group: 'Políticas',
+        items: [
+          { id: 'pol_catalog', label: 'Todas las Políticas', icon: 'ShieldCheck', href: '/politicas' },
+          ...((isAdminLike || isCorporateAdmin)
+            ? ([{ id: 'pol_admin', label: 'Administrar', icon: 'Briefcase', href: '/corporativo/politicas/admin' }] as MenuSection['items'])
+            : []),
+        ],
+      },
+    ],
     admin: [
       {
         group: 'Administración',
@@ -483,6 +495,7 @@ export default function AppShellClient({
     ],
     helpdesk: [],
     corporativo: [],
+    politicas: [],
     admin: [],
   }
 
