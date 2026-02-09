@@ -873,9 +873,9 @@ export default function CorporateDashboardClient() {
                                     </p>
                                   </div>
                                   <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded ${
-                                    insp.score >= 70 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
+                                    insp.score >= 7 ? 'bg-amber-100 text-amber-700' : 'bg-red-100 text-red-700'
                                   }`}>
-                                    {insp.score}%
+                                    {insp.score}<span className="text-[8px] font-normal text-gray-400">/10</span>
                                   </span>
                                 </div>
                                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-[9px] text-gray-500">
