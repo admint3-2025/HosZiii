@@ -938,11 +938,13 @@ export default function CorporateDashboardClient() {
                     <div key={review.id} className="px-2 py-1.5 border border-gray-100 rounded hover:border-gray-200 transition-colors">
                       <div className="flex items-center justify-between mb-1">
                         <p className="text-[11px] font-semibold text-gray-900 truncate flex-1">{review.property_name}</p>
-                        <span className="text-[9px] font-bold text-amber-600 ml-2">{review.score}%</span>
+                        <span className="text-[9px] font-bold text-amber-600 ml-2">{Math.round((review.average_score || 0) * 10)}/10</span>
                       </div>
                       <div className="flex items-center gap-1">
                         <span className="text-[8px] text-gray-400">
-                          {new Date(review.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short' })}
+                          {review.inspection_date
+                            ? new Date(review.inspection_date).toLocaleDateString('es-MX', { day: '2-digit', month: 'short' })
+                            : '-'}
                         </span>
                         <div className="flex-1" />
                         <button onClick={() => handleApprove(review.id)} className="px-1.5 py-0.5 bg-emerald-500 text-white text-[8px] font-bold rounded hover:bg-emerald-600">
