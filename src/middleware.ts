@@ -267,6 +267,7 @@ export async function middleware(request: NextRequest) {
 
     // HELP DESK IT (activos / beo): restringir a IT (admin o asset_category IT/null)
     // Nota: usuarios de mantenimiento pueden crear tickets IT, pero NO acceder a inventario IT / BEO.
+    // corporate_admin: verificar hub_visible_modules['it-helpdesk']
     if (pathname.startsWith('/assets') || pathname.startsWith('/beo')) {
       if (!userId) {
         const loginUrl = request.nextUrl.clone()
@@ -276,11 +277,15 @@ export async function middleware(request: NextRequest) {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role, asset_category')
+        .select('role, asset_category, hub_visible_modules')
         .eq('id', userId)
         .single()
 
-      const canManageIT = profile?.role === 'admin' || isITAssetCategoryOrUnassigned(profile?.asset_category)
+      const isCorporateAdmin = profile?.role === 'corporate_admin'
+      const hubModules = profile?.hub_visible_modules as Record<string, boolean> | null
+      const canManageIT = profile?.role === 'admin' || 
+        (isCorporateAdmin && hubModules?.['it-helpdesk'] === true) ||
+        (!isCorporateAdmin && isITAssetCategoryOrUnassigned(profile?.asset_category))
 
       if (!canManageIT) {
         const redirectUrl = request.nextUrl.clone()

@@ -19,7 +19,7 @@ export default async function TicketsPage({
   const { data: { user } } = await supabase.auth.getUser()
   const { data: profile } = user ? await supabase
     .from('profiles')
-    .select('department, role, asset_category, is_it_supervisor, is_maintenance_supervisor')
+    .select('department, role, asset_category, is_it_supervisor, is_maintenance_supervisor, hub_visible_modules')
     .eq('id', user.id)
     .single() : { data: null }
   
@@ -27,12 +27,18 @@ export default async function TicketsPage({
 
   const normalizedRole = String(profile?.role ?? '').trim().toLowerCase()
   const isAdmin = normalizedRole === 'admin'
-  const canManageIT = isAdmin || isITAssetCategoryOrUnassigned(profile?.asset_category)
+  const isCorporateAdmin = normalizedRole === 'corporate_admin'
+  const hubModules = profile?.hub_visible_modules as Record<string, boolean> | null
   
-  // Verificar si tiene permisos de supervisor (rol supervisor O corporate_admin con permisos específicos)
+  // corporate_admin: verificar hub_visible_modules, otros roles: verificar asset_category
+  const canManageIT = isAdmin || 
+    (isCorporateAdmin && hubModules?.['it-helpdesk'] === true) ||
+    (!isCorporateAdmin && isITAssetCategoryOrUnassigned(profile?.asset_category))
+  
+  // Verificar si tiene permisos de supervisor (rol supervisor O corporate_admin con permiso IT en hub_visible_modules)
   const isITSupervisor = isAdmin || 
     (normalizedRole === 'supervisor' && canManageIT) ||
-    (normalizedRole === 'corporate_admin' && profile?.is_it_supervisor === true)
+    (isCorporateAdmin && hubModules?.['it-helpdesk'] === true)
   
   // Solo admin y supervisores IT pueden ver la bandeja completa
   const canViewQueue = isITSupervisor

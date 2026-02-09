@@ -233,6 +233,7 @@ interface AppShellClientProps {
     role: string | null
     canViewBeo: boolean
     assetCategory: string | null
+    hubModules: Record<string, boolean> | null
   }
 }
 
@@ -283,9 +284,17 @@ export default function AppShellClient({
 
   // Determinar si el usuario puede GESTIONAR mantenimiento / IT
   // Nota: asset_category puede venir como 'Maintenance' (legacy/UI). Normalizamos.
+  // Para corporate_admin, usamos hub_visible_modules para determinar permisos
   const isAdminLike = userData.role === 'admin'
-  const canManageMaintenance = isAdminLike || isMaintenanceAssetCategory(userData.assetCategory)
-  const canManageIT = isAdminLike || isITAssetCategoryOrUnassigned(userData.assetCategory)
+  const isCorporateAdmin = userData.role === 'corporate_admin'
+  
+  // corporate_admin: verificar hub_visible_modules, otros roles: verificar asset_category
+  const canManageMaintenance = isAdminLike || 
+    (isCorporateAdmin && userData.hubModules?.['mantenimiento'] === true) ||
+    (!isCorporateAdmin && isMaintenanceAssetCategory(userData.assetCategory))
+  const canManageIT = isAdminLike || 
+    (isCorporateAdmin && userData.hubModules?.['it-helpdesk'] === true) ||
+    (!isCorporateAdmin && isITAssetCategoryOrUnassigned(userData.assetCategory))
   
   // corporate_admin con permisos de IT puede gestionar IT como supervisor
   const canManageITAsSupervisor = canManageIT && (isAdminLike || userData.role === 'supervisor' || userData.role === 'corporate_admin')

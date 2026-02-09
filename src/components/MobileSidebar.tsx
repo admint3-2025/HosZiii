@@ -8,13 +8,17 @@ interface UserData {
   role: string | null
   canViewBeo: boolean
   assetCategory: string | null
+  hubModules: Record<string, boolean> | null
 }
 
 export default function MobileSidebar({ userData }: { userData: UserData }) {
   const pathname = usePathname()
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/")
 
-  const canManageIT = userData.role === 'admin' || isITAssetCategoryOrUnassigned(userData.assetCategory)
+  const isCorporateAdmin = userData.role === 'corporate_admin'
+  const canManageIT = userData.role === 'admin' || 
+    (isCorporateAdmin && userData.hubModules?.['it-helpdesk'] === true) ||
+    (!isCorporateAdmin && isITAssetCategoryOrUnassigned(userData.assetCategory))
 
   const isMaintenanceContext = isMaintenanceAssetCategory(userData.assetCategory) && userData.role !== 'admin'
 
