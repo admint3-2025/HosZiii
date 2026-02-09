@@ -43,6 +43,7 @@ export default function CorporateInspectionsDashboard({
 
   const [role, setRole] = useState<string | null>(null)
   const [allowedDepartments, setAllowedDepartments] = useState<string[] | null>(null)
+  const [hubModules, setHubModules] = useState<Record<string, boolean> | null>(null)
 
   const [locations, setLocations] = useState<LocationOption[]>([])
   const [selectedLocationIds, setSelectedLocationIds] = useState<string[]>([])
@@ -97,7 +98,7 @@ export default function CorporateInspectionsDashboard({
 
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('role, allowed_departments, location_id')
+        .select('role, allowed_departments, location_id, hub_visible_modules')
         .eq('id', user.id)
         .single()
 
@@ -110,31 +111,82 @@ export default function CorporateInspectionsDashboard({
       const profileRole = (profile?.role as string) || null
       setRole(profileRole)
       setAllowedDepartments((profile?.allowed_departments as string[]) || null)
+      setHubModules((profile?.hub_visible_modules as Record<string, boolean>) || null)
 
-      // En inspecciones corporativas, las sedes no se filtran por perfil.
-      // El permiso especial del perfil filtra DEPARTAMENTOS (allowed_departments).
-      let locationsQuery = supabase
-        .from('locations')
-        .select('id, code, name')
-        .order('code')
-
-      // Para corporativo: admin debe poder ver TODAS las sedes (aunque estén inactivas para tickets).
-      // Para otros roles, mantener filtro por sedes activas.
-      if (profileRole !== 'admin') {
-        locationsQuery = locationsQuery.eq('is_active', true)
-      }
-
-      const { data: allLocations, error: locError } = await locationsQuery
-
-      if (locError) {
-        setError(locError.message)
-        setLocations([])
-        setSelectedLocationIds([])
+      // Verificar permiso de inspecciones para corporate_admin
+      const userHubModules = profile?.hub_visible_modules as Record<string, boolean> | null
+      if (profileRole === 'corporate_admin' && userHubModules && userHubModules['inspecciones-rrhh'] === false) {
+        setAccessWarning('No tienes permisos para acceder a las inspecciones corporativas.')
         setLoading(false)
         return
       }
 
-      const mapped = (allLocations || []).map((l: any) => ({ id: l.id, code: l.code, name: l.name }))
+      // Cargar ubicaciones según el rol
+      let mapped: LocationOption[] = []
+
+      if (profileRole === 'admin') {
+        // Admin ve todas las ubicaciones
+        const { data: allLocations, error: locError } = await supabase
+          .from('locations')
+          .select('id, code, name')
+          .order('code')
+
+        if (locError) {
+          setError(locError.message)
+          setLoading(false)
+          return
+        }
+
+        mapped = (allLocations || []).map((l: any) => ({ id: l.id, code: l.code, name: l.name }))
+      } else {
+        // Corporate admin: primero intentar cargar desde user_locations
+        const { data: userLocData, error: ulError } = await supabase
+          .from('user_locations')
+          .select('location_id, locations(id, code, name)')
+          .eq('user_id', user.id)
+
+        if (ulError) {
+          setError(ulError.message)
+          setLoading(false)
+          return
+        }
+
+        mapped = (userLocData || [])
+          .map((row: any) => row.locations)
+          .filter(Boolean)
+          .map((l: any) => ({ id: l.id, code: l.code, name: l.name }))
+
+        // Si tiene location_id pero no está en user_locations, agregarlo
+        if (profile?.location_id && !mapped.some(m => m.id === profile.location_id)) {
+          const { data: locData } = await supabase
+            .from('locations')
+            .select('id, code, name')
+            .eq('id', profile.location_id)
+            .single()
+
+          if (locData) {
+            mapped.push({ id: locData.id, code: locData.code, name: locData.name })
+          }
+        }
+
+        // Si no tiene ubicaciones asignadas, cargar todas las activas (corporate_admin global)
+        if (mapped.length === 0 && !profile?.location_id) {
+          const { data: allLocs, error: allLocsError } = await supabase
+            .from('locations')
+            .select('id, code, name')
+            .eq('is_active', true)
+            .order('code')
+
+          if (allLocsError) {
+            setError(allLocsError.message)
+            setLoading(false)
+            return
+          }
+
+          mapped = (allLocs || []).map((l: any) => ({ id: l.id, code: l.code, name: l.name }))
+        }
+      }
+
       setLocations(mapped)
       setSelectedLocationIds(mapped.map((l) => l.id))
 

@@ -17,6 +17,8 @@ type Property = {
 type Profile = {
   id: string
   role: string | null
+  location_id?: string | null
+  hub_visible_modules?: Record<string, boolean> | null
 }
 
 type InboxFilters = {
@@ -110,7 +112,7 @@ export default function InspectionsInbox() {
 
         const { data: prof, error: profError } = await supabase
           .from('profiles')
-          .select('id, role')
+          .select('id, role, location_id, hub_visible_modules')
           .eq('id', user.id)
           .single()
 
@@ -121,9 +123,26 @@ export default function InspectionsInbox() {
 
         setProfile((prof as any) || null)
 
-        const isAdmin = (prof as any)?.role === 'admin' || (prof as any)?.role === 'corporate_admin'
+        const userRole = (prof as any)?.role
+        const isFullAdmin = userRole === 'admin'
+        const isCorporateAdmin = userRole === 'corporate_admin'
+        const hubModules = (prof as any)?.hub_visible_modules as Record<string, boolean> | null
+        const userLocationId = (prof as any)?.location_id
 
-        if (isAdmin) {
+        // Para corporate_admin, verificar si tiene permiso de inspecciones
+        const hasInspectionsPermission = isFullAdmin || 
+          (isCorporateAdmin && (!hubModules || hubModules['inspecciones-rrhh'] !== false))
+
+        if (!hasInspectionsPermission && isCorporateAdmin) {
+          // Corporate admin sin permiso de inspecciones - mostrar mensaje
+          setError('No tienes permisos para acceder a la bandeja de inspecciones.')
+          setAvailableProperties([])
+          setLoading(false)
+          return
+        }
+
+        // Admin global: ve todas las ubicaciones
+        if (isFullAdmin) {
           const { data, error: locError } = await supabase
             .from('locations')
             .select('id, code, name')
@@ -142,7 +161,63 @@ export default function InspectionsInbox() {
             ? preselectedLocationId
             : 'all'
           setSelectedPropertyId(preferred)
+        } else if (isCorporateAdmin) {
+          // Corporate admin: Primero intentar cargar desde user_locations
+          // Solo si no tiene user_locations asignadas Y location_id es NULL, ve todas
+          const { data: ulData, error: ulError } = await supabase
+            .from('user_locations')
+            .select('location_id, locations(id, code, name)')
+            .eq('user_id', user.id)
+
+          if (ulError) {
+            setError(ulError.message)
+            setAvailableProperties([])
+            return
+          }
+
+          let props = (ulData || [])
+            .map((row: any) => row.locations)
+            .filter(Boolean)
+            .map((l: any) => ({ id: l.id, code: l.code, name: l.name }))
+
+          // Si tiene location_id pero no está en user_locations, agregarlo
+          if (userLocationId && !props.some(p => p.id === userLocationId)) {
+            const { data: locData, error: locError } = await supabase
+              .from('locations')
+              .select('id, code, name')
+              .eq('id', userLocationId)
+              .single()
+
+            if (!locError && locData) {
+              props.push({ id: locData.id, code: locData.code, name: locData.name })
+            }
+          }
+
+          // Si no tiene ninguna ubicación asignada (ni user_locations ni location_id),
+          // cargar todas las ubicaciones (corporate admin global de inspecciones)
+          if (props.length === 0 && !userLocationId) {
+            const { data: allLocs, error: allLocsError } = await supabase
+              .from('locations')
+              .select('id, code, name')
+              .eq('is_active', true)
+              .order('code')
+
+            if (allLocsError) {
+              setError(allLocsError.message)
+              setAvailableProperties([])
+              return
+            }
+
+            props = (allLocs || []).map((l: any) => ({ id: l.id, code: l.code, name: l.name }))
+          }
+
+          setAvailableProperties(props)
+          const preferred = preselectedLocationId && props.some((p) => p.id === preselectedLocationId)
+            ? preselectedLocationId
+            : 'all'
+          setSelectedPropertyId(preferred)
         } else {
+          // Otros roles (supervisor, agent, etc): cargar desde user_locations
           const { data, error: ulError } = await supabase
             .from('user_locations')
             .select('location_id, locations(id, code, name)')
