@@ -32,25 +32,36 @@ export interface UserProfile {
   is_it_supervisor?: boolean
   is_maintenance_supervisor?: boolean
   asset_category?: string | null
+  hub_visible_modules?: Record<string, boolean> | null
 }
 
 /**
  * Verifica si un usuario tiene permisos de supervisor para IT
+ * corporate_admin: usa hub_visible_modules['it-helpdesk']
  */
 export function isITSupervisor(profile: UserProfile): boolean {
   if (profile.role === 'admin') return true
   if (profile.role === 'supervisor' && profile.asset_category === 'IT') return true
-  if (profile.role === 'corporate_admin' && profile.is_it_supervisor === true) return true
+  // corporate_admin: verificar hub_visible_modules (preferido) o is_it_supervisor (legacy)
+  if (profile.role === 'corporate_admin') {
+    if (profile.hub_visible_modules?.['it-helpdesk'] === true) return true
+    if (profile.is_it_supervisor === true) return true
+  }
   return false
 }
 
 /**
  * Verifica si un usuario tiene permisos de supervisor para Mantenimiento
+ * corporate_admin: usa hub_visible_modules['mantenimiento']
  */
 export function isMaintenanceSupervisor(profile: UserProfile): boolean {
   if (profile.role === 'admin') return true
   if (profile.role === 'supervisor' && profile.asset_category === 'MAINTENANCE') return true
-  if (profile.role === 'corporate_admin' && profile.is_maintenance_supervisor === true) return true
+  // corporate_admin: verificar hub_visible_modules (preferido) o is_maintenance_supervisor (legacy)
+  if (profile.role === 'corporate_admin') {
+    if (profile.hub_visible_modules?.['mantenimiento'] === true) return true
+    if (profile.is_maintenance_supervisor === true) return true
+  }
   return false
 }
 

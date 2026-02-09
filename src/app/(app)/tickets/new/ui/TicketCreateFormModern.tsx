@@ -154,7 +154,7 @@ export default function TicketCreateFormModern({
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role, location_id, asset_category, full_name')
+        .select('role, location_id, asset_category, full_name, hub_visible_modules')
         .eq('id', user.id)
         .single()
 
@@ -189,10 +189,14 @@ export default function TicketCreateFormModern({
       }
 
       // Align with server action: only admin or IT agents can create for others
+      // corporate_admin: verificar hub_visible_modules['it-helpdesk']
+      const hubModules = (profile as any)?.hub_visible_modules as Record<string, boolean> | null
+      const isCorporateAdmin = profile?.role === 'corporate_admin'
       const allowedForOthers =
         !!profile &&
         (profile.role === 'admin' ||
-          (area === 'it' && ['agent_l1', 'agent_l2', 'supervisor', 'corporate_admin'].includes(profile.role) && profile.asset_category === 'IT'))
+          (area === 'it' && isCorporateAdmin && hubModules?.['it-helpdesk'] === true) ||
+          (area === 'it' && !isCorporateAdmin && ['agent_l1', 'agent_l2', 'supervisor'].includes(profile.role) && profile.asset_category === 'IT'))
 
       if (allowedForOthers) {
         setCanCreateForOthers(true)

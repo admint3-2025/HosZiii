@@ -16,6 +16,7 @@ DROP POLICY IF EXISTS "tickets_select_agents" ON public.tickets;
 DROP POLICY IF EXISTS "tickets_select_supervisor_admin" ON public.tickets;
 DROP POLICY IF EXISTS "tickets_select" ON public.tickets;
 DROP POLICY IF EXISTS "tickets_select_with_hub" ON public.tickets;
+DROP POLICY IF EXISTS "tickets_select_with_hub_modules" ON public.tickets;
 
 -- Crear política unificada para tickets (tabla legacy)
 CREATE POLICY "tickets_select_with_hub_modules"
@@ -62,6 +63,7 @@ USING (
 -- Eliminar políticas SELECT antiguas de tickets_it
 DROP POLICY IF EXISTS "tickets_it_select" ON public.tickets_it;
 DROP POLICY IF EXISTS "tickets_it_select_policy" ON public.tickets_it;
+DROP POLICY IF EXISTS "tickets_it_select_with_hub_modules" ON public.tickets_it;
 
 -- Crear política para tickets_it considerando hub_visible_modules
 CREATE POLICY "tickets_it_select_with_hub_modules"
@@ -105,7 +107,7 @@ USING (
 -- PARTE 3: TICKETS_MAINTENANCE
 -- ==========================================
 
--- Eliminar políticas SELECT antiguas de tickets_maintenance
+-- Eliminar políticas SELECT antiguas de tickets_maintenance (incluye la nueva)
 DROP POLICY IF EXISTS "tickets_maintenance_select" ON public.tickets_maintenance;
 DROP POLICY IF EXISTS "tickets_maintenance_select_policy" ON public.tickets_maintenance;
 DROP POLICY IF EXISTS "tickets_maintenance_select_basic" ON public.tickets_maintenance;
@@ -203,6 +205,7 @@ ORDER BY p.asset_category, p.role;
 -- Eliminar políticas SELECT antiguas de assets_it
 DROP POLICY IF EXISTS "assets_it_select" ON public.assets_it;
 DROP POLICY IF EXISTS "assets_it_select_policy" ON public.assets_it;
+DROP POLICY IF EXISTS "assets_it_select_with_hub_modules" ON public.assets_it;
 
 -- Crear política para assets_it considerando hub_visible_modules
 CREATE POLICY "assets_it_select_with_hub_modules"
@@ -239,6 +242,7 @@ USING (
 -- Eliminar políticas SELECT antiguas de assets_maintenance
 DROP POLICY IF EXISTS "assets_maintenance_select" ON public.assets_maintenance;
 DROP POLICY IF EXISTS "assets_maintenance_select_policy" ON public.assets_maintenance;
+DROP POLICY IF EXISTS "assets_maintenance_select_with_hub_modules" ON public.assets_maintenance;
 
 -- Crear política para assets_maintenance considerando hub_visible_modules
 CREATE POLICY "assets_maintenance_select_with_hub_modules"

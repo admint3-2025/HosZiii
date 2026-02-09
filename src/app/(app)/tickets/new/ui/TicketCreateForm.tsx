@@ -112,7 +112,7 @@ export default function TicketCreateForm({
       // Check if user is agent/supervisor/admin with IT asset category
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role, location_id, asset_category')
+        .select('role, location_id, asset_category, hub_visible_modules')
         .eq('id', user.id)
         .single()
 
@@ -120,7 +120,15 @@ export default function TicketCreateForm({
       setCurrentUserLocationId(profile?.location_id ?? null)
 
       // Solo admin o agentes/supervisores de IT pueden crear tickets IT para otros
-      if (profile && (profile.role === 'admin' || (['agent_l1', 'agent_l2', 'supervisor', 'corporate_admin'].includes(profile.role) && profile.asset_category === 'IT'))) {
+      // corporate_admin: verificar hub_visible_modules['it-helpdesk']
+      const hubModules = profile?.hub_visible_modules as Record<string, boolean> | null
+      const isCorporateAdmin = profile?.role === 'corporate_admin'
+      const hasITPermission = profile && (
+        profile.role === 'admin' || 
+        (isCorporateAdmin && hubModules?.['it-helpdesk'] === true) ||
+        (!isCorporateAdmin && ['agent_l1', 'agent_l2', 'supervisor'].includes(profile.role) && profile.asset_category === 'IT')
+      )
+      if (hasITPermission) {
         setCanCreateForOthers(true)
         setLoadingUsers(true)
         

@@ -34,14 +34,20 @@ export async function createTicket(input: CreateTicketInput) {
   // Verificar rol del usuario actual y asset_category
   const { data: currentProfile } = await supabase
     .from('profiles')
-    .select('role, location_id, asset_category')
+    .select('role, location_id, asset_category, hub_visible_modules')
     .eq('id', user.id)
     .single()
 
   // Solo admin o agentes/supervisores de IT pueden crear tickets IT para otros
-  const canCreateForOthers = currentProfile && 
-    (currentProfile.role === 'admin' || 
-     (['agent_l1', 'agent_l2', 'supervisor', 'corporate_admin'].includes(currentProfile.role) && currentProfile.asset_category === 'IT'))
+  // corporate_admin: verificar hub_visible_modules['it-helpdesk']
+  const hubModules = currentProfile?.hub_visible_modules as Record<string, boolean> | null
+  const isCorporateAdmin = currentProfile?.role === 'corporate_admin'
+  const hasITPermission = currentProfile && (
+    currentProfile.role === 'admin' ||
+    (isCorporateAdmin && hubModules?.['it-helpdesk'] === true) ||
+    (!isCorporateAdmin && ['agent_l1', 'agent_l2', 'supervisor'].includes(currentProfile.role) && currentProfile.asset_category === 'IT')
+  )
+  const canCreateForOthers = hasITPermission
 
   if (input.requester_id && !canCreateForOthers) {
     return { error: 'No tienes permisos para crear tickets IT para otros usuarios.' }

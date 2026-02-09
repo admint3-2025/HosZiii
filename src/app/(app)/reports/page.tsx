@@ -12,19 +12,25 @@ export default async function ReportsPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, asset_category, is_it_supervisor, is_maintenance_supervisor')
+    .select('role, asset_category, is_it_supervisor, is_maintenance_supervisor, hub_visible_modules')
     .eq('id', user.id)
     .single()
 
   const isAdmin = profile?.role === 'admin'
   const isSupervisor = profile?.role === 'supervisor'
+  const isCorporateAdmin = profile?.role === 'corporate_admin'
+  const hubModules = profile?.hub_visible_modules as Record<string, boolean> | null
+  
   // corporate_admin con permisos de supervisión también tiene acceso
-  const isAdminOrSupervisor = isAdmin || isSupervisor || 
-    (profile?.role === 'corporate_admin' && (profile?.is_it_supervisor || profile?.is_maintenance_supervisor))
+  // Verificar hub_visible_modules para corporate_admin
+  const hasITPermission = isCorporateAdmin && hubModules?.['it-helpdesk'] === true
+  const hasMaintenancePermission = isCorporateAdmin && hubModules?.['mantenimiento'] === true
+  const isAdminOrSupervisor = isAdmin || isSupervisor || hasITPermission || hasMaintenancePermission
   
   // Determinar acceso a módulos
-  const canAccessIT = isAdmin || profile?.asset_category === 'IT' || profile?.asset_category === null
-  const canAccessMaintenance = isAdmin || profile?.asset_category === 'MAINTENANCE'
+  // corporate_admin: verificar hub_visible_modules
+  const canAccessIT = isAdmin || hasITPermission || (!isCorporateAdmin && (profile?.asset_category === 'IT' || profile?.asset_category === null))
+  const canAccessMaintenance = isAdmin || hasMaintenancePermission || (!isCorporateAdmin && profile?.asset_category === 'MAINTENANCE')
 
   // Módulos de reportes disponibles
   const modules = [
