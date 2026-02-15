@@ -289,6 +289,24 @@ export default function MaintenanceTicketDetail({
                   </div>
                 )}
 
+                {/* Habitación vinculada */}
+                {ticket.hk_room && (
+                  <div>
+                    <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Habitación</p>
+                    <div className="flex items-center gap-3">
+                      <div className="w-10 h-10 bg-gradient-to-br from-rose-100 to-pink-100 rounded-full flex items-center justify-center">
+                        <svg className="w-5 h-5 text-rose-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-4 0a1 1 0 01-1-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 01-1 1h-2" />
+                        </svg>
+                      </div>
+                      <div>
+                        <p className="text-sm font-semibold text-gray-900">Habitación {ticket.hk_room.number}</p>
+                        <p className="text-xs text-gray-500">Piso {ticket.hk_room.floor}</p>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Sede */}
                 {ticket.locations && (
                   <div>

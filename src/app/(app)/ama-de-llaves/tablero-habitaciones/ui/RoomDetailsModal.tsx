@@ -4,6 +4,14 @@ import { useState, useMemo } from 'react';
 
 type RoomStatus = 'disponible' | 'ocupada' | 'sucia' | 'limpieza' | 'mantenimiento' | 'inspeccion' | 'bloqueada';
 
+interface RoomIncidentInfo {
+  ticketNumber: string;
+  title: string;
+  source: 'it' | 'maintenance';
+  status: string;
+  priority: string;
+}
+
 interface Room {
   id: string;
   number: string;
@@ -11,6 +19,7 @@ interface Room {
   status: RoomStatus;
   roomType: string;
   hasIncident: boolean;
+  incidents: RoomIncidentInfo[];
   notes: string | null;
   lastCleaning: string | null;
 }
@@ -272,10 +281,35 @@ export default function RoomDetailsModal({
                   </span>
                   {selectedRoom.hasIncident && (
                     <span className="px-2 py-1 text-xs font-bold rounded bg-red-600 text-white">
-                      🚨 Incidencia
+                      🚨 {selectedRoom.incidents?.length || 1} Incidencia{(selectedRoom.incidents?.length || 1) > 1 ? 's' : ''}
                     </span>
                   )}
                 </div>
+
+                {/* Incident details */}
+                {selectedRoom.incidents?.length > 0 && (
+                  <div className="mb-3 space-y-2">
+                    {selectedRoom.incidents.map((inc, i) => (
+                      <div key={i} className="flex items-start gap-3 bg-red-50 border border-red-200 rounded-lg p-3">
+                        <div className="flex-shrink-0 mt-0.5">
+                          <span className={`inline-block px-1.5 py-0.5 rounded text-[10px] font-bold ${
+                            inc.source === 'it' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'
+                          }`}>
+                            {inc.source === 'it' ? 'IT' : 'MANT'}
+                          </span>
+                        </div>
+                        <div className="flex-1 min-w-0">
+                          <p className="text-sm font-bold text-red-900">{inc.ticketNumber}</p>
+                          <p className="text-xs text-red-700 truncate">{inc.title}</p>
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-[10px] text-red-500 font-medium">Estado: {inc.status}</span>
+                            <span className="text-[10px] text-red-500 font-medium">Prioridad: {inc.priority}</span>
+                          </div>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                )}
 
                 <div className="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm">
                   <div>

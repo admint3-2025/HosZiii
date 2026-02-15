@@ -59,6 +59,29 @@ export async function GET(request: NextRequest) {
   if (staffRes.error) return new Response(`staff: ${staffRes.error.message}`, { status: 500 })
   if (inventoryRes.error) return new Response(`inventory: ${inventoryRes.error.message}`, { status: 500 })
 
+  // Fetch open incidents for rooms with has_incident
+  const roomIdsWithIncident = (roomsRes.data ?? []).filter((r: any) => r.has_incident).map((r: any) => r.id)
+  let incidentsByRoom: Record<string, { ticketNumber: string; title: string; source: string; status: string; priority: string }[]> = {}
+
+  if (roomIdsWithIncident.length > 0) {
+    const { data: incidents } = await admin
+      .from('hk_room_incidents')
+      .select('room_id, ticket_number, title, source, status, priority')
+      .in('room_id', roomIdsWithIncident)
+
+    ;(incidents ?? []).forEach((inc: any) => {
+      if (['RESOLVED', 'CLOSED'].includes((inc.status || '').toUpperCase())) return
+      if (!incidentsByRoom[inc.room_id]) incidentsByRoom[inc.room_id] = []
+      incidentsByRoom[inc.room_id].push({
+        ticketNumber: inc.ticket_number,
+        title: inc.title,
+        source: inc.source,
+        status: inc.status,
+        priority: inc.priority,
+      })
+    })
+  }
+
   // Build staff metrics from today's assignments
   const staffMetrics: Record<string, { assigned: number; cleaned: number; totalMinutes: number; count: number }> = {}
   ;(assignmentsRes.data ?? []).forEach((a: any) => {
@@ -82,6 +105,7 @@ export async function GET(request: NextRequest) {
     assignedTo: r.assigned_to, // profile_id — resolved below
     lastCleaned: r.last_cleaned_at,
     hasIncident: r.has_incident,
+    incidents: incidentsByRoom[r.id] || [],
     notes: r.notes,
     type: r.room_type,
   }))

@@ -73,11 +73,23 @@ export default async function MaintenanceTicketDetailPage({
     }
   }
 
+  // Obtener habitación vinculada si existe hk_room_id
+  let ticketRoom: { id: string; number: string; floor: number } | null = null
+  if (ticket.hk_room_id) {
+    const { data: room } = await adminClient
+      .from('hk_rooms')
+      .select('id, number, floor')
+      .eq('id', ticket.hk_room_id)
+      .single()
+    ticketRoom = room
+  }
+
   // Agregar las relaciones al ticket
   const ticketWithRelations = {
     ...ticket,
     locations: ticketLocation,
     asset: ticketAsset,
+    hk_room: ticketRoom,
   }
 
   // Obtener información de usuarios relacionados

@@ -49,6 +49,30 @@ export async function GET() {
 
   if (roomsErr) return Response.json({ error: roomsErr.message }, { status: 500 })
 
+  // 2b. Fetch open incidents (from hk_room_incidents view) for rooms with has_incident
+  const roomIdsWithIncident = (allRooms ?? []).filter((r: any) => r.has_incident).map((r: any) => r.id)
+  let incidentsByRoom: Record<string, { ticketNumber: string; title: string; source: string; status: string; priority: string }[]> = {}
+
+  if (roomIdsWithIncident.length > 0) {
+    const { data: incidents } = await admin
+      .from('hk_room_incidents')
+      .select('room_id, ticket_number, title, source, status, priority')
+      .in('room_id', roomIdsWithIncident)
+
+    ;(incidents ?? []).forEach((inc: any) => {
+      // Only include open incidents
+      if (['RESOLVED', 'CLOSED'].includes((inc.status || '').toUpperCase())) return
+      if (!incidentsByRoom[inc.room_id]) incidentsByRoom[inc.room_id] = []
+      incidentsByRoom[inc.room_id].push({
+        ticketNumber: inc.ticket_number,
+        title: inc.title,
+        source: inc.source,
+        status: inc.status,
+        priority: inc.priority,
+      })
+    })
+  }
+
   // 3. Group rooms by location_id
   const roomsByLocation: Record<string, any[]> = {}
   ;(allRooms ?? []).forEach((r: any) => {
@@ -96,6 +120,7 @@ export async function GET() {
         status: displayStatus,
         roomType: r.room_type,
         hasIncident: r.has_incident,
+        incidents: incidentsByRoom[r.id] || [],
         notes: r.notes,
         lastCleaning: r.last_cleaned_at,
       }

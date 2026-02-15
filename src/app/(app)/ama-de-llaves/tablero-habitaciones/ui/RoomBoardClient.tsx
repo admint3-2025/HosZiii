@@ -6,6 +6,14 @@ import RoomDetailsModal from './RoomDetailsModal';
 // ──── Types ────
 type RoomStatus = 'disponible' | 'ocupada' | 'sucia' | 'limpieza' | 'mantenimiento' | 'inspeccion' | 'bloqueada';
 
+interface RoomIncidentInfo {
+  ticketNumber: string;
+  title: string;
+  source: 'it' | 'maintenance';
+  status: string;
+  priority: string;
+}
+
 interface Room {
   id: string;
   number: string;
@@ -13,6 +21,7 @@ interface Room {
   status: RoomStatus;
   roomType: string;
   hasIncident: boolean;
+  incidents: RoomIncidentInfo[];
   notes: string | null;
   lastCleaning: string | null;
 }
@@ -215,17 +224,46 @@ export default function RoomBoardClient() {
           ))}
         </div>
 
-        {/* Incidencias alert */}
-        {globalStats.incidencias > 0 && (
-          <div className="card border-red-200 bg-red-50/50">
-            <div className="card-body p-3 flex items-center gap-2">
-              <span className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
-              <span className="text-sm font-semibold text-red-700">
-                {globalStats.incidencias} incidencia{globalStats.incidencias !== 1 ? 's' : ''} activa{globalStats.incidencias !== 1 ? 's' : ''} en total
-              </span>
+        {/* Incidencias alert with details */}
+        {globalStats.incidencias > 0 && (() => {
+          // Collect all incidents across properties
+          const allIncidents = properties.flatMap(p =>
+            p.rooms.filter(r => r.incidents?.length > 0).flatMap(r =>
+              r.incidents.map(inc => ({ ...inc, roomNumber: r.number, propertyName: p.name }))
+            )
+          )
+          return (
+            <div className="card border-red-200 bg-red-50/50">
+              <div className="card-body p-3">
+                <div className="flex items-center gap-2 mb-2">
+                  <span className="w-3 h-3 bg-red-500 rounded-full animate-pulse" />
+                  <span className="text-sm font-semibold text-red-700">
+                    {globalStats.incidencias} incidencia{globalStats.incidencias !== 1 ? 's' : ''} activa{globalStats.incidencias !== 1 ? 's' : ''} en total
+                  </span>
+                </div>
+                {allIncidents.length > 0 && (
+                  <div className="space-y-1 ml-5">
+                    {allIncidents.slice(0, 5).map((inc, i) => (
+                      <div key={i} className="flex items-center gap-2 text-xs">
+                        <span className={`px-1 py-0.5 rounded text-[9px] font-bold ${
+                          inc.source === 'it' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'
+                        }`}>
+                          {inc.source === 'it' ? 'IT' : 'MANT'}
+                        </span>
+                        <span className="font-semibold text-red-800">{inc.ticketNumber}</span>
+                        <span className="text-red-600 truncate">{inc.title}</span>
+                        <span className="text-red-400 flex-shrink-0">— Hab. {inc.roomNumber} ({inc.propertyName})</span>
+                      </div>
+                    ))}
+                    {allIncidents.length > 5 && (
+                      <p className="text-[10px] text-red-500">y {allIncidents.length - 5} más…</p>
+                    )}
+                  </div>
+                )}
+              </div>
             </div>
-          </div>
-        )}
+          )
+        })()}
 
         {/* Properties without rooms warning */}
         {properties.some(p => !p.hasRooms) && (
@@ -323,6 +361,36 @@ export default function RoomBoardClient() {
                     ) : (
                       <p className="text-[10px] text-amber-600 font-medium italic">Sin habitaciones cargadas</p>
                     )}
+
+                    {/* Incident summary in card */}
+                    {property.stats.incidencias > 0 && (() => {
+                      const cardIncidents = property.rooms
+                        .filter(r => r.incidents?.length > 0)
+                        .flatMap(r => r.incidents.map(inc => ({ ...inc, roomNumber: r.number })))
+                      return (
+                        <div className="mt-2 pt-2 border-t border-red-100">
+                          <div className="flex items-center gap-1 mb-1">
+                            <span className="w-2 h-2 bg-red-500 rounded-full animate-pulse" />
+                            <span className="text-[10px] font-bold text-red-700">
+                              {property.stats.incidencias} incidencia{property.stats.incidencias !== 1 ? 's' : ''}
+                            </span>
+                          </div>
+                          {cardIncidents.slice(0, 2).map((inc, i) => (
+                            <p key={i} className="text-[9px] text-red-600 truncate">
+                              <span className={`inline-block px-0.5 rounded mr-0.5 font-bold ${
+                                inc.source === 'it' ? 'bg-blue-50 text-blue-600' : 'bg-orange-50 text-orange-600'
+                              }`}>
+                                {inc.source === 'it' ? 'IT' : 'M'}
+                              </span>
+                              Hab. {inc.roomNumber}: {inc.title}
+                            </p>
+                          ))}
+                          {cardIncidents.length > 2 && (
+                            <p className="text-[8px] text-red-400">+{cardIncidents.length - 2} más</p>
+                          )}
+                        </div>
+                      )
+                    })()}
                   </div>
                 </button>
               );

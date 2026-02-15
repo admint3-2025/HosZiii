@@ -301,6 +301,24 @@ export default function TicketDetail({
                     </div>
                 )}
 
+                {/* Habitación vinculada */}
+                {ticket.hk_room && (
+                  <div>
+                    <div className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Habitación</div>
+                    <div className="flex items-center gap-2 text-sm text-gray-900">
+                      <div className="flex h-6 w-6 items-center justify-center rounded-md bg-rose-50 text-rose-500">
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                          <path d="M10.707 2.293a1 1 0 00-1.414 0l-7 7a1 1 0 001.414 1.414L4 10.414V17a1 1 0 001 1h2a1 1 0 001-1v-2a1 1 0 011-1h2a1 1 0 011 1v2a1 1 0 001 1h2a1 1 0 001-1v-6.586l.293.293a1 1 0 001.414-1.414l-7-7z" />
+                        </svg>
+                      </div>
+                      <div>
+                        <div className="font-semibold">Habitación {ticket.hk_room.number}</div>
+                        <div className="text-xs text-gray-500">Piso {ticket.hk_room.floor}</div>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
                 {/* Asignado a */}
                 {ticket.assigned_agent ? (
                   <div>

@@ -156,6 +156,17 @@ export default async function TicketDetailPage({
       c.body?.includes('🔔 **Solicitud de escalamiento a Nivel 2**')
     )
 
+  // Obtener habitación vinculada si existe hk_room_id
+  let ticketRoom: { id: string; number: string; floor: number } | null = null
+  if (ticket.hk_room_id) {
+    const { data: room } = await adminClient
+      .from('hk_rooms')
+      .select('id, number, floor')
+      .eq('id', ticket.hk_room_id)
+      .single()
+    ticketRoom = room
+  }
+
   return (
     <main className="p-6 space-y-4">
       <TicketDetail
@@ -167,6 +178,7 @@ export default async function TicketDetailPage({
           closed_by_user: ticket.closed_by ? usersMap.get(ticket.closed_by) : null,
           current_user_id: user?.id,
           location: ticket.location || null,
+          hk_room: ticketRoom,
         }}
         asset={ticketAsset}
         comments={(comments ?? []).map(c => ({

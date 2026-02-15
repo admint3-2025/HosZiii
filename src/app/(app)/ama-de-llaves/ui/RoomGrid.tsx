@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useMemo } from 'react'
-import type { Room, RoomStatus } from './HousekeepingDashboard'
+import type { Room, RoomStatus, RoomIncidentInfo } from './HousekeepingDashboard'
 
 interface Props {
   rooms: Room[]
@@ -65,6 +65,7 @@ export default function RoomGrid({ rooms, onStatusChange, compact }: Props) {
   }
 
   const currentRoom = contextMenu ? rooms.find(r => r.id === contextMenu.roomId) : null
+  const [hoveredIncidentRoom, setHoveredIncidentRoom] = useState<string | null>(null)
 
   return (
     <div className="space-y-4">
@@ -124,21 +125,44 @@ export default function RoomGrid({ rooms, onStatusChange, compact }: Props) {
           <div className={`grid gap-1.5 ${compact ? 'grid-cols-10 sm:grid-cols-15 lg:grid-cols-20' : 'grid-cols-8 sm:grid-cols-10 md:grid-cols-12 lg:grid-cols-16 xl:grid-cols-20'}`}>
             {floorRooms.map(room => {
               const cfg = STATUS_CONFIG[room.status]
+              const incidentTitle = room.incidents?.length > 0
+                ? room.incidents.map(i => `[${i.source === 'it' ? 'IT' : 'Mant'}] ${i.ticketNumber}: ${i.title}`).join(' | ')
+                : ''
               return (
-                <button
-                  key={room.id}
-                  onClick={(e) => handleRoomClick(room.id, e)}
-                  className={`relative rounded-lg border ${cfg.border} ${cfg.bg} px-1 py-1.5 text-center transition-all hover:scale-105 hover:shadow-md group ${compact ? 'text-[10px]' : 'text-xs'}`}
-                  title={`${room.number} — ${cfg.label}${room.assignedTo ? ` · ${room.assignedTo}` : ''}${room.notes ? ` · ${room.notes}` : ''}`}
-                >
-                  <span className={`font-bold ${cfg.color} block leading-tight`}>{room.number}</span>
-                  {!compact && (
-                    <span className={`text-[9px] ${cfg.color} opacity-70`}>{cfg.icon}</span>
+                <div key={room.id} className="relative">
+                  <button
+                    onClick={(e) => handleRoomClick(room.id, e)}
+                    onMouseEnter={() => room.hasIncident && setHoveredIncidentRoom(room.id)}
+                    onMouseLeave={() => setHoveredIncidentRoom(null)}
+                    className={`relative w-full rounded-lg border ${cfg.border} ${cfg.bg} px-1 py-1.5 text-center transition-all hover:scale-105 hover:shadow-md group ${compact ? 'text-[10px]' : 'text-xs'}`}
+                    title={`${room.number} — ${cfg.label}${room.assignedTo ? ` · ${room.assignedTo}` : ''}${room.notes ? ` · ${room.notes}` : ''}${incidentTitle ? ` · 🚨 ${incidentTitle}` : ''}`}
+                  >
+                    <span className={`font-bold ${cfg.color} block leading-tight`}>{room.number}</span>
+                    {!compact && (
+                      <span className={`text-[9px] ${cfg.color} opacity-70`}>{cfg.icon}</span>
+                    )}
+                    {room.hasIncident && (
+                      <span className="absolute -top-1 -right-1 w-3 h-3 bg-red-500 rounded-full animate-pulse border border-white flex items-center justify-center">
+                        <span className="text-[6px] text-white font-bold">{room.incidents?.length || '!'}</span>
+                      </span>
+                    )}
+                  </button>
+                  {/* Incident tooltip popup */}
+                  {hoveredIncidentRoom === room.id && room.incidents?.length > 0 && !compact && (
+                    <div className="absolute z-30 left-1/2 -translate-x-1/2 bottom-full mb-2 w-56 bg-white rounded-lg shadow-xl border border-red-200 p-2 pointer-events-none animate-in fade-in zoom-in-95 duration-150">
+                      <p className="text-[10px] font-bold text-red-700 uppercase mb-1">🚨 Incidencias ({room.incidents.length})</p>
+                      {room.incidents.slice(0, 3).map((inc, i) => (
+                        <div key={i} className="text-[10px] text-slate-700 py-0.5 border-t border-red-50">
+                          <span className={`inline-block px-1 rounded text-[8px] font-bold mr-1 ${inc.source === 'it' ? 'bg-blue-100 text-blue-700' : 'bg-orange-100 text-orange-700'}`}>
+                            {inc.source === 'it' ? 'IT' : 'MANT'}
+                          </span>
+                          <span className="font-semibold">{inc.ticketNumber}</span>
+                          <p className="text-[9px] text-slate-500 truncate">{inc.title}</p>
+                        </div>
+                      ))}
+                    </div>
                   )}
-                  {room.hasIncident && (
-                    <span className="absolute -top-1 -right-1 w-2 h-2 bg-red-500 rounded-full animate-pulse" />
-                  )}
-                </button>
+                </div>
               )
             })}
           </div>

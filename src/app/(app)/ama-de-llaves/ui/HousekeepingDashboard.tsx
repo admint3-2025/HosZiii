@@ -13,6 +13,14 @@ import type { RoomIncident } from './IncidentsPanel'
 // ──────── Types ────────
 export type RoomStatus = 'limpia' | 'sucia' | 'en_limpieza' | 'mantenimiento' | 'inspeccion' | 'bloqueada'
 
+export interface RoomIncidentInfo {
+  ticketNumber: string
+  title: string
+  source: 'it' | 'maintenance'
+  status: string
+  priority: string
+}
+
 export interface Room {
   id: string
   number: string
@@ -21,6 +29,7 @@ export interface Room {
   assignedTo: string | null
   lastCleaned: string | null
   hasIncident: boolean
+  incidents: RoomIncidentInfo[]
   notes: string | null
   type: 'standard' | 'doble' | 'suite' | 'accesible' | 'conectada'
 }
