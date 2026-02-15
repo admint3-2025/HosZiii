@@ -3,7 +3,9 @@
  * Genera automáticamente las habitaciones para una sede hotelera
  * basándose en total_rooms y total_floors de la tabla locations.
  *
- * Body: { location_id: string, room_types?: Record<string, number> }
+ * Body: { location_id: string, force?: boolean, room_types?: Record<string, number> }
+ *
+ * Si force=true, elimina TODAS las habitaciones existentes antes de generar.
  *
  * Distribución por defecto (Microtel-style):
  *   80% standard, 10% doble, 5% suite, 5% accesible
@@ -59,19 +61,34 @@ export async function POST(request: NextRequest) {
   const startFloor = isEncore ? 2 : 1
   const endFloor = startFloor + totalFloors - 1
 
-  // Verificar si ya hay habitaciones
+  // Si force=true, eliminar todas las habitaciones existentes antes de regenerar
+  const force = body.force === true
+
   const { count: existingCount } = await admin
     .from('hk_rooms')
     .select('id', { count: 'exact', head: true })
     .eq('location_id', locationId)
 
   if ((existingCount ?? 0) > 0) {
-    return Response.json({
-      success: false,
-      message: `Ya existen ${existingCount} habitaciones. No se generaron nuevas.`,
-      created: 0,
-      existing: existingCount,
-    })
+    if (!force) {
+      return Response.json({
+        success: false,
+        message: `Ya existen ${existingCount} habitaciones. Usa force=true para regenerar desde cero.`,
+        created: 0,
+        existing: existingCount,
+      })
+    }
+
+    // Borrar todas las habitaciones de esta sede
+    const { error: delErr } = await admin
+      .from('hk_rooms')
+      .delete()
+      .eq('location_id', locationId)
+
+    if (delErr) {
+      console.error('[seed-rooms] Error borrando habitaciones:', delErr)
+      return new Response(`Error eliminando habitaciones existentes: ${delErr.message}`, { status: 500 })
+    }
   }
 
   // Distribución de tipos por defecto

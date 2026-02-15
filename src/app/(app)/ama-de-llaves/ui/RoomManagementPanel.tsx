@@ -110,6 +110,10 @@ export default function RoomManagementPanel({ rooms, locationId, onRefresh }: Pr
   const [importError, setImportError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
+  // Regenerar habitaciones
+  const [showRegenConfirm, setShowRegenConfirm] = useState(false)
+  const [regenBusy, setRegenBusy] = useState(false)
+
   // Notification
   const [toast, setToast] = useState<{ message: string; type: 'success' | 'error' } | null>(null)
   const showToast = useCallback((message: string, type: 'success' | 'error') => {
@@ -136,6 +140,29 @@ export default function RoomManagementPanel({ rooms, locationId, onRefresh }: Pr
   }, [rooms])
 
   // ─── Handlers ───
+
+  async function handleRegenerate() {
+    setRegenBusy(true)
+    try {
+      const res = await fetch('/api/housekeeping/seed-rooms', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ location_id: locationId, force: true }),
+      })
+      const json = await res.json()
+      if (!res.ok || !json.success) {
+        showToast(json.message || json.error || 'Error regenerando habitaciones', 'error')
+        return
+      }
+      showToast(json.message, 'success')
+      setShowRegenConfirm(false)
+      setTimeout(() => onRefresh(), 800)
+    } catch (e: any) {
+      showToast(e?.message || 'Error de conexión', 'error')
+    } finally {
+      setRegenBusy(false)
+    }
+  }
 
   async function handleAddRoom(e: React.FormEvent) {
     e.preventDefault()
@@ -308,6 +335,16 @@ export default function RoomManagementPanel({ rooms, locationId, onRefresh }: Pr
         </div>
 
         <div className="flex items-center gap-2">
+          <button
+            onClick={() => setShowRegenConfirm(true)}
+            className="btn gap-1.5 text-sm bg-amber-50 text-amber-700 border border-amber-200 hover:bg-amber-100"
+            title="Eliminar todas las habitaciones y regenerarlas desde cero"
+          >
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+            Regenerar
+          </button>
           <button
             onClick={() => { setShowImport(v => !v); setShowAddForm(false) }}
             className="btn btn-secondary gap-1.5 text-sm"
@@ -751,6 +788,56 @@ export default function RoomManagementPanel({ rooms, locationId, onRefresh }: Pr
                   className="btn text-sm bg-red-600 text-white hover:bg-red-700 border-red-600"
                 >
                   {deleteBusy ? 'Eliminando…' : 'Eliminar'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </>
+      )}
+
+      {/* ─── Regenerate Confirm Modal ─── */}
+      {showRegenConfirm && (
+        <>
+          <div className="fixed inset-0 bg-black/30 z-40" onClick={() => !regenBusy && setShowRegenConfirm(false)} />
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <div className="bg-white rounded-xl shadow-xl border border-slate-200 p-6 max-w-md w-full animate-in zoom-in-95 duration-200">
+              <div className="flex items-center gap-3 mb-4">
+                <div className="w-10 h-10 rounded-full bg-amber-100 flex items-center justify-center flex-shrink-0">
+                  <svg className="w-5 h-5 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                  </svg>
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-slate-900">Regenerar Habitaciones</h3>
+                  <p className="text-xs text-slate-500">
+                    Esto <span className="font-bold text-red-600">eliminará las {rooms.length} habitaciones actuales</span> y
+                    las regenerará automáticamente desde la configuración de la sede
+                    (pisos, tipo de hotel, marca).
+                  </p>
+                </div>
+              </div>
+              <div className="bg-amber-50 border border-amber-200 rounded-lg p-3 mb-4 text-xs text-amber-800">
+                <p className="font-semibold mb-1">⚠️ Se perderán:</p>
+                <ul className="list-disc list-inside space-y-0.5">
+                  <li>Notas y estados personalizados de habitaciones</li>
+                  <li>Vínculos de tickets con habitaciones</li>
+                  <li>Asignaciones de personal a habitaciones</li>
+                </ul>
+              </div>
+              <div className="flex items-center justify-end gap-2">
+                <button
+                  onClick={() => setShowRegenConfirm(false)}
+                  disabled={regenBusy}
+                  className="btn btn-secondary text-sm"
+                >
+                  Cancelar
+                </button>
+                <button
+                  onClick={handleRegenerate}
+                  disabled={regenBusy}
+                  className="btn text-sm bg-amber-600 text-white hover:bg-amber-700 border-amber-600"
+                >
+                  {regenBusy ? 'Regenerando…' : 'Sí, regenerar desde cero'}
                 </button>
               </div>
             </div>
