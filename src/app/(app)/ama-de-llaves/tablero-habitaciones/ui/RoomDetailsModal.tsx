@@ -2,16 +2,17 @@
 
 import { useState, useMemo } from 'react';
 
-type RoomStatus = 'disponible' | 'ocupada' | 'sucia' | 'limpieza' | 'mantenimiento' | 'bloqueada';
+type RoomStatus = 'disponible' | 'ocupada' | 'sucia' | 'limpieza' | 'mantenimiento' | 'inspeccion' | 'bloqueada';
 
 interface Room {
   id: string;
   number: string;
   floor: number;
   status: RoomStatus;
-  lastCleaning: Date;
+  roomType: string;
   hasIncident: boolean;
   notes: string | null;
+  lastCleaning: string | null;
 }
 
 interface PropertyStats {
@@ -20,6 +21,7 @@ interface PropertyStats {
   sucia: number;
   limpieza: number;
   mantenimiento: number;
+  inspeccion: number;
   bloqueada: number;
   incidencias: number;
 }
@@ -29,10 +31,12 @@ interface Property {
   name: string;
   brand: string;
   totalRooms: number;
-  location: string;
+  totalFloors: number;
+  location: string | null;
   code: string;
   stats: PropertyStats;
   rooms: Room[];
+  hasRooms: boolean;
 }
 
 interface RoomDetailsModalProps {
@@ -96,9 +100,9 @@ export default function RoomDetailsModal({
               </span>
               <h2 className="text-2xl font-extrabold text-slate-900">{property.name}</h2>
             </div>
-            <p className="text-sm text-slate-500">{property.location}</p>
+            <p className="text-sm text-slate-500">{property.location || 'Sin ubicación'}</p>
             <p className="text-sm text-slate-600 mt-1">
-              {property.totalRooms} habitaciones • {floors.length} pisos
+              {property.rooms.length} habitaciones{property.totalRooms > 0 && property.rooms.length !== property.totalRooms ? ` de ${property.totalRooms}` : ''} • {floors.length} pisos
             </p>
           </div>
           <button
@@ -173,6 +177,16 @@ export default function RoomDetailsModal({
               }`}
             >
               Mantenimiento ({property.stats.mantenimiento})
+            </button>
+            <button
+              onClick={() => setFilterStatus('inspeccion')}
+              className={`px-3 py-1.5 text-xs font-semibold rounded-lg transition-colors ${
+                filterStatus === 'inspeccion'
+                  ? 'bg-violet-600 text-white'
+                  : 'bg-white text-slate-600 hover:bg-slate-100'
+              }`}
+            >
+              Inspección ({property.stats.inspeccion})
             </button>
             <button
               onClick={() => setFilterStatus('incidents')}
@@ -271,7 +285,7 @@ export default function RoomDetailsModal({
                   <div>
                     <span className="text-slate-500">Última limpieza:</span>
                     <span className="ml-2 font-semibold text-slate-900">
-                      {new Date(selectedRoom.lastCleaning).toLocaleDateString('es-MX')}
+                      {selectedRoom.lastCleaning ? new Date(selectedRoom.lastCleaning).toLocaleDateString('es-MX') : 'Sin registro'}
                     </span>
                   </div>
                   {selectedRoom.notes && (
