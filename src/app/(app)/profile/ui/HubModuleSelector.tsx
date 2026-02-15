@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 
-type HubModuleId = 'it-helpdesk' | 'mantenimiento' | 'corporativo' | 'academia' | 'administracion'
+type HubModuleId = 'it-helpdesk' | 'mantenimiento' | 'corporativo' | 'academia' | 'politicas' | 'ama-de-llaves' | 'administracion'
 
 interface HubModuleSelectorProps {
   initialModules: Record<HubModuleId, boolean>
@@ -38,6 +38,18 @@ const modulesList: Array<{ id: HubModuleId; label: string; description: string; 
     label: 'ADMINISTRACIÓN', 
     description: 'Configuración, Usuarios, Auditoría y Reportes',
     icon: '⚙️'
+  },
+  { 
+    id: 'politicas', 
+    label: 'POLÍTICAS', 
+    description: 'Estándares, Normativas y Procedimientos de la Organización',
+    icon: '📋'
+  },
+  { 
+    id: 'ama-de-llaves', 
+    label: 'AMA DE LLAVES', 
+    description: 'Housekeeping: Habitaciones, Personal, Inventario y Reportes',
+    icon: '🏨'
   },
 ]
 

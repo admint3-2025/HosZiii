@@ -168,7 +168,7 @@ const modules: Module[] = [
     requiredRoles: ['admin', 'corporate_admin', 'supervisor', 'agent_l1', 'agent_l2', 'requester'],
   },
   {
-    id: 'housekeeping',
+    id: 'ama-de-llaves',
     name: 'AMA DE LLAVES',
     description: 'Housekeeping: Habitaciones, Personal, Inventario y Reportes',
     icon: (

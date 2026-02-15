@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient, getSafeServerUser } from '@/lib/supabase/server'
 
-type HubModuleId = 'it-helpdesk' | 'mantenimiento' | 'corporativo' | 'academia' | 'administracion'
+type HubModuleId = 'it-helpdesk' | 'mantenimiento' | 'corporativo' | 'academia' | 'politicas' | 'ama-de-llaves' | 'administracion'
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,18 +19,17 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Datos inválidos' }, { status: 400 })
     }
 
-    // Validar estructura de modules
-    const validModuleIds: HubModuleId[] = ['it-helpdesk', 'mantenimiento', 'corporativo', 'academia', 'administracion']
+    // Validar estructura de modules — acepta subconjuntos, default true para ausentes
+    const validModuleIds: HubModuleId[] = ['it-helpdesk', 'mantenimiento', 'corporativo', 'academia', 'politicas', 'ama-de-llaves', 'administracion']
+    const sanitized: Record<string, boolean> = {}
     for (const key of validModuleIds) {
-      if (typeof modules[key] !== 'boolean') {
-        return NextResponse.json({ error: `Valor inválido para módulo: ${key}` }, { status: 400 })
-      }
+      sanitized[key] = modules[key] === false ? false : true
     }
 
     // Actualizar en la base de datos
     const { error } = await supabase
       .from('profiles')
-      .update({ hub_visible_modules: modules })
+      .update({ hub_visible_modules: sanitized })
       .eq('id', user.id)
 
     if (error) {

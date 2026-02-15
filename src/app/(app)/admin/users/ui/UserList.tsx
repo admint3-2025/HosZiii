@@ -16,7 +16,7 @@ type Role =
   | 'corporate_admin'
   | 'admin'
 
-type HubModuleId = 'it-helpdesk' | 'mantenimiento' | 'corporativo' | 'academia' | 'politicas' | 'administracion'
+type HubModuleId = 'it-helpdesk' | 'mantenimiento' | 'corporativo' | 'academia' | 'politicas' | 'ama-de-llaves' | 'administracion'
 type HubModules = Record<HubModuleId, boolean>
 
 const DEFAULT_HUB_MODULES: HubModules = {
@@ -25,6 +25,7 @@ const DEFAULT_HUB_MODULES: HubModules = {
   corporativo: true,
   academia: true,
   politicas: true,
+  'ama-de-llaves': true,
   administracion: true,
 }
 
@@ -215,6 +216,7 @@ export default function UserList() {
         corporativo: hm['corporativo'] ?? true,
         academia: hm['academia'] ?? true,
         politicas: hm['politicas'] ?? true,
+        'ama-de-llaves': hm['ama-de-llaves'] ?? true,
         administracion: hm['administracion'] ?? true,
       })
     } else {
@@ -946,6 +948,7 @@ export default function UserList() {
                   { id: 'corporativo', label: 'CORPORATIVO' },
                   { id: 'academia', label: 'ACADEMIA' },
                   { id: 'politicas', label: 'POLÍTICAS' },
+                  { id: 'ama-de-llaves', label: 'AMA DE LLAVES' },
                   { id: 'administracion', label: 'ADMINISTRACIÓN' },
                 ] as Array<{ id: HubModuleId; label: string }>
               ).map((m) => (
