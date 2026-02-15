@@ -1,11 +1,13 @@
 'use client'
 
-import { useState, useMemo, useCallback } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import type { ReactNode } from 'react'
 import RoomGrid from './RoomGrid'
 import StaffPanel from './StaffPanel'
 import InventoryPanel from './InventoryPanel'
 import ReportsPanel from './ReportsPanel'
+import IncidentsPanel from './IncidentsPanel'
+import type { RoomIncident } from './IncidentsPanel'
 
 // ──────── Types ────────
 export type RoomStatus = 'limpia' | 'sucia' | 'en_limpieza' | 'mantenimiento' | 'inspeccion' | 'bloqueada'
@@ -41,14 +43,16 @@ export interface InventoryItem {
   unit: string
 }
 
-type Tab = 'dashboard' | 'habitaciones' | 'personal' | 'inventario' | 'reportes'
-
-interface Props {
-  rooms: Room[]
-  staff: Staff[]
-  inventory: InventoryItem[]
-  userName: string
+interface HotelLocation {
+  id: string
+  name: string
+  code: string
+  total_rooms: number | null
+  total_floors: number | null
+  brand: string | null
 }
+
+type Tab = 'dashboard' | 'habitaciones' | 'incidencias' | 'personal' | 'inventario' | 'reportes'
 
 // ──────── KPI Card ────────
 function KPICard({ label, value, sub, tone }: { label: string; value: string | number; sub?: string; tone: 'emerald' | 'red' | 'amber' | 'blue' | 'slate' | 'violet' }) {
@@ -94,6 +98,8 @@ function StatusBar({ rooms }: { rooms: Room[] }) {
     { status: 'bloqueada', label: 'Bloqueadas', color: 'bg-slate-400', count: counts.bloqueada },
   ]
 
+  if (total === 0) return null
+
   return (
     <div className="card">
       <div className="card-body p-4">
@@ -124,14 +130,112 @@ function StatusBar({ rooms }: { rooms: Room[] }) {
   )
 }
 
-// ──────── Main Dashboard ────────
-export default function HousekeepingDashboard({ rooms: initialRooms, staff: initialStaff, inventory: initialInventory, userName }: Props) {
-  const [activeTab, setActiveTab] = useState<Tab>('dashboard')
-  const [rooms, setRooms] = useState<Room[]>(initialRooms)
-  const [staff, setStaff] = useState<Staff[]>(initialStaff)
-  const [inventory] = useState<InventoryItem[]>(initialInventory)
+// ──────── Empty state ────────
+function EmptyState({ locationName }: { locationName: string }) {
+  return (
+    <div className="card">
+      <div className="card-body p-8 text-center">
+        <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
+          <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M3 10h18v9M5 19v-2m14 2v-2M7 10V7a2 2 0 012-2h6a2 2 0 012 2v3" />
+          </svg>
+        </div>
+        <h3 className="text-lg font-bold text-slate-900 mb-2">Sin habitaciones registradas</h3>
+        <p className="text-sm text-slate-500 max-w-md mx-auto">
+          La propiedad <span className="font-semibold">{locationName}</span> no tiene habitaciones configuradas todavía.
+          Ejecuta la migración de Housekeeping y registra las habitaciones en la base de datos.
+        </p>
+      </div>
+    </div>
+  )
+}
 
-  // KPI counts
+// ──────── Main Dashboard ────────
+export default function HousekeepingDashboard() {
+  // ─── Location state ───
+  const [locations, setLocations] = useState<HotelLocation[]>([])
+  const [selectedLocationId, setSelectedLocationId] = useState<string | null>(null)
+  const [loadingLocations, setLoadingLocations] = useState(true)
+
+  // ─── Data state ───
+  const [rooms, setRooms] = useState<Room[]>([])
+  const [staff, setStaff] = useState<Staff[]>([])
+  const [inventory, setInventory] = useState<InventoryItem[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  // ─── Incidents state ───
+  const [incidents, setIncidents] = useState<RoomIncident[]>([])
+  const [incidentRooms, setIncidentRooms] = useState<{ id: string; number: string; floor: number; status: string; incidentCount: number }[]>([])
+  const [loadingIncidents, setLoadingIncidents] = useState(false)
+
+  // ─── UI state ───
+  const [activeTab, setActiveTab] = useState<Tab>('dashboard')
+  const [actionBusy, setActionBusy] = useState(false)
+
+  const selectedLocation = locations.find(l => l.id === selectedLocationId)
+
+  // ─── Load hotel locations ───
+  useEffect(() => {
+    async function fetchLocations() {
+      try {
+        const res = await fetch('/api/housekeeping/locations')
+        if (!res.ok) throw new Error(await res.text())
+        const json = await res.json()
+        const locs: HotelLocation[] = json.locations ?? []
+        setLocations(locs)
+
+        // Auto-select: user's location if hotel, else first
+        if (locs.length > 0) {
+          const userLoc = locs.find((l: HotelLocation) => l.id === json.userLocationId)
+          setSelectedLocationId(userLoc ? userLoc.id : locs[0].id)
+        }
+      } catch (e: any) {
+        setError(e?.message ?? 'Error cargando sedes')
+      } finally {
+        setLoadingLocations(false)
+      }
+    }
+    fetchLocations()
+  }, [])
+
+  // ─── Load HK data when location changes ───
+  const loadData = useCallback(async (locationId: string) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const res = await fetch(`/api/housekeeping?location_id=${locationId}`)
+      if (!res.ok) throw new Error(await res.text())
+      const json = await res.json()
+      setRooms(json.rooms ?? [])
+      setStaff(json.staff ?? [])
+      setInventory(json.inventory ?? [])
+    } catch (e: any) {
+      setError(e?.message ?? 'Error cargando datos')
+    } finally {
+      setLoading(false)
+    }
+
+    // Fetch incidents in parallel (non-blocking)
+    setLoadingIncidents(true)
+    fetch(`/api/housekeeping/room-incidents?location_id=${locationId}`)
+      .then(r => r.ok ? r.json() : { incidents: [], rooms: [] })
+      .then(json => {
+        setIncidents(json.incidents ?? [])
+        setIncidentRooms(json.rooms ?? [])
+      })
+      .catch(() => {
+        setIncidents([])
+        setIncidentRooms([])
+      })
+      .finally(() => setLoadingIncidents(false))
+  }, [])
+
+  useEffect(() => {
+    if (selectedLocationId) loadData(selectedLocationId)
+  }, [selectedLocationId, loadData])
+
+  // ─── KPI counts ───
   const counts = useMemo(() => {
     const c: Record<RoomStatus, number> = { limpia: 0, sucia: 0, en_limpieza: 0, mantenimiento: 0, inspeccion: 0, bloqueada: 0 }
     rooms.forEach(r => c[r.status]++)
@@ -141,8 +245,9 @@ export default function HousekeepingDashboard({ rooms: initialRooms, staff: init
   const activeStaff = staff.filter(s => s.status === 'activo').length
   const lowStockItems = inventory.filter(i => i.stock <= i.minStock).length
 
-  // ─── Room status change ───
-  const handleStatusChange = useCallback((roomId: string, newStatus: RoomStatus) => {
+  // ─── Room status change (calls API) ───
+  const handleStatusChange = useCallback(async (roomId: string, newStatus: RoomStatus) => {
+    // Optimistic update
     setRooms(prev =>
       prev.map(r =>
         r.id === roomId
@@ -150,39 +255,47 @@ export default function HousekeepingDashboard({ rooms: initialRooms, staff: init
           : r
       )
     )
-  }, [])
 
-  // ─── Smart assignment ───
-  const handleSmartAssign = useCallback(() => {
-    const dirtyRooms = rooms.filter(r => r.status === 'sucia')
-    const available = staff.filter(s => s.status === 'activo')
-    if (available.length === 0 || dirtyRooms.length === 0) return
-
-    const perPerson = Math.ceil(dirtyRooms.length / available.length)
-    const newRooms = [...rooms]
-    const newStaff = available.map(s => ({ ...s, roomsAssigned: s.roomsAssigned }))
-    let staffIdx = 0
-    let assignedCount = 0
-
-    dirtyRooms.forEach(dr => {
-      const idx = newRooms.findIndex(r => r.id === dr.id)
-      if (idx !== -1) {
-        newRooms[idx] = { ...newRooms[idx], status: 'en_limpieza', assignedTo: available[staffIdx].name.split(' ')[0] + ' ' + available[staffIdx].name.split(' ')[1]?.charAt(0) + '.' }
-        newStaff[staffIdx].roomsAssigned += 1
-        assignedCount++
-        if (assignedCount >= perPerson) {
-          staffIdx = Math.min(staffIdx + 1, available.length - 1)
-          assignedCount = 0
-        }
+    try {
+      const res = await fetch('/api/housekeeping/room-status', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ room_id: roomId, new_status: newStatus }),
+      })
+      if (!res.ok) {
+        // Revert on error
+        if (selectedLocationId) loadData(selectedLocationId)
+        console.error('Error cambiando estado:', await res.text())
       }
-    })
+    } catch {
+      if (selectedLocationId) loadData(selectedLocationId)
+    }
+  }, [selectedLocationId, loadData])
 
-    setRooms(newRooms)
-    setStaff(prev => prev.map(s => {
-      const updated = newStaff.find(ns => ns.id === s.id)
-      return updated ? { ...s, roomsAssigned: updated.roomsAssigned } : s
-    }))
-  }, [rooms, staff])
+  // ─── Smart assignment (calls API) ───
+  const handleSmartAssign = useCallback(async () => {
+    if (!selectedLocationId || actionBusy) return
+    setActionBusy(true)
+    try {
+      const res = await fetch('/api/housekeeping/smart-assign', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ location_id: selectedLocationId }),
+      })
+      if (!res.ok) throw new Error(await res.text())
+      const json = await res.json()
+      // Reload after assignment
+      await loadData(selectedLocationId)
+      if (json.count === 0) {
+        setError('No hay personal activo o habitaciones sucias para asignar')
+        setTimeout(() => setError(null), 3000)
+      }
+    } catch (e: any) {
+      setError(e?.message ?? 'Error en asignación')
+    } finally {
+      setActionBusy(false)
+    }
+  }, [selectedLocationId, actionBusy, loadData])
 
   const tabs: { key: Tab; label: string; icon: ReactNode }[] = [
     {
@@ -201,6 +314,15 @@ export default function HousekeepingDashboard({ rooms: initialRooms, staff: init
         <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18v9M5 19v-2m14 2v-2" />
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 10V7a2 2 0 012-2h6a2 2 0 012 2v3" />
+        </svg>
+      ),
+    },
+    {
+      key: 'incidencias',
+      label: `Incidencias${incidents.length > 0 ? ` (${incidents.filter(i => !['RESOLVED', 'CLOSED'].includes(i.status)).length})` : ''}`,
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
       ),
     },
@@ -233,26 +355,108 @@ export default function HousekeepingDashboard({ rooms: initialRooms, staff: init
     },
   ]
 
+  // ─── Loading state ───
+  if (loadingLocations) {
+    return (
+      <main className="p-4 md:p-6 flex items-center justify-center min-h-[60vh]">
+        <div className="text-center">
+          <div className="w-8 h-8 border-2 border-slate-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-3" />
+          <p className="text-sm text-slate-500">Cargando propiedades…</p>
+        </div>
+      </main>
+    )
+  }
+
+  if (locations.length === 0) {
+    return (
+      <main className="p-4 md:p-6">
+        <div className="card">
+          <div className="card-body p-8 text-center">
+            <div className="w-16 h-16 rounded-full bg-slate-100 flex items-center justify-center mx-auto mb-4">
+              <svg className="w-8 h-8 text-slate-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-bold text-slate-900 mb-2">Sin propiedades hoteleras</h3>
+            <p className="text-sm text-slate-500 max-w-md mx-auto">
+              No hay ubicaciones de tipo &quot;Hotel&quot; registradas. Ve a Administración → Ubicaciones para crear una sede hotelera.
+            </p>
+          </div>
+        </div>
+      </main>
+    )
+  }
+
   return (
     <main className="p-4 md:p-6 space-y-6 pb-24">
-      {/* Header */}
+      {/* Header + Location selector */}
       <div className="flex flex-col sm:flex-row sm:items-end sm:justify-between gap-3">
         <div>
           <h1 className="text-2xl font-extrabold text-slate-900">Ama de Llaves</h1>
-          <p className="text-sm text-slate-500 font-medium">Módulo operativo de Housekeeping</p>
+          <p className="text-sm text-slate-500 font-medium">
+            {selectedLocation?.brand && <span className="text-indigo-600">{selectedLocation.brand} · </span>}
+            {selectedLocation?.name}
+            {selectedLocation?.total_rooms && (
+              <span className="text-slate-400"> · {selectedLocation.total_rooms} habitaciones · {selectedLocation.total_floors ?? '?'} pisos</span>
+            )}
+          </p>
         </div>
-        {counts.sucia > 0 && (
+
+        <div className="flex items-center gap-2 flex-wrap">
+          {/* Location selector */}
+          {locations.length > 1 && (
+            <select
+              className="select text-sm"
+              value={selectedLocationId ?? ''}
+              onChange={(e) => setSelectedLocationId(e.target.value)}
+            >
+              {locations.map(loc => (
+                <option key={loc.id} value={loc.id}>
+                  🏨 {loc.name} ({loc.code}){loc.total_rooms ? ` · ${loc.total_rooms} hab.` : ''}
+                </option>
+              ))}
+            </select>
+          )}
+
+          {/* Refresh */}
           <button
-            onClick={handleSmartAssign}
-            className="btn btn-primary gap-2 self-start sm:self-auto"
+            onClick={() => selectedLocationId && loadData(selectedLocationId)}
+            disabled={loading}
+            className="btn btn-secondary gap-1.5"
+            title="Actualizar datos"
           >
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+            <svg className={`w-4 h-4 ${loading ? 'animate-spin' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
             </svg>
-            Asignar Automático ({counts.sucia} sucias)
+            {loading ? 'Cargando…' : 'Actualizar'}
           </button>
-        )}
+
+          {/* Smart assign */}
+          {counts.sucia > 0 && (
+            <button
+              onClick={handleSmartAssign}
+              disabled={actionBusy}
+              className="btn btn-primary gap-2"
+            >
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 10V3L4 14h7v7l9-11h-7z" />
+              </svg>
+              {actionBusy ? 'Asignando…' : `Asignar (${counts.sucia} sucias)`}
+            </button>
+          )}
+        </div>
       </div>
+
+      {/* Error */}
+      {error && (
+        <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700 flex items-center gap-2">
+          <svg className="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          {error}
+          <button onClick={() => setError(null)} className="ml-auto text-red-500 hover:text-red-700">✕</button>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl overflow-x-auto">
@@ -272,93 +476,129 @@ export default function HousekeepingDashboard({ rooms: initialRooms, staff: init
         ))}
       </div>
 
-      {/* ─── Dashboard Tab ─── */}
-      {activeTab === 'dashboard' && (
-        <div className="space-y-6 animate-in fade-in duration-300">
-          {/* KPIs */}
-          <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3">
-            <KPICard label="Limpias" value={counts.limpia} sub={`${((counts.limpia / rooms.length) * 100).toFixed(0)}% del total`} tone="emerald" />
-            <KPICard label="Sucias" value={counts.sucia} sub="Pendientes" tone="red" />
-            <KPICard label="En Limpieza" value={counts.en_limpieza} sub="En proceso" tone="amber" />
-            <KPICard label="Inspección" value={counts.inspeccion} sub="Esperando revisión" tone="violet" />
-            <KPICard label="Personal Activo" value={`${activeStaff}/${staff.length}`} sub="Trabajando ahora" tone="blue" />
-            <KPICard label="Stock Bajo" value={lowStockItems} sub={lowStockItems > 0 ? '¡Atención!' : 'Todo OK'} tone={lowStockItems > 0 ? 'red' : 'slate'} />
+      {/* Loading overlay */}
+      {loading && (
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="w-8 h-8 border-2 border-slate-200 border-t-indigo-600 rounded-full animate-spin mx-auto mb-3" />
+            <p className="text-sm text-slate-500">Cargando datos de {selectedLocation?.name ?? 'propiedad'}…</p>
           </div>
+        </div>
+      )}
 
-          {/* Status distribution bar */}
-          <StatusBar rooms={rooms} />
+      {/* Content */}
+      {!loading && rooms.length === 0 && (
+        <EmptyState locationName={selectedLocation?.name ?? 'esta propiedad'} />
+      )}
 
-          {/* Quick preview: Room Grid (first 2 floors) */}
-          <div className="card">
-            <div className="card-body">
-              <div className="flex items-center justify-between mb-4">
-                <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wide">Vista Rápida — Habitaciones</h2>
-                <button onClick={() => setActiveTab('habitaciones')} className="text-xs font-semibold text-indigo-600 hover:text-indigo-700">
-                  Ver todas →
-                </button>
+      {!loading && rooms.length > 0 && (
+        <>
+          {/* ─── Dashboard Tab ─── */}
+          {activeTab === 'dashboard' && (
+            <div className="space-y-6 animate-in fade-in duration-300">
+              {/* KPIs */}
+              <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3">
+                <KPICard label="Limpias" value={counts.limpia} sub={`${((counts.limpia / rooms.length) * 100).toFixed(0)}% del total`} tone="emerald" />
+                <KPICard label="Sucias" value={counts.sucia} sub="Pendientes" tone="red" />
+                <KPICard label="En Limpieza" value={counts.en_limpieza} sub="En proceso" tone="amber" />
+                <KPICard label="Inspección" value={counts.inspeccion} sub="Esperando revisión" tone="violet" />
+                <KPICard label="Personal Activo" value={`${activeStaff}/${staff.length}`} sub="Trabajando ahora" tone="blue" />
+                <KPICard label="Incidencias" value={incidents.filter(i => !['RESOLVED', 'CLOSED'].includes(i.status)).length} sub={incidents.length > 0 ? `${incidentRooms.length} hab. afectadas` : 'Sin incidencias'} tone={incidents.filter(i => !['RESOLVED', 'CLOSED'].includes(i.status)).length > 0 ? 'red' : 'slate'} />
+                <KPICard label="Stock Bajo" value={lowStockItems} sub={lowStockItems > 0 ? '¡Atención!' : 'Todo OK'} tone={lowStockItems > 0 ? 'red' : 'slate'} />
               </div>
-              <RoomGrid
-                rooms={rooms.filter(r => r.floor <= 2)}
-                onStatusChange={handleStatusChange}
-                compact
-              />
-            </div>
-          </div>
 
-          {/* Alerts */}
-          {(lowStockItems > 0 || rooms.some(r => r.hasIncident)) && (
-            <div className="card border-amber-200 bg-amber-50/50">
-              <div className="card-body p-4">
-                <h3 className="text-sm font-bold text-amber-800 mb-2 flex items-center gap-2">
-                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  Alertas Activas
-                </h3>
-                <ul className="space-y-1">
-                  {lowStockItems > 0 && (
-                    <li className="text-xs text-amber-700">
-                      • {lowStockItems} artículo{lowStockItems > 1 ? 's' : ''} de inventario por debajo del mínimo
-                    </li>
-                  )}
-                  {rooms.filter(r => r.hasIncident).length > 0 && (
-                    <li className="text-xs text-amber-700">
-                      • {rooms.filter(r => r.hasIncident).length} habitación(es) con incidencia reportada
-                    </li>
-                  )}
-                </ul>
+              {/* Status distribution bar */}
+              <StatusBar rooms={rooms} />
+
+              {/* Quick preview: Room Grid (first 2 floors) */}
+              <div className="card">
+                <div className="card-body">
+                  <div className="flex items-center justify-between mb-4">
+                    <h2 className="text-sm font-bold text-slate-900 uppercase tracking-wide">Vista Rápida — Habitaciones</h2>
+                    <button onClick={() => setActiveTab('habitaciones')} className="text-xs font-semibold text-indigo-600 hover:text-indigo-700">
+                      Ver todas →
+                    </button>
+                  </div>
+                  <RoomGrid
+                    rooms={rooms.filter(r => r.floor <= 2)}
+                    onStatusChange={handleStatusChange}
+                    compact
+                  />
+                </div>
               </div>
+
+              {/* Alerts */}
+              {(lowStockItems > 0 || rooms.some(r => r.hasIncident) || incidents.length > 0) && (
+                <div className="card border-amber-200 bg-amber-50/50">
+                  <div className="card-body p-4">
+                    <h3 className="text-sm font-bold text-amber-800 mb-2 flex items-center gap-2">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                      </svg>
+                      Alertas Activas
+                    </h3>
+                    <ul className="space-y-1">
+                      {lowStockItems > 0 && (
+                        <li className="text-xs text-amber-700">
+                          • {lowStockItems} artículo{lowStockItems > 1 ? 's' : ''} de inventario por debajo del mínimo
+                        </li>
+                      )}
+                      {incidents.filter(i => !['RESOLVED', 'CLOSED'].includes(i.status)).length > 0 && (
+                        <li className="text-xs text-amber-700">
+                          • {incidents.filter(i => !['RESOLVED', 'CLOSED'].includes(i.status)).length} incidencia(s) activa(s) en habitaciones
+                          {' '}
+                          <button onClick={() => setActiveTab('incidencias')} className="text-indigo-600 font-semibold hover:underline">
+                            Ver detalle →
+                          </button>
+                        </li>
+                      )}
+                      {rooms.filter(r => r.hasIncident).length > 0 && !incidents.length && (
+                        <li className="text-xs text-amber-700">
+                          • {rooms.filter(r => r.hasIncident).length} habitación(es) con incidencia reportada
+                        </li>
+                      )}
+                    </ul>
+                  </div>
+                </div>
+              )}
             </div>
           )}
-        </div>
-      )}
 
-      {/* ─── Habitaciones Tab ─── */}
-      {activeTab === 'habitaciones' && (
-        <div className="animate-in fade-in duration-300">
-          <RoomGrid rooms={rooms} onStatusChange={handleStatusChange} />
-        </div>
-      )}
+          {/* ─── Habitaciones Tab ─── */}
+          {activeTab === 'habitaciones' && (
+            <div className="animate-in fade-in duration-300">
+              <RoomGrid rooms={rooms} onStatusChange={handleStatusChange} />
+            </div>
+          )}
 
-      {/* ─── Personal Tab ─── */}
-      {activeTab === 'personal' && (
-        <div className="animate-in fade-in duration-300">
-          <StaffPanel staff={staff} rooms={rooms} onSmartAssign={handleSmartAssign} dirtyCount={counts.sucia} />
-        </div>
-      )}
+          {/* ─── Incidencias Tab ─── */}
+          {activeTab === 'incidencias' && (
+            <div className="animate-in fade-in duration-300">
+              <IncidentsPanel incidents={incidents} rooms={incidentRooms} loading={loadingIncidents} />
+            </div>
+          )}
 
-      {/* ─── Inventario Tab ─── */}
-      {activeTab === 'inventario' && (
-        <div className="animate-in fade-in duration-300">
-          <InventoryPanel items={inventory} />
-        </div>
-      )}
+          {/* ─── Personal Tab ─── */}
+          {activeTab === 'personal' && (
+            <div className="animate-in fade-in duration-300">
+              <StaffPanel staff={staff} rooms={rooms} onSmartAssign={handleSmartAssign} dirtyCount={counts.sucia} />
+            </div>
+          )}
 
-      {/* ─── Reportes Tab ─── */}
-      {activeTab === 'reportes' && (
-        <div className="animate-in fade-in duration-300">
-          <ReportsPanel staff={staff} rooms={rooms} />
-        </div>
+          {/* ─── Inventario Tab ─── */}
+          {activeTab === 'inventario' && (
+            <div className="animate-in fade-in duration-300">
+              <InventoryPanel items={inventory} />
+            </div>
+          )}
+
+          {/* ─── Reportes Tab ─── */}
+          {activeTab === 'reportes' && (
+            <div className="animate-in fade-in duration-300">
+              <ReportsPanel staff={staff} rooms={rooms} />
+            </div>
+          )}
+        </>
       )}
     </main>
   )

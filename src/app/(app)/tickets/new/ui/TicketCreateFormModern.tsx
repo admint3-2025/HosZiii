@@ -109,6 +109,11 @@ export default function TicketCreateFormModern({
   const [locations, setLocations] = useState<{ id: string; name: string; code: string }[]>([])
   const [loadingLocations, setLoadingLocations] = useState(false)
 
+  // ── Habitación (integración HK) ──
+  const [hkRoomId, setHkRoomId] = useState('')
+  const [hkRooms, setHkRooms] = useState<{ id: string; number: string; floor: number; roomType: string; status: string }[]>([])
+  const [loadingHkRooms, setLoadingHkRooms] = useState(false)
+
   const [showCategoryModal, setShowCategoryModal] = useState(false)
   const [categoryModalLevel, setCategoryModalLevel] = useState<1 | 2 | 3>(1)
   const [newCategoryName, setNewCategoryName] = useState('')
@@ -230,6 +235,35 @@ export default function TicketCreateFormModern({
 
     loadUserAndRequesters()
   }, [area, supabase])
+
+  // ── Cargar habitaciones cuando cambia la sede (integración HK) ──
+  useEffect(() => {
+    if (!selectedLocationId) {
+      setHkRooms([])
+      setHkRoomId('')
+      return
+    }
+
+    let cancelled = false
+    setLoadingHkRooms(true)
+
+    fetch(`/api/housekeeping/rooms-for-ticket?location_id=${selectedLocationId}`)
+      .then(r => r.json())
+      .then(data => {
+        if (!cancelled) {
+          setHkRooms(data.rooms ?? [])
+          setHkRoomId('')
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setHkRooms([])
+      })
+      .finally(() => {
+        if (!cancelled) setLoadingHkRooms(false)
+      })
+
+    return () => { cancelled = true }
+  }, [selectedLocationId])
 
   useEffect(() => {
     async function loadAssets() {
@@ -439,6 +473,7 @@ export default function TicketCreateFormModern({
         requester_id: canCreateForOthers && requesterId ? requesterId : undefined,
         location_id: isAdmin && selectedLocationId ? selectedLocationId : undefined,
         asset_id: assetId || null,
+        hk_room_id: hkRoomId || null,
         remote_connection_type: area === 'it' ? remoteConnectionType || null : null,
         remote_connection_id: area === 'it' ? remoteConnectionId || null : null,
         remote_connection_password: area === 'it' ? remoteConnectionPassword || null : null,
@@ -861,6 +896,31 @@ export default function TicketCreateFormModern({
                           <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
                         </div>
                       </div>
+
+                      {hkRooms.length > 0 && (
+                        <div className="space-y-2">
+                          <label className="text-xs font-bold text-slate-500 uppercase tracking-wide">
+                            Habitación afectada (opcional)
+                          </label>
+                          <div className="relative">
+                            <select
+                              className="w-full px-4 py-3 bg-white border border-slate-200 rounded-lg text-sm transition-all outline-none appearance-none cursor-pointer font-medium text-slate-700 shadow-sm"
+                              value={hkRoomId}
+                              onChange={(e) => setHkRoomId(e.target.value)}
+                              disabled={loadingHkRooms}
+                            >
+                              <option value="">Ninguna</option>
+                              {hkRooms.map((room) => (
+                                <option key={room.id} value={room.id}>
+                                  Hab. {room.number} — Piso {room.floor}
+                                </option>
+                              ))}
+                            </select>
+                            <ChevronDown className="absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none" size={16} />
+                          </div>
+                          {loadingHkRooms && <p className="text-xs text-slate-500">Cargando habitaciones...</p>}
+                        </div>
+                      )}
 
                       {area === 'it' && (
                         <div className="space-y-2">

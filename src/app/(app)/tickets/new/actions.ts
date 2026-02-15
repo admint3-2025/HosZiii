@@ -18,6 +18,7 @@ type CreateTicketInput = {
   requester_id?: string
   location_id?: string
   asset_id?: string | null
+  hk_room_id?: string | null
   remote_connection_type?: string | null
   remote_connection_id?: string | null
   remote_connection_password?: string | null
@@ -138,6 +139,11 @@ export async function createTicket(input: CreateTicketInput) {
     ticketData.asset_id = input.asset_id
   } else {
     console.log('[Ticket Create] ⚠️ NO se recibió asset_id en input')
+  }
+
+  // If hk_room_id is provided (room incident), link the ticket to a HK room
+  if (input.hk_room_id) {
+    ticketData.hk_room_id = input.hk_room_id
   }
 
   // If remote connection info is provided, save it
