@@ -97,9 +97,6 @@ export default function LocationList() {
           name: editName.trim(),
           code: editCode.trim().toUpperCase(),
           business_type: editBusinessType,
-          total_rooms: editTotalRooms ? parseInt(editTotalRooms, 10) : null,
-          total_floors: editTotalFloors ? parseInt(editTotalFloors, 10) : null,
-          brand: editBrand.trim() || null,
           city: editCity.trim(),
           state: editState.trim(),
           country: editCountry.trim(),
@@ -107,6 +104,12 @@ export default function LocationList() {
           phone: editPhone.trim(),
           email: editEmail.trim(),
           manager_name: editManager.trim(),
+          // Campos hoteleros opcionales (solo si la migración fue aplicada)
+          ...(editBusinessType === 'hotel' ? {
+            total_rooms: editTotalRooms ? parseInt(editTotalRooms, 10) : null,
+            total_floors: editTotalFloors ? parseInt(editTotalFloors, 10) : null,
+            brand: editBrand.trim() || null,
+          } : {}),
         }),
       })
       const text = await res.text()

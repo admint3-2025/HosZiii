@@ -49,9 +49,6 @@ export default function LocationCreateForm() {
           name: name.trim(),
           code: code.trim().toUpperCase(),
           business_type: businessType,
-          total_rooms: totalRooms ? parseInt(totalRooms, 10) : null,
-          total_floors: totalFloors ? parseInt(totalFloors, 10) : null,
-          brand: brand.trim() || null,
           city: city.trim(),
           state: state.trim(),
           country: country.trim(),
@@ -59,6 +56,10 @@ export default function LocationCreateForm() {
           phone: phone.trim(),
           email: email.trim(),
           manager_name: managerName.trim(),
+          // Campos hoteleros opcionales (solo si la migración fue aplicada)
+          ...(businessType === 'hotel' && totalRooms ? { total_rooms: parseInt(totalRooms, 10) } : {}),
+          ...(businessType === 'hotel' && totalFloors ? { total_floors: parseInt(totalFloors, 10) } : {}),
+          ...(businessType === 'hotel' && brand.trim() ? { brand: brand.trim() } : {}),
         }),
       })
 

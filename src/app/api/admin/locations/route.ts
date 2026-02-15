@@ -16,7 +16,7 @@ export async function GET() {
 
   const { data: locations, error } = await admin
     .from('locations')
-    .select('id,name,code,business_type,total_rooms,total_floors,brand,city,state,country,address,phone,email,manager_name,is_active,created_at')
+    .select('*')
     .order('name')
 
   if (error) return new Response(error.message, { status: 500 })
@@ -63,15 +63,10 @@ export async function POST(request: Request) {
 
   const admin = createSupabaseAdminClient()
 
-  const { data: created, error } = await admin
-    .from('locations')
-    .insert({
+  const insertData: Record<string, any> = {
       name,
       code,
       business_type: businessType,
-      total_rooms: totalRooms,
-      total_floors: totalFloors,
-      brand: brand || null,
       city: city || null,
       state: state || null,
       country: country || null,
@@ -80,7 +75,16 @@ export async function POST(request: Request) {
       email: email || null,
       manager_name: managerName || null,
       is_active: true,
-    })
+    }
+
+    // Campos opcionales (requieren migración 20260214100000)
+    if (totalRooms !== null) insertData.total_rooms = totalRooms
+    if (totalFloors !== null) insertData.total_floors = totalFloors
+    if (brand) insertData.brand = brand
+
+  const { data: created, error } = await admin
+    .from('locations')
+    .insert(insertData)
     .select('id,name,code')
     .single()
 
