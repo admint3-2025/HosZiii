@@ -3,6 +3,7 @@ import { getReportsLocationFilter } from '@/lib/supabase/reports-filter'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import PageHeader, { SectionTitle, StatCard } from '@/components/ui/PageHeader'
+import { getModuleAccess } from '@/lib/permissions'
 
 export default async function HelpdeskReportsPage() {
   const supabase = await createSupabaseServerClient()
@@ -13,25 +14,19 @@ export default async function HelpdeskReportsPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role,asset_category,hub_visible_modules,is_it_supervisor')
+    .select('role,hub_visible_modules')
     .eq('id', user.id)
     .single()
 
   // Validar acceso a módulo IT
-  // corporate_admin SOLO si tiene hub_visible_modules['it-helpdesk'] = true
-  const hubModules = profile?.hub_visible_modules as Record<string, boolean> | null
-  const isCorporateAdmin = profile?.role === 'corporate_admin'
-  const canAccessIT = profile?.role === 'admin' || 
-    (isCorporateAdmin && hubModules?.['it-helpdesk'] === true && profile?.is_it_supervisor === true) ||
-    (!isCorporateAdmin && (profile?.asset_category === 'IT' || profile?.asset_category === null))
+  const itAccess = getModuleAccess(profile, 'it-helpdesk')
+  const canAccessIT = profile?.role === 'admin' || itAccess !== false
   if (!canAccessIT) {
     redirect('/reports')
   }
 
-  // corporate_admin solo si tiene permiso IT
-  const isAdminOrSupervisor = profile?.role === 'admin' || 
-    (isCorporateAdmin && hubModules?.['it-helpdesk'] === true && profile?.is_it_supervisor === true) || 
-    profile?.role === 'supervisor'
+  // Determinar si es admin o supervisor
+  const isAdminOrSupervisor = profile?.role === 'admin' || itAccess === 'supervisor'
 
   // Obtener filtro de ubicaciones para reportes
   const locationFilter = await getReportsLocationFilter()

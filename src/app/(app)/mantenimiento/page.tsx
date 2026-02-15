@@ -1,6 +1,6 @@
 import Link from 'next/link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { isMaintenanceAssetCategory } from '@/lib/permissions/asset-category'
+import { getModuleAccess } from '@/lib/permissions'
 import MaintenanceBanner from './ui/MaintenanceBanner'
 
 export default async function MaintenanceHubPage() {
@@ -9,12 +9,13 @@ export default async function MaintenanceHubPage() {
   const { data: { user } } = await supabase.auth.getUser()
   const { data: profile } = user ? await supabase
     .from('profiles')
-    .select('role,asset_category')
+    .select('role, hub_visible_modules')
     .eq('id', user.id)
     .single() : { data: null }
 
-  // Acceso: admin o usuarios con asset_category de mantenimiento. corporate_admin accede como usuario normal
-  const canAccess = profile?.role === 'admin' || profile?.role === 'corporate_admin' || isMaintenanceAssetCategory(profile?.asset_category)
+  // Acceso: admin o usuarios con acceso a módulo de mantenimiento
+  const maintenanceAccess = getModuleAccess(profile, 'mantenimiento')
+  const canAccess = profile?.role === 'admin' || maintenanceAccess !== false
 
   // Si no tiene acceso, mostrar pantalla de acceso denegado (sin redirects)
   if (!canAccess) {

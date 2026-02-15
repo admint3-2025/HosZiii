@@ -1,5 +1,6 @@
 import { createSupabaseServerClient, getSafeServerUser } from '@/lib/supabase/server'
 import { getLocationFilter } from '@/lib/supabase/locations'
+import { getModuleAccess } from '@/lib/permissions'
 import { unstable_noStore as noStore } from 'next/cache'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
@@ -27,7 +28,7 @@ export default async function DashboardPage() {
   const user = await getSafeServerUser()
   const { data: profile } = user ? await supabase
     .from('profiles')
-    .select('role,department,asset_category,hub_visible_modules,is_it_supervisor')
+    .select('role,department,asset_category,hub_visible_modules')
     .eq('id', user.id)
     .single() : { data: null }
 
@@ -35,14 +36,12 @@ export default async function DashboardPage() {
   const isAdminOrSupervisor = normalizedRole === 'admin' || normalizedRole === 'supervisor'
   const isAgent = normalizedRole === 'agent_l1' || normalizedRole === 'agent_l2'
 
-  const hubModules = (profile?.hub_visible_modules ?? null) as Record<string, boolean> | null
+  const itAccess = getModuleAccess(profile, 'it-helpdesk')
   const isITCorporateSupervisor =
-    normalizedRole === 'corporate_admin' &&
-    hubModules?.['it-helpdesk'] === true &&
-    profile?.is_it_supervisor === true
+    normalizedRole === 'corporate_admin' && itAccess === 'supervisor'
   
   // Si es usuario estándar (no admin/supervisor/agente), redirigir a sus tickets
-  // corporate_admin solo puede ver dashboard IT si tiene módulo IT + flag supervisor IT.
+  // corporate_admin solo puede ver dashboard IT si tiene acceso de supervisor a IT.
   if (!isAdminOrSupervisor && !isAgent && !isITCorporateSupervisor) {
     redirect('/tickets?view=mine')
   }

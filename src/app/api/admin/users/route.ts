@@ -83,7 +83,7 @@ export async function GET() {
     .select(`
       id, role, full_name, department, phone, building, floor, position,
       supervisor_id, location_id, asset_category, allowed_departments,
-      can_view_beo, can_manage_assets, is_it_supervisor, is_maintenance_supervisor,
+      can_view_beo, can_manage_assets,
       hub_visible_modules,
       locations(code,name)
     `)
@@ -159,8 +159,6 @@ export async function GET() {
       allowed_departments: (p?.allowed_departments as any) ?? null,
       can_view_beo: (p?.can_view_beo as any) ?? false,
       can_manage_assets: (p?.can_manage_assets as any) ?? false,
-      is_it_supervisor: (p?.is_it_supervisor as any) ?? false,
-      is_maintenance_supervisor: (p?.is_maintenance_supervisor as any) ?? false,
       hub_visible_modules: (p?.hub_visible_modules as any) ?? null,
     }
   })

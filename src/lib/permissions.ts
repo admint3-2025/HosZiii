@@ -37,7 +37,8 @@ export interface UserProfile {
  * Helper: obtiene el nivel de acceso a un módulo desde hub_visible_modules
  * Fuente única de verdad: hub_visible_modules en profiles
  */
-function getModuleAccess(profile: UserProfile, moduleId: string): 'user' | 'supervisor' | false {
+export function getModuleAccess(profile: UserProfile | null | undefined, moduleId: string): 'user' | 'supervisor' | false {
+  if (!profile) return false
   if (profile.role === 'admin') return 'supervisor'
   const v = profile.hub_visible_modules?.[moduleId]
   if (v === 'supervisor') return 'supervisor'

@@ -60,8 +60,6 @@ type UserRow = {
   asset_category: string | null
   allowed_departments: string[] | null
   hub_visible_modules?: any | null
-  is_it_supervisor?: boolean | null
-  is_maintenance_supervisor?: boolean | null
 }
 
 const ROLE_LABEL: Record<Role, string> = {

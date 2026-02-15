@@ -13,16 +13,16 @@ export async function GET() {
   // Verificar que el usuario pueda crear tickets para otros
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, location_id, is_it_supervisor, is_maintenance_supervisor')
+    .select('role, location_id, hub_visible_modules')
     .eq('id', user.id)
     .single()
 
   // Solo agentes, supervisores y admin pueden ver otros usuarios
-  // corporate_admin solo si tiene is_it_supervisor o is_maintenance_supervisor activado
+  // corporate_admin solo si tiene acceso a 'it-helpdesk' como supervisor
   const isAllowedRole = ['agent_l1', 'agent_l2', 'supervisor', 'admin'].includes(profile?.role || '')
   const isCorporateAdminWithSupervisorPermission = 
     profile?.role === 'corporate_admin' && 
-    (profile?.is_it_supervisor === true || profile?.is_maintenance_supervisor === true)
+    profile?.hub_visible_modules?.['it-helpdesk'] === 'supervisor'
   
   if (!profile || (!isAllowedRole && !isCorporateAdminWithSupervisorPermission)) {
     return new Response('Forbidden', { status: 403 })

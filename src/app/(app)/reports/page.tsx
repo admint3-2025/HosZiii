@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import PageHeader from '@/components/ui/PageHeader'
+import { getModuleAccess } from '@/lib/permissions'
 
 export default async function ReportsPage() {
   const supabase = await createSupabaseServerClient()
@@ -12,25 +13,20 @@ export default async function ReportsPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, asset_category, is_it_supervisor, is_maintenance_supervisor, hub_visible_modules')
+    .select('role, hub_visible_modules')
     .eq('id', user.id)
     .single()
 
   const isAdmin = profile?.role === 'admin'
   const isSupervisor = profile?.role === 'supervisor'
-  const isCorporateAdmin = profile?.role === 'corporate_admin'
-  const hubModules = profile?.hub_visible_modules as Record<string, boolean> | null
   
-  // corporate_admin con permisos de supervisión también tiene acceso
-  // Verificar hub_visible_modules para corporate_admin
-  const hasITPermission = isCorporateAdmin && hubModules?.['it-helpdesk'] === true
-  const hasMaintenancePermission = isCorporateAdmin && hubModules?.['mantenimiento'] === true
-  const isAdminOrSupervisor = isAdmin || isSupervisor || hasITPermission || hasMaintenancePermission
+  // Determinar acceso a módulos usando getModuleAccess
+  const itAccess = getModuleAccess(profile, 'it-helpdesk')
+  const maintenanceAccess = getModuleAccess(profile, 'mantenimiento')
   
-  // Determinar acceso a módulos
-  // corporate_admin: verificar hub_visible_modules
-  const canAccessIT = isAdmin || hasITPermission || (!isCorporateAdmin && (profile?.asset_category === 'IT' || profile?.asset_category === null))
-  const canAccessMaintenance = isAdmin || hasMaintenancePermission || (!isCorporateAdmin && profile?.asset_category === 'MAINTENANCE')
+  const isAdminOrSupervisor = isAdmin || isSupervisor || itAccess !== false || maintenanceAccess !== false
+  const canAccessIT = isAdmin || itAccess !== false
+  const canAccessMaintenance = isAdmin || maintenanceAccess !== false
 
   // Módulos de reportes disponibles
   const modules = [

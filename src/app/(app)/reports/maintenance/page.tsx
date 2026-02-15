@@ -3,6 +3,7 @@ import { getReportsLocationFilter } from '@/lib/supabase/reports-filter'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import PageHeader, { SectionTitle, StatCard } from '@/components/ui/PageHeader'
+import { getModuleAccess } from '@/lib/permissions'
 
 export default async function MaintenanceReportsPage() {
   const supabase = await createSupabaseServerClient()
@@ -13,20 +14,19 @@ export default async function MaintenanceReportsPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, asset_category, is_maintenance_supervisor')
+    .select('role, hub_visible_modules')
     .eq('id', user.id)
     .single()
 
-  // Validar acceso a reportes de Mantenimiento (gestión)
-  // Solo admin o usuarios cuya área principal sea MAINTENANCE
-  const canManageMaintenance = profile?.role === 'admin' || profile?.asset_category === 'MAINTENANCE'
+  // Validar acceso a reportes de Mantenimiento
+  const maintenanceAccess = getModuleAccess(profile, 'mantenimiento')
+  const canManageMaintenance = profile?.role === 'admin' || maintenanceAccess !== false
   if (!canManageMaintenance) {
     redirect('/reports')
   }
 
-  // corporate_admin con permisos de supervisión de mantenimiento también tiene acceso
-  const isAdminOrSupervisor = profile?.role === 'admin' || profile?.role === 'supervisor' || 
-    (profile?.role === 'corporate_admin' && profile?.is_maintenance_supervisor === true)
+  // Determinar si es admin o supervisor
+  const isAdminOrSupervisor = profile?.role === 'admin' || profile?.role === 'supervisor' || maintenanceAccess === 'supervisor'
 
   // Obtener filtro de ubicaciones para reportes
   const locationFilter = await getReportsLocationFilter()

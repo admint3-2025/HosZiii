@@ -5,7 +5,8 @@ import { getCategoryPathLabel } from '@/lib/categories/path'
 import { StatusBadge } from '@/lib/ui/badges'
 import { formatTicketCode } from '@/lib/tickets/code'
 import TicketFilters from './ui/TicketFilters'
-import { isITAssetCategoryOrUnassigned, isMaintenanceAssetCategory } from '@/lib/permissions/asset-category'
+import { getModuleAccess } from '@/lib/permissions'
+import { isMaintenanceAssetCategory, isITAssetCategoryOrUnassigned } from '@/lib/permissions/asset-category'
 
 export default async function TicketsPage({
   searchParams,
@@ -19,7 +20,7 @@ export default async function TicketsPage({
   const { data: { user } } = await supabase.auth.getUser()
   const { data: profile } = user ? await supabase
     .from('profiles')
-    .select('department, role, asset_category, is_it_supervisor, is_maintenance_supervisor, hub_visible_modules')
+    .select('department, role, asset_category, hub_visible_modules')
     .eq('id', user.id)
     .single() : { data: null }
   
@@ -28,20 +29,13 @@ export default async function TicketsPage({
   const normalizedRole = String(profile?.role ?? '').trim().toLowerCase()
   const isAdmin = normalizedRole === 'admin'
   const isCorporateAdmin = normalizedRole === 'corporate_admin'
-  const hubModules = profile?.hub_visible_modules as Record<string, boolean> | null
-  const hasITModule = hubModules?.['it-helpdesk'] === true
   
-  // Acceso de gestión IT (bandeja / dashboard / inventario) es más estricto que visibilidad de módulo.
-  // corporate_admin: requiere permiso de módulo Y flag de supervisor IT.
-  const canManageIT = isAdmin ||
-    (!isCorporateAdmin && isITAssetCategoryOrUnassigned(profile?.asset_category)) ||
-    (isCorporateAdmin && hasITModule && profile?.is_it_supervisor === true)
+  // Acceso de gestión IT
+  const itAccess = getModuleAccess(profile, 'it-helpdesk')
+  const canManageIT = isAdmin || itAccess === 'supervisor'
   
-  // Verificar si tiene permisos de supervisor para ver bandeja completa.
-  // corporate_admin: debe ser supervisor IT (no basta con ver el módulo).
-  const isITSupervisor = isAdmin ||
-    (normalizedRole === 'supervisor' && canManageIT) ||
-    (isCorporateAdmin && hasITModule && profile?.is_it_supervisor === true)
+  // Verificar si tiene permisos de supervisor para ver bandeja completa
+  const isITSupervisor = isAdmin || (itAccess === 'supervisor')
   
   // Solo admin y supervisores IT pueden ver la bandeja completa
   const canViewQueue = isITSupervisor

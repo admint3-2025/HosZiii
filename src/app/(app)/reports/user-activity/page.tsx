@@ -18,7 +18,7 @@ export default async function UserActivityReportPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, is_it_supervisor, is_maintenance_supervisor')
+    .select('role, hub_visible_modules')
     .eq('id', user.id)
     .single()
 

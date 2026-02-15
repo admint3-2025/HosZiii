@@ -4,7 +4,7 @@ import { getLocationFilter } from '@/lib/supabase/locations'
 import { StatusBadge } from '@/lib/ui/badges'
 import { formatMaintenanceTicketCode as formatTicketCode } from '@/lib/tickets/code'
 import MaintenanceTicketFilters from './ui/MaintenanceTicketFilters'
-import { isMaintenanceAssetCategory } from '@/lib/permissions/asset-category'
+import { getModuleAccess } from '@/lib/permissions'
 import MaintenanceBanner from '../ui/MaintenanceBanner'
 
 export default async function MaintenanceTicketsPage({
@@ -19,7 +19,7 @@ export default async function MaintenanceTicketsPage({
   const { data: { user } } = await supabase.auth.getUser()
   const { data: profile } = user ? await supabase
     .from('profiles')
-    .select('role, asset_category, is_maintenance_supervisor')
+    .select('role, hub_visible_modules')
     .eq('id', user.id)
     .single() : { data: null }
 
@@ -27,15 +27,11 @@ export default async function MaintenanceTicketsPage({
   const isAdmin = normalizedRole === 'admin'
 
   // Verificar si tiene permisos de supervisor de mantenimiento
-  const isMaintenanceSupervisor = isAdmin || 
-    (normalizedRole === 'supervisor' && isMaintenanceAssetCategory(profile?.asset_category)) ||
-    (normalizedRole === 'corporate_admin' && profile?.is_maintenance_supervisor === true)
+  const maintenanceAccess = getModuleAccess(profile, 'mantenimiento')
+  const isMaintenanceSupervisor = isAdmin || maintenanceAccess === 'supervisor'
 
   // Admin, supervisores de mantenimiento y técnicos (L1/L2) de mantenimiento pueden ver la bandeja
-  const canManageMaintenance = isAdmin || 
-    isMaintenanceSupervisor ||
-    ((normalizedRole === 'agent_l1' || normalizedRole === 'agent_l2') && 
-     isMaintenanceAssetCategory(profile?.asset_category))
+  const canManageMaintenance = isAdmin || maintenanceAccess !== false
   
   // Determinar vista permitida
   const canViewQueue = canManageMaintenance
