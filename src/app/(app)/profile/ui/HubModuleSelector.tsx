@@ -3,9 +3,10 @@
 import { useState } from 'react'
 
 type HubModuleId = 'it-helpdesk' | 'mantenimiento' | 'corporativo' | 'academia' | 'politicas' | 'ama-de-llaves' | 'administracion'
+type ModuleAccess = 'user' | 'supervisor'
 
 interface HubModuleSelectorProps {
-  initialModules: Record<HubModuleId, boolean>
+  initialModules: Record<HubModuleId, ModuleAccess | false>
 }
 
 const modulesList: Array<{ id: HubModuleId; label: string; description: string; icon: string }> = [
@@ -54,7 +55,7 @@ const modulesList: Array<{ id: HubModuleId; label: string; description: string; 
 ]
 
 export default function HubModuleSelector({ initialModules }: HubModuleSelectorProps) {
-  const [modules, setModules] = useState<Record<HubModuleId, boolean>>(initialModules)
+  const [modules, setModules] = useState<Record<HubModuleId, ModuleAccess | false>>(initialModules)
   const [isOpen, setIsOpen] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
   const [tempModules, setTempModules] = useState(modules)
@@ -93,8 +94,9 @@ export default function HubModuleSelector({ initialModules }: HubModuleSelectorP
     }
   }
 
-  const visibleCount = Object.values(modules).filter(Boolean).length
-  const visibleModules = modulesList.filter(m => modules[m.id])
+  const visibleCount = Object.values(modules).filter(v => v === 'user' || v === 'supervisor').length
+  const visibleModules = modulesList.filter(m => modules[m.id] === 'user' || modules[m.id] === 'supervisor')
+  const accessLabel = (v: ModuleAccess | false) => v === 'supervisor' ? 'Supervisor' : v === 'user' ? 'Usuario' : ''
 
   return (
     <>
@@ -130,6 +132,9 @@ export default function HubModuleSelector({ initialModules }: HubModuleSelectorP
               >
                 <span>{m.icon}</span>
                 {m.label}
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full ${modules[m.id] === 'supervisor' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'}`}>
+                  {accessLabel(modules[m.id])}
+                </span>
               </span>
             ))}
           </div>
@@ -142,49 +147,47 @@ export default function HubModuleSelector({ initialModules }: HubModuleSelectorP
           <div className="absolute inset-0 bg-black/40" onClick={closeModal} />
           <div className="relative w-full max-w-lg rounded-xl bg-white border border-slate-200 shadow-xl overflow-hidden">
             <div className="p-6 border-b border-slate-100 bg-gradient-to-r from-slate-50 to-white">
-              <h2 className="text-lg font-bold text-slate-900 mb-1">Configurar vista del Hub</h2>
+              <h2 className="text-lg font-bold text-slate-900 mb-1">Configurar acceso a módulos</h2>
               <p className="text-sm text-slate-600">
-                Selecciona qué módulos verás en el Hub. Puedes cambiarlos después.
+                Visualiza tu nivel de acceso por módulo. Los cambios de nivel deben ser realizados por un administrador.
               </p>
-              <div className="mt-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-xs text-blue-800">
-                  <strong>Nota:</strong> Esta configuración solo controla qué módulos <em>ves</em> en tu pantalla. 
-                  Tus permisos de acceso reales no cambian.
-                </p>
-              </div>
             </div>
 
             <div className="p-6 space-y-3 max-h-[60vh] overflow-y-auto">
               {modulesList.map((m) => (
-                <label
+                <div
                   key={m.id}
-                  className="flex items-start gap-3 p-4 rounded-lg border-2 border-slate-200 hover:border-blue-300 hover:bg-blue-50/50 transition-all cursor-pointer"
+                  className="flex items-center justify-between gap-3 p-4 rounded-lg border-2 border-slate-200"
                 >
-                  <input
-                    type="checkbox"
-                    className="w-5 h-5 mt-0.5 rounded border-slate-300 text-blue-600 focus:ring-2 focus:ring-blue-500"
-                    checked={tempModules[m.id]}
-                    onChange={(e) =>
+                  <div className="flex items-center gap-3 flex-1 min-w-0">
+                    <span className="text-xl">{m.icon}</span>
+                    <div>
+                      <span className="text-sm font-bold text-slate-900">{m.label}</span>
+                      <p className="text-xs text-slate-500">{m.description}</p>
+                    </div>
+                  </div>
+                  <select
+                    className="text-xs border border-slate-300 rounded-md px-2 py-1.5 bg-white text-slate-700 min-w-[130px]"
+                    value={tempModules[m.id] || 'none'}
+                    onChange={(e) => {
+                      const v = e.target.value as 'none' | ModuleAccess
                       setTempModules((prev) => ({
                         ...prev,
-                        [m.id]: e.target.checked,
+                        [m.id]: v === 'none' ? false : v,
                       }))
-                    }
-                  />
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-center gap-2">
-                      <span className="text-xl">{m.icon}</span>
-                      <span className="text-sm font-bold text-slate-900">{m.label}</span>
-                    </div>
-                    <p className="text-xs text-slate-600 mt-1">{m.description}</p>
-                  </div>
-                </label>
+                    }}
+                  >
+                    <option value="none">🚫 Sin acceso</option>
+                    <option value="user">👤 Usuario</option>
+                    <option value="supervisor">🛡️ Supervisor</option>
+                  </select>
+                </div>
               ))}
             </div>
 
             <div className="p-4 border-t border-slate-100 bg-white flex items-center justify-between gap-3">
               <p className="text-xs text-slate-500">
-                Rol seleccionado: {Object.values(tempModules).filter(Boolean).length} de {modulesList.length}
+                Módulos activos: {Object.values(tempModules).filter(v => v === 'user' || v === 'supervisor').length} de {modulesList.length}
               </p>
               <div className="flex gap-2">
                 <button

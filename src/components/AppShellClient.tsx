@@ -7,7 +7,6 @@ import { useEffect, useState, useMemo, useCallback } from 'react'
 import SignOutButton from './SignOutButton'
 import NotificationBell from './NotificationBell'
 import { getAvatarInitial } from '@/lib/ui/avatar'
-import { isITAssetCategoryOrUnassigned, isMaintenanceAssetCategory } from '@/lib/permissions/asset-category'
 import MobileSidebar from './MobileSidebar'
 
 // Iconos Lucide-style como SVG
@@ -233,9 +232,7 @@ interface AppShellClientProps {
     role: string | null
     canViewBeo: boolean
     assetCategory: string | null
-    hubModules: Record<string, boolean> | null
-    isITSupervisor: boolean
-    isMaintenanceSupervisor: boolean
+    hubModules: Record<string, string | boolean> | null
   }
 }
 
@@ -285,66 +282,61 @@ export default function AppShellClient({
     return null
   }, [pathname])
 
-  // Determinar si el usuario puede GESTIONAR mantenimiento / IT
-  // Nota: asset_category puede venir como 'Maintenance' (legacy/UI). Normalizamos.
-  // Para corporate_admin, usamos hub_visible_modules para determinar permisos
+  // -------------------------------------------------------------------
+  // hub_visible_modules es la ÚNICA fuente de verdad para acceso a módulos.
+  // Cada valor: 'user' | 'supervisor' | true (legacy→user) | false
+  // El rol 'admin' tiene acceso de supervisor a todo automáticamente.
+  // -------------------------------------------------------------------
   const isAdminLike = userData.role === 'admin'
-  const isCorporateAdmin = userData.role === 'corporate_admin'
-  const hasITModule = userData.hubModules?.['it-helpdesk'] === true
-  const hasMaintenanceModule = userData.hubModules?.['mantenimiento'] === true
-  
-  // corporate_admin: verificar hub_visible_modules, otros roles: verificar asset_category
-  const canManageMaintenance = isAdminLike ||
-    (!isCorporateAdmin && isMaintenanceAssetCategory(userData.assetCategory)) ||
-    (isCorporateAdmin && hasMaintenanceModule && userData.isMaintenanceSupervisor)
-  const canManageIT = isAdminLike ||
-    (!isCorporateAdmin && isITAssetCategoryOrUnassigned(userData.assetCategory)) ||
-    (isCorporateAdmin && hasITModule && userData.isITSupervisor)
-  
-  // corporate_admin con permisos de IT puede gestionar IT como supervisor
-  const canManageITAsSupervisor = canManageIT && (isAdminLike || userData.role === 'supervisor' || userData.role === 'corporate_admin')
-  // corporate_admin con permisos de Mantenimiento puede gestionar como supervisor
-  const canManageMaintenanceAsSupervisor = canManageMaintenance && (isAdminLike || userData.role === 'supervisor' || userData.role === 'corporate_admin')
 
-  const isMaintenanceSupervisor =
-    userData.role === 'supervisor' && canManageMaintenance && !canManageIT
-  
-  const isMaintenanceUser = canManageMaintenance && !canManageIT
+  /** Obtener nivel de acceso a un módulo */
+  const moduleAccess = (moduleId: string): 'user' | 'supervisor' | false => {
+    if (isAdminLike) return 'supervisor'
+    const v = userData.hubModules?.[moduleId]
+    if (v === 'supervisor') return 'supervisor'
+    if (v === 'user' || v === true) return 'user'
+    return false
+  }
 
-  // Menú de Helpdesk IT
-  // Nota: TODOS los usuarios pueden crear tickets IT (incluso supervisores de mantenimiento)
-  // Solo las opciones de GESTIÓN (dashboard, bandeja, activos) son exclusivas para IT
+  const itAccess = moduleAccess('it-helpdesk')
+  const mntAccess = moduleAccess('mantenimiento')
+  const hkAccess = moduleAccess('ama-de-llaves')
+  const corpAccess = moduleAccess('corporativo')
+  
+  // Atajos de compatibilidad con código existente
+  const canManageIT = itAccess === 'supervisor'
+  const canManageMaintenance = mntAccess === 'supervisor'
+  const canManageITAsSupervisor = canManageIT
+  const canManageMaintenanceAsSupervisor = canManageMaintenance
+
+  // Menú de Helpdesk IT — basado en hub_visible_modules
   const helpdeskItems: MenuSection['items'] = [
-    // Dashboard: solo para quienes GESTIONAN IT (incluyendo corporate_admin con permisos IT)
-    ...(canManageIT && (isAdminLike || userData.role === 'supervisor' || userData.role === 'corporate_admin' || userData.role === 'agent_l1' || userData.role === 'agent_l2')
+    // Dashboard: solo supervisores del módulo IT
+    ...(canManageIT
       ? ([{ id: 'hd_dashboard', label: 'Dashboard', icon: 'Dashboard', href: '/dashboard' }] as MenuSection['items'])
       : []),
-    // Mis Tickets y Crear Ticket: TODOS los usuarios pueden acceder
-    { id: 'hd_tickets_mine', label: 'Mis Tickets', icon: 'Ticket', href: '/tickets?view=mine' },
-    { id: 'hd_new_it', label: 'Crear Ticket', icon: 'Ticket', href: '/tickets/new?area=it' },
-    // Bandeja: admin/supervisor/corporate_admin de IT
-    ...(canManageITAsSupervisor
-      ? ([{ id: 'hd_tickets_queue', label: 'Bandeja', icon: 'BarChart', href: '/tickets?view=queue', roles: ['admin', 'supervisor', 'corporate_admin'] }] as MenuSection['items'])
+    // Mis Tickets y Crear Ticket: cualquier usuario con acceso al módulo
+    ...(itAccess
+      ? ([
+          { id: 'hd_tickets_mine', label: 'Mis Tickets', icon: 'Ticket', href: '/tickets?view=mine' },
+          { id: 'hd_new_it', label: 'Crear Ticket', icon: 'Ticket', href: '/tickets/new?area=it' },
+        ] as MenuSection['items'])
       : []),
-    // BEO: solo IT
+    // Bandeja: solo supervisores
+    ...(canManageITAsSupervisor
+      ? ([{ id: 'hd_tickets_queue', label: 'Bandeja', icon: 'BarChart', href: '/tickets?view=queue' }] as MenuSection['items'])
+      : []),
+    // BEO: supervisores con permiso BEO
     ...(canManageIT
       ? ([{ id: 'hd_beo', label: 'Eventos (BEO)', icon: 'Calendar', href: '/beo/dashboard', requireBeo: true }] as MenuSection['items'])
       : []),
-    // Activos IT: admin/supervisor/corporate_admin de IT
+    // Activos IT: solo supervisores
     ...(canManageITAsSupervisor
-      ? ([{ id: 'hd_assets', label: 'Activos IT', icon: 'Assets', href: '/assets', roles: ['admin', 'supervisor', 'corporate_admin'] }] as MenuSection['items'])
+      ? ([{ id: 'hd_assets', label: 'Activos IT', icon: 'Assets', href: '/assets' }] as MenuSection['items'])
       : []),
-    // KB solo para IT (y admin, incluyendo corporate_admin con permisos IT)
-    ...((canManageIT || isAdminLike)
-      ? ([
-          {
-            id: 'hd_knowledge',
-            label: 'Base de Conocimientos',
-            icon: 'Book',
-            href: '/admin/knowledge-base',
-            roles: ['admin', 'supervisor', 'corporate_admin', 'agent_l1', 'agent_l2'],
-          },
-        ] as MenuSection['items'])
+    // KB: supervisores IT
+    ...(canManageIT
+      ? ([{ id: 'hd_knowledge', label: 'Base de Conocimientos', icon: 'Book', href: '/admin/knowledge-base' }] as MenuSection['items'])
       : []),
   ]
 
@@ -359,25 +351,22 @@ export default function AppShellClient({
       {
         group: 'Mantenimiento',
         items: [
-          // Dashboard solo para admin/supervisor/corporate_admin de mantenimiento
-          ...(canManageMaintenance && (isAdminLike || userData.role === 'supervisor' || userData.role === 'corporate_admin' || userData.role === 'agent_l1' || userData.role === 'agent_l2')
+          // Dashboard: solo supervisores de mantenimiento
+          ...(canManageMaintenance
+            ? ([{ id: 'mnt_dashboard', label: 'Dashboard', icon: 'Dashboard', href: '/mantenimiento/dashboard' }] as MenuSection['items'])
+            : []),
+          // Mis Tickets y Crear Ticket: cualquier usuario con acceso al módulo
+          ...(mntAccess
             ? ([
-                { id: 'mnt_dashboard', label: 'Dashboard', icon: 'Dashboard', href: '/mantenimiento/dashboard' },
+                { id: 'mnt_tickets_mine', label: 'Mis Tickets', icon: 'Ticket', href: '/mantenimiento/tickets?view=mine' },
+                { id: 'mnt_new_ticket', label: 'Crear Ticket', icon: 'Wrench', href: '/mantenimiento/tickets/new' },
               ] as MenuSection['items'])
             : []),
-          // Mis Tickets y Crear Ticket: visible para TODOS (requester, admin, supervisor)
-          { 
-            id: 'mnt_tickets_mine', 
-            label: 'Mis Tickets', 
-            icon: 'Ticket', 
-            href: '/mantenimiento/tickets?view=mine'
-          },
-          { id: 'mnt_new_ticket', label: 'Crear Ticket', icon: 'Wrench', href: '/mantenimiento/tickets/new' },
-          // Bandeja y Activos: admin/supervisor/corporate_admin del área de mantenimiento
+          // Bandeja y Activos: solo supervisores
           ...(canManageMaintenanceAsSupervisor
             ? ([
-                { id: 'mnt_tickets_queue', label: 'Bandeja', icon: 'BarChart', href: '/mantenimiento/tickets?view=queue', roles: ['admin', 'supervisor', 'corporate_admin'] },
-                { id: 'mnt_assets', label: 'Activos', icon: 'Assets', href: '/mantenimiento/assets', roles: ['admin', 'supervisor', 'corporate_admin'] },
+                { id: 'mnt_tickets_queue', label: 'Bandeja', icon: 'BarChart', href: '/mantenimiento/tickets?view=queue' },
+                { id: 'mnt_assets', label: 'Activos', icon: 'Assets', href: '/mantenimiento/assets' },
               ] as MenuSection['items'])
             : []),
         ],
@@ -456,17 +445,16 @@ export default function AppShellClient({
       return topMenuByModule[moduleContext] || []
     }
     
-    // Si no hay módulo pero el usuario tiene permisos, mostrar menú por defecto
-    // Usuario de mantenimiento: mostrar menú de mantenimiento
-    if (canManageMaintenance && !canManageIT) {
+    // Si no hay módulo definido, mostrar menú basado en hub_visible_modules
+    // Prioridad: mantenimiento (si es el único), IT, o vacío
+    if (mntAccess && !itAccess) {
       return topMenuByModule['mantenimiento'] || []
     }
-    // Usuario de IT (incluyendo corporate_admin con permisos IT): mostrar menú de helpdesk
-    if (canManageIT) {
+    if (itAccess) {
       return topMenuByModule['helpdesk'] || []
     }
     return []
-  }, [moduleContext, canManageMaintenance, canManageIT])
+  }, [moduleContext, mntAccess, itAccess])
 
   const activeCollapsible = useMemo(() => {
     return moduleContext ? collapsibleByModule[moduleContext] || [] : []
@@ -583,11 +571,11 @@ export default function AppShellClient({
         : profile?.role === 'corporate_admin'
           ? 'Admin Corporativo'
       : profile?.role === 'agent_l1'
-        ? (isMaintenanceAssetCategory(userData.assetCategory) ? 'Mantenimiento - Técnico L1' : 'IT - Agente L1')
+        ? (mntAccess && !itAccess ? 'Mantenimiento - Técnico L1' : 'IT - Agente L1')
         : profile?.role === 'agent_l2'
-          ? (isMaintenanceAssetCategory(userData.assetCategory) ? 'Mantenimiento - Técnico L2' : 'IT - Agente L2')
+          ? (mntAccess && !itAccess ? 'Mantenimiento - Técnico L2' : 'IT - Agente L2')
           : profile?.role === 'supervisor'
-            ? (isMaintenanceAssetCategory(userData.assetCategory) ? 'Mantenimiento - Supervisor' : 'IT - Supervisor')
+            ? (mntAccess === 'supervisor' && !canManageIT ? 'Mantenimiento - Supervisor' : canManageIT ? 'IT - Supervisor' : 'Supervisor')
             : profile?.role
               ? 'Usuario'
               : 'Usuario'

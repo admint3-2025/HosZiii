@@ -17,16 +17,17 @@ type Role =
   | 'admin'
 
 type HubModuleId = 'it-helpdesk' | 'mantenimiento' | 'corporativo' | 'academia' | 'politicas' | 'ama-de-llaves' | 'administracion'
-type HubModules = Record<HubModuleId, boolean>
+type ModuleAccess = 'user' | 'supervisor'
+type HubModules = Record<HubModuleId, ModuleAccess | false>
 
 const DEFAULT_HUB_MODULES: HubModules = {
-  'it-helpdesk': true,
-  mantenimiento: true,
-  corporativo: true,
-  academia: true,
-  politicas: true,
-  'ama-de-llaves': true,
-  administracion: true,
+  'it-helpdesk': 'user',
+  mantenimiento: 'user',
+  corporativo: false,
+  academia: 'user',
+  politicas: 'user',
+  'ama-de-llaves': false,
+  administracion: false,
 }
 
 type Location = {
@@ -210,14 +211,19 @@ export default function UserList() {
 
     const hm = (u as any).hub_visible_modules
     if (hm && typeof hm === 'object') {
+      const normalize = (v: unknown): ModuleAccess | false => {
+        if (v === 'supervisor') return 'supervisor'
+        if (v === 'user' || v === true) return 'user'
+        return false
+      }
       setEditHubModules({
-        'it-helpdesk': hm['it-helpdesk'] ?? true,
-        mantenimiento: hm['mantenimiento'] ?? true,
-        corporativo: hm['corporativo'] ?? true,
-        academia: hm['academia'] ?? true,
-        politicas: hm['politicas'] ?? true,
-        'ama-de-llaves': hm['ama-de-llaves'] ?? true,
-        administracion: hm['administracion'] ?? true,
+        'it-helpdesk': normalize(hm['it-helpdesk']),
+        mantenimiento: normalize(hm['mantenimiento']),
+        corporativo: normalize(hm['corporativo']),
+        academia: normalize(hm['academia']),
+        politicas: normalize(hm['politicas']),
+        'ama-de-llaves': normalize(hm['ama-de-llaves']),
+        administracion: normalize(hm['administracion']),
       })
     } else {
       setEditHubModules(DEFAULT_HUB_MODULES)
@@ -936,11 +942,11 @@ export default function UserList() {
           <div className="absolute inset-0 bg-black/40" onClick={cancelHubModal} />
           <div className="relative w-full max-w-lg rounded-xl bg-white border border-slate-200 shadow-xl overflow-hidden">
             <div className="p-4 border-b border-slate-100 bg-slate-50">
-              <h2 className="text-sm font-bold text-slate-900">Configurar vista del Hub</h2>
-              <p className="text-xs text-slate-600 mt-1">Selecciona qué módulos verá en el Hub. Esto solo afecta la visualización, no los permisos.</p>
+              <h2 className="text-sm font-bold text-slate-900">Configurar acceso a módulos</h2>
+              <p className="text-xs text-slate-600 mt-1">Define el nivel de acceso por módulo. Esto determina qué módulos ve y qué puede hacer en cada uno.</p>
             </div>
 
-            <div className="p-4 space-y-2">
+            <div className="p-4 space-y-3">
               {(
                 [
                   { id: 'it-helpdesk', label: 'IT - HELPDESK' },
@@ -952,20 +958,24 @@ export default function UserList() {
                   { id: 'administracion', label: 'ADMINISTRACIÓN' },
                 ] as Array<{ id: HubModuleId; label: string }>
               ).map((m) => (
-                <label key={m.id} className="flex items-center gap-2 text-sm text-slate-800">
-                  <input
-                    type="checkbox"
-                    className="w-4 h-4 rounded border-slate-300"
-                    checked={editHubModules[m.id]}
-                    onChange={(e) =>
+                <div key={m.id} className="flex items-center justify-between gap-3">
+                  <span className="text-sm font-medium text-slate-800 min-w-[140px]">{m.label}</span>
+                  <select
+                    className="text-xs border border-slate-300 rounded-md px-2 py-1.5 bg-white text-slate-700 min-w-[130px]"
+                    value={editHubModules[m.id] || 'none'}
+                    onChange={(e) => {
+                      const v = e.target.value as 'none' | ModuleAccess
                       setEditHubModules((prev) => ({
                         ...prev,
-                        [m.id]: e.target.checked,
+                        [m.id]: v === 'none' ? false : v,
                       }))
-                    }
-                  />
-                  {m.label}
-                </label>
+                    }}
+                  >
+                    <option value="none">🚫 Sin acceso</option>
+                    <option value="user">👤 Usuario</option>
+                    <option value="supervisor">🛡️ Supervisor</option>
+                  </select>
+                </div>
               ))}
             </div>
 

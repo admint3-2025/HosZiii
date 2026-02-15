@@ -11,7 +11,8 @@ type Role =
   | 'admin'
 
 type HubModuleId = 'it-helpdesk' | 'mantenimiento' | 'corporativo' | 'academia' | 'politicas' | 'ama-de-llaves' | 'administracion'
-type HubModules = Record<HubModuleId, boolean>
+type ModuleAccess = 'user' | 'supervisor'
+type HubModules = Record<HubModuleId, ModuleAccess | false>
 
 function isMissingHubModulesColumnError(err: unknown): boolean {
   const msg = (err as any)?.message
@@ -28,9 +29,12 @@ function parseHubModules(value: unknown): HubModules | null {
   const keys: HubModuleId[] = ['it-helpdesk', 'mantenimiento', 'corporativo', 'academia', 'politicas', 'ama-de-llaves', 'administracion']
   const result: Partial<HubModules> = {}
   for (const key of keys) {
-    if (obj[key] === undefined) continue
-    if (typeof obj[key] !== 'boolean') return null
-    result[key] = obj[key] as boolean
+    const v = obj[key]
+    if (v === undefined) continue
+    if (v === 'supervisor') result[key] = 'supervisor'
+    else if (v === 'user' || v === true) result[key] = 'user'
+    else if (v === false) result[key] = false
+    else return null
   }
   // If empty object, treat as null (DB default applies)
   if (Object.keys(result).length === 0) return null

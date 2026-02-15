@@ -1,6 +1,5 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
-import { isITAssetCategoryOrUnassigned, isMaintenanceAssetCategory } from '@/lib/permissions/asset-category'
 import { getSupabaseSessionFromCookies, isSessionExpired } from '@/lib/supabase/session-cookie'
 
 export async function middleware(request: NextRequest) {
@@ -225,9 +224,9 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    // MANTENIMIENTO: Lógica de acceso diferenciada
-    // - Crear tickets: cualquier usuario autenticado puede crear
-    // - Dashboard/Gestión: solo admin o usuarios con asset_category = 'MAINTENANCE'
+    // MANTENIMIENTO: proteger rutas de gestión
+    // - Tickets: usuarios con acceso al módulo (user o supervisor)
+    // - Dashboard/Gestión: solo supervisores de mantenimiento (hub_visible_modules)
     if (pathname.startsWith('/mantenimiento')) {
       if (!userId) {
         const loginUrl = request.nextUrl.clone()
@@ -237,16 +236,16 @@ export async function middleware(request: NextRequest) {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role, asset_category')
+        .select('role, hub_visible_modules')
         .eq('id', userId)
         .single()
 
-      const canManageMaintenance = profile?.role === 'admin' || isMaintenanceAssetCategory(profile?.asset_category)
+      const hubModules = profile?.hub_visible_modules as Record<string, string | boolean> | null
+      const mntAccess = profile?.role === 'admin' ? 'supervisor' :
+        hubModules?.['mantenimiento'] === 'supervisor' ? 'supervisor' :
+        (hubModules?.['mantenimiento'] === 'user' || hubModules?.['mantenimiento'] === true) ? 'user' : false
 
-      // Rutas que CUALQUIER usuario autenticado puede acceder:
-      // - Crear ticket: /mantenimiento/tickets/new
-      // - Ver sus propios tickets: /mantenimiento/tickets (con view=mine se filtra en la página)
-      // - Ver detalle de un ticket específico: /mantenimiento/tickets/[id]
+      // Rutas que cualquier usuario con acceso al módulo puede acceder:
       const isTicketCreationRoute = pathname === '/mantenimiento/tickets/new'
       const isTicketListRoute = pathname === '/mantenimiento/tickets'
       const isTicketDetailRoute = pathname.match(/^\/mantenimiento\/tickets\/[^\/]+$/)
@@ -254,10 +253,10 @@ export async function middleware(request: NextRequest) {
       const isUserAccessibleRoute = isTicketCreationRoute || isTicketListRoute || isTicketDetailRoute
       
       if (isUserAccessibleRoute) {
-        // Permitir a cualquier usuario autenticado acceder
+        // Permitir a cualquier usuario autenticado con acceso al módulo
       } else {
-        // Rutas de GESTIÓN (dashboard, activos, reportes) - solo admin/supervisor de mantenimiento
-        if (!canManageMaintenance) {
+        // Rutas de GESTIÓN (dashboard, activos, reportes) — solo supervisores
+        if (mntAccess !== 'supervisor') {
           const redirectUrl = request.nextUrl.clone()
           redirectUrl.pathname = '/mantenimiento/tickets?view=mine'
           return NextResponse.redirect(redirectUrl)
@@ -265,9 +264,8 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    // HELP DESK IT (activos / beo): restringir a IT
-    // Nota: usuarios de mantenimiento pueden crear tickets IT, pero NO acceder a inventario IT / BEO.
-    // corporate_admin: requiere hub_visible_modules['it-helpdesk']=true Y is_it_supervisor=true
+    // HELP DESK IT (activos / beo): restringir a supervisores IT
+    // Usa hub_visible_modules como fuente de verdad
     if (pathname.startsWith('/assets') || pathname.startsWith('/beo')) {
       if (!userId) {
         const loginUrl = request.nextUrl.clone()
@@ -277,25 +275,24 @@ export async function middleware(request: NextRequest) {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role, asset_category, hub_visible_modules, is_it_supervisor')
+        .select('role, hub_visible_modules')
         .eq('id', userId)
         .single()
 
-      const isCorporateAdmin = profile?.role === 'corporate_admin'
-      const hubModules = profile?.hub_visible_modules as Record<string, boolean> | null
-      const canManageIT = profile?.role === 'admin' ||
-        (!isCorporateAdmin && isITAssetCategoryOrUnassigned(profile?.asset_category)) ||
-        (isCorporateAdmin && hubModules?.['it-helpdesk'] === true && profile?.is_it_supervisor === true)
+      const hubModules = profile?.hub_visible_modules as Record<string, string | boolean> | null
+      const itAccess = profile?.role === 'admin' ? 'supervisor' :
+        hubModules?.['it-helpdesk'] === 'supervisor' ? 'supervisor' :
+        (hubModules?.['it-helpdesk'] === 'user' || hubModules?.['it-helpdesk'] === true) ? 'user' : false
 
-      if (!canManageIT) {
+      if (itAccess !== 'supervisor') {
         const redirectUrl = request.nextUrl.clone()
-        redirectUrl.pathname = '/mantenimiento/dashboard'
+        redirectUrl.pathname = '/'
         return NextResponse.redirect(redirectUrl)
       }
     }
 
-    // DASHBOARD (IT): Solo para admin y usuarios operativos IT
-    // corporate_admin requiere hub_visible_modules['it-helpdesk']=true Y is_it_supervisor=true
+    // DASHBOARD (IT): Solo para supervisores IT
+    // Usa hub_visible_modules como fuente de verdad
     if (pathname === '/dashboard' || pathname.startsWith('/dashboard/')) {
       if (!userId) {
         const loginUrl = request.nextUrl.clone()
@@ -305,24 +302,19 @@ export async function middleware(request: NextRequest) {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role, asset_category, hub_visible_modules, is_it_supervisor')
+        .select('role, hub_visible_modules')
         .eq('id', userId)
         .single()
 
-      const isCorporateAdmin = profile?.role === 'corporate_admin'
-      const hubModules = profile?.hub_visible_modules as Record<string, boolean> | null
-      
-      // corporate_admin sin supervisor IT no puede acceder al dashboard IT
-      if (isCorporateAdmin && !(hubModules?.['it-helpdesk'] === true && profile?.is_it_supervisor === true)) {
+      const hubModules = profile?.hub_visible_modules as Record<string, string | boolean> | null
+      const itAccess = profile?.role === 'admin' ? 'supervisor' :
+        hubModules?.['it-helpdesk'] === 'supervisor' ? 'supervisor' :
+        (hubModules?.['it-helpdesk'] === 'user' || hubModules?.['it-helpdesk'] === true) ? 'user' : false
+
+      // Solo supervisores IT pueden acceder al dashboard IT
+      if (itAccess !== 'supervisor') {
         const redirectUrl = request.nextUrl.clone()
         redirectUrl.pathname = '/'
-        return NextResponse.redirect(redirectUrl)
-      }
-
-      // Si es MAINTENANCE (y no es corporate_admin con permisos), redirigir a mantenimiento
-      if (!isCorporateAdmin && isMaintenanceAssetCategory(profile?.asset_category) && profile?.role !== 'admin') {
-        const redirectUrl = request.nextUrl.clone()
-        redirectUrl.pathname = '/mantenimiento/dashboard'
         return NextResponse.redirect(redirectUrl)
       }
     }

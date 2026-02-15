@@ -10,7 +10,6 @@ import { getAvatarInitial } from '@/lib/ui/avatar'
 import { formatDistanceToNow } from 'date-fns'
 import Footer from '@/components/Footer'
 import { es } from 'date-fns/locale'
-import { isMaintenanceAssetCategory, isITAssetCategoryOrUnassigned } from '@/lib/permissions/asset-category'
 
 // Tipos de actividad y sus configuraciones
 const activityConfig: Record<string, { label: string; icon: string; color: string }> = {
@@ -77,18 +76,14 @@ const modules: Module[] = [
       </svg>
     ),
     getHref: (profile: any) => {
-      const isAdminOrSupervisor = profile?.role === 'admin' || profile?.role === 'supervisor'
-      const isAgent = profile?.role === 'agent_l1' || profile?.role === 'agent_l2'
-      const canManageIT = isITAssetCategoryOrUnassigned(profile?.asset_category)
-      
-      // Admin, supervisor IT, o agentes IT van al dashboard
-      if (isAdminOrSupervisor && (profile?.role === 'admin' || canManageIT)) {
+      const hm = profile?.hub_visible_modules as Record<string, string | boolean> | null
+      const access = hm?.['it-helpdesk']
+      const isSupervisor = access === 'supervisor' || profile?.role === 'admin'
+      // Supervisores y agentes van al dashboard
+      if (isSupervisor || profile?.role === 'agent_l1' || profile?.role === 'agent_l2') {
         return '/dashboard'
       }
-      if (isAgent && canManageIT) {
-        return '/dashboard'
-      }
-      // Usuarios normales (incluido corporate_admin) van a su bandeja de tickets
+      // Usuarios normales van a su bandeja de tickets
       return '/tickets?view=mine'
     },
     bgGradient: 'from-blue-500 via-indigo-500 to-purple-600',
@@ -106,14 +101,14 @@ const modules: Module[] = [
       </svg>
     ),
     getHref: (profile: any) => {
-      const isAdminOrSupervisor = profile?.role === 'admin' || profile?.role === 'supervisor'
-      const canManageMaintenance = isMaintenanceAssetCategory(profile?.asset_category)
-      
-      // Admin o supervisor de mantenimiento van al dashboard
-      if (isAdminOrSupervisor && (profile?.role === 'admin' || canManageMaintenance)) {
+      const hm = profile?.hub_visible_modules as Record<string, string | boolean> | null
+      const access = hm?.['mantenimiento']
+      const isSupervisor = access === 'supervisor' || profile?.role === 'admin'
+      // Supervisores van al dashboard
+      if (isSupervisor) {
         return '/mantenimiento/dashboard'
       }
-      // Usuarios normales (incluido corporate_admin) van a su bandeja de tickets
+      // Usuarios normales van a su bandeja de tickets
       return '/mantenimiento/tickets?view=mine'
     },
     bgGradient: 'from-emerald-500 via-teal-500 to-cyan-600',
@@ -232,30 +227,27 @@ export default async function HubPage() {
     .order('created_at', { ascending: false })
     .limit(5)
 
-  // Determinar módulos accesibles según el rol del usuario
-  const accessibleByRole = modules.filter(module => {
-    if (!module.requiredRoles) return true
-    if (module.checkPermission) return module.checkPermission(profile)
-    return module.requiredRoles.includes(profile.role)
-  })
+  // -------------------------------------------------------------------
+  // hub_visible_modules es la ÚNICA fuente de verdad para acceso a módulos.
+  // Cada valor puede ser 'user', 'supervisor', true (legacy→user) o false.
+  // El rol 'admin' siempre tiene acceso total a todo.
+  // -------------------------------------------------------------------
+  const hubVisibleModules = (profile as any)?.hub_visible_modules as Record<string, string | boolean> | null
+  const isAdmin = profile.role === 'admin'
 
-  // Aplicar preferencias de módulos visibles del usuario (disponible para TODOS los usuarios)
-  // Si hub_visible_modules tiene un módulo explícitamente en true, se muestra aunque
-  // el rol no lo incluya por defecto (el admin lo asignó intencionalmente).
-  const hubVisibleModules = (profile as any)?.hub_visible_modules as Record<string, boolean> | null
-  let accessibleModules: typeof modules
-  if (hubVisibleModules && typeof hubVisibleModules === 'object') {
-    // Módulos que pasan el filtro de rol Y no están desactivados en hub_visible_modules
-    const byRole = accessibleByRole.filter((m) => hubVisibleModules[m.id] !== false)
-    // Módulos explícitamente activados en hub_visible_modules que no pasaron el filtro de rol
-    const byRoleIds = new Set(byRole.map((m) => m.id))
-    const extraByAdmin = modules.filter(
-      (m) => !byRoleIds.has(m.id) && hubVisibleModules[m.id] === true
-    )
-    accessibleModules = [...byRole, ...extraByAdmin]
-  } else {
-    accessibleModules = accessibleByRole
-  }
+  const accessibleModules = modules.filter((m) => {
+    // Admin ve todo siempre
+    if (isAdmin) return true
+    // Sin configuración de módulos → solo mostrar módulos con acceso universal
+    if (!hubVisibleModules || typeof hubVisibleModules !== 'object') {
+      // Fallback legacy: mostrar módulos según requiredRoles
+      if (!m.requiredRoles) return true
+      return m.requiredRoles.includes(profile.role)
+    }
+    // hub_visible_modules es la fuente de verdad
+    const v = hubVisibleModules[m.id]
+    return v === 'user' || v === 'supervisor' || v === true
+  })
 
   // NO redirigir automáticamente si es el único módulo
   // Los usuarios deben ver el hub para navegar entre sus módulos disponibles
@@ -304,7 +296,7 @@ export default async function HubPage() {
         : profile?.role === 'agent_l2'
           ? 'AGENTE L2'
           : profile?.role === 'supervisor'
-            ? (isMaintenanceAssetCategory(profile?.asset_category) ? 'MANTENIMIENTO - SUPERVISOR' : 'IT - SUPERVISOR')
+            ? 'SUPERVISOR'
             : profile?.role === 'requester'
               ? 'USUARIO'
               : profile?.role === 'auditor'

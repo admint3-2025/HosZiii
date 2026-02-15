@@ -32,49 +32,48 @@ export interface UserProfile {
   is_it_supervisor?: boolean
   is_maintenance_supervisor?: boolean
   asset_category?: string | null
-  hub_visible_modules?: Record<string, boolean> | null
+  hub_visible_modules?: Record<string, string | boolean> | null
+}
+
+/**
+ * Helper: obtiene el nivel de acceso a un módulo desde hub_visible_modules
+ */
+function getModuleAccess(profile: UserProfile, moduleId: string): 'user' | 'supervisor' | false {
+  if (profile.role === 'admin') return 'supervisor'
+  const v = profile.hub_visible_modules?.[moduleId]
+  if (v === 'supervisor') return 'supervisor'
+  if (v === 'user' || v === true) return 'user'
+  // Legacy fallback: si no hay hub_visible_modules, usar flags antiguos
+  if (!profile.hub_visible_modules) {
+    if (moduleId === 'it-helpdesk' && profile.is_it_supervisor) return 'supervisor'
+    if (moduleId === 'mantenimiento' && profile.is_maintenance_supervisor) return 'supervisor'
+  }
+  return false
 }
 
 /**
  * Verifica si un usuario tiene permisos de supervisor para IT
- * corporate_admin: usa hub_visible_modules['it-helpdesk']
+ * Usa hub_visible_modules como fuente de verdad
  */
 export function isITSupervisor(profile: UserProfile): boolean {
-  if (profile.role === 'admin') return true
-  if (profile.role === 'supervisor' && profile.asset_category === 'IT') return true
-  // corporate_admin: verificar hub_visible_modules (preferido) o is_it_supervisor (legacy)
-  if (profile.role === 'corporate_admin') {
-    if (profile.hub_visible_modules?.['it-helpdesk'] === true) return true
-    if (profile.is_it_supervisor === true) return true
-  }
-  return false
+  return getModuleAccess(profile, 'it-helpdesk') === 'supervisor'
 }
 
 /**
  * Verifica si un usuario tiene permisos de supervisor para Mantenimiento
- * corporate_admin: usa hub_visible_modules['mantenimiento']
+ * Usa hub_visible_modules como fuente de verdad
  */
 export function isMaintenanceSupervisor(profile: UserProfile): boolean {
-  if (profile.role === 'admin') return true
-  if (profile.role === 'supervisor' && profile.asset_category === 'MAINTENANCE') return true
-  // corporate_admin: verificar hub_visible_modules (preferido) o is_maintenance_supervisor (legacy)
-  if (profile.role === 'corporate_admin') {
-    if (profile.hub_visible_modules?.['mantenimiento'] === true) return true
-    if (profile.is_maintenance_supervisor === true) return true
-  }
-  return false
+  return getModuleAccess(profile, 'mantenimiento') === 'supervisor'
 }
 
 /**
  * Verifica si un rol incluye permisos de supervisor (cualquier área)
- * Requiere el perfil completo para verificar permisos específicos de corporate_admin
  */
 export function hasSupervisorPermissions(profile: UserProfile): boolean {
   if (profile.role === 'admin' || profile.role === 'supervisor') return true
-  if (profile.role === 'corporate_admin') {
-    return profile.is_it_supervisor === true || profile.is_maintenance_supervisor === true
-  }
-  return false
+  // Verificar si tiene acceso de supervisor a algún módulo
+  return isITSupervisor(profile) || isMaintenanceSupervisor(profile)
 }
 
 /**
@@ -90,10 +89,7 @@ export function canManageTickets(role: Role): boolean {
  */
 export function canAssignTickets(profile: UserProfile): boolean {
   if (['agent_l2', 'supervisor', 'admin'].includes(profile.role)) return true
-  if (profile.role === 'corporate_admin') {
-    return profile.is_it_supervisor === true || profile.is_maintenance_supervisor === true
-  }
-  return false
+  return hasSupervisorPermissions(profile)
 }
 
 /**
@@ -101,10 +97,7 @@ export function canAssignTickets(profile: UserProfile): boolean {
  */
 export function canViewAllTickets(profile: UserProfile): boolean {
   if (['supervisor', 'admin', 'auditor'].includes(profile.role)) return true
-  if (profile.role === 'corporate_admin') {
-    return profile.is_it_supervisor === true || profile.is_maintenance_supervisor === true
-  }
-  return false
+  return hasSupervisorPermissions(profile)
 }
 
 /**
@@ -112,10 +105,7 @@ export function canViewAllTickets(profile: UserProfile): boolean {
  */
 export function canViewReports(profile: UserProfile): boolean {
   if (['supervisor', 'admin', 'auditor'].includes(profile.role)) return true
-  if (profile.role === 'corporate_admin') {
-    return profile.is_it_supervisor === true || profile.is_maintenance_supervisor === true
-  }
-  return false
+  return hasSupervisorPermissions(profile)
 }
 
 /**
@@ -130,10 +120,7 @@ export function canManageUsers(role: Role): boolean {
  */
 export function canDeleteTickets(profile: UserProfile): boolean {
   if (['admin', 'supervisor'].includes(profile.role)) return true
-  if (profile.role === 'corporate_admin') {
-    return profile.is_it_supervisor === true || profile.is_maintenance_supervisor === true
-  }
-  return false
+  return hasSupervisorPermissions(profile)
 }
 
 /**
@@ -141,10 +128,7 @@ export function canDeleteTickets(profile: UserProfile): boolean {
  */
 export function canEditTicketAssets(profile: UserProfile): boolean {
   if (['supervisor', 'admin'].includes(profile.role)) return true
-  if (profile.role === 'corporate_admin') {
-    return profile.is_it_supervisor === true || profile.is_maintenance_supervisor === true
-  }
-  return false
+  return hasSupervisorPermissions(profile)
 }
 
 /**

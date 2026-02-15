@@ -2,40 +2,38 @@
 
 import Link from "next/link"
 import { usePathname } from "next/navigation"
-import { isITAssetCategoryOrUnassigned, isMaintenanceAssetCategory } from "@/lib/permissions/asset-category"
 
 interface UserData {
   role: string | null
   canViewBeo: boolean
   assetCategory: string | null
-  hubModules: Record<string, boolean> | null
-  isITSupervisor: boolean
-  isMaintenanceSupervisor: boolean
+  hubModules: Record<string, string | boolean> | null
 }
 
 export default function MobileSidebar({ userData }: { userData: UserData }) {
   const pathname = usePathname()
   const isActive = (href: string) => pathname === href || pathname.startsWith(href + "/")
 
-  const isCorporateAdmin = userData.role === 'corporate_admin'
-  const hasITModule = userData.role === 'admin' ||
-    (isCorporateAdmin && userData.hubModules?.['it-helpdesk'] === true) ||
-    (!isCorporateAdmin && isITAssetCategoryOrUnassigned(userData.assetCategory))
+  // Nivel de acceso a módulos basado en hub_visible_modules
+  const moduleAccess = (moduleId: string): 'user' | 'supervisor' | false => {
+    if (userData.role === 'admin') return 'supervisor'
+    const v = userData.hubModules?.[moduleId]
+    if (v === 'supervisor') return 'supervisor'
+    if (v === 'user' || v === true) return 'user'
+    return false
+  }
 
-  const isMaintenanceContext = isMaintenanceAssetCategory(userData.assetCategory) && userData.role !== 'admin'
+  const itAccess = moduleAccess('it-helpdesk')
+  const mntAccess = moduleAccess('mantenimiento')
 
-  const dashboardHref = isMaintenanceContext ? '/mantenimiento/dashboard' : '/dashboard'
-
-  const canManageIT = userData.role === 'admin' ||
-    (!isCorporateAdmin && isITAssetCategoryOrUnassigned(userData.assetCategory))
+  const isMntOnly = mntAccess && !itAccess
+  const dashboardHref = isMntOnly ? '/mantenimiento/dashboard' : '/dashboard'
 
   const ticketsHref = (() => {
-    if (isMaintenanceContext) {
-      return (userData.role === 'admin' || userData.role === 'supervisor') ? '/mantenimiento/tickets?view=queue' : '/mantenimiento/tickets?view=mine'
+    if (isMntOnly) {
+      return mntAccess === 'supervisor' ? '/mantenimiento/tickets?view=queue' : '/mantenimiento/tickets?view=mine'
     }
-    // Helpdesk (IT)
-    if (hasITModule && (userData.role === 'admin' || userData.role === 'supervisor')) return '/tickets?view=queue'
-    if (hasITModule && isCorporateAdmin && userData.isITSupervisor) return '/tickets?view=queue'
+    if (itAccess === 'supervisor') return '/tickets?view=queue'
     return '/tickets?view=mine'
   })()
 
@@ -115,7 +113,7 @@ export default function MobileSidebar({ userData }: { userData: UserData }) {
               </Link>
             )}
 
-            {(canManageIT) && (
+            {(itAccess === 'supervisor') && (
               <Link
                 href="/assets"
                 className={`flex flex-col items-center gap-1 px-3 py-2 rounded-xl min-w-[56px] transition-all ${

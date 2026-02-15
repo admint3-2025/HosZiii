@@ -21,14 +21,11 @@ export default async function AppShell({ children }: { children: React.ReactNode
   const locationCodes = userLocations?.map((ul: any) => ul.locations?.code).filter(Boolean) || []
   const locationNames = userLocations?.map((ul: any) => ul.locations?.name).filter(Boolean) || []
 
-  // Datos para el sidebar móvil
   const userData = {
     role: profile?.role || null,
     canViewBeo: profile?.can_view_beo || false,
     assetCategory: profile?.asset_category || null,
     hubModules: profile?.hub_visible_modules || {},
-    isITSupervisor: profile?.is_it_supervisor === true,
-    isMaintenanceSupervisor: profile?.is_maintenance_supervisor === true,
   }
 
   return (

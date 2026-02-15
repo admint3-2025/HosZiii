@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient, getSafeServerUser } from '@/lib/supabase/server'
 
 type HubModuleId = 'it-helpdesk' | 'mantenimiento' | 'corporativo' | 'academia' | 'politicas' | 'ama-de-llaves' | 'administracion'
+type ModuleAccess = 'user' | 'supervisor'
+const ALL_MODULE_IDS: HubModuleId[] = ['it-helpdesk', 'mantenimiento', 'corporativo', 'academia', 'politicas', 'ama-de-llaves', 'administracion']
 
 export async function POST(request: NextRequest) {
   try {
@@ -19,11 +21,13 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Datos inválidos' }, { status: 400 })
     }
 
-    // Validar estructura de modules — acepta subconjuntos, default true para ausentes
-    const validModuleIds: HubModuleId[] = ['it-helpdesk', 'mantenimiento', 'corporativo', 'academia', 'politicas', 'ama-de-llaves', 'administracion']
-    const sanitized: Record<string, boolean> = {}
-    for (const key of validModuleIds) {
-      sanitized[key] = modules[key] === false ? false : true
+    // Validar estructura de modules — acepta 'user', 'supervisor' o false por módulo
+    const sanitized: Record<string, ModuleAccess | false> = {}
+    for (const key of ALL_MODULE_IDS) {
+      const v = modules[key]
+      if (v === 'supervisor') sanitized[key] = 'supervisor'
+      else if (v === 'user' || v === true) sanitized[key] = 'user'
+      else sanitized[key] = false
     }
 
     // Actualizar en la base de datos
