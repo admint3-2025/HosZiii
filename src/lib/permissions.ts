@@ -29,25 +29,19 @@ export type Permission =
 
 export interface UserProfile {
   role: Role
-  is_it_supervisor?: boolean
-  is_maintenance_supervisor?: boolean
   asset_category?: string | null
   hub_visible_modules?: Record<string, string | boolean> | null
 }
 
 /**
  * Helper: obtiene el nivel de acceso a un módulo desde hub_visible_modules
+ * Fuente única de verdad: hub_visible_modules en profiles
  */
 function getModuleAccess(profile: UserProfile, moduleId: string): 'user' | 'supervisor' | false {
   if (profile.role === 'admin') return 'supervisor'
   const v = profile.hub_visible_modules?.[moduleId]
   if (v === 'supervisor') return 'supervisor'
   if (v === 'user' || v === true) return 'user'
-  // Legacy fallback: si no hay hub_visible_modules, usar flags antiguos
-  if (!profile.hub_visible_modules) {
-    if (moduleId === 'it-helpdesk' && profile.is_it_supervisor) return 'supervisor'
-    if (moduleId === 'mantenimiento' && profile.is_maintenance_supervisor) return 'supervisor'
-  }
   return false
 }
 
