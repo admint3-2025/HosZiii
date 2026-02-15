@@ -9,6 +9,8 @@
  *   80% standard, 10% doble, 5% suite, 5% accesible
  *
  * Numeración: piso * 100 + secuencial → 101, 102, ..., 201, 202, ...
+ * Nota: Hoteles marca "Encore" no tienen habitaciones en piso 1,
+ *       por lo que la numeración comienza desde el piso 2.
  * No inserta duplicados (usa ON CONFLICT DO NOTHING).
  */
 import { createSupabaseServerClient } from '@/lib/supabase/server'
@@ -39,7 +41,7 @@ export async function POST(request: NextRequest) {
   // Obtener datos del hotel
   const { data: location, error: locErr } = await admin
     .from('locations')
-    .select('id, name, business_type, total_rooms, total_floors')
+    .select('id, name, business_type, total_rooms, total_floors, brand')
     .eq('id', locationId)
     .single()
 
@@ -51,6 +53,11 @@ export async function POST(request: NextRequest) {
 
   if (totalRooms < 1 || totalFloors < 1)
     return new Response('total_rooms y total_floors deben ser > 0', { status: 400 })
+
+  // Encore hotels: no rooms on floor 1 (lobby/amenities), rooms start on floor 2
+  const isEncore = (location.brand ?? '').toLowerCase().includes('encore')
+  const startFloor = isEncore ? 2 : 1
+  const endFloor = startFloor + totalFloors - 1
 
   // Verificar si ya hay habitaciones
   const { count: existingCount } = await admin
@@ -88,7 +95,7 @@ export async function POST(request: NextRequest) {
 
   let roomCount = 0
 
-  for (let floor = 1; floor <= totalFloors && roomCount < totalRooms; floor++) {
+  for (let floor = startFloor; floor <= endFloor && roomCount < totalRooms; floor++) {
     const roomsThisFloor = Math.min(roomsPerFloor, totalRooms - roomCount)
 
     for (let seq = 1; seq <= roomsThisFloor; seq++) {
@@ -139,9 +146,10 @@ export async function POST(request: NextRequest) {
 
   return Response.json({
     success: true,
-    message: `Se generaron ${totalCreated} habitaciones en ${totalFloors} pisos para ${location.name}`,
+    message: `Se generaron ${totalCreated} habitaciones en ${totalFloors} pisos (pisos ${startFloor}–${endFloor}) para ${location.name}`,
     created: totalCreated,
     floors: totalFloors,
+    startFloor,
     locationName: location.name,
   })
 }
