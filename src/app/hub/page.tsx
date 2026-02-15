@@ -240,10 +240,22 @@ export default async function HubPage() {
   })
 
   // Aplicar preferencias de módulos visibles del usuario (disponible para TODOS los usuarios)
+  // Si hub_visible_modules tiene un módulo explícitamente en true, se muestra aunque
+  // el rol no lo incluya por defecto (el admin lo asignó intencionalmente).
   const hubVisibleModules = (profile as any)?.hub_visible_modules as Record<string, boolean> | null
-  const accessibleModules = hubVisibleModules && typeof hubVisibleModules === 'object'
-    ? accessibleByRole.filter((m) => hubVisibleModules[m.id] !== false)
-    : accessibleByRole
+  let accessibleModules: typeof modules
+  if (hubVisibleModules && typeof hubVisibleModules === 'object') {
+    // Módulos que pasan el filtro de rol Y no están desactivados en hub_visible_modules
+    const byRole = accessibleByRole.filter((m) => hubVisibleModules[m.id] !== false)
+    // Módulos explícitamente activados en hub_visible_modules que no pasaron el filtro de rol
+    const byRoleIds = new Set(byRole.map((m) => m.id))
+    const extraByAdmin = modules.filter(
+      (m) => !byRoleIds.has(m.id) && hubVisibleModules[m.id] === true
+    )
+    accessibleModules = [...byRole, ...extraByAdmin]
+  } else {
+    accessibleModules = accessibleByRole
+  }
 
   // NO redirigir automáticamente si es el único módulo
   // Los usuarios deben ver el hub para navegar entre sus módulos disponibles
