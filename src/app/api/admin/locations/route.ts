@@ -16,7 +16,7 @@ export async function GET() {
 
   const { data: locations, error } = await admin
     .from('locations')
-    .select('id,name,code,business_type,city,state,country,address,phone,email,manager_name,is_active,created_at')
+    .select('id,name,code,business_type,total_rooms,total_floors,brand,city,state,country,address,phone,email,manager_name,is_active,created_at')
     .order('name')
 
   if (error) return new Response(error.message, { status: 500 })
@@ -54,6 +54,9 @@ export async function POST(request: Request) {
   const phone = typeof body?.phone === 'string' ? body.phone.trim() : ''
   const email = typeof body?.email === 'string' ? body.email.trim() : ''
   const managerName = typeof body?.manager_name === 'string' ? body.manager_name.trim() : ''
+  const totalRooms = typeof body?.total_rooms === 'number' && body.total_rooms > 0 ? body.total_rooms : null
+  const totalFloors = typeof body?.total_floors === 'number' && body.total_floors > 0 ? body.total_floors : null
+  const brand = typeof body?.brand === 'string' ? body.brand.trim() : ''
 
   if (!name) return new Response('Nombre requerido', { status: 400 })
   if (!code) return new Response('Código requerido', { status: 400 })
@@ -66,6 +69,9 @@ export async function POST(request: Request) {
       name,
       code,
       business_type: businessType,
+      total_rooms: totalRooms,
+      total_floors: totalFloors,
+      brand: brand || null,
       city: city || null,
       state: state || null,
       country: country || null,

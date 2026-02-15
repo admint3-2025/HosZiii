@@ -72,6 +72,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     updates.manager_name = typeof body.manager_name === 'string' ? body.manager_name.trim() || null : null
   }
 
+  if (body?.total_rooms !== undefined) {
+    updates.total_rooms = typeof body.total_rooms === 'number' && body.total_rooms > 0 ? body.total_rooms : null
+  }
+
+  if (body?.total_floors !== undefined) {
+    updates.total_floors = typeof body.total_floors === 'number' && body.total_floors > 0 ? body.total_floors : null
+  }
+
+  if (body?.brand !== undefined) {
+    updates.brand = typeof body.brand === 'string' ? body.brand.trim() || null : null
+  }
+
   if (body?.is_active !== undefined) {
     updates.is_active = Boolean(body.is_active)
   }

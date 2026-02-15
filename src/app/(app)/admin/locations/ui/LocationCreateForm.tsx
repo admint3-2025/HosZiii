@@ -19,6 +19,9 @@ export default function LocationCreateForm() {
   const [phone, setPhone] = useState('')
   const [email, setEmail] = useState('')
   const [managerName, setManagerName] = useState('')
+  const [totalRooms, setTotalRooms] = useState('')
+  const [totalFloors, setTotalFloors] = useState('')
+  const [brand, setBrand] = useState('')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [result, setResult] = useState<Result | null>(null)
@@ -46,6 +49,9 @@ export default function LocationCreateForm() {
           name: name.trim(),
           code: code.trim().toUpperCase(),
           business_type: businessType,
+          total_rooms: totalRooms ? parseInt(totalRooms, 10) : null,
+          total_floors: totalFloors ? parseInt(totalFloors, 10) : null,
+          brand: brand.trim() || null,
           city: city.trim(),
           state: state.trim(),
           country: country.trim(),
@@ -74,6 +80,9 @@ export default function LocationCreateForm() {
       setPhone('')
       setEmail('')
       setManagerName('')
+      setTotalRooms('')
+      setTotalFloors('')
+      setBrand('')
     } catch (e: any) {
       setError(e?.message ?? 'Error inesperado')
     } finally {
@@ -134,6 +143,47 @@ export default function LocationCreateForm() {
               {businessType !== 'hotel' && businessType !== 'corporate' && 'Uso administrativo general'}
             </p>
           </div>
+
+          {businessType === 'hotel' && (
+            <>
+              <div>
+                <label className="block text-[11px] font-medium text-gray-700">Habitaciones Totales</label>
+                <input
+                  className="input mt-1"
+                  type="number"
+                  min="1"
+                  value={totalRooms}
+                  onChange={(e) => setTotalRooms(e.target.value)}
+                  placeholder="120"
+                  autoComplete="off"
+                />
+              </div>
+
+              <div>
+                <label className="block text-[11px] font-medium text-gray-700">Pisos</label>
+                <input
+                  className="input mt-1"
+                  type="number"
+                  min="1"
+                  value={totalFloors}
+                  onChange={(e) => setTotalFloors(e.target.value)}
+                  placeholder="6"
+                  autoComplete="off"
+                />
+              </div>
+
+              <div className="sm:col-span-2">
+                <label className="block text-[11px] font-medium text-gray-700">Marca / Cadena Hotelera</label>
+                <input
+                  className="input mt-1"
+                  value={brand}
+                  onChange={(e) => setBrand(e.target.value)}
+                  placeholder="Microtel Inn & Suites, Ramada Encore…"
+                  autoComplete="off"
+                />
+              </div>
+            </>
+          )}
 
           <div>
             <label className="block text-[11px] font-medium text-gray-700">Ciudad</label>

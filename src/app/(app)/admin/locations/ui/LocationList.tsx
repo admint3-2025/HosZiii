@@ -7,6 +7,9 @@ type LocationRow = {
   name: string
   code: string
   business_type: 'hotel' | 'corporate' | 'office' | 'warehouse' | 'other'
+  total_rooms: number | null
+  total_floors: number | null
+  brand: string | null
   city: string | null
   state: string | null
   country: string | null
@@ -33,6 +36,9 @@ export default function LocationList() {
   const [editPhone, setEditPhone] = useState('')
   const [editEmail, setEditEmail] = useState('')
   const [editManager, setEditManager] = useState('')
+  const [editTotalRooms, setEditTotalRooms] = useState('')
+  const [editTotalFloors, setEditTotalFloors] = useState('')
+  const [editBrand, setEditBrand] = useState('')
 
   const sorted = useMemo(() => {
     return [...locations].sort((a, b) => {
@@ -75,6 +81,9 @@ export default function LocationList() {
     setEditPhone(loc.phone ?? '')
     setEditEmail(loc.email ?? '')
     setEditManager(loc.manager_name ?? '')
+    setEditTotalRooms(loc.total_rooms?.toString() ?? '')
+    setEditTotalFloors(loc.total_floors?.toString() ?? '')
+    setEditBrand(loc.brand ?? '')
   }
 
   async function saveEdit(locationId: string) {
@@ -88,6 +97,9 @@ export default function LocationList() {
           name: editName.trim(),
           code: editCode.trim().toUpperCase(),
           business_type: editBusinessType,
+          total_rooms: editTotalRooms ? parseInt(editTotalRooms, 10) : null,
+          total_floors: editTotalFloors ? parseInt(editTotalFloors, 10) : null,
+          brand: editBrand.trim() || null,
           city: editCity.trim(),
           state: editState.trim(),
           country: editCountry.trim(),
@@ -225,7 +237,17 @@ export default function LocationList() {
                       </select>
                     ) : (
                       <div className="text-xs">
-                        {loc.business_type === 'hotel' && <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 text-[10px]">🏨 Hotel</span>}
+                        {loc.business_type === 'hotel' && (
+                          <div>
+                            <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-blue-50 border border-blue-200 text-blue-700 text-[10px]">🏨 Hotel</span>
+                            {loc.total_rooms && (
+                              <div className="mt-0.5 text-[10px] text-gray-500">{loc.total_rooms} hab · {loc.total_floors ?? '?'} pisos</div>
+                            )}
+                            {loc.brand && (
+                              <div className="mt-0.5 text-[10px] text-gray-400">{loc.brand}</div>
+                            )}
+                          </div>
+                        )}
                         {loc.business_type === 'corporate' && <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-purple-50 border border-purple-200 text-purple-700 text-[10px]">🏢 Corporativo</span>}
                         {loc.business_type === 'office' && <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-slate-50 border border-slate-200 text-slate-700 text-[10px]">🏢 Oficina</span>}
                         {loc.business_type === 'warehouse' && <span className="inline-flex items-center px-1.5 py-0.5 rounded bg-orange-50 border border-orange-200 text-orange-700 text-[10px]">🏭 Almacén</span>}
@@ -241,6 +263,13 @@ export default function LocationList() {
                         <input className="input text-xs" value={editState} onChange={(e) => setEditState(e.target.value)} placeholder="Estado" />
                         <input className="input text-xs" value={editCountry} onChange={(e) => setEditCountry(e.target.value)} placeholder="País" />
                         <input className="input text-xs" value={editAddress} onChange={(e) => setEditAddress(e.target.value)} placeholder="Dirección" />
+                        {editBusinessType === 'hotel' && (
+                          <>
+                            <input className="input text-xs" type="number" min="1" value={editTotalRooms} onChange={(e) => setEditTotalRooms(e.target.value)} placeholder="Habitaciones totales" />
+                            <input className="input text-xs" type="number" min="1" value={editTotalFloors} onChange={(e) => setEditTotalFloors(e.target.value)} placeholder="Pisos" />
+                            <input className="input text-xs" value={editBrand} onChange={(e) => setEditBrand(e.target.value)} placeholder="Marca hotelera" />
+                          </>
+                        )}
                       </div>
                     ) : (
                       <div className="text-gray-900 text-xs">

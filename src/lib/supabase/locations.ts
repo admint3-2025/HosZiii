@@ -9,6 +9,9 @@ export type Location = {
   name: string
   code: string
   business_type: 'hotel' | 'corporate' | 'office' | 'warehouse' | 'other'
+  total_rooms: number | null
+  total_floors: number | null
+  brand: string | null
   address: string | null
   city: string | null
   state: string | null
