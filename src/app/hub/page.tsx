@@ -168,6 +168,22 @@ const modules: Module[] = [
     requiredRoles: ['admin', 'corporate_admin', 'supervisor', 'agent_l1', 'agent_l2', 'requester'],
   },
   {
+    id: 'housekeeping',
+    name: 'AMA DE LLAVES',
+    description: 'Housekeeping: Habitaciones, Personal, Inventario y Reportes',
+    icon: (
+      <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10h18v9M5 19v-2m14 2v-2" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 10V7a2 2 0 012-2h6a2 2 0 012 2v3" />
+      </svg>
+    ),
+    href: '/ama-de-llaves',
+    bgGradient: 'from-teal-500 via-cyan-500 to-sky-600',
+    iconBg: 'bg-teal-100',
+    textColor: 'text-teal-900',
+    requiredRoles: ['admin', 'supervisor', 'corporate_admin'],
+  },
+  {
     id: 'administracion',
     name: 'ADMINISTRACIÓN',
     description: 'Configuración del Sistema: Usuarios, Permisos, Auditoría',

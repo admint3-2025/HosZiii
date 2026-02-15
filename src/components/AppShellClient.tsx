@@ -474,6 +474,7 @@ export default function AppShellClient({
             label: 'Ama de Llaves',
             icon: 'Bed',
             items: [
+              { id: 'hk_dashboard', label: 'Dashboard', icon: 'Dashboard', href: '/ama-de-llaves' },
               { id: 'hk_rooms', label: 'Tablero Habitaciones', icon: 'Bed', href: '/ama-de-llaves/tablero-habitaciones' },
               { id: 'hk_plan', label: 'Plan Anual & Proyectos', icon: 'Calendar', href: '/ama-de-llaves/plan-anual' },
               { id: 'hk_laundry', label: 'Ropería', icon: 'Bed', href: '/ama-de-llaves/roperia' },
