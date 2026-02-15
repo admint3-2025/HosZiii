@@ -7,6 +7,7 @@ import StaffPanel from './StaffPanel'
 import InventoryPanel from './InventoryPanel'
 import ReportsPanel from './ReportsPanel'
 import IncidentsPanel from './IncidentsPanel'
+import RoomManagementPanel from './RoomManagementPanel'
 import type { RoomIncident } from './IncidentsPanel'
 
 // ──────── Types ────────
@@ -21,7 +22,7 @@ export interface Room {
   lastCleaned: string | null
   hasIncident: boolean
   notes: string | null
-  type: 'standard' | 'suite' | 'doble'
+  type: 'standard' | 'doble' | 'suite' | 'accesible' | 'conectada'
 }
 
 export interface Staff {
@@ -52,7 +53,7 @@ interface HotelLocation {
   brand: string | null
 }
 
-type Tab = 'dashboard' | 'habitaciones' | 'incidencias' | 'personal' | 'inventario' | 'reportes'
+type Tab = 'dashboard' | 'habitaciones' | 'gestion' | 'incidencias' | 'personal' | 'inventario' | 'reportes'
 
 // ──────── KPI Card ────────
 function KPICard({ label, value, sub, tone }: { label: string; value: string | number; sub?: string; tone: 'emerald' | 'red' | 'amber' | 'blue' | 'slate' | 'violet' }) {
@@ -397,6 +398,16 @@ export default function HousekeepingDashboard() {
       ),
     },
     {
+      key: 'gestion',
+      label: 'Gestión',
+      icon: (
+        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      ),
+    },
+    {
       key: 'incidencias',
       label: `Incidencias${incidents.length > 0 ? ` (${incidents.filter(i => !['RESOLVED', 'CLOSED'].includes(i.status)).length})` : ''}`,
       icon: (
@@ -653,6 +664,17 @@ export default function HousekeepingDashboard() {
           {activeTab === 'habitaciones' && (
             <div className="animate-in fade-in duration-300">
               <RoomGrid rooms={rooms} onStatusChange={handleStatusChange} />
+            </div>
+          )}
+
+          {/* ─── Gestión Tab ─── */}
+          {activeTab === 'gestion' && selectedLocationId && (
+            <div className="animate-in fade-in duration-300">
+              <RoomManagementPanel
+                rooms={rooms}
+                locationId={selectedLocationId}
+                onRefresh={() => selectedLocationId && loadData(selectedLocationId)}
+              />
             </div>
           )}
 
