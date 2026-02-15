@@ -5,6 +5,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { getCategoryPathLabel } from '@/lib/categories/path'
 import { inferServiceAreaFromCategoryPath, type TicketServiceArea } from '@/lib/tickets/service-area'
 import { notifyMaintenanceTicketCreated } from '@/lib/email/maintenance-ticket-notifications'
+import { getModuleAccess } from '@/lib/permissions'
 
 type CreateMaintenanceTicketInput = {
   title: string
@@ -32,10 +33,10 @@ export async function createMaintenanceTicket(input: CreateMaintenanceTicketInpu
     return { error: 'No autenticado' }
   }
 
-  // Verificar rol del usuario actual y que tenga acceso a mantenimiento
+  // Verificar rol del usuario actual y acceso a módulo de mantenimiento
   const { data: currentProfile } = await supabase
     .from('profiles')
-    .select('role, asset_category, location_id')
+    .select('role, hub_visible_modules, location_id')
     .eq('id', user.id)
     .single()
 
@@ -46,10 +47,9 @@ export async function createMaintenanceTicket(input: CreateMaintenanceTicketInpu
     return { error: 'No tienes permisos para crear tickets de mantenimiento.' }
   }
 
-  // Solo admin o agentes/supervisores de MANTENIMIENTO pueden crear tickets de mantenimiento para otros
-  const canCreateForOthers = currentProfile && 
-    (currentProfile.role === 'admin' || 
-     (['agent_l1', 'agent_l2', 'supervisor'].includes(currentProfile.role) && currentProfile.asset_category === 'MAINTENANCE'))
+  // Solo admin o supervisores de MANTENIMIENTO pueden crear tickets de mantenimiento para otros
+  const maintenanceAccess = getModuleAccess(currentProfile, 'mantenimiento')
+  const canCreateForOthers = currentProfile.role === 'admin' || maintenanceAccess === 'supervisor'
 
   if (input.requester_id && !canCreateForOthers) {
     return { error: 'No tienes permisos para crear tickets de mantenimiento para otros usuarios.' }

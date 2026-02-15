@@ -5,6 +5,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { notifyTicketCreated } from '@/lib/email/ticket-notifications'
 import { getCategoryPathLabel } from '@/lib/categories/path'
 import { inferServiceAreaFromCategoryPath, type TicketServiceArea } from '@/lib/tickets/service-area'
+import { getModuleAccess } from '@/lib/permissions'
 
 type CreateTicketInput = {
   title: string
@@ -32,22 +33,16 @@ export async function createTicket(input: CreateTicketInput) {
     return { error: 'No autenticado' }
   }
 
-  // Verificar rol del usuario actual y asset_category
+  // Verificar rol del usuario actual y permisos de módulo
   const { data: currentProfile } = await supabase
     .from('profiles')
-    .select('role, location_id, asset_category, hub_visible_modules')
+    .select('role, location_id, hub_visible_modules')
     .eq('id', user.id)
     .single()
 
   // Solo admin o agentes/supervisores de IT pueden crear tickets IT para otros
-  // corporate_admin: verificar hub_visible_modules['it-helpdesk']
-  const hubModules = currentProfile?.hub_visible_modules as Record<string, boolean> | null
-  const isCorporateAdmin = currentProfile?.role === 'corporate_admin'
-  const hasITPermission = currentProfile && (
-    currentProfile.role === 'admin' ||
-    (isCorporateAdmin && hubModules?.['it-helpdesk'] === true) ||
-    (!isCorporateAdmin && ['agent_l1', 'agent_l2', 'supervisor'].includes(currentProfile.role) && currentProfile.asset_category === 'IT')
-  )
+  const itAccess = getModuleAccess(currentProfile, 'it-helpdesk')
+  const hasITPermission = currentProfile?.role === 'admin' || itAccess !== false
   const canCreateForOthers = hasITPermission
 
   if (input.requester_id && !canCreateForOthers) {
