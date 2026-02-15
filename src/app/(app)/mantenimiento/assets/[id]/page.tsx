@@ -1,6 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { notFound } from 'next/navigation'
-import { isMaintenanceAssetCategory } from '@/lib/permissions/asset-category'
+import { getModuleAccess } from '@/lib/permissions'
 import AssetDetailView from '@/app/(app)/assets/[id]/ui/AssetDetailView'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 
@@ -42,11 +42,12 @@ export default async function MaintenanceAssetDetailPage({
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role,asset_category')
+    .select('role,hub_visible_modules')
     .eq('id', user.id)
     .single()
 
-  const canAccessMaintenance = profile?.role === 'admin' || isMaintenanceAssetCategory(profile?.asset_category)
+  const maintenanceAccess = getModuleAccess(profile, 'mantenimiento')
+  const canAccessMaintenance = profile?.role === 'admin' || maintenanceAccess !== false
   
   if (!canAccessMaintenance) {
     return notFound()

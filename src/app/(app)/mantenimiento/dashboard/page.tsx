@@ -1,5 +1,6 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { getLocationFilter } from '@/lib/supabase/locations'
+import { getModuleAccess } from '@/lib/permissions'
 import { unstable_noStore as noStore } from 'next/cache'
 import Link from 'next/link'
 import { redirect } from 'next/navigation'
@@ -11,7 +12,6 @@ import AgingMetrics from '../../dashboard/ui/AgingMetrics'
 import InteractiveKPI from '../../dashboard/ui/InteractiveKPI'
 import AssignedAssets from '../../dashboard/ui/AssignedAssets'
 import LocationStatsTable from '../../dashboard/ui/LocationStatsTable'
-import { isMaintenanceAssetCategory } from '@/lib/permissions/asset-category'
 import MaintenanceBanner from '../ui/MaintenanceBanner'
 import { formatMaintenanceTicketCode } from '@/lib/tickets/code'
 
@@ -28,14 +28,15 @@ export default async function MaintenanceDashboardPage() {
   const { data: { user } } = await supabase.auth.getUser()
   const { data: profile } = user ? await supabase
     .from('profiles')
-    .select('role,department,asset_category')
+    .select('role,department,hub_visible_modules')
     .eq('id', user.id)
     .single() : { data: null }
 
   // Acceso: admin o supervisor de mantenimiento al dashboard
   // Otros usuarios (incluido corporate_admin) van a sus tickets
   const isAdminOrSupervisor = profile?.role === 'admin' || profile?.role === 'supervisor'
-  const canManageMaintenance = profile?.role === 'admin' || (profile?.role === 'supervisor' && isMaintenanceAssetCategory(profile?.asset_category))
+  const maintenanceAccess = getModuleAccess(profile, 'mantenimiento')
+  const canManageMaintenance = profile?.role === 'admin' || (profile?.role === 'supervisor' && maintenanceAccess === 'supervisor')
   
   if (!canManageMaintenance) {
     redirect('/mantenimiento/tickets?view=mine')

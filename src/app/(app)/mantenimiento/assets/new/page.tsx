@@ -2,7 +2,7 @@ import MaintenanceAssetCreateForm from './ui/MaintenanceAssetCreateForm'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { redirect, notFound } from 'next/navigation'
-import { isMaintenanceAssetCategory } from '@/lib/permissions/asset-category'
+import { getModuleAccess } from '@/lib/permissions'
 
 export default async function NewMaintenanceAssetPage() {
   const supabase = await createSupabaseServerClient()
@@ -15,17 +15,17 @@ export default async function NewMaintenanceAssetPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, can_manage_assets, asset_category')
+    .select('role, can_manage_assets, hub_visible_modules')
     .eq('id', user.id)
     .single()
   
   const userRole = profile?.role || 'user'
   const canManageAllAssets = profile?.can_manage_assets || false
-  const userAssetCategory = profile?.asset_category || null
+  const maintenanceAccess = getModuleAccess(profile, 'mantenimiento')
 
   // Solo admin o supervisores de mantenimiento pueden crear activos
   const canCreate = userRole === 'admin' || 
-    (userRole === 'supervisor' && isMaintenanceAssetCategory(userAssetCategory))
+    (userRole === 'supervisor' && maintenanceAccess === 'supervisor')
 
   if (!canCreate) {
     return notFound()

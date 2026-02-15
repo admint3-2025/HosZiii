@@ -2,7 +2,7 @@ import AssetCreateForm from './ui/AssetCreateForm'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { redirect } from 'next/navigation'
-import { isMaintenanceAssetCategory } from '@/lib/permissions/asset-category'
+import { getModuleAccess } from '@/lib/permissions'
 
 export default async function NewAssetPage() {
   const supabase = await createSupabaseServerClient()
@@ -11,23 +11,27 @@ export default async function NewAssetPage() {
   const { data: { user } } = await supabase.auth.getUser()
   let userRole = 'user'
   let canManageAllAssets = false
-  let userAssetCategory: string | null = null
+  let profile: any = null
   
   if (user) {
-    const { data: profile } = await supabase
+    const result = await supabase
       .from('profiles')
-      .select('role, can_manage_assets, asset_category')
+      .select('role, can_manage_assets, hub_visible_modules')
       .eq('id', user.id)
       .single()
     
+    profile = result.data
     userRole = profile?.role || 'user'
     canManageAllAssets = profile?.can_manage_assets || false
-    userAssetCategory = profile?.asset_category || null
   }
 
   // Bloquear inventario IT para perfiles de mantenimiento (no admin)
-  if (user && userRole !== 'admin' && isMaintenanceAssetCategory(userAssetCategory)) {
-    redirect('/mantenimiento/dashboard')
+  if (user && userRole !== 'admin') {
+    const maintenanceAccess = getModuleAccess(profile, 'mantenimiento')
+    const itAccess = getModuleAccess(profile, 'it-helpdesk')
+    if (maintenanceAccess === 'supervisor' && itAccess === false) {
+      redirect('/mantenimiento/dashboard')
+    }
   }
   
   // Obtener sedes según permisos

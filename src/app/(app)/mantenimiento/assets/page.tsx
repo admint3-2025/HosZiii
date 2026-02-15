@@ -1,8 +1,8 @@
 import Link from 'next/link'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { getModuleAccess } from '@/lib/permissions'
 import MaintenanceAssetFilters from './ui/MaintenanceAssetFilters'
-import { isMaintenanceAssetCategory } from '@/lib/permissions/asset-category'
 import MaintenanceBanner from '../ui/MaintenanceBanner'
 
 export default async function MaintenanceAssetsPage({
@@ -18,17 +18,17 @@ export default async function MaintenanceAssetsPage({
   let userRole = 'user'
   let userLocations: any[] = []
   let canManageAllAssets = false
-  let userAssetCategory: string | null = null
+  let profile: any = null
   
   if (user) {
-    const { data: profile } = await supabase
+    const result = await supabase
       .from('profiles')
-      .select('role, can_manage_assets, asset_category')
+      .select('role, can_manage_assets, hub_visible_modules')
       .eq('id', user.id)
       .single()
+    profile = result.data
     userRole = profile?.role || 'user'
     canManageAllAssets = profile?.can_manage_assets || false
-    userAssetCategory = profile?.asset_category || null
     
     // Si no es admin y no tiene permiso global de activos, obtener sus sedes asignadas
     if (userRole !== 'admin' && !canManageAllAssets) {
@@ -44,7 +44,8 @@ export default async function MaintenanceAssetsPage({
   }
 
   // Validar acceso a mantenimiento
-  const canAccessMaintenance = userRole === 'admin' || isMaintenanceAssetCategory(userAssetCategory)
+  const maintenanceAccess = getModuleAccess(profile, 'mantenimiento')
+  const canAccessMaintenance = userRole === 'admin' || maintenanceAccess !== false
   
   if (!canAccessMaintenance) {
     return (
