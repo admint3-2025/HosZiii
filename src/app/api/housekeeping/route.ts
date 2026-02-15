@@ -24,6 +24,24 @@ export async function GET(request: NextRequest) {
   const locationId = request.nextUrl.searchParams.get('location_id')
   if (!locationId) return new Response('location_id requerido', { status: 400 })
 
+  const isFullAccess = ['admin', 'corporate_admin'].includes(profile.role)
+  if (!isFullAccess) {
+    const { data: userLocs } = await supabase
+      .from('user_locations')
+      .select('location_id')
+      .eq('user_id', user.id)
+
+    const allowedLocationIds = (userLocs ?? []).map((l: any) => l.location_id).filter(Boolean)
+
+    if (profile.location_id && !allowedLocationIds.includes(profile.location_id)) {
+      allowedLocationIds.push(profile.location_id)
+    }
+
+    if (!allowedLocationIds.includes(locationId)) {
+      return new Response('Forbidden', { status: 403 })
+    }
+  }
+
   const admin = createSupabaseAdminClient()
 
   // Parallelise all data fetches

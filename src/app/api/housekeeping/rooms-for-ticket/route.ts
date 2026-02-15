@@ -15,8 +15,33 @@ export async function GET(request: NextRequest) {
   } = await supabase.auth.getUser()
   if (!user) return new Response('Unauthorized', { status: 401 })
 
+  const { data: profile } = await supabase
+    .from('profiles')
+    .select('role, location_id')
+    .eq('id', user.id)
+    .single()
+  if (!profile) return new Response('Forbidden', { status: 403 })
+
   const locationId = request.nextUrl.searchParams.get('location_id')
   if (!locationId) return Response.json({ rooms: [] })
+
+  const isFullAccess = ['admin', 'corporate_admin'].includes(profile.role)
+  if (!isFullAccess) {
+    const { data: userLocs } = await supabase
+      .from('user_locations')
+      .select('location_id')
+      .eq('user_id', user.id)
+
+    const allowedLocationIds = (userLocs ?? []).map((l: any) => l.location_id).filter(Boolean)
+
+    if (profile.location_id && !allowedLocationIds.includes(profile.location_id)) {
+      allowedLocationIds.push(profile.location_id)
+    }
+
+    if (!allowedLocationIds.includes(locationId)) {
+      return Response.json({ rooms: [] })
+    }
+  }
 
   const admin = createSupabaseAdminClient()
 

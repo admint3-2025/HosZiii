@@ -16,22 +16,48 @@ export async function GET() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, location_id')
     .eq('id', user.id)
     .single()
 
   if (!profile || !['admin', 'supervisor', 'corporate_admin'].includes(profile.role))
     return Response.json({ error: 'Sin permisos' }, { status: 403 })
 
+  const isFullAccess = ['admin', 'corporate_admin'].includes(profile.role)
+  let allowedLocationIds: string[] | null = null
+
+  if (!isFullAccess) {
+    const { data: userLocs } = await supabase
+      .from('user_locations')
+      .select('location_id')
+      .eq('user_id', user.id)
+
+    allowedLocationIds = (userLocs ?? []).map((l: any) => l.location_id).filter(Boolean)
+
+    if (profile.location_id && !allowedLocationIds.includes(profile.location_id)) {
+      allowedLocationIds.push(profile.location_id)
+    }
+
+    if (allowedLocationIds.length === 0) {
+      return Response.json({ properties: [] })
+    }
+  }
+
   const admin = createSupabaseAdminClient()
 
   // 1. Get all hotel locations
-  const { data: locations, error: locErr } = await admin
+  let locationsQuery = admin
     .from('locations')
     .select('id, name, code, brand, city, state, total_rooms, total_floors')
     .eq('is_active', true)
     .eq('business_type', 'hotel')
     .order('name')
+
+  if (!isFullAccess && allowedLocationIds) {
+    locationsQuery = locationsQuery.in('id', allowedLocationIds)
+  }
+
+  const { data: locations, error: locErr } = await locationsQuery
 
   if (locErr) return Response.json({ error: locErr.message }, { status: 500 })
   if (!locations || locations.length === 0) return Response.json({ properties: [] })
