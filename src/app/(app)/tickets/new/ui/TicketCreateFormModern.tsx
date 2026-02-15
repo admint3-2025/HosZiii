@@ -176,21 +176,61 @@ export default function TicketCreateFormModern({
       const adminCheck = profile?.role === 'admin'
       setIsAdmin(adminCheck)
 
-      // Si es admin, cargar lista de sedes
-      if (adminCheck) {
-        setLoadingLocations(true)
-        try {
+      // Cargar sedes disponibles para el usuario
+      // Admin: todas las sedes del sistema
+      // Otros usuarios: sus sedes asignadas en user_locations + su sede primaria
+      setLoadingLocations(true)
+      try {
+        if (adminCheck) {
+          // Admin ve todas las sedes
           const { data: locationsList } = await supabase
             .from('locations')
             .select('id, name, code')
             .order('name', { ascending: true })
           
           setLocations(locationsList || [])
-        } catch (err) {
-          console.error('Error cargando sedes:', err)
-        } finally {
-          setLoadingLocations(false)
+        } else {
+          // Usuario regular: obtener sus sedes asignadas
+          const { data: userLocs } = await supabase
+            .from('user_locations')
+            .select('location_id, locations(id, name, code)')
+            .eq('user_id', user.id)
+
+          const userLocationIds = new Set<string>()
+          const userLocationList: { id: string; name: string; code: string }[] = []
+
+          // Agregar sedes de user_locations
+          if (userLocs) {
+            for (const ul of userLocs) {
+              const loc = (ul as any)?.locations
+              if (loc && loc.id && !userLocationIds.has(loc.id)) {
+                userLocationIds.add(loc.id)
+                userLocationList.push({ id: loc.id, name: loc.name, code: loc.code })
+              }
+            }
+          }
+
+          // Agregar sede primaria si no está ya incluida
+          if (locationId && !userLocationIds.has(locationId)) {
+            const { data: primaryLoc } = await supabase
+              .from('locations')
+              .select('id, name, code')
+              .eq('id', locationId)
+              .single()
+
+            if (primaryLoc) {
+              userLocationList.push(primaryLoc)
+            }
+          }
+
+          // Ordenar sedes por nombre
+          userLocationList.sort((a, b) => a.name.localeCompare(b.name))
+          setLocations(userLocationList)
         }
+      } catch (err) {
+        console.error('Error cargando sedes:', err)
+      } finally {
+        setLoadingLocations(false)
       }
 
       // Align with server action: only admin or IT agents can create for others
@@ -454,7 +494,8 @@ export default function TicketCreateFormModern({
       return
     }
 
-    if (isAdmin && !selectedLocationId) {
+    // Validar que hay una sede seleccionada
+    if (!selectedLocationId) {
       setError('Debes seleccionar una sede para el ticket.')
       return
     }
@@ -471,7 +512,7 @@ export default function TicketCreateFormModern({
         priority,
         support_level: 1,
         requester_id: canCreateForOthers && requesterId ? requesterId : undefined,
-        location_id: isAdmin && selectedLocationId ? selectedLocationId : undefined,
+        location_id: selectedLocationId,
         asset_id: assetId || null,
         hk_room_id: hkRoomId || null,
         remote_connection_type: area === 'it' ? remoteConnectionType || null : null,
@@ -785,7 +826,7 @@ export default function TicketCreateFormModern({
                     </div>
                   )}
 
-                  {isAdmin && (
+                  {(isAdmin || locations.length > 1) && (
                     <div className="md:col-span-2 space-y-2">
                       <label className="text-sm font-semibold text-slate-700">
                         Sede del Ticket <span className="text-red-500">*</span>
