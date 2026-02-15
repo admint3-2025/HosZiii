@@ -281,7 +281,7 @@ export default function AppShellClient({
     )
       return 'helpdesk'
     if (pathname.startsWith('/mantenimiento')) return 'mantenimiento'
-    if (pathname.startsWith('/ama-de-llaves')) return 'operaciones'
+    if (pathname.startsWith('/ama-de-llaves')) return 'ama-de-llaves'
     return null
   }, [pathname])
 
@@ -383,10 +383,15 @@ export default function AppShellClient({
         ],
       },
     ],
-    operaciones: [
+    'ama-de-llaves': [
       {
-        group: 'Operaciones',
-        items: [{ id: 'ops_home', label: 'Tablero', icon: 'Dashboard', href: '/mantenimiento' }],
+        group: 'Ama de Llaves',
+        items: [
+          { id: 'hk_dashboard', label: 'Dashboard', icon: 'Dashboard', href: '/ama-de-llaves' },
+          { id: 'hk_rooms', label: 'Tablero Habitaciones', icon: 'Bed', href: '/ama-de-llaves/tablero-habitaciones' },
+          { id: 'hk_plan', label: 'Plan Anual & Proyectos', icon: 'Calendar', href: '/ama-de-llaves/plan-anual' },
+          { id: 'hk_laundry', label: 'Ropería', icon: 'Bed', href: '/ama-de-llaves/roperia' },
+        ],
       },
     ],
     corporativo: [
@@ -433,65 +438,7 @@ export default function AppShellClient({
   }
 
   const collapsibleByModule: Record<string, { group: string; menus: CollapsibleMenu[] }[]> = {
-    operaciones: [
-      {
-        group: 'Front Office',
-        menus: [
-          {
-            id: 'recepcion',
-            label: 'Recepción',
-            icon: 'Bell',
-            items: [
-              { id: 'fo_desk', label: 'Front Desk', icon: 'Bell', href: '/mantenimiento#fo_desk', disabled: true },
-              { id: 'fo_concierge', label: 'Concierge', icon: 'Bell', href: '/mantenimiento#fo_concierge', disabled: true },
-            ],
-          },
-          {
-            id: 'ventas',
-            label: 'Ventas',
-            icon: 'BarChart',
-            items: [
-              { id: 'sales_res', label: 'Reservas', icon: 'BarChart', href: '/mantenimiento#sales_res', disabled: true },
-              { id: 'sales_groups', label: 'Grupos', icon: 'BarChart', href: '/mantenimiento#sales_groups', disabled: true },
-            ],
-          },
-        ],
-      },
-      {
-        group: 'Operación & Mantenimiento',
-        menus: [
-          {
-            id: 'ingenieria',
-            label: 'Ingeniería',
-            icon: 'Wrench',
-            items: [
-              { id: 'eng_tickets', label: 'Ticketera', icon: 'Wrench', href: '/mantenimiento#eng_tickets', disabled: true },
-              { id: 'eng_plan', label: 'Plan Anual', icon: 'Wrench', href: '/mantenimiento#eng_plan', disabled: true },
-            ],
-          },
-          {
-            id: 'housekeeping',
-            label: 'Ama de Llaves',
-            icon: 'Bed',
-            items: [
-              { id: 'hk_dashboard', label: 'Dashboard', icon: 'Dashboard', href: '/ama-de-llaves' },
-              { id: 'hk_rooms', label: 'Tablero Habitaciones', icon: 'Bed', href: '/ama-de-llaves/tablero-habitaciones' },
-              { id: 'hk_plan', label: 'Plan Anual & Proyectos', icon: 'Calendar', href: '/ama-de-llaves/plan-anual' },
-              { id: 'hk_laundry', label: 'Ropería', icon: 'Bed', href: '/ama-de-llaves/roperia' },
-            ],
-          },
-          {
-            id: 'ayb',
-            label: 'A y B',
-            icon: 'Utensils',
-            items: [
-              { id: 'fb_pos', label: 'Puntos Venta', icon: 'Utensils', href: '/mantenimiento#fb_pos', disabled: true },
-              { id: 'fb_kitchen', label: 'Cocina', icon: 'Utensils', href: '/mantenimiento#fb_kitchen', disabled: true },
-            ],
-          },
-        ],
-      },
-    ],
+    'ama-de-llaves': [],
     helpdesk: [],
     corporativo: [],
     politicas: [],
