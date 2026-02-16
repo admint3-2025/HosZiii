@@ -443,7 +443,7 @@ export default function RoomsOutOfServiceCard() {
       {/* Detail Modal */}
       {selectedProperty && (
         <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-3xl rounded-2xl bg-white shadow-2xl border border-gray-200 overflow-hidden">
+          <div className="w-full max-w-6xl max-h-[90vh] rounded-2xl bg-white shadow-2xl border border-gray-200 overflow-hidden flex flex-col">
             <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex items-start justify-between gap-3">
               <div className="min-w-0">
                 <div className="flex items-center gap-2 flex-wrap">
@@ -474,12 +474,12 @@ export default function RoomsOutOfServiceCard() {
               </button>
             </div>
 
-            <div className="p-4 space-y-3">
-              <div className="rounded-lg border border-gray-200 bg-white">
+            <div className="p-4 grid grid-cols-1 lg:grid-cols-5 gap-4 overflow-y-auto">
+              <div className="lg:col-span-2 rounded-lg border border-gray-200 bg-white">
                 <div className="px-3 py-2 border-b border-gray-100">
                   <div className="text-[11px] font-bold text-gray-800 uppercase tracking-wide">Habitaciones afectadas</div>
                 </div>
-                <div className="max-h-72 overflow-y-auto">
+                <div className="max-h-[50vh] lg:max-h-[70vh] overflow-y-auto">
                   <table className="w-full text-xs">
                     <thead>
                       <tr className="border-b border-gray-200 bg-gray-50">
@@ -503,7 +503,11 @@ export default function RoomsOutOfServiceCard() {
                                   : 'bg-orange-50 text-orange-700 border-orange-200'
                               }`}
                             >
-                              <span className={`w-1.5 h-1.5 rounded-full ${room.status === 'bloqueada' ? 'bg-red-500' : 'bg-orange-500'}`} />
+                              <span
+                                className={`w-1.5 h-1.5 rounded-full ${
+                                  room.status === 'bloqueada' ? 'bg-red-500' : 'bg-orange-500'
+                                }`}
+                              />
                               {room.status === 'bloqueada' ? 'Bloqueada' : 'Mantenimiento'}
                             </span>
                           </td>
@@ -517,7 +521,7 @@ export default function RoomsOutOfServiceCard() {
                 </div>
               </div>
 
-              <div className="bg-white border border-gray-200 rounded-lg p-3">
+              <div className="lg:col-span-3 bg-white border border-gray-200 rounded-lg p-3">
                 <div className="flex items-start justify-between gap-3">
                   <div className="min-w-0">
                     <div className="text-xs font-semibold text-gray-900">

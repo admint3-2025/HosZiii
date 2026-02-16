@@ -311,6 +311,7 @@ export default function CorporateDashboardClient({ hubModules, isAdmin }: Corpor
   const [pendingReviews, setPendingReviews] = useState<any[]>([])
   const [itStats, setItStats] = useState<any>(null)
   const [maintenanceStats, setMaintenanceStats] = useState<any>(null)
+  const [roomsOosTotal, setRoomsOosTotal] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
   const [loaded, setLoaded] = useState(false)
@@ -438,10 +439,34 @@ export default function CorporateDashboardClient({ hubModules, isAdmin }: Corpor
       if (showMaintenance) {
         await loadMaintenanceStats()
       }
+
+      // KPI: habitaciones fuera de servicio (OOS) - solo admin (reemplaza "Usuarios")
+      if (isAdmin) {
+        await loadRoomsOutOfServiceTotal()
+      }
     } catch (error) {
       console.error('Error al cargar datos:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadRoomsOutOfServiceTotal = async () => {
+    try {
+      const res = await fetch('/api/corporativo/rooms-out-of-service', { cache: 'no-store' })
+      if (!res.ok) {
+        // Si no hay permisos o falla el endpoint, no mostrar el KPI.
+        setRoomsOosTotal(null)
+        return
+      }
+
+      const data = await res.json()
+      const properties = Array.isArray(data?.properties) ? data.properties : []
+      const total = properties.reduce((sum: number, p: any) => sum + (Number(p?.total_rooms_out) || 0), 0)
+      setRoomsOosTotal(total)
+    } catch (error) {
+      console.error('Error loading rooms OOS total:', error)
+      setRoomsOosTotal(null)
     }
   }
 
@@ -585,15 +610,8 @@ export default function CorporateDashboardClient({ hubModules, isAdmin }: Corpor
         </button>
       </div>
 
-      {/* Tarjeta de Habitaciones Fuera de Servicio - Alta Prioridad */}
-      {showMaintenance && (
-        <div className="w-full lg:w-1/2">
-          <RoomsOutOfServiceCard />
-        </div>
-      )}
-
       {/* KPIs - Strip compacto - mostrar según módulos visibles */}
-      {(stats || itStats || maintenanceStats) && (
+      {(stats || itStats || maintenanceStats || roomsOosTotal !== null) && (
         <div className={`grid grid-cols-2 ${
           visibleModulesCount <= 2 ? 'lg:grid-cols-2' : 'lg:grid-cols-4'
         } gap-2 animate-enter`}>
@@ -658,14 +676,13 @@ export default function CorporateDashboardClient({ hubModules, isAdmin }: Corpor
           )}
           
           {/* Usuarios - solo para admin */}
-          {isAdmin && stats && (
+          {isAdmin && roomsOosTotal !== null && (
             <KPICard
-              title="USUARIOS"
-              value={stats.totalUsers}
-              trend={{ value: 12, direction: 'up' }}
-              color="purple"
-              icon={<Icons.Users />}
-              data={generateSparklineData(stats.totalUsers)}
+              title="HAB. FUERA SERV."
+              value={roomsOosTotal}
+              color="red"
+              icon={<AlertTriangle size={24} />}
+              data={generateSparklineData(roomsOosTotal)}
             />
           )}
         </div>
@@ -1147,6 +1164,13 @@ export default function CorporateDashboardClient({ hubModules, isAdmin }: Corpor
           <span className="text-xs text-gray-400 italic">No hay módulos asignados</span>
         )}
       </div>
+
+        {/* Monitoreo HK - Habitaciones fuera de servicio (al final para mantener uniformidad) */}
+        {showMaintenance && (
+          <div className="w-full lg:w-1/2 mx-auto">
+            <RoomsOutOfServiceCard />
+          </div>
+        )}
 
       {/* Footer mínimo */}
       <div className="text-center text-[9px] text-gray-400 py-2">
