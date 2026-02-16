@@ -29,14 +29,35 @@ export async function GET(request: NextRequest) {
   const admin = createSupabaseAdminClient()
 
   // Estados que consideramos "fuera de servicio"
-  const outOfServiceStatuses = ['mantenimiento', 'bloqueada']
+  const outOfServiceStatuses = ['mantenimiento', 'bloqueada'] as const
+
+  type LocationRow = { id: string; name: string; nightly_rate?: number | null }
 
   // Obtener todas las ubicaciones de hoteles
-  const { data: locations } = await admin
-    .from('locations')
-    .select('id, name, nightly_rate')
-    .eq('is_active', true)
-    .eq('business_type', 'hotel')
+  const locationsQuery = (select: string) =>
+    admin
+      .from('locations')
+      .select(select)
+      .eq('is_active', true)
+      .eq('business_type', 'hotel')
+
+  let locations: LocationRow[] | null = null
+
+  // Prefer nightly_rate when available; fall back if the column doesn't exist.
+  const locWithRate = await locationsQuery('id, name, nightly_rate')
+  if (locWithRate.error) {
+    console.error('[rooms-out-of-service] locations query error (with nightly_rate):', locWithRate.error)
+    const locFallback = await locationsQuery('id, name')
+
+    if (locFallback.error) {
+      console.error('[rooms-out-of-service] locations query error (fallback):', locFallback.error)
+      return Response.json({ error: locFallback.error.message }, { status: 500 })
+    }
+
+    locations = (locFallback.data as any) as LocationRow[]
+  } else {
+    locations = (locWithRate.data as any) as LocationRow[]
+  }
 
   if (!locations || locations.length === 0) {
     return Response.json({ properties: [] })
@@ -55,7 +76,10 @@ export async function GET(request: NextRequest) {
   // Debug logging
   console.log('[rooms-out-of-service] Query params:', { locationIds, outOfServiceStatuses })
   console.log('[rooms-out-of-service] Rooms found:', outOfServiceRooms?.length || 0)
-  if (roomsError) console.error('[rooms-out-of-service] Error:', roomsError)
+  if (roomsError) {
+    console.error('[rooms-out-of-service] Error:', roomsError)
+    return Response.json({ error: roomsError.message }, { status: 500 })
+  }
 
   if (!outOfServiceRooms || outOfServiceRooms.length === 0) {
     return Response.json({ properties: [] })

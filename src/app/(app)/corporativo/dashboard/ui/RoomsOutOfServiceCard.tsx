@@ -27,6 +27,7 @@ interface Property {
 export default function RoomsOutOfServiceCard() {
   const [properties, setProperties] = useState<Property[]>([])
   const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
   const [expandedLocation, setExpandedLocation] = useState<string | null>(null)
   const [notifying, setNotifying] = useState<string | null>(null)
   const [messages, setMessages] = useState<Record<string, string>>({})
@@ -35,10 +36,19 @@ export default function RoomsOutOfServiceCard() {
     const fetchData = async () => {
       try {
         const res = await fetch('/api/corporativo/rooms-out-of-service')
-        const data = await res.json()
+        const data = await res.json().catch(() => ({} as any))
+
+        if (!res.ok) {
+          setError(data?.error || data?.message || 'Error al cargar habitaciones fuera de servicio')
+          setProperties([])
+          return
+        }
+
+        setError(null)
         setProperties(data.properties || [])
       } catch (error) {
         console.error('Error fetching rooms out of service:', error)
+        setError(error instanceof Error ? error.message : 'Error al cargar habitaciones fuera de servicio')
       } finally {
         setLoading(false)
       }
@@ -91,6 +101,23 @@ export default function RoomsOutOfServiceCard() {
             {[...Array(4)].map((_, i) => (
               <div key={i} className="h-24 bg-red-100 rounded-lg"></div>
             ))}
+          </div>
+        </div>
+      </div>
+    )
+  }
+
+  if (error) {
+    return (
+      <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-xl border border-red-200 p-6">
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
+            <AlertCircle className="w-5 h-5 text-red-600" />
+          </div>
+          <div>
+            <h3 className="text-base font-semibold text-red-900">No se pudo cargar el monitoreo</h3>
+            <p className="text-sm text-red-700 mt-1">{error}</p>
+            <p className="text-xs text-red-600 mt-2">Revisa conexión a Supabase o permisos de acceso.</p>
           </div>
         </div>
       </div>
