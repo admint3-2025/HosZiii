@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { AlertTriangle, Clock, Send, ChevronDown, ChevronUp, AlertCircle, Users } from 'lucide-react'
+import { AlertTriangle, Clock, Send, AlertCircle, Users, X } from 'lucide-react'
 
 interface Room {
   id: string
@@ -27,7 +27,7 @@ export default function RoomsOutOfServiceCard() {
   const [properties, setProperties] = useState<Property[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [expandedLocation, setExpandedLocation] = useState<string | null>(null)
+  const [selectedProperty, setSelectedProperty] = useState<Property | null>(null)
   const [notifying, setNotifying] = useState<string | null>(null)
   const [messages, setMessages] = useState<Record<string, string>>({})
 
@@ -87,6 +87,10 @@ export default function RoomsOutOfServiceCard() {
   const totalRoomsOut = properties.reduce((sum, p) => sum + p.total_rooms_out, 0)
   const maxAgingDays = properties.flatMap(p => p.rooms).reduce((max, r) => Math.max(max, r.daysOut), 0)
   const propertiesAffected = properties.length
+  const previewLimit = 3
+
+  const selectedMaintenanceCount = selectedProperty?.rooms.filter(r => r.status === 'mantenimiento').length ?? 0
+  const selectedBlockedCount = selectedProperty?.rooms.filter(r => r.status === 'bloqueada').length ?? 0
 
   if (loading) {
     return (
@@ -165,8 +169,8 @@ export default function RoomsOutOfServiceCard() {
       </div>
 
       {/* Properties */}
-      <div className="p-2 space-y-1 max-h-80 overflow-y-auto">
-        {properties.map(property => {
+      <div className="p-2 space-y-1">
+        {properties.slice(0, previewLimit).map(property => {
           const maintenanceCount = property.rooms.filter(r => r.status === 'mantenimiento').length
           const blockedCount = property.rooms.filter(r => r.status === 'bloqueada').length
 
@@ -180,7 +184,7 @@ export default function RoomsOutOfServiceCard() {
           return (
             <div key={property.location_id} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
               <button
-                onClick={() => setExpandedLocation(expandedLocation === property.location_id ? null : property.location_id)}
+                onClick={() => setSelectedProperty(property)}
                 className="w-full px-3 py-2 hover:bg-gray-50 transition-colors flex items-center justify-between gap-2"
               >
                 <div className="min-w-0 text-left">
@@ -199,82 +203,128 @@ export default function RoomsOutOfServiceCard() {
 
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <span className={`inline-flex items-center px-1.5 py-0.5 rounded-md border text-[11px] font-semibold ${severity.cls}`}>{severity.label}</span>
-                  {expandedLocation === property.location_id ? (
-                    <ChevronUp className="w-4 h-4 text-gray-400" />
-                  ) : (
-                    <ChevronDown className="w-4 h-4 text-gray-400" />
-                  )}
                 </div>
               </button>
-
-              {expandedLocation === property.location_id && (
-                <div className="border-t border-gray-200 bg-gray-50 px-3 py-2 space-y-2">
-                  <div className="overflow-x-auto">
-                    <table className="w-full text-xs">
-                      <thead>
-                        <tr className="border-b border-gray-200">
-                          <th className="text-left py-1.5 pr-3 font-semibold text-gray-700">Habitación</th>
-                          <th className="text-left py-1.5 pr-3 font-semibold text-gray-700">Estado</th>
-                          <th className="text-right py-1.5 font-semibold text-gray-700">Antigüedad</th>
-                        </tr>
-                      </thead>
-                      <tbody className="divide-y divide-gray-200">
-                        {property.rooms.map(room => (
-                          <tr key={room.id} className="hover:bg-white/60 transition-colors">
-                            <td className="py-1.5 pr-3">
-                              <div className="font-semibold text-gray-900">#{room.number}</div>
-                              <div className="text-[11px] text-gray-500">Piso {room.floor}</div>
-                            </td>
-                            <td className="py-1.5 pr-3">
-                              <span
-                                className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-[11px] font-semibold ${
-                                  room.status === 'bloqueada'
-                                    ? 'bg-red-50 text-red-700 border-red-200'
-                                    : 'bg-orange-50 text-orange-700 border-orange-200'
-                                }`}
-                              >
-                                <span
-                                  className={`w-1.5 h-1.5 rounded-full ${room.status === 'bloqueada' ? 'bg-red-500' : 'bg-orange-500'}`}
-                                />
-                                {room.status === 'bloqueada' ? 'Bloqueada' : 'Mantenimiento'}
-                              </span>
-                            </td>
-                            <td className="py-1.5 text-right tabular-nums font-semibold text-gray-900">
-                              {room.daysOut}d {room.hoursOut}h
-                            </td>
-                          </tr>
-                        ))}
-                      </tbody>
-                    </table>
-                  </div>
-
-                  <div className="bg-white border border-gray-200 rounded-lg p-2.5">
-                    <label className="block text-[11px] font-semibold text-gray-900 mb-1.5">
-                      <AlertCircle className="w-4 h-4 inline mr-2 text-blue-600" />
-                      Mensaje para el gerente (opcional)
-                    </label>
-                    <textarea
-                      value={messages[property.location_id] || ''}
-                      onChange={(e) => setMessages(prev => ({ ...prev, [property.location_id]: e.target.value }))}
-                      placeholder="Ej: Solicitar actualización y ETA de resolución..."
-                      className="w-full px-2.5 py-2 text-[11px] border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                      rows={2}
-                    />
-                    <button
-                      onClick={() => handleNotify(property.location_id, property.location_name)}
-                      disabled={notifying === property.location_id}
-                      className="w-full mt-2 inline-flex items-center justify-center gap-2 px-3 py-1.5 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg text-xs font-semibold transition-colors"
-                    >
-                      <Send className="w-3.5 h-3.5" />
-                      {notifying === property.location_id ? 'Enviando…' : 'Enviar notificación'}
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
           )
         })}
+
+        {properties.length > previewLimit && (
+          <button
+            type="button"
+            onClick={() => setSelectedProperty(properties[0] || null)}
+            className="w-full text-left px-3 py-2 rounded-lg border border-dashed border-gray-300 bg-gray-50 hover:bg-gray-100 transition-colors"
+          >
+            <div className="text-[11px] font-semibold text-gray-700">
+              Ver detalle ({propertiesAffected} sedes)
+            </div>
+            <div className="text-[11px] text-gray-500">Abre un resumen completo por sede.</div>
+          </button>
+        )}
       </div>
+
+      {/* Detail Modal */}
+      {selectedProperty && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-3xl rounded-2xl bg-white shadow-2xl border border-gray-200 overflow-hidden">
+            <div className="px-4 py-3 border-b border-gray-200 bg-gray-50 flex items-start justify-between gap-3">
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <div className="text-sm font-bold text-gray-900 truncate">{selectedProperty.location_name}</div>
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border border-gray-200 bg-white text-[11px] font-semibold text-gray-700 tabular-nums">
+                    <AlertTriangle className="w-3 h-3 text-red-600" />
+                    {selectedProperty.total_rooms_out}
+                  </span>
+                  <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-md border border-gray-200 bg-white text-[11px] font-semibold text-gray-700 tabular-nums">
+                    <Clock className="w-3 h-3 text-orange-600" />
+                    Máx. {selectedProperty.maxDaysOut}d {selectedProperty.maxHoursOut}h
+                  </span>
+                </div>
+                <div className="text-[11px] text-gray-500 mt-1">
+                  Mantenimiento: <span className="font-semibold text-gray-800 tabular-nums">{selectedMaintenanceCount}</span>
+                  <span className="mx-2 text-gray-300">|</span>
+                  Bloqueadas: <span className="font-semibold text-gray-800 tabular-nums">{selectedBlockedCount}</span>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedProperty(null)}
+                className="inline-flex items-center justify-center w-8 h-8 rounded-lg hover:bg-gray-100 text-gray-500"
+                aria-label="Cerrar"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3">
+              <div className="rounded-lg border border-gray-200 bg-white">
+                <div className="px-3 py-2 border-b border-gray-100">
+                  <div className="text-[11px] font-bold text-gray-800 uppercase tracking-wide">Habitaciones afectadas</div>
+                </div>
+                <div className="max-h-72 overflow-y-auto">
+                  <table className="w-full text-xs">
+                    <thead>
+                      <tr className="border-b border-gray-200 bg-gray-50">
+                        <th className="text-left py-2 px-3 font-semibold text-gray-700">Habitación</th>
+                        <th className="text-left py-2 px-3 font-semibold text-gray-700">Estado</th>
+                        <th className="text-right py-2 px-3 font-semibold text-gray-700">Antigüedad</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-gray-200">
+                      {selectedProperty.rooms.map(room => (
+                        <tr key={room.id} className="hover:bg-gray-50/60 transition-colors">
+                          <td className="py-2 px-3">
+                            <div className="font-semibold text-gray-900">#{room.number}</div>
+                            <div className="text-[11px] text-gray-500">Piso {room.floor}</div>
+                          </td>
+                          <td className="py-2 px-3">
+                            <span
+                              className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-[11px] font-semibold ${
+                                room.status === 'bloqueada'
+                                  ? 'bg-red-50 text-red-700 border-red-200'
+                                  : 'bg-orange-50 text-orange-700 border-orange-200'
+                              }`}
+                            >
+                              <span className={`w-1.5 h-1.5 rounded-full ${room.status === 'bloqueada' ? 'bg-red-500' : 'bg-orange-500'}`} />
+                              {room.status === 'bloqueada' ? 'Bloqueada' : 'Mantenimiento'}
+                            </span>
+                          </td>
+                          <td className="py-2 px-3 text-right tabular-nums font-semibold text-gray-900">
+                            {room.daysOut}d {room.hoursOut}h
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+
+              <div className="bg-white border border-gray-200 rounded-lg p-3">
+                <label className="block text-xs font-semibold text-gray-900 mb-2">
+                  <AlertCircle className="w-4 h-4 inline mr-2 text-blue-600" />
+                  Mensaje para el gerente (opcional)
+                </label>
+                <textarea
+                  value={messages[selectedProperty.location_id] || ''}
+                  onChange={(e) => setMessages(prev => ({ ...prev, [selectedProperty.location_id]: e.target.value }))}
+                  placeholder="Ej: Solicitar actualización y ETA de resolución..."
+                  className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                  rows={2}
+                />
+                <button
+                  onClick={() => handleNotify(selectedProperty.location_id, selectedProperty.location_name)}
+                  disabled={notifying === selectedProperty.location_id}
+                  className="w-full mt-3 inline-flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg text-sm font-semibold transition-colors"
+                >
+                  <Send className="w-4 h-4" />
+                  {notifying === selectedProperty.location_id ? 'Enviando...' : 'Enviar notificación'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

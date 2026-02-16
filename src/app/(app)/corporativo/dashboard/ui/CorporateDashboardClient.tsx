@@ -587,7 +587,9 @@ export default function CorporateDashboardClient({ hubModules, isAdmin }: Corpor
 
       {/* Tarjeta de Habitaciones Fuera de Servicio - Alta Prioridad */}
       {showMaintenance && (
-        <RoomsOutOfServiceCard />
+        <div className="w-full lg:w-1/2">
+          <RoomsOutOfServiceCard />
+        </div>
       )}
 
       {/* KPIs - Strip compacto - mostrar según módulos visibles */}
