@@ -21,8 +21,9 @@ export async function POST(request: NextRequest) {
     .select('role, is_corporate')
     .eq('id', user.id)
     .single()
-  if (!profile || !(profile.role === 'admin' || profile.is_corporate))
-    return Response.json({ error: 'Sin permisos' }, { status: 403 })
+  // Solo admin o supervisor corporativo pueden crear habitaciones
+  if (!profile || !(profile.role === 'admin' || (profile.role === 'supervisor' && profile.is_corporate)))
+    return Response.json({ error: 'Solo admin o supervisor corporativo puede gestionar habitaciones' }, { status: 403 })
 
   const body = await request.json().catch(() => ({}))
   const { location_id, number, floor, room_type, status, notes } = body

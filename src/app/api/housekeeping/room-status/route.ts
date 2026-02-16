@@ -18,8 +18,9 @@ export async function POST(request: Request) {
     .select('role, location_id, is_corporate')
     .eq('id', user.id)
     .single()
-  if (!profile || (!['admin', 'supervisor'].includes(profile.role) && !profile.is_corporate))
-    return new Response('Forbidden', { status: 403 })
+  // Solo admin o supervisor corporativo pueden cambiar estado de habitaciones
+  if (!profile || !(profile.role === 'admin' || (profile.role === 'supervisor' && profile.is_corporate)))
+    return new Response('Solo admin o supervisor corporativo puede cambiar estado de habitaciones', { status: 403 })
 
   let body: any
   try {
@@ -35,34 +36,6 @@ export async function POST(request: Request) {
   if (!validStatuses.includes(new_status)) return new Response('Estado inválido', { status: 400 })
 
   const admin = createSupabaseAdminClient()
-
-  const isFullAccess = profile.role === 'admin' || Boolean((profile as any)?.is_corporate)
-  if (!isFullAccess) {
-    const { data: userLocs } = await supabase
-      .from('user_locations')
-      .select('location_id')
-      .eq('user_id', user.id)
-
-    const allowedLocationIds = (userLocs ?? []).map((l: any) => l.location_id).filter(Boolean)
-
-    if (profile.location_id && !allowedLocationIds.includes(profile.location_id)) {
-      allowedLocationIds.push(profile.location_id)
-    }
-
-    if (allowedLocationIds.length === 0) {
-      return new Response('Forbidden', { status: 403 })
-    }
-
-    const { data: room } = await admin
-      .from('hk_rooms')
-      .select('location_id')
-      .eq('id', room_id)
-      .single()
-
-    if (!room || !allowedLocationIds.includes(room.location_id)) {
-      return new Response('Forbidden', { status: 403 })
-    }
-  }
 
   // Use RPC for transactional status change
   const { error } = await admin.rpc('hk_change_room_status', {

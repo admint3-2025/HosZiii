@@ -31,8 +31,9 @@ export async function POST(request: NextRequest) {
     .select('role, is_corporate')
     .eq('id', user.id)
     .single()
-  if (!profile || !(profile.role === 'admin' || profile.is_corporate))
-    return new Response('Solo administradores pueden generar habitaciones', { status: 403 })
+  // Solo admin o supervisor corporativo pueden crear habitaciones de prueba
+  if (!profile || !(profile.role === 'admin' || (profile.role === 'supervisor' && profile.is_corporate)))
+    return new Response('Solo admin o supervisor corporativo pueden generar habitaciones', { status: 403 })
 
   const body = await request.json().catch(() => ({}))
   const locationId = body.location_id
