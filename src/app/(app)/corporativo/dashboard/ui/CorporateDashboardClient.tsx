@@ -4,6 +4,7 @@ import { useEffect, useMemo, useRef, useState } from 'react'
 import Link from 'next/link'
 import { CorporateStatsService, CorporateStats } from '@/lib/services/corporate-stats.service'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
+import RoomsOutOfServiceCard from './RoomsOutOfServiceCard'
 import { 
   ArrowUpRight, 
   ArrowDownRight, 
@@ -583,6 +584,11 @@ export default function CorporateDashboardClient({ hubModules, isAdmin }: Corpor
           <span className="font-medium text-gray-700">Actualizar</span>
         </button>
       </div>
+
+      {/* Tarjeta de Habitaciones Fuera de Servicio - Alta Prioridad */}
+      {showMaintenance && (
+        <RoomsOutOfServiceCard />
+      )}
 
       {/* KPIs - Strip compacto - mostrar según módulos visibles */}
       {(stats || itStats || maintenanceStats) && (
