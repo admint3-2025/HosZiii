@@ -84,6 +84,10 @@ export async function POST(request: Request) {
       return new Response(message, { status: 409 })
     }
 
+    if (message.toLowerCase().includes('justificación requerida')) {
+      return new Response(message, { status: 409 })
+    }
+
     return new Response(message, { status: 500 })
   }
 

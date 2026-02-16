@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useMemo, useCallback } from 'react'
 import type { ReactNode } from 'react'
+import { createExpressMaintenanceTicketForRoom } from '../actions'
 import RoomGrid from './RoomGrid'
 import StaffPanel from './StaffPanel'
 import InventoryPanel from './InventoryPanel'
@@ -63,6 +64,20 @@ interface HotelLocation {
 }
 
 type Tab = 'dashboard' | 'habitaciones' | 'gestion' | 'incidencias' | 'personal' | 'inventario' | 'reportes'
+
+type WorkflowTicketModalState = {
+  isOpen: boolean
+  roomId: string
+  roomNumber: string
+  desiredStatus: 'mantenimiento'
+  message: string
+}
+
+type BlockJustificationModalState = {
+  isOpen: boolean
+  roomId: string
+  roomNumber: string
+}
 
 // ──────── KPI Card ────────
 function KPICard({ label, value, sub, tone }: { label: string; value: string | number; sub?: string; tone: 'emerald' | 'red' | 'amber' | 'blue' | 'slate' | 'violet' }) {
@@ -253,6 +268,19 @@ export default function HousekeepingDashboard() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Workflow modal: create express maintenance ticket when trying to set OOS
+  const [workflowModal, setWorkflowModal] = useState<WorkflowTicketModalState | null>(null)
+  const [ticketTitle, setTicketTitle] = useState('')
+  const [ticketDescription, setTicketDescription] = useState('')
+  const [ticketBusy, setTicketBusy] = useState(false)
+  const [ticketError, setTicketError] = useState<string | null>(null)
+
+  // Block justification modal (for 'bloqueada')
+  const [blockModal, setBlockModal] = useState<BlockJustificationModalState | null>(null)
+  const [blockJustification, setBlockJustification] = useState('')
+  const [blockBusy, setBlockBusy] = useState(false)
+  const [blockError, setBlockError] = useState<string | null>(null)
+
   // ─── Incidents state ───
   const [incidents, setIncidents] = useState<RoomIncident[]>([])
   const [incidentRooms, setIncidentRooms] = useState<{ id: string; number: string; floor: number; status: string; incidentCount: number }[]>([])
@@ -334,8 +362,65 @@ export default function HousekeepingDashboard() {
   const activeStaff = staff.filter(s => s.status === 'activo').length
   const lowStockItems = inventory.filter(i => i.stock <= i.minStock).length
 
+  const hasOpenMaintenanceIncident = useCallback((room: Room | null | undefined) => {
+    if (!room) return false
+    return (room.incidents ?? []).some(i => {
+      if (i.source !== 'maintenance') return false
+      const s = String(i.status || '').toUpperCase()
+      return !['RESOLVED', 'CLOSED'].includes(s)
+    })
+  }, [])
+
+  const openWorkflowModal = useCallback((params: {
+    roomId: string
+    roomNumber: string
+    desiredStatus: 'mantenimiento'
+    message: string
+  }) => {
+    setTicketError(null)
+    setTicketBusy(false)
+    setTicketTitle(`Hab. ${params.roomNumber} · Ticket de mantenimiento`)
+    setTicketDescription('')
+    setWorkflowModal({
+      isOpen: true,
+      roomId: params.roomId,
+      roomNumber: params.roomNumber,
+      desiredStatus: params.desiredStatus,
+      message: params.message,
+    })
+  }, [])
+
   // ─── Room status change (calls API) ───
-  const handleStatusChange = useCallback(async (roomId: string, newStatus: RoomStatus) => {
+  const handleStatusChange = useCallback(async (
+    roomId: string,
+    newStatus: RoomStatus,
+    opts?: { skipWorkflowPrecheck?: boolean; notes?: string | null }
+  ) => {
+    const room = rooms.find(r => r.id === roomId) || null
+
+    // Require justification for temporary blocks
+    if (!opts?.skipWorkflowPrecheck && newStatus === 'bloqueada') {
+      setBlockError(null)
+      setBlockBusy(false)
+      setBlockJustification('')
+      setBlockModal({ isOpen: true, roomId, roomNumber: room?.number || '—' })
+      return
+    }
+
+    // Pre-check: if trying to mark 'mantenimiento' without an open maintenance ticket, show a prominent modal
+    if (!opts?.skipWorkflowPrecheck && newStatus === 'mantenimiento') {
+      const hasOpenMaint = hasOpenMaintenanceIncident(room)
+      if (!hasOpenMaint) {
+        openWorkflowModal({
+          roomId,
+          roomNumber: room?.number || '—',
+          desiredStatus: 'mantenimiento',
+          message: 'Para marcar como mantenimiento debes crear un ticket de mantenimiento abierto vinculado a la habitación.',
+        })
+        return
+      }
+    }
+
     // Optimistic update
     setRooms(prev =>
       prev.map(r =>
@@ -349,20 +434,32 @@ export default function HousekeepingDashboard() {
       const res = await fetch('/api/housekeeping/room-status', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ room_id: roomId, new_status: newStatus }),
+        body: JSON.stringify({ room_id: roomId, new_status: newStatus, notes: opts?.notes ?? null }),
       })
       if (!res.ok) {
         // Revert on error
         if (selectedLocationId) loadData(selectedLocationId)
         const msg = await res.text()
         console.error('Error cambiando estado:', msg)
+
+        // If workflow guardrail hit, open modal instead of a hidden banner
+        if (res.status === 409 && newStatus === 'mantenimiento') {
+          openWorkflowModal({
+            roomId,
+            roomNumber: room?.number || '—',
+            desiredStatus: 'mantenimiento',
+            message: msg || 'Acción bloqueada por el flujo de mantenimiento',
+          })
+          return
+        }
+
         setError(msg || 'No se pudo cambiar el estado')
         setTimeout(() => setError(null), 4000)
       }
     } catch {
       if (selectedLocationId) loadData(selectedLocationId)
     }
-  }, [selectedLocationId, loadData])
+  }, [selectedLocationId, loadData, rooms, hasOpenMaintenanceIncident, openWorkflowModal])
 
   // ─── Smart assignment (calls API) ───
   const handleSmartAssign = useCallback(async () => {
@@ -557,6 +654,189 @@ export default function HousekeepingDashboard() {
           </svg>
           {error}
           <button onClick={() => setError(null)} className="ml-auto text-red-500 hover:text-red-700">✕</button>
+        </div>
+      )}
+
+      {/* Workflow Modal (prominent) */}
+      {workflowModal?.isOpen && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-xl rounded-xl bg-white shadow-2xl border border-slate-200">
+            <div className="flex items-start justify-between gap-3 border-b px-4 py-3">
+              <div>
+                <div className="text-sm font-semibold text-slate-900">Ticket de mantenimiento (creación express)</div>
+                <div className="text-xs text-slate-600">Habitación {workflowModal.roomNumber}</div>
+              </div>
+              <button
+                type="button"
+                className="btn btn-ghost btn-xs"
+                onClick={() => setWorkflowModal(null)}
+                disabled={ticketBusy}
+              >
+                Cerrar
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3">
+              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+                {workflowModal.message}
+              </div>
+
+              {ticketError && (
+                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                  {ticketError}
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-700 block">Título</label>
+                <input
+                  className="input input-sm w-full"
+                  value={ticketTitle}
+                  onChange={(e) => setTicketTitle(e.target.value)}
+                  placeholder="Ej. Hab. 204 · Aire acondicionado no enfría"
+                  disabled={ticketBusy}
+                />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-700 block">Descripción</label>
+                <textarea
+                  className="textarea textarea-sm w-full"
+                  rows={4}
+                  value={ticketDescription}
+                  onChange={(e) => setTicketDescription(e.target.value)}
+                  placeholder="Describe el problema rápidamente para que mantenimiento pueda actuar."
+                  disabled={ticketBusy}
+                />
+              </div>
+
+              <div className="flex flex-col sm:flex-row gap-2 pt-1">
+                <button
+                  type="button"
+                  className="btn btn-primary flex-1"
+                  disabled={ticketBusy || !ticketTitle.trim()}
+                  onClick={async () => {
+                    setTicketBusy(true)
+                    setTicketError(null)
+                    try {
+                      const res = await createExpressMaintenanceTicketForRoom({
+                        hkRoomId: workflowModal.roomId,
+                        locationId: selectedLocationId || null,
+                        roomNumber: workflowModal.roomNumber,
+                        title: ticketTitle,
+                        description: ticketDescription,
+                      })
+
+                      if ((res as any)?.error) {
+                        setTicketError(String((res as any)?.error))
+                        return
+                      }
+
+                      // After ticket creation, apply status (trigger also enforces)
+                      await handleStatusChange(workflowModal.roomId, 'mantenimiento', { skipWorkflowPrecheck: true })
+
+                      // Refresh data for correct incidents/status
+                      if (selectedLocationId) await loadData(selectedLocationId)
+                      setWorkflowModal(null)
+                    } catch (e: any) {
+                      setTicketError(e?.message || 'No se pudo crear el ticket')
+                    } finally {
+                      setTicketBusy(false)
+                    }
+                  }}
+                >
+                  {ticketBusy
+                    ? 'Creando…'
+                    : 'Crear ticket y poner en mantenimiento'}
+                </button>
+              </div>
+
+              <p className="text-[11px] text-slate-500">
+                Nota: el ticket se vincula a la habitación y activa el flujo en base de datos.
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Bloqueo: justificación obligatoria */}
+      {blockModal?.isOpen && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
+          <div className="w-full max-w-xl rounded-xl bg-white shadow-2xl border border-slate-200">
+            <div className="flex items-start justify-between gap-3 border-b px-4 py-3">
+              <div>
+                <div className="text-sm font-semibold text-slate-900">Bloquear habitación (temporal)</div>
+                <div className="text-xs text-slate-600">Habitación {blockModal.roomNumber}</div>
+              </div>
+              <button
+                type="button"
+                className="btn btn-ghost btn-xs"
+                onClick={() => setBlockModal(null)}
+                disabled={blockBusy}
+              >
+                Cerrar
+              </button>
+            </div>
+
+            <div className="p-4 space-y-3">
+              <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
+                Indica el motivo del bloqueo (muestra, solicitud especial, VIP, etc.). Esta nota queda registrada.
+              </div>
+
+              {blockError && (
+                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
+                  {blockError}
+                </div>
+              )}
+
+              <div className="space-y-1">
+                <label className="text-xs font-semibold text-slate-700 block">Justificación</label>
+                <textarea
+                  className="textarea textarea-sm w-full"
+                  rows={4}
+                  value={blockJustification}
+                  onChange={(e) => setBlockJustification(e.target.value)}
+                  placeholder="Ej. Bloqueada por muestra para cliente corporativo (hoy 4pm–6pm)."
+                  disabled={blockBusy}
+                />
+                <p className="text-[11px] text-slate-500">Mínimo: explica quién/por qué y (si aplica) hasta cuándo.</p>
+              </div>
+
+              <div className="flex gap-2 pt-1">
+                <button
+                  type="button"
+                  className="btn btn-secondary flex-1"
+                  disabled={blockBusy}
+                  onClick={() => setBlockModal(null)}
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  className="btn btn-primary flex-1"
+                  disabled={blockBusy || !blockJustification.trim()}
+                  onClick={async () => {
+                    setBlockBusy(true)
+                    setBlockError(null)
+                    try {
+                      await handleStatusChange(blockModal.roomId, 'bloqueada', {
+                        skipWorkflowPrecheck: true,
+                        notes: blockJustification.trim(),
+                      })
+                      if (selectedLocationId) await loadData(selectedLocationId)
+                      setBlockModal(null)
+                    } catch (e: any) {
+                      setBlockError(e?.message || 'No se pudo bloquear la habitación')
+                    } finally {
+                      setBlockBusy(false)
+                    }
+                  }}
+                >
+                  {blockBusy ? 'Aplicando…' : 'Bloquear'}
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
       )}
 

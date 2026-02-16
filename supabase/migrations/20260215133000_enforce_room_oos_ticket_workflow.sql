@@ -6,9 +6,11 @@
 --  - Conectar estatus HK con tickets_maintenance (helpdesk mantenimiento)
 --
 -- Reglas (default, seguras):
---  1) Para poner una habitación en 'mantenimiento' o 'bloqueada' debe existir
---     al menos 1 ticket de mantenimiento ABIERTO (status != RESOLVED/CLOSED)
---     vinculado a la habitación (tickets_maintenance.hk_room_id).
+--  1) Para poner una habitación en 'mantenimiento' debe existir al menos 1
+--     ticket de mantenimiento ABIERTO (status != RESOLVED/CLOSED) vinculado
+--     a la habitación (tickets_maintenance.hk_room_id).
+--     Nota: 'bloqueada' puede usarse para bloqueos temporales no necesariamente
+--     relacionados a mantenimiento.
 --  2) No se permite salir de 'mantenimiento'/'bloqueada' mientras exista un
 --     ticket de mantenimiento ABIERTO.
 --  3) Admin o supervisor corporativo pueden sobre-escribir (override).
@@ -89,6 +91,14 @@ BEGIN
 
   v_has_open_maint := hk_has_open_maintenance_ticket(p_room_id);
 
+  -- Justificación requerida para bloqueos temporales.
+  -- Evita que se use 'bloqueada' sin motivo/auditoría.
+  IF p_new_status = 'bloqueada' THEN
+    IF p_notes IS NULL OR btrim(p_notes) = '' THEN
+      RAISE EXCEPTION 'Justificación requerida para bloquear una habitación';
+    END IF;
+  END IF;
+
   -- Regla 1:
   -- - Entrar a 'mantenimiento' requiere ticket de mantenimiento ABIERTO.
   -- - Entrar a 'bloqueada' está permitido sin ticket (Ama de Llaves puede detectar y bloquear primero).
@@ -102,14 +112,6 @@ BEGIN
   IF v_old_status IN ('mantenimiento', 'bloqueada') AND p_new_status NOT IN ('mantenimiento', 'bloqueada') THEN
     IF v_has_open_maint AND NOT COALESCE(v_is_override, FALSE) THEN
       RAISE EXCEPTION 'No puedes cambiar el estado mientras exista un ticket de mantenimiento abierto para esta habitación';
-    END IF;
-  END IF;
-
-  -- Regla 3: si se bloqueó SIN ticket, para desbloquear debe existir al menos 1 ticket vinculado.
-  -- Esto fuerza el flujo procesal: bloqueo -> ticket -> atención/cierre -> inspección/estado real.
-  IF v_old_status = 'bloqueada' AND p_new_status NOT IN ('mantenimiento', 'bloqueada') THEN
-    IF NOT hk_has_any_maintenance_ticket(p_room_id) AND NOT COALESCE(v_is_override, FALSE) THEN
-      RAISE EXCEPTION 'No puedes desbloquear una habitación sin antes crear un ticket de mantenimiento vinculado';
     END IF;
   END IF;
 
