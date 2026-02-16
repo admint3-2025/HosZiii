@@ -2388,6 +2388,167 @@ export function locationSummaryEmailTemplate(params: {
   return { subject, html, text }
 }
 
+export function roomsOutOfServiceFollowUpEmailTemplate(params: {
+  locationCode: string
+  locationName: string
+  senderName: string
+  templateId: 'retro_eta' | 'bloqueadas_largas' | 'mantenimiento_eta'
+  messageText: string
+  roomsCount: number
+  maintenanceCount: number
+  blockedCount: number
+  maxDaysOut: number
+  rooms: { number: string; floor: number; status: string; daysOut: number; hoursOut: number }[]
+  sentAtIso: string
+}) {
+  const {
+    locationCode,
+    locationName,
+    senderName,
+    templateId,
+    messageText,
+    roomsCount,
+    maintenanceCount,
+    blockedCount,
+    maxDaysOut,
+    rooms,
+    sentAtIso,
+  } = params
+
+  const templateLabel =
+    templateId === 'mantenimiento_eta'
+      ? 'ETA mantenimiento + ticket'
+      : templateId === 'bloqueadas_largas'
+        ? 'Bloqueadas prolongadas'
+        : 'Retro + ETA (general)'
+
+  const subject = `Habitaciones fuera de servicio — [${locationCode}] ${locationName}`
+
+  const textLines: string[] = [
+    `Solicitud de actualización (Corporativo)`,
+    ``,
+    `Sede: [${locationCode}] ${locationName}`,
+    `Plantilla: ${templateLabel}`,
+    `Enviado por: ${senderName}`,
+    `Enviado: ${sentAtIso}`,
+    ``,
+    `Total OOS: ${roomsCount} (Mantenimiento: ${maintenanceCount}, Bloqueadas: ${blockedCount}) · Máx antigüedad: ${maxDaysOut}d`,
+    ``,
+    messageText,
+  ]
+
+  const roomsSorted = [...rooms].sort((a, b) => (b.daysOut - a.daysOut) || (b.hoursOut - a.hoursOut))
+  if (roomsSorted.length) {
+    textLines.push('', 'Detalle (top 50):')
+    for (const r of roomsSorted.slice(0, 50)) {
+      textLines.push(
+        `- #${r.number} (Piso ${r.floor}) — ${r.status === 'bloqueada' ? 'Bloqueada' : 'Mantenimiento'} · ${r.daysOut}d ${r.hoursOut}h`
+      )
+    }
+  }
+
+  const text = textLines.join('\n')
+
+  const roomsRowsHtml = roomsSorted
+    .slice(0, 50)
+    .map((r) => {
+      const statusLabel = r.status === 'bloqueada' ? 'Bloqueada' : 'Mantenimiento'
+      const badgeBg = r.status === 'bloqueada' ? '#fee2e2' : '#ffedd5'
+      const badgeBorder = r.status === 'bloqueada' ? '#fecaca' : '#fed7aa'
+      const badgeText = r.status === 'bloqueada' ? '#b91c1c' : '#c2410c'
+      return `
+        <tr>
+          <td style="padding:10px 12px; border-bottom:1px solid #e5e7eb; font-weight:700; color:#111827;">#${escapeHtml(r.number)}</td>
+          <td style="padding:10px 12px; border-bottom:1px solid #e5e7eb; color:#374151;">Piso ${escapeHtml(String(r.floor))}</td>
+          <td style="padding:10px 12px; border-bottom:1px solid #e5e7eb;">
+            <span style="display:inline-block; padding:4px 10px; border-radius:999px; background:${badgeBg}; border:1px solid ${badgeBorder}; color:${badgeText}; font-size:12px; font-weight:700;">${statusLabel}</span>
+          </td>
+          <td style="padding:10px 12px; border-bottom:1px solid #e5e7eb; text-align:right; font-variant-numeric: tabular-nums; font-weight:700; color:#111827;">${escapeHtml(String(r.daysOut))}d ${escapeHtml(String(r.hoursOut))}h</td>
+        </tr>
+      `
+    })
+    .join('')
+
+  const html = `
+  <!DOCTYPE html>
+  <html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  </head>
+  <body style="margin:0; padding:0; background-color:#f9fafb;">
+    <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif; background:#f9fafb; padding:40px 20px;">
+      <div style="max-width:700px; margin:0 auto 24px auto; text-align:center;">
+        <img src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png" alt="ZIII HoS" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
+      </div>
+
+      <div style="max-width:700px; margin:0 auto; background:#ffffff; border-radius:16px; box-shadow:0 4px 6px rgba(0,0,0,0.07); overflow:hidden; border:1px solid #e5e7eb;">
+        <div style="background:linear-gradient(135deg, #2563eb 0%, #4f46e5 100%); padding:22px 24px 16px 24px;">
+          <div style="background:rgba(255,255,255,0.15); border-radius:12px; padding:12px; border:1px solid rgba(255,255,255,0.22);">
+            <div style="font-size:12px; letter-spacing:0.12em; text-transform:uppercase; color:rgba(255,255,255,0.85); font-weight:800;">Habitaciones fuera de servicio</div>
+            <div style="margin-top:6px; font-size:18px; color:#ffffff; font-weight:800;">
+              [${escapeHtml(locationCode)}] ${escapeHtml(locationName)}
+            </div>
+            <div style="margin-top:6px; font-size:12px; color:rgba(255,255,255,0.9);">
+              Plantilla: ${escapeHtml(templateLabel)} · Enviado por ${escapeHtml(senderName)}
+            </div>
+          </div>
+        </div>
+
+        <div style="padding:24px;">
+          <div style="display:flex; gap:12px; flex-wrap:wrap; margin-bottom:18px;">
+            <div style="flex:1; min-width:180px; background:#f9fafb; border:1px solid #e5e7eb; border-radius:12px; padding:12px;">
+              <div style="font-size:12px; color:#6b7280; font-weight:700; text-transform:uppercase; letter-spacing:0.06em;">Total OOS</div>
+              <div style="font-size:20px; color:#111827; font-weight:900;">${escapeHtml(String(roomsCount))}</div>
+            </div>
+            <div style="flex:1; min-width:180px; background:#fff7ed; border:1px solid #fed7aa; border-radius:12px; padding:12px;">
+              <div style="font-size:12px; color:#9a3412; font-weight:700; text-transform:uppercase; letter-spacing:0.06em;">Mantenimiento</div>
+              <div style="font-size:20px; color:#9a3412; font-weight:900;">${escapeHtml(String(maintenanceCount))}</div>
+            </div>
+            <div style="flex:1; min-width:180px; background:#fef2f2; border:1px solid #fecaca; border-radius:12px; padding:12px;">
+              <div style="font-size:12px; color:#991b1b; font-weight:700; text-transform:uppercase; letter-spacing:0.06em;">Bloqueadas</div>
+              <div style="font-size:20px; color:#991b1b; font-weight:900;">${escapeHtml(String(blockedCount))}</div>
+            </div>
+          </div>
+
+          <div style="margin:16px 0; padding:14px; background:#eef2ff; border:1px solid #c7d2fe; border-radius:12px;">
+            <div style="font-size:12px; color:#3730a3; font-weight:900; text-transform:uppercase; letter-spacing:0.06em;">Mensaje</div>
+            <pre style="margin:10px 0 0 0; white-space:pre-wrap; font-family:ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, 'Liberation Mono', 'Courier New', monospace; font-size:12px; color:#111827; line-height:1.5;">${escapeHtml(messageText)}</pre>
+          </div>
+
+          <div style="margin-top:16px; border:1px solid #e5e7eb; border-radius:12px; overflow:hidden;">
+            <div style="background:#f9fafb; border-bottom:1px solid #e5e7eb; padding:12px;">
+              <div style="font-size:12px; font-weight:900; color:#111827; text-transform:uppercase; letter-spacing:0.06em;">Detalle (top 50)</div>
+            </div>
+            <table style="width:100%; border-collapse:collapse;">
+              <thead>
+                <tr style="background:#ffffff;">
+                  <th style="padding:10px 12px; text-align:left; font-size:12px; color:#6b7280; border-bottom:1px solid #e5e7eb;">Habitación</th>
+                  <th style="padding:10px 12px; text-align:left; font-size:12px; color:#6b7280; border-bottom:1px solid #e5e7eb;">Piso</th>
+                  <th style="padding:10px 12px; text-align:left; font-size:12px; color:#6b7280; border-bottom:1px solid #e5e7eb;">Estado</th>
+                  <th style="padding:10px 12px; text-align:right; font-size:12px; color:#6b7280; border-bottom:1px solid #e5e7eb;">Antigüedad</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${roomsRowsHtml || '<tr><td colspan="4" style="padding:12px; color:#6b7280;">Sin datos</td></tr>'}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div style="max-width:700px; margin:24px auto 0 auto; text-align:center;">
+        <p style="margin:0 0 8px 0; font-size:12px; color:#9ca3af;">Enviado por <strong>ZIII HoS</strong> · Mesa de Ayuda ITIL</p>
+        <p style="margin:0; font-size:11px; color:#d1d5db;">Este correo fue enviado por ${escapeHtml(senderName)} desde el sistema</p>
+      </div>
+    </div>
+  </body>
+  </html>
+  `
+
+  return { subject, html, text }
+}
+
 /**
  * Template para notificar inspecciones con ítems debajo del umbral crítico
  */
