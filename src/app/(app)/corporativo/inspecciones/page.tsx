@@ -21,17 +21,17 @@ export default async function CorporativoInspeccionesPage() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('full_name, role, hub_visible_modules')
+    .select('full_name, role, hub_visible_modules, is_corporate')
     .eq('id', user.id)
     .single()
 
   // Roles corporativos
-  if (!profile || !['admin', 'corporate_admin', 'supervisor', 'auditor'].includes(profile.role)) {
+  if (!profile || (!['admin', 'supervisor', 'auditor'].includes(profile.role) && !profile.is_corporate)) {
     redirect('/hub')
   }
 
-  // Para corporate_admin, verificar permiso de inspecciones
-  if (profile.role === 'corporate_admin') {
+  // Para corporativo, verificar permiso de inspecciones
+  if (profile.is_corporate) {
     const hubModules = profile.hub_visible_modules as HubVisibleModules | null
     // Si hub_visible_modules existe y inspecciones-rrhh está explícitamente en false, denegar acceso
     if (hubModules && hubModules['inspecciones-rrhh'] === false) {

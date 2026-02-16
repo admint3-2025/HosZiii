@@ -99,12 +99,13 @@ export async function getLocationFilter(): Promise<string[] | null> {
   // Verificar si es admin
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, location_id')
+    .select('role, location_id, is_corporate')
     .eq('id', user.id)
     .single()
 
   const normalizedRole = String(profile?.role ?? '').trim().toLowerCase()
-  if (normalizedRole === 'admin') return null // Admin ve todo
+  const isCorporate = Boolean((profile as any)?.is_corporate)
+  if (normalizedRole === 'admin' || isCorporate) return null // Admin o corporativo ve todo
   
   // Cargar sedes desde user_locations
   const { data: userLocs } = await supabase

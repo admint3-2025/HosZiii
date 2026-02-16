@@ -41,11 +41,11 @@ export async function updateTicketStatus(input: UpdateTicketStatusInput) {
   // Verificar que el usuario sea agente, supervisor o admin
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, is_corporate')
     .eq('id', user.id)
     .single()
 
-  if (!profile || !['agent_l1', 'agent_l2', 'supervisor', 'corporate_admin', 'admin'].includes(profile.role)) {
+  if (!profile || !['agent_l1', 'agent_l2', 'supervisor', 'admin'].includes(profile.role) && !profile.is_corporate) {
     return { error: 'No tienes permisos para cambiar el estado del ticket' }
   }
 
@@ -245,11 +245,11 @@ export async function assignTicketAsset(input: AssignAssetInput) {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, is_corporate')
     .eq('id', user.id)
     .single()
 
-  if (!profile || !['admin', 'supervisor', 'corporate_admin'].includes(profile.role)) {
+  if (!profile || (!['admin', 'supervisor'].includes(profile.role) && !profile.is_corporate)) {
     return { error: 'Solo admin o supervisor pueden editar el ticket' }
   }
 
@@ -332,22 +332,22 @@ export async function escalateTicket(ticketId: string, currentLevel: number, ass
   // Verificar que el usuario sea agente, supervisor o admin
   const { data: userProfile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, is_corporate')
     .eq('id', user.id)
     .single()
 
-  if (!userProfile || !['agent_l1', 'agent_l2', 'supervisor', 'corporate_admin', 'admin'].includes(userProfile.role)) {
+  if (!userProfile || (!['agent_l1', 'agent_l2', 'supervisor', 'admin'].includes(userProfile.role) && !userProfile.is_corporate)) {
     return { error: 'No tienes permisos para escalar tickets' }
   }
 
   // Verificar que el agente seleccionado tenga rol adecuado
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, is_corporate')
     .eq('id', assignToAgentId)
     .single()
 
-  if (!profile || !['agent_l2', 'supervisor', 'corporate_admin', 'admin'].includes(profile.role)) {
+  if (!profile || (!['agent_l2', 'supervisor', 'admin'].includes(profile.role) && !profile.is_corporate)) {
     return { error: 'El agente seleccionado no tiene permisos de nivel 2' }
   }
 
@@ -622,11 +622,11 @@ export async function reopenTicket(ticketId: string, reason: string) {
   // Verificar que el usuario sea agente, supervisor o admin
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, is_corporate')
     .eq('id', user.id)
     .single()
 
-  if (!profile || !['agent_l1', 'agent_l2', 'supervisor', 'corporate_admin', 'admin'].includes(profile.role)) {
+  if (!profile || (!['agent_l1', 'agent_l2', 'supervisor', 'admin'].includes(profile.role) && !profile.is_corporate)) {
     return { error: 'No tienes permisos para reabrir tickets' }
   }
 
@@ -726,11 +726,11 @@ export async function softDeleteTicket(ticketId: string, reason: string) {
   // Verificar que el usuario sea agente, supervisor o admin
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, is_corporate')
     .eq('id', user.id)
     .single()
 
-  if (!profile || !['agent_l1', 'agent_l2', 'supervisor', 'corporate_admin', 'admin'].includes(profile.role)) {
+  if (!profile || (!['agent_l1', 'agent_l2', 'supervisor', 'admin'].includes(profile.role) && !profile.is_corporate)) {
     return { error: 'No tienes permisos para eliminar tickets' }
   }
 
@@ -1013,11 +1013,11 @@ export async function sendTicketByEmail(input: SendTicketEmailInput) {
     // Verificar que el usuario sea admin o supervisor
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role, full_name, location_id')
+      .select('role, full_name, location_id, is_corporate')
       .eq('id', user.id)
       .single()
 
-    if (!profile || !['admin', 'supervisor', 'corporate_admin'].includes(profile.role)) {
+    if (!profile || (!['admin', 'supervisor'].includes(profile.role) && !profile.is_corporate)) {
       return { error: 'Solo administradores y supervisores pueden enviar tickets por correo' }
     }
 
@@ -1029,7 +1029,7 @@ export async function sendTicketByEmail(input: SendTicketEmailInput) {
       .eq('id', input.ticketId)
 
     // Si no es admin, filtrar por ubicación
-    if (profile.role !== 'admin' && profile.location_id) {
+    if (profile.role !== 'admin' && !profile.is_corporate && profile.location_id) {
       ticketQuery = ticketQuery.eq('location_id', profile.location_id)
     }
 

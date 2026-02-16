@@ -36,7 +36,7 @@ export async function createTicket(input: CreateTicketInput) {
   // Verificar rol del usuario actual y permisos de módulo
   const { data: currentProfile } = await supabase
     .from('profiles')
-    .select('role, location_id, hub_visible_modules')
+    .select('role, location_id, hub_visible_modules, is_corporate')
     .eq('id', user.id)
     .single()
 
@@ -93,7 +93,7 @@ export async function createTicket(input: CreateTicketInput) {
 
   // Para no-admins, location_id sigue siendo obligatorio
   const currentRole = String((currentProfile as any)?.role || '').toLowerCase()
-  const isAdmin = currentRole === 'admin' || currentRole === 'corporate_admin'
+  const isAdmin = currentRole === 'admin' || Boolean((currentProfile as any)?.is_corporate)
 
   if (!resolvedLocationId && !isAdmin) {
     const who = requesterProfile?.full_name || requesterProfile?.email || requesterId

@@ -12,7 +12,6 @@ const ROLES = [
   { value: 'agent_l2', label: 'Técnico (Nivel 2)' },
   { value: 'supervisor', label: 'Supervisor' },
   { value: 'auditor', label: 'Auditor' },
-  { value: 'corporate_admin', label: 'Admin Corporativo' },
   { value: 'admin', label: 'Administrador' },
 ] as const
 
@@ -61,6 +60,7 @@ export default function UserCreateForm() {
   const [allowedDepartments, setAllowedDepartments] = useState<string[]>([])
   const [canViewBeo, setCanViewBeo] = useState(false)
   const [canManageAssets, setCanManageAssets] = useState(false)
+  const [isCorporate, setIsCorporate] = useState(false)
   const [invite, setInvite] = useState(true)
   const [password, setPassword] = useState('')
   const [busy, setBusy] = useState(false)
@@ -121,9 +121,10 @@ export default function UserCreateForm() {
           position: position.trim(),
           location_ids: locationIds.length > 0 ? locationIds : [],
           asset_category: assetCategory || null,
-          allowed_departments: role === 'corporate_admin' && allowedDepartments.length > 0 ? allowedDepartments : null,
+          allowed_departments: isCorporate && allowedDepartments.length > 0 ? allowedDepartments : null,
           can_view_beo: canViewBeo,
           can_manage_assets: canManageAssets,
+          is_corporate: role === 'supervisor' ? isCorporate : false,
           hub_visible_modules: adminHubModules,
           invite,
           ...(invite ? {} : { password }),
@@ -151,6 +152,7 @@ export default function UserCreateForm() {
       setAllowedDepartments([])
       setCanViewBeo(false)
       setCanManageAssets(false)
+      setIsCorporate(false)
       setInvite(true)
       setPassword('')
       setAdminHubModules(DEFAULT_HUB_MODULES)
@@ -275,7 +277,13 @@ export default function UserCreateForm() {
             <select
               className="select mt-1"
               value={role}
-              onChange={(e) => setRole(e.target.value as Role)}
+              onChange={(e) => {
+                const nextRole = e.target.value as Role
+                setRole(nextRole)
+                if (nextRole !== 'supervisor') {
+                  setIsCorporate(false)
+                }
+              }}
             >
               {ROLES.map((r) => (
                 <option key={r.value} value={r.value}>
@@ -285,6 +293,19 @@ export default function UserCreateForm() {
             </select>
           </div>
 
+          <div className="flex items-end">
+            <label className="flex items-center gap-2 text-xs text-gray-700">
+              <input
+                type="checkbox"
+                checked={isCorporate}
+                onChange={(e) => setIsCorporate(e.target.checked)}
+                disabled={role !== 'supervisor'}
+                className="w-4 h-4 rounded border-gray-300 text-amber-600 focus:ring-2 focus:ring-amber-500 disabled:opacity-50 disabled:cursor-not-allowed"
+              />
+              Supervisor - Corporativo
+            </label>
+          </div>
+
           <div className="sm:col-span-2 p-3 border-2 border-violet-200 bg-violet-50 rounded-lg">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -292,7 +313,7 @@ export default function UserCreateForm() {
                   Vista del Hub
                 </div>
                 <div className="text-[11px] text-violet-800 mt-1">
-                  Visible: {Object.entries(adminHubModules)
+                  {Object.entries(adminHubModules)
                     .filter(([, v]) => v)
                     .map(([k]) => k)
                     .join(', ') || '—'}
@@ -334,8 +355,8 @@ export default function UserCreateForm() {
             </div>
           </div>
 
-          {/* Selector de departamentos para inspección (solo para corporate_admin) */}
-          {role === 'corporate_admin' && (
+          {/* Selector de departamentos para inspección (solo para corporativo) */}
+          {isCorporate && (
             <div className="sm:col-span-2 p-3 border-2 border-amber-200 bg-amber-50 rounded-lg">
               <div className="text-[11px] font-semibold text-amber-900 uppercase tracking-wide mb-2.5">
                 Permisos de Inspección Corporativa
@@ -376,7 +397,7 @@ export default function UserCreateForm() {
                   className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
                   checked={canManageAssets}
                   onChange={(e) => setCanManageAssets(e.target.checked)}
-                  disabled={role === 'requester' || role === 'auditor' || role === 'corporate_admin'}
+                  disabled={role === 'requester' || role === 'auditor'}
                 />
                 <span className="flex items-center gap-1.5">
                   <svg className="w-4 h-4 text-emerald-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">

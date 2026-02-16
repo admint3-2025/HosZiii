@@ -13,14 +13,14 @@ export default async function AcademyAdminPage() {
     redirect('/login');
   }
 
-  // Check if user is admin or corporate_admin
+  // Check if user is admin or corporativo
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, is_corporate')
     .eq('id', user.id)
     .single();
 
-  if (!profile || !['admin', 'corporate_admin'].includes(profile.role)) {
+  if (!profile || !(profile.role === 'admin' || profile.is_corporate)) {
     redirect('/academia');
   }
 

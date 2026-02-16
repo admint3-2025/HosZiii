@@ -14,7 +14,7 @@ export default async function AcademiaPage() {
   // Obtener perfil del usuario
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, full_name')
+    .select('role, full_name, is_corporate')
     .eq('id', user.id)
     .single()
 
@@ -55,7 +55,7 @@ export default async function AcademiaPage() {
     enrollment: enrollmentMap.get(course.id) || null,
   }))
 
-  const isAdmin = ['admin', 'corporate_admin'].includes(profile.role)
+  const isAdmin = profile.role === 'admin' || Boolean((profile as any)?.is_corporate)
 
   return (
     <AcademyCatalog

@@ -13,14 +13,14 @@ export default async function PoliciesAdminPage() {
 
   if (!user) redirect('/login')
 
-  // Solo admin o corporate_admin
+  // Solo admin o corporativo
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, is_corporate')
     .eq('id', user.id)
     .single()
 
-  if (!profile || !['admin', 'corporate_admin'].includes(profile.role)) {
+  if (!profile || !(profile.role === 'admin' || profile.is_corporate)) {
     redirect('/politicas')
   }
 

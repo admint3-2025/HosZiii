@@ -121,66 +121,22 @@ export default function InspectionFlowSelector({
         // Obtener perfil del usuario incluyendo allowed_departments y hub_visible_modules
         const { data: profile } = await supabase
           .from('profiles')
-          .select('id, role, allowed_departments, location_id, hub_visible_modules')
+          .select('id, role, allowed_departments, location_id, hub_visible_modules, is_corporate')
           .eq('id', user.id)
           .single()
         
         setUserProfile(profile)
         
-        // Guardar departamentos permitidos para corporate_admin
-        if (profile?.role === 'corporate_admin' && profile.allowed_departments) {
+        // Guardar departamentos permitidos para corporativo
+        if ((profile as any)?.is_corporate && profile.allowed_departments) {
           setAllowedDepartments(profile.allowed_departments as string[])
         }
 
         const isAdmin = profile?.role === 'admin'
-        const isCorporateAdmin = profile?.role === 'corporate_admin'
-        const userLocationId = profile?.location_id
+        const isCorporate = Boolean((profile as any)?.is_corporate)
 
-        // Para corporate_admin, filtrar ubicaciones por user_locations si tiene asignadas
-        if (isCorporateAdmin) {
-          // Primero intentar cargar desde user_locations
-          const { data: userLocData, error: ulError } = await supabase
-            .from('user_locations')
-            .select('location_id, locations!inner(id, code, name, business_type)')
-            .eq('user_id', user.id)
-
-          if (ulError) {
-            setPropertiesError(ulError.message)
-            setAvailableProperties([])
-          } else {
-            let props = (userLocData || [])
-              .map((row: any) => row.locations)
-              .filter((l: any) => l && l.business_type === 'hotel')
-              .map((l: any) => ({ id: l.id, code: l.code, name: l.name }))
-
-            // Si tiene location_id pero no está en la lista, agregarlo
-            if (userLocationId && !props.some((p: any) => p.id === userLocationId)) {
-              const { data: locData } = await supabase
-                .from('locations')
-                .select('id, code, name, business_type')
-                .eq('id', userLocationId)
-                .single()
-
-              if (locData && locData.business_type === 'hotel') {
-                props.push({ id: locData.id, code: locData.code, name: locData.name })
-              }
-            }
-
-            // Si no tiene ubicaciones asignadas, cargar todas las activas (corporate_admin global)
-            if (props.length === 0 && !userLocationId) {
-              const { data: allLocs } = await supabase
-                .from('locations')
-                .select('id, code, name, business_type')
-                .eq('is_active', true)
-                .eq('business_type', 'hotel')
-                .order('code')
-
-              props = (allLocs || []).map((l: any) => ({ id: l.id, code: l.code, name: l.name }))
-            }
-
-            setAvailableProperties(props)
-          }
-        } else if (context === 'corporate' || isAdmin) {
+        // Corporativo ve todas las ubicaciones activas (hoteles)
+        if (isCorporate || context === 'corporate' || isAdmin) {
           // Admin ve todas las ubicaciones activas (hoteles)
           const { data, error } = await supabase
             .from('locations')

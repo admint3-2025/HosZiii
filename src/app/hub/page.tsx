@@ -89,7 +89,7 @@ const modules: Module[] = [
     bgGradient: 'from-blue-500 via-indigo-500 to-purple-600',
     iconBg: 'bg-blue-100',
     textColor: 'text-blue-900',
-    requiredRoles: ['admin', 'supervisor', 'agent_l1', 'agent_l2', 'requester', 'corporate_admin'],
+    requiredRoles: ['admin', 'supervisor', 'agent_l1', 'agent_l2', 'requester'],
   },
   {
     id: 'mantenimiento',
@@ -114,7 +114,7 @@ const modules: Module[] = [
     bgGradient: 'from-emerald-500 via-teal-500 to-cyan-600',
     iconBg: 'bg-emerald-100',
     textColor: 'text-emerald-900',
-    requiredRoles: ['admin', 'supervisor', 'agent_l1', 'agent_l2', 'requester', 'corporate_admin'],
+    requiredRoles: ['admin', 'supervisor', 'agent_l1', 'agent_l2', 'requester'],
   },
   {
     id: 'corporativo',
@@ -129,7 +129,7 @@ const modules: Module[] = [
     bgGradient: 'from-amber-500 via-orange-500 to-red-600',
     iconBg: 'bg-amber-100',
     textColor: 'text-amber-900',
-    requiredRoles: ['admin', 'corporate_admin'],
+    requiredRoles: ['admin', 'supervisor'],
   },
   {
     id: 'academia',
@@ -145,7 +145,7 @@ const modules: Module[] = [
     bgGradient: 'from-cyan-500 via-blue-500 to-indigo-600',
     iconBg: 'bg-cyan-100',
     textColor: 'text-cyan-900',
-    requiredRoles: ['admin', 'corporate_admin', 'supervisor', 'agent_l1', 'agent_l2', 'requester'],
+    requiredRoles: ['admin', 'supervisor', 'agent_l1', 'agent_l2', 'requester'],
   },
   {
     id: 'politicas',
@@ -160,7 +160,7 @@ const modules: Module[] = [
     bgGradient: 'from-indigo-500 via-violet-500 to-purple-600',
     iconBg: 'bg-indigo-100',
     textColor: 'text-indigo-900',
-    requiredRoles: ['admin', 'corporate_admin', 'supervisor', 'agent_l1', 'agent_l2', 'requester'],
+    requiredRoles: ['admin', 'supervisor', 'agent_l1', 'agent_l2', 'requester'],
   },
   {
     id: 'ama-de-llaves',
@@ -176,7 +176,7 @@ const modules: Module[] = [
     bgGradient: 'from-teal-500 via-cyan-500 to-sky-600',
     iconBg: 'bg-teal-100',
     textColor: 'text-teal-900',
-    requiredRoles: ['admin', 'supervisor', 'corporate_admin'],
+    requiredRoles: ['admin', 'supervisor'],
   },
   {
     id: 'administracion',
@@ -251,7 +251,7 @@ export default async function HubPage() {
 
   // NO redirigir automáticamente si es el único módulo
   // Los usuarios deben ver el hub para navegar entre sus módulos disponibles
-  // (comentado porque causaba loops infinitos con corporate_admin)
+  // (comentado porque causaba loops infinitos con corporativo)
   // if (accessibleModules.length === 1) {
   //   redirect(accessibleModules[0].href)
   // }
@@ -286,17 +286,16 @@ export default async function HubPage() {
   const clientIpRaw = forwardedFor.split(',')[0]?.trim() || ''
   const clientIp = clientIpRaw.replace(/^::ffff:/i, '') || '—'
 
+  const isCorporate = Boolean((profile as any)?.is_corporate)
   const roleLabel =
     profile?.role === 'admin'
       ? 'ADMINISTRADOR'
-      : profile?.role === 'corporate_admin'
-        ? 'ADMIN CORPORATIVO'
       : profile?.role === 'agent_l1'
         ? 'AGENTE L1'
         : profile?.role === 'agent_l2'
           ? 'AGENTE L2'
           : profile?.role === 'supervisor'
-            ? 'SUPERVISOR'
+            ? (isCorporate ? 'SUPERVISOR - CORPORATIVO' : 'SUPERVISOR')
             : profile?.role === 'requester'
               ? 'USUARIO'
               : profile?.role === 'auditor'

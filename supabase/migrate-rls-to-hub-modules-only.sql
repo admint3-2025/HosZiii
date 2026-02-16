@@ -29,11 +29,16 @@ USING (
     SELECT 1 FROM public.profiles p
     WHERE p.id = auth.uid()
     AND (p.hub_visible_modules->>'it-helpdesk')::text IN ('user', 'supervisor')
-    AND p.role IN ('supervisor', 'agent_l1', 'agent_l2', 'corporate_admin')
     AND (
-      tickets.location_id = p.location_id
-      OR tickets.location_id IN (
-        SELECT location_id FROM public.user_locations WHERE user_id = auth.uid()
+      p.is_corporate = true
+      OR (
+        p.role IN ('supervisor', 'agent_l1', 'agent_l2')
+        AND (
+          tickets.location_id = p.location_id
+          OR tickets.location_id IN (
+            SELECT location_id FROM public.user_locations WHERE user_id = auth.uid()
+          )
+        )
       )
     )
   )
@@ -64,11 +69,16 @@ USING (
     SELECT 1 FROM public.profiles p
     WHERE p.id = auth.uid()
     AND (p.hub_visible_modules->>'mantenimiento')::text IN ('user', 'supervisor')
-    AND p.role IN ('supervisor', 'agent_l1', 'agent_l2', 'corporate_admin')
     AND (
-      tickets_maintenance.location_id = p.location_id
-      OR tickets_maintenance.location_id IN (
-        SELECT location_id FROM public.user_locations WHERE user_id = auth.uid()
+      p.is_corporate = true
+      OR (
+        p.role IN ('supervisor', 'agent_l1', 'agent_l2')
+        AND (
+          tickets_maintenance.location_id = p.location_id
+          OR tickets_maintenance.location_id IN (
+            SELECT location_id FROM public.user_locations WHERE user_id = auth.uid()
+          )
+        )
       )
     )
   )

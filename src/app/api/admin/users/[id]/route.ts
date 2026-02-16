@@ -7,7 +7,6 @@ type Role =
   | 'agent_l2'
   | 'supervisor'
   | 'auditor'
-  | 'corporate_admin'
   | 'admin'
 
 type HubModuleId = 'it-helpdesk' | 'mantenimiento' | 'corporativo' | 'academia' | 'politicas' | 'ama-de-llaves' | 'administracion'
@@ -47,7 +46,6 @@ function isValidRole(role: unknown): role is Role {
     role === 'agent_l2' ||
     role === 'supervisor' ||
     role === 'auditor' ||
-    role === 'corporate_admin' ||
     role === 'admin'
   )
 }
@@ -149,6 +147,11 @@ export async function PATCH(
     updates.can_manage_assets = Boolean(body.can_manage_assets)
   }
 
+  if (body?.is_corporate !== undefined) {
+    const nextRole = body?.role
+    updates.is_corporate = nextRole && nextRole !== 'supervisor' ? false : Boolean(body.is_corporate)
+  }
+
   if (body?.asset_category !== undefined) {
     const assetCategory = typeof body.asset_category === 'string' && body.asset_category.trim() !== '' 
       ? body.asset_category.trim() 
@@ -212,6 +215,7 @@ export async function PATCH(
         asset_category: body?.asset_category,
         can_view_beo: body?.can_view_beo,
         can_manage_assets: body?.can_manage_assets,
+        is_corporate: body?.is_corporate,
         hub_visible_modules: body?.hub_visible_modules,
         active: body?.active,
       },

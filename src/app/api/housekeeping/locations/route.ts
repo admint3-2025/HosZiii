@@ -14,13 +14,13 @@ export async function GET() {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, location_id')
+    .select('role, location_id, is_corporate')
     .eq('id', user.id)
     .single()
-  if (!profile || !['admin', 'supervisor', 'corporate_admin'].includes(profile.role))
+  if (!profile || (!['admin', 'supervisor'].includes(profile.role) && !profile.is_corporate))
     return new Response('Forbidden', { status: 403 })
 
-  const isFullAccess = ['admin', 'corporate_admin'].includes(profile.role)
+  const isFullAccess = profile.role === 'admin' || Boolean((profile as any)?.is_corporate)
   let allowedLocationIds: string[] | null = null
 
   if (!isFullAccess) {

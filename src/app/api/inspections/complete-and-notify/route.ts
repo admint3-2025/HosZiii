@@ -17,6 +17,7 @@ type AdminEmail = {
   full_name: string
   email: string
   role: string
+  is_corporate?: boolean
 }
 
 export async function POST(req: NextRequest) {
@@ -165,11 +166,11 @@ export async function POST(req: NextRequest) {
 
     const admins = (adminsData || []) as AdminEmail[]
 
-    // Correos y notificaciones SOLO para admin y corporate_admin
-    const emailRecipients = admins.filter(a => a.role === 'admin' || a.role === 'corporate_admin')
+    // Correos y notificaciones SOLO para admin y corporativo
+    const emailRecipients = admins.filter(a => a.role === 'admin' || a.is_corporate)
 
-    // Destinatarios de push: admin y corporate_admin ÚNICAMENTE
-    const pushRecipients = admins.filter(a => a.role === 'admin' || a.role === 'corporate_admin')
+    // Destinatarios de push: admin y corporativo ÚNICAMENTE
+    const pushRecipients = admins.filter(a => a.role === 'admin' || a.is_corporate)
 
     // Fallback para correos si no hay admins: usar usuario actual
     if (emailRecipients.length === 0 && user.email) {

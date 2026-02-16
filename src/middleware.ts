@@ -183,14 +183,14 @@ export async function middleware(request: NextRequest) {
       }
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role')
+        .select('role, is_corporate')
         .eq('id', userId)
         .single()
 
       const isAdminLike = profile?.role === 'admin'
 
-      // /admin para admin (acceso total) y corporate_admin (solo redirigir si intenta entrar)
-      if (profile?.role === 'corporate_admin') {
+      // /admin para admin (acceso total) y corporativo (redirigir si intenta entrar)
+      if (profile?.is_corporate) {
         const redirectUrl = request.nextUrl.clone()
         redirectUrl.pathname = '/reports'
         return NextResponse.redirect(redirectUrl)

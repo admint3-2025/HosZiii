@@ -18,11 +18,11 @@ export async function GET(request: NextRequest) {
   // Verificar si es admin
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, is_corporate')
     .eq('id', user.id)
     .single()
 
-  const isAdmin = profile && ['admin', 'corporate_admin'].includes(profile.role)
+  const isAdmin = profile && (profile.role === 'admin' || profile.is_corporate)
 
   // Búsqueda por código de verificación (público para validar certificados)
   if (verification_code) {

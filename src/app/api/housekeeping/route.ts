@@ -15,16 +15,16 @@ export async function GET(request: NextRequest) {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, location_id')
+    .select('role, location_id, is_corporate')
     .eq('id', user.id)
     .single()
-  if (!profile || !['admin', 'supervisor', 'corporate_admin'].includes(profile.role))
+  if (!profile || (!['admin', 'supervisor'].includes(profile.role) && !profile.is_corporate))
     return new Response('Forbidden', { status: 403 })
 
   const locationId = request.nextUrl.searchParams.get('location_id')
   if (!locationId) return new Response('location_id requerido', { status: 400 })
 
-  const isFullAccess = ['admin', 'corporate_admin'].includes(profile.role)
+  const isFullAccess = profile.role === 'admin' || Boolean((profile as any)?.is_corporate)
   if (!isFullAccess) {
     const { data: userLocs } = await supabase
       .from('user_locations')

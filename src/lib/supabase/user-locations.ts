@@ -5,7 +5,7 @@
  * Reglas de negocio:
  * - Usuario normal (requester): solo su sede asignada (profiles.location_id)
  * - Supervisor: todas sus sedes (user_locations + profiles.location_id)
- * - Admin/Admin Corporativo: al crear tickets actúan como usuario de su sede (profiles.location_id)
+ * - Admin/Supervisor corporativo: al crear tickets actúan como usuario de su sede (profiles.location_id)
  * - Admin ve TODO cuando está en modo gestión
  */
 
@@ -14,6 +14,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 export type UserLocationInfo = {
   userId: string
   role: string
+  isCorporate: boolean
   /** Sede principal del perfil */
   primaryLocationId: string | null
   /** Todas las sedes del usuario (incluyendo la principal) */
@@ -37,7 +38,7 @@ export async function getUserLocationInfo(
     // 1. Obtener perfil del usuario
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
-      .select('role, location_id')
+      .select('role, location_id, is_corporate')
       .eq('id', userId)
       .single()
 
@@ -48,6 +49,7 @@ export async function getUserLocationInfo(
 
     const role = profile.role as string
     const primaryLocationId = profile.location_id as string | null
+    const isCorporate = Boolean((profile as any)?.is_corporate)
 
     // 2. Obtener sedes adicionales desde user_locations
     const { data: userLocs, error: locsError } = await supabase
@@ -78,11 +80,12 @@ export async function getUserLocationInfo(
 
     // 4. Determinar si puede ver todas las sedes
     // Admin ve todo en modo gestión
-    const canViewAllLocations = role === 'admin'
+    const canViewAllLocations = role === 'admin' || isCorporate
 
     return {
       userId,
       role,
+      isCorporate,
       primaryLocationId,
       allLocationIds,
       canViewAllLocations,
@@ -112,12 +115,12 @@ export async function getLocationIdsForAssetFilter(
     return []
   }
 
-  const { role, allLocationIds } = info
+  const { role, allLocationIds, isCorporate } = info
 
   console.log('[getLocationIdsForAssetFilter] 🔍 Usuario:', userId, 'Rol:', role, 'Modo:', mode)
 
   // Admin siempre ve todo (sin filtro de sedes)
-  if (['admin', 'corporate_admin'].includes(role)) {
+  if (role === 'admin' || isCorporate) {
     console.log('[getLocationIdsForAssetFilter] ✅ Admin detectado - retornando NULL (sin filtro)')
     return null // null = sin filtro, ve todos los activos
   }

@@ -18,11 +18,11 @@ export async function GET(request: NextRequest, { params }: RouteParams) {
   // Verificar si es admin
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, is_corporate')
     .eq('id', user.id)
     .single()
 
-  const isAdmin = profile && ['admin', 'corporate_admin'].includes(profile.role)
+  const isAdmin = profile && (profile.role === 'admin' || profile.is_corporate)
 
   // Obtener curso
   let courseQuery = supabase
@@ -102,11 +102,11 @@ export async function PATCH(request: NextRequest, { params }: RouteParams) {
   // Verificar permisos
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, is_corporate')
     .eq('id', user.id)
     .single()
 
-  if (!profile || !['admin', 'corporate_admin'].includes(profile.role)) {
+  if (!profile || !(profile.role === 'admin' || profile.is_corporate)) {
     return NextResponse.json({ error: 'No tienes permisos' }, { status: 403 })
   }
 
@@ -159,11 +159,11 @@ export async function DELETE(request: NextRequest, { params }: RouteParams) {
   // Verificar permisos
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, is_corporate')
     .eq('id', user.id)
     .single()
 
-  if (!profile || !['admin', 'corporate_admin'].includes(profile.role)) {
+  if (!profile || !(profile.role === 'admin' || profile.is_corporate)) {
     return NextResponse.json({ error: 'No tienes permisos' }, { status: 403 })
   }
 

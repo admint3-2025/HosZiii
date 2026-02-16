@@ -23,17 +23,17 @@ export default async function CorporativoDashboard() {
   
   const { data: profile } = await supabase
     .from('profiles')
-    .select('full_name, role, hub_visible_modules')
+    .select('full_name, role, hub_visible_modules, is_corporate')
     .eq('id', user.id)
     .single()
 
-  // Verificar permisos (admin o corporate_admin)
-  if (!profile || !['admin', 'corporate_admin'].includes(profile.role)) {
+  // Verificar permisos (admin o corporativo)
+  if (!profile || !(profile.role === 'admin' || profile.is_corporate)) {
     redirect('/hub')
   }
 
   // Para admin, todos los módulos están disponibles
-  // Para corporate_admin, usar hub_visible_modules
+  // Para corporativo, usar hub_visible_modules
   const hubModules = profile.role === 'admin' 
     ? null // null significa acceso total
     : (profile.hub_visible_modules as HubVisibleModules | null)

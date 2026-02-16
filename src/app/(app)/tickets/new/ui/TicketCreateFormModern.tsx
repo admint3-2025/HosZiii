@@ -159,7 +159,7 @@ export default function TicketCreateFormModern({
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role, location_id, asset_category, full_name, hub_visible_modules')
+        .select('role, location_id, asset_category, full_name, hub_visible_modules, is_corporate')
         .eq('id', user.id)
         .single()
 
@@ -172,16 +172,18 @@ export default function TicketCreateFormModern({
         setSelectedLocationId(locationId)
       }
 
-      // Detectar si es admin para habilitar selección de sede
+      // Detectar si es admin o corporativo para habilitar selección de sede
       const adminCheck = profile?.role === 'admin'
-      setIsAdmin(adminCheck)
+      const isCorporate = Boolean((profile as any)?.is_corporate)
+      const isFullAccess = adminCheck || isCorporate
+      setIsAdmin(isFullAccess)
 
       // Cargar sedes disponibles para el usuario
       // Admin: todas las sedes del sistema
       // Otros usuarios: sus sedes asignadas en user_locations + su sede primaria
       setLoadingLocations(true)
       try {
-        if (adminCheck) {
+        if (isFullAccess) {
           // Admin ve todas las sedes
           const { data: locationsList } = await supabase
             .from('locations')
@@ -234,13 +236,13 @@ export default function TicketCreateFormModern({
       }
 
       // Align with server action: only admin or IT agents can create for others
-      // corporate_admin: verificar hub_visible_modules['it-helpdesk']
-      const hubModules = (profile as any)?.hub_visible_modules as Record<string, boolean> | null
-      const isCorporateAdmin = profile?.role === 'corporate_admin'
+      // corporativo: verificar hub_visible_modules['it-helpdesk']
+      const hubModules = (profile as any)?.hub_visible_modules as Record<string, string | boolean> | null
+      const isCorporateAdmin = Boolean((profile as any)?.is_corporate)
       const allowedForOthers =
         !!profile &&
         (profile.role === 'admin' ||
-          (area === 'it' && isCorporateAdmin && hubModules?.['it-helpdesk'] === true) ||
+          (area === 'it' && isCorporateAdmin && hubModules?.['it-helpdesk'] === 'supervisor') ||
           (area === 'it' && !isCorporateAdmin && ['agent_l1', 'agent_l2', 'supervisor'].includes(profile.role) && profile.asset_category === 'IT'))
 
       if (allowedForOthers) {

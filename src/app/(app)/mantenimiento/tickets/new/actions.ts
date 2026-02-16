@@ -35,8 +35,8 @@ export async function createMaintenanceTicket(input: CreateMaintenanceTicketInpu
 
   // Verificar rol del usuario actual y acceso a módulo de mantenimiento
   const { data: currentProfile } = await supabase
-    .from('profiles')
-    .select('role, hub_visible_modules, location_id')
+      .from('profiles')
+      .select('role, hub_visible_modules, location_id, is_corporate')
     .eq('id', user.id)
     .single()
 
@@ -87,7 +87,7 @@ export async function createMaintenanceTicket(input: CreateMaintenanceTicketInpu
   }
 
   const currentRole = String((currentProfile as any)?.role || '').toLowerCase()
-  const isAdmin = currentRole === 'admin' || currentRole === 'corporate_admin'
+    const isAdmin = currentRole === 'admin' || Boolean((currentProfile as any)?.is_corporate)
 
   if (!resolvedLocationId && !isAdmin) {
     const who = requesterProfile?.full_name || requesterProfile?.email || requesterId

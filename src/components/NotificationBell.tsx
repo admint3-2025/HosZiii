@@ -22,6 +22,7 @@ export default function NotificationBell() {
   const [isLoading, setIsLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
   const [userRole, setUserRole] = useState<string | null>(null)
+  const [isCorporate, setIsCorporate] = useState(false)
   const supabase = useMemo(() => createSupabaseBrowserClient(), [])
 
   const loadNotifications = useCallback(async () => {
@@ -37,7 +38,7 @@ export default function NotificationBell() {
       let filteredData = data || []
 
       // FILTRO DE SEGURIDAD: Ocultar notificaciones de inspección a usuarios NO corporativos
-      if (userRole && userRole !== 'admin' && userRole !== 'corporate_admin') {
+      if (userRole && userRole !== 'admin' && !isCorporate) {
         filteredData = filteredData.filter(n => n.type !== 'inspection_critical')
       }
 
@@ -48,7 +49,7 @@ export default function NotificationBell() {
     } finally {
       setIsLoading(false)
     }
-  }, [supabase, userRole])
+  }, [supabase, userRole, isCorporate])
 
   // Obtener usuario actual y su rol de forma segura
   useEffect(() => {
@@ -60,12 +61,13 @@ export default function NotificationBell() {
         // Obtener rol del usuario desde profiles
         const { data: profile } = await supabase
           .from('profiles')
-          .select('role')
+          .select('role, is_corporate')
           .eq('id', user.id)
           .single()
         
         if (profile) {
           setUserRole(profile.role)
+          setIsCorporate(Boolean((profile as any)?.is_corporate))
         }
       }
     }
@@ -97,7 +99,7 @@ export default function NotificationBell() {
             
             // FILTRO DE SEGURIDAD: Ignorar notificaciones de inspección para usuarios NO corporativos
             if (newNotif.type === 'inspection_critical' && 
-                userRole && userRole !== 'admin' && userRole !== 'corporate_admin') {
+                userRole && userRole !== 'admin' && !isCorporate) {
               console.log('[NotificationBell] Notificación de inspección ignorada para rol:', userRole)
               return
             }

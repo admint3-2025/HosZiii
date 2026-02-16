@@ -7,7 +7,6 @@ type Role =
   | 'agent_l2'
   | 'supervisor'
   | 'auditor'
-  | 'corporate_admin'
   | 'admin'
 
 type HubModuleId = 'it-helpdesk' | 'mantenimiento' | 'corporativo' | 'academia' | 'politicas' | 'ama-de-llaves' | 'administracion'
@@ -52,7 +51,6 @@ function isValidRole(role: unknown): role is Role {
     role === 'agent_l2' ||
     role === 'supervisor' ||
     role === 'auditor' ||
-    role === 'corporate_admin' ||
     role === 'admin'
   )
 }
@@ -83,7 +81,7 @@ export async function GET() {
     .select(`
       id, role, full_name, department, phone, building, floor, position,
       supervisor_id, location_id, asset_category, allowed_departments,
-      can_view_beo, can_manage_assets,
+      can_view_beo, can_manage_assets, is_corporate,
       hub_visible_modules,
       locations(code,name)
     `)
@@ -159,6 +157,7 @@ export async function GET() {
       allowed_departments: (p?.allowed_departments as any) ?? null,
       can_view_beo: (p?.can_view_beo as any) ?? false,
       can_manage_assets: (p?.can_manage_assets as any) ?? false,
+      is_corporate: (p?.is_corporate as any) ?? false,
       hub_visible_modules: (p?.hub_visible_modules as any) ?? null,
     }
   })
@@ -198,6 +197,7 @@ export async function POST(request: Request) {
   const allowedDepartments = Array.isArray(body?.allowed_departments) && body.allowed_departments.length > 0 ? body.allowed_departments : null
   const canViewBeo = Boolean(body?.can_view_beo)
   const canManageAssets = Boolean(body?.can_manage_assets)
+  const isCorporate = Boolean(body?.is_corporate)
   const hubModules = parseHubModules(body?.hub_visible_modules)
   const invite = body?.invite !== false
   const password = typeof body?.password === 'string' ? body.password : null
@@ -247,6 +247,7 @@ export async function POST(request: Request) {
     allowed_departments: allowedDepartments,
     can_view_beo: canViewBeo,
     can_manage_assets: canManageAssets,
+    is_corporate: role === 'supervisor' ? isCorporate : false,
   }
 
   const payloadWithHubModules = hubModules ? { ...baseProfilePayload, hub_visible_modules: hubModules } : baseProfilePayload

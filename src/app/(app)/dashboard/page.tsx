@@ -28,7 +28,7 @@ export default async function DashboardPage() {
   const user = await getSafeServerUser()
   const { data: profile } = user ? await supabase
     .from('profiles')
-    .select('role,department,asset_category,hub_visible_modules')
+    .select('role,department,asset_category,hub_visible_modules,is_corporate')
     .eq('id', user.id)
     .single() : { data: null }
 
@@ -38,10 +38,10 @@ export default async function DashboardPage() {
 
   const itAccess = getModuleAccess(profile, 'it-helpdesk')
   const isITCorporateSupervisor =
-    normalizedRole === 'corporate_admin' && itAccess === 'supervisor'
+    Boolean((profile as any)?.is_corporate) && itAccess === 'supervisor'
   
   // Si es usuario estándar (no admin/supervisor/agente), redirigir a sus tickets
-  // corporate_admin solo puede ver dashboard IT si tiene acceso de supervisor a IT.
+  // corporativo solo puede ver dashboard IT si tiene acceso de supervisor a IT.
   if (!isAdminOrSupervisor && !isAgent && !isITCorporateSupervisor) {
     redirect('/tickets?view=mine')
   }

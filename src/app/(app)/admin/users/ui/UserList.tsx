@@ -13,7 +13,6 @@ type Role =
   | 'agent_l2'
   | 'supervisor'
   | 'auditor'
-  | 'corporate_admin'
   | 'admin'
 
 type HubModuleId = 'it-helpdesk' | 'mantenimiento' | 'corporativo' | 'academia' | 'politicas' | 'ama-de-llaves' | 'administracion'
@@ -57,6 +56,7 @@ type UserRow = {
   location_names: string[]
   can_view_beo: boolean | null
   can_manage_assets: boolean | null
+  is_corporate?: boolean | null
   asset_category: string | null
   allowed_departments: string[] | null
   hub_visible_modules?: any | null
@@ -68,7 +68,6 @@ const ROLE_LABEL: Record<Role, string> = {
   agent_l2: 'Técnico (Nivel 2)',
   supervisor: 'Supervisor',
   auditor: 'Auditor',
-  corporate_admin: 'Admin Corporativo',
   admin: 'Administrador',
 }
 
@@ -96,6 +95,7 @@ export default function UserList() {
   const [editAllowedDepartments, setEditAllowedDepartments] = useState<string[]>([])
   const [editCanViewBeo, setEditCanViewBeo] = useState(false)
   const [editCanManageAssets, setEditCanManageAssets] = useState(false)
+  const [editIsCorporate, setEditIsCorporate] = useState(false)
 
   const [editHubModules, setEditHubModules] = useState<HubModules>(DEFAULT_HUB_MODULES)
   const [hubModalOpen, setHubModalOpen] = useState(false)
@@ -202,6 +202,7 @@ export default function UserList() {
     setEditAllowedDepartments(u.allowed_departments ?? [])
     setEditCanViewBeo(u.can_view_beo ?? false)
     setEditCanManageAssets(u.can_manage_assets ?? false)
+    setEditIsCorporate(Boolean((u as any)?.is_corporate))
 
     const hm = (u as any).hub_visible_modules
     if (hm && typeof hm === 'object') {
@@ -262,9 +263,10 @@ export default function UserList() {
           floor: editFloor.trim(),
           location_ids: editLocationIds,
           asset_category: editAssetCategory || null,
-          allowed_departments: editRole === 'corporate_admin' && editAllowedDepartments.length > 0 ? editAllowedDepartments : null,
+          allowed_departments: editIsCorporate && editAllowedDepartments.length > 0 ? editAllowedDepartments : null,
           can_view_beo: editCanViewBeo,
           can_manage_assets: editCanManageAssets,
+          is_corporate: editRole === 'supervisor' ? editIsCorporate : false,
           hub_visible_modules: editHubModules,
         }),
       })
@@ -551,7 +553,13 @@ export default function UserList() {
                     </td>
 
                     <td className="px-3 py-2">
-                      <div className="text-gray-900 text-xs">{u.role ? ROLE_LABEL[u.role] : '—'}</div>
+                      <div className="text-gray-900 text-xs">
+                        {u.role
+                          ? u.role === 'supervisor' && u.is_corporate
+                            ? 'Supervisor - Corporativo'
+                            : ROLE_LABEL[u.role]
+                          : '—'}
+                      </div>
                     </td>
 
                     <td className="px-3 py-2">
@@ -702,6 +710,9 @@ export default function UserList() {
                                 onChange={(e) => {
                                   const nextRole = e.target.value as Role
                                   setEditRole(nextRole)
+                                  if (nextRole !== 'supervisor') {
+                                    setEditIsCorporate(false)
+                                  }
                                 }}
                               >
                                 {(Object.keys(ROLE_LABEL) as Role[]).map((r) => (
@@ -710,6 +721,19 @@ export default function UserList() {
                                   </option>
                                 ))}
                               </select>
+                            </div>
+
+                            <div className="flex items-end">
+                              <label className="flex items-center gap-2 text-xs text-gray-700">
+                                <input
+                                  type="checkbox"
+                                  checked={editIsCorporate}
+                                  onChange={(e) => setEditIsCorporate(e.target.checked)}
+                                  disabled={editRole !== 'supervisor'}
+                                  className="w-4 h-4 rounded border-gray-300 text-amber-600 focus:ring-2 focus:ring-amber-500 disabled:opacity-50 disabled:cursor-not-allowed"
+                                />
+                                Supervisor - Corporativo
+                              </label>
                             </div>
 
                             {/* Vista del Hub - Disponible para TODOS los usuarios */}
@@ -758,7 +782,7 @@ export default function UserList() {
                                     type="checkbox"
                                     checked={editCanManageAssets}
                                     onChange={(e) => setEditCanManageAssets(e.target.checked)}
-                                    disabled={editRole === 'requester' || editRole === 'auditor' || editRole === 'corporate_admin'}
+                                    disabled={editRole === 'requester' || editRole === 'auditor'}
                                     className="w-4 h-4 rounded border-gray-300 text-emerald-600 focus:ring-2 focus:ring-emerald-500 disabled:opacity-50 disabled:cursor-not-allowed"
                                   />
                                   <span className="text-xs text-gray-700 flex items-center gap-1.5">
@@ -769,7 +793,7 @@ export default function UserList() {
                                   </span>
                                 </label>
 
-                                {/* Permisos de supervisión para corporate_admin */}
+                                {/* Permisos de supervisión para corporativo */}
                                 <div className="pt-2 border-t border-blue-200">
                                   <label className="text-[11px] font-semibold text-blue-900 uppercase tracking-wide mb-2 block">
                                     Acceso a Inventarios/Recursos
@@ -778,7 +802,7 @@ export default function UserList() {
                                     value={editAssetCategory}
                                     onChange={(e) => setEditAssetCategory(e.target.value)}
                                     className="select select-sm text-xs w-full"
-                                    disabled={editRole === 'requester' || editRole === 'auditor' || editRole === 'corporate_admin'}
+                                    disabled={editRole === 'requester' || editRole === 'auditor'}
                                   >
                                     <option value="">Sin restricción (ve todo)</option>
                                     <option value="IT">IT - Gestión de Inventario IT</option>
@@ -791,8 +815,8 @@ export default function UserList() {
                               </div>
                             </div>
 
-                            {/* Selector de departamentos de inspección (solo para corporate_admin) */}
-                            {editRole === 'corporate_admin' && (
+                            {/* Selector de departamentos de inspección (solo para corporativo) */}
+                            {editIsCorporate && (
                               <div className="md:col-span-2 p-3 border-2 border-amber-200 bg-amber-50 rounded-lg">
                                 <div className="text-[11px] font-semibold text-amber-900 uppercase tracking-wide mb-2.5">
                                   Permisos de Inspección Corporativa

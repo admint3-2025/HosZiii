@@ -17,11 +17,11 @@ async function authorize(supabase: Awaited<ReturnType<typeof createSupabaseServe
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, is_corporate')
     .eq('id', user.id)
     .single()
 
-  if (!profile || !['admin', 'corporate_admin'].includes(profile.role)) return null
+  if (!profile || !(profile.role === 'admin' || profile.is_corporate)) return null
   return user
 }
 

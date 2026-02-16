@@ -39,11 +39,11 @@ export async function POST(request: NextRequest) {
   if (user_id && user_id !== user.id) {
     const { data: profile } = await supabase
       .from('profiles')
-      .select('role')
+      .select('role, is_corporate')
       .eq('id', user.id)
       .single()
 
-    if (!profile || !['admin', 'corporate_admin'].includes(profile.role)) {
+    if (!profile || !(profile.role === 'admin' || profile.is_corporate)) {
       return NextResponse.json({ error: 'No tienes permisos para inscribir otros usuarios' }, { status: 403 })
     }
   }
@@ -103,11 +103,11 @@ export async function GET(request: NextRequest) {
   // Verificar si es admin
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, is_corporate')
     .eq('id', user.id)
     .single()
 
-  const isAdmin = profile && ['admin', 'corporate_admin'].includes(profile.role)
+  const isAdmin = profile && (profile.role === 'admin' || profile.is_corporate)
 
   let query = supabase
     .from('academy_enrollments')

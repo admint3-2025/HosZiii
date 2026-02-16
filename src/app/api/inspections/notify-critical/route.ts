@@ -102,18 +102,18 @@ export async function POST(req: NextRequest) {
 
     console.log(`[notify-critical] Se encontraron ${criticalItems.length} ítems críticos`)
 
-    // 5. Obtener administradores y corporate_admin del sistema
+    // 5. Obtener administradores y supervisores corporativos del sistema
     // Usar admin client para acceder a auth.users y verificar que NO estén baneados
     const supabaseAdmin = createSupabaseAdminClient()
     
     const { data: profiles, error: profilesError } = await supabaseAdmin
       .from('profiles')
-      .select('id, full_name, email, role')
-      .in('role', ['admin', 'corporate_admin'])
+      .select('id, full_name, email, role, is_corporate')
+      .or('role.eq.admin,is_corporate.eq.true')
 
     if (profilesError || !profiles || profiles.length === 0) {
       console.error('[notify-critical] Error obteniendo perfiles corporativos:', profilesError)
-      return NextResponse.json({ error: 'No se encontraron administradores o corporate_admin' }, { status: 500 })
+      return NextResponse.json({ error: 'No se encontraron administradores o corporativos' }, { status: 500 })
     }
 
     // Filtrar solo usuarios NO baneados consultando auth.users
@@ -132,7 +132,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'No se encontraron administradores activos' }, { status: 500 })
     }
 
-    console.log(`[notify-critical] Enviando notificaciones a ${admins.length} usuarios corporativos (admin/corporate_admin)`)
+    console.log(`[notify-critical] Enviando notificaciones a ${admins.length} usuarios corporativos (admin/corporativo)`)
 
     // 6. Preparar URL de la inspección (dinámica según tipo)
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'

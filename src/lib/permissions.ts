@@ -9,7 +9,6 @@ export type Role =
   | 'agent_l2'
   | 'supervisor'
   | 'auditor'
-  | 'corporate_admin'
   | 'admin'
 
 export type Permission =
@@ -31,6 +30,7 @@ export interface UserProfile {
   role: Role
   asset_category?: string | null
   hub_visible_modules?: Record<string, string | boolean> | null
+  is_corporate?: boolean | null
 }
 
 /**
@@ -75,12 +75,12 @@ export function hasSupervisorPermissions(profile: UserProfile): boolean {
  * Verifica si un rol puede gestionar tickets (agente o superior)
  */
 export function canManageTickets(role: Role): boolean {
-  return ['agent_l1', 'agent_l2', 'supervisor', 'corporate_admin', 'admin'].includes(role)
+  return ['agent_l1', 'agent_l2', 'supervisor', 'admin'].includes(role)
 }
 
 /**
  * Verifica si un usuario puede asignar/reasignar tickets
- * Requiere perfil para verificar permisos de corporate_admin
+ * Requiere perfil para verificar permisos de supervisor
  */
 export function canAssignTickets(profile: UserProfile): boolean {
   if (['agent_l2', 'supervisor', 'admin'].includes(profile.role)) return true
@@ -153,7 +153,7 @@ export function hasPermission(profile: UserProfile, permission: Permission): boo
  * Helper para verificar si es admin o tiene permisos equivalentes
  */
 export function isAdminLike(role: Role): boolean {
-  return ['admin', 'corporate_admin'].includes(role)
+  return role === 'admin'
 }
 
 /**

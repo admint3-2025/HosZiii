@@ -42,6 +42,7 @@ export default function CorporateInspectionsDashboard({
   const [accessWarning, setAccessWarning] = useState<string | null>(null)
 
   const [role, setRole] = useState<string | null>(null)
+  const [isCorporate, setIsCorporate] = useState(false)
   const [allowedDepartments, setAllowedDepartments] = useState<string[] | null>(null)
   const [hubModules, setHubModules] = useState<Record<string, boolean> | null>(null)
 
@@ -58,7 +59,7 @@ export default function CorporateInspectionsDashboard({
       return [ALL_DEPARTMENTS_OPTION, ...DEPARTMENTS]
     }
 
-    // Para corporate_admin, los departamentos visibles vienen del perfil (allowed_departments)
+    // Para corporativo, los departamentos visibles vienen del perfil (allowed_departments)
     if (!allowedDepartments || allowedDepartments.length === 0) {
       return []
     }
@@ -75,14 +76,14 @@ export default function CorporateInspectionsDashboard({
 
   // Obtener ubicaciones asignadas al usuario (para mostrar sus inspecciones)
   const userLocationIds = useMemo(() => {
-    if (role === 'admin') {
+    if (role === 'admin' || isCorporate) {
       // Admin ve todas las ubicaciones
       return locations.map(l => l.id)
     } else {
       // Corporate admin ve solo sus ubicaciones asignadas, no las del departamento
       return locations.map(l => l.id)
     }
-  }, [role, locations])
+  }, [role, locations, isCorporate])
 
 
   useEffect(() => {
@@ -98,7 +99,7 @@ export default function CorporateInspectionsDashboard({
 
       const { data: profile, error: profileError } = await supabase
         .from('profiles')
-        .select('role, allowed_departments, location_id, hub_visible_modules')
+        .select('role, allowed_departments, location_id, hub_visible_modules, is_corporate')
         .eq('id', user.id)
         .single()
 
@@ -109,13 +110,15 @@ export default function CorporateInspectionsDashboard({
       }
 
       const profileRole = (profile?.role as string) || null
+      const corporateFlag = Boolean((profile as any)?.is_corporate)
       setRole(profileRole)
+      setIsCorporate(corporateFlag)
       setAllowedDepartments((profile?.allowed_departments as string[]) || null)
       setHubModules((profile?.hub_visible_modules as Record<string, boolean>) || null)
 
-      // Verificar permiso de inspecciones para corporate_admin
+      // Verificar permiso de inspecciones para corporativo
       const userHubModules = profile?.hub_visible_modules as Record<string, boolean> | null
-      if (profileRole === 'corporate_admin' && userHubModules && userHubModules['inspecciones-rrhh'] === false) {
+      if (corporateFlag && userHubModules && userHubModules['inspecciones-rrhh'] === false) {
         setAccessWarning('No tienes permisos para acceder a las inspecciones corporativas.')
         setLoading(false)
         return
@@ -124,7 +127,7 @@ export default function CorporateInspectionsDashboard({
       // Cargar ubicaciones según el rol
       let mapped: LocationOption[] = []
 
-      if (profileRole === 'admin') {
+      if (profileRole === 'admin' || corporateFlag) {
         // Admin ve todas las ubicaciones
         const { data: allLocations, error: locError } = await supabase
           .from('locations')
@@ -169,7 +172,7 @@ export default function CorporateInspectionsDashboard({
           }
         }
 
-        // Si no tiene ubicaciones asignadas, cargar todas las activas (corporate_admin global)
+        // Si no tiene ubicaciones asignadas, cargar todas las activas (corporativo global)
         if (mapped.length === 0 && !profile?.location_id) {
           const { data: allLocs, error: allLocsError } = await supabase
             .from('locations')
@@ -220,7 +223,7 @@ export default function CorporateInspectionsDashboard({
       setAccessWarning(null)
 
       if (!selectedDepartment) {
-        // Si no hay departamentos visibles (p.ej. corporate_admin sin allowed_departments)
+        // Si no hay departamentos visibles (p.ej. corporativo sin allowed_departments)
         if (role !== 'admin') {
           setAccessWarning('No tienes departamentos asignados. Solicita al administrador que te asigne permisos de inspección.')
           setStats({
@@ -255,7 +258,7 @@ export default function CorporateInspectionsDashboard({
             department = selectedDepartment.name
           }
         } else {
-          // corporate_admin: restringir SIEMPRE a sus allowed_departments
+          // corporativo: restringir SIEMPRE a sus allowed_departments
           if (!allowedDepartments || allowedDepartments.length === 0) {
             setAccessWarning('No tienes departamentos asignados. Solicita al administrador que te asigne permisos de inspección.')
             setStats({

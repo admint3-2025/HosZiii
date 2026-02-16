@@ -28,7 +28,6 @@ export default async function TicketsPage({
 
   const normalizedRole = String(profile?.role ?? '').trim().toLowerCase()
   const isAdmin = normalizedRole === 'admin'
-  const isCorporateAdmin = normalizedRole === 'corporate_admin'
   
   // Acceso de gestión IT
   const itAccess = getModuleAccess(profile, 'it-helpdesk')

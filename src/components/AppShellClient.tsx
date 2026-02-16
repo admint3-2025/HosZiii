@@ -565,17 +565,16 @@ export default function AppShellClient({
     }
   }, [moduleContext])
 
+  const isCorporate = Boolean((profile as any)?.is_corporate)
   const roleLabel =
     profile?.role === 'admin'
-        ? 'Administrador'
-        : profile?.role === 'corporate_admin'
-          ? 'Admin Corporativo'
+      ? 'Administrador'
       : profile?.role === 'agent_l1'
         ? (mntAccess && !itAccess ? 'Mantenimiento - Técnico L1' : 'IT - Agente L1')
         : profile?.role === 'agent_l2'
           ? (mntAccess && !itAccess ? 'Mantenimiento - Técnico L2' : 'IT - Agente L2')
           : profile?.role === 'supervisor'
-            ? (mntAccess === 'supervisor' && !canManageIT ? 'Mantenimiento - Supervisor' : canManageIT ? 'IT - Supervisor' : 'Supervisor')
+            ? (isCorporate ? 'Supervisor - Corporativo' : (mntAccess === 'supervisor' && !canManageIT ? 'Mantenimiento - Supervisor' : canManageIT ? 'IT - Supervisor' : 'Supervisor'))
             : profile?.role
               ? 'Usuario'
               : 'Usuario'

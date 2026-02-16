@@ -135,7 +135,7 @@ export default function MaintenanceTicketCreateFormModern({
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('role, location_id, asset_category, full_name')
+        .select('role, location_id, asset_category, full_name, is_corporate')
         .eq('id', user.id)
         .single()
 
@@ -148,16 +148,18 @@ export default function MaintenanceTicketCreateFormModern({
         setSelectedLocationId(locationId)
       }
 
-      // Detectar si es admin para habilitar selección de sede
+      // Detectar si es admin o corporativo para habilitar selección de sede
       const adminCheck = profile?.role === 'admin'
-      setIsAdmin(adminCheck)
+      const isCorporate = Boolean((profile as any)?.is_corporate)
+      const isFullAccess = adminCheck || isCorporate
+      setIsAdmin(isFullAccess)
 
       // Cargar sedes disponibles para el usuario
       // Admin: todas las sedes del sistema
       // Otros usuarios: sus sedes asignadas en user_locations + su sede primaria
       setLoadingLocations(true)
       try {
-        if (adminCheck) {
+        if (isFullAccess) {
           // Admin ve todas las sedes
           const { data: locationsList } = await supabase
             .from('locations')

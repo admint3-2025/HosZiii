@@ -112,7 +112,7 @@ export default function InspectionsInbox() {
 
         const { data: prof, error: profError } = await supabase
           .from('profiles')
-          .select('id, role, location_id, hub_visible_modules')
+          .select('id, role, location_id, hub_visible_modules, is_corporate')
           .eq('id', user.id)
           .single()
 
@@ -125,12 +125,12 @@ export default function InspectionsInbox() {
 
         const userRole = (prof as any)?.role
         const isFullAdmin = userRole === 'admin'
-        const isCorporateAdmin = userRole === 'corporate_admin'
+        const isCorporateAdmin = Boolean((prof as any)?.is_corporate)
         const hubModules = (prof as any)?.hub_visible_modules as Record<string, boolean> | null
         const userLocationId = (prof as any)?.location_id
 
-        // Para corporate_admin, verificar si tiene permiso de inspecciones
-        const hasInspectionsPermission = isFullAdmin || 
+        // Para corporativo, verificar si tiene permiso de inspecciones
+        const hasInspectionsPermission = isFullAdmin ||
           (isCorporateAdmin && (!hubModules || hubModules['inspecciones-rrhh'] !== false))
 
         if (!hasInspectionsPermission && isCorporateAdmin) {
@@ -141,8 +141,8 @@ export default function InspectionsInbox() {
           return
         }
 
-        // Admin global: ve todas las ubicaciones
-        if (isFullAdmin) {
+        // Admin/Corporativo: ve todas las ubicaciones
+        if (isFullAdmin || isCorporateAdmin) {
           const { data, error: locError } = await supabase
             .from('locations')
             .select('id, code, name')

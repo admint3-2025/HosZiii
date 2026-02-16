@@ -33,7 +33,7 @@ export default async function MaintenanceDashboardPage() {
     .single() : { data: null }
 
   // Acceso: admin o supervisor de mantenimiento al dashboard
-  // Otros usuarios (incluido corporate_admin) van a sus tickets
+  // Otros usuarios (incluido supervisor corporativo) van a sus tickets
   const isAdminOrSupervisor = profile?.role === 'admin' || profile?.role === 'supervisor'
   const maintenanceAccess = getModuleAccess(profile, 'mantenimiento')
   const canManageMaintenance = profile?.role === 'admin' || (profile?.role === 'supervisor' && maintenanceAccess === 'supervisor')

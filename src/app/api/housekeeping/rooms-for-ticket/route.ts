@@ -17,7 +17,7 @@ export async function GET(request: NextRequest) {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role, location_id')
+    .select('role, location_id, is_corporate')
     .eq('id', user.id)
     .single()
   if (!profile) return new Response('Forbidden', { status: 403 })
@@ -25,7 +25,7 @@ export async function GET(request: NextRequest) {
   const locationId = request.nextUrl.searchParams.get('location_id')
   if (!locationId) return Response.json({ rooms: [] })
 
-  const isFullAccess = ['admin', 'corporate_admin'].includes(profile.role)
+  const isFullAccess = profile.role === 'admin' || Boolean((profile as any)?.is_corporate)
   if (!isFullAccess) {
     const { data: userLocs } = await supabase
       .from('user_locations')

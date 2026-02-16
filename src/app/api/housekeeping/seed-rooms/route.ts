@@ -28,10 +28,10 @@ export async function POST(request: NextRequest) {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('role')
+    .select('role, is_corporate')
     .eq('id', user.id)
     .single()
-  if (!profile || !['admin', 'corporate_admin'].includes(profile.role))
+  if (!profile || !(profile.role === 'admin' || profile.is_corporate))
     return new Response('Solo administradores pueden generar habitaciones', { status: 403 })
 
   const body = await request.json().catch(() => ({}))
