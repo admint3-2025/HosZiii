@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { AlertTriangle, Clock, DollarSign, Send, ChevronDown, ChevronUp, AlertCircle, Lightbulb, Users } from 'lucide-react'
+import { AlertTriangle, Clock, Send, ChevronDown, ChevronUp, AlertCircle, Users } from 'lucide-react'
 
 interface Room {
   id: string
@@ -11,17 +11,16 @@ interface Room {
   daysOut: number
   hoursOut: number
   updatedAt: string
-  lostRevenue: number
 }
 
 interface Property {
   location_id: string
   location_name: string
-  nightly_rate: number
   rooms: Room[]
   total_rooms_out: number
-  totalLostRevenue: number
   severityScore: number
+  maxDaysOut: number
+  maxHoursOut: number
 }
 
 export default function RoomsOutOfServiceCard() {
@@ -86,22 +85,18 @@ export default function RoomsOutOfServiceCard() {
   }
 
   const totalRoomsOut = properties.reduce((sum, p) => sum + p.total_rooms_out, 0)
-  const totalLostRevenue = properties.reduce((sum, p) => sum + p.totalLostRevenue, 0)
-  const maxAging = properties.flatMap(p => p.rooms).reduce((max, r) => Math.max(max, r.daysOut), 0)
-
-  // Calcular severidad total
-  const totalSeverity = properties.reduce((sum, p) => sum + p.severityScore, 0)
+  const maxAgingDays = properties.flatMap(p => p.rooms).reduce((max, r) => Math.max(max, r.daysOut), 0)
+  const propertiesAffected = properties.length
 
   if (loading) {
     return (
-      <div className="space-y-4">
-        <div className="bg-gradient-to-r from-red-50 to-orange-50 rounded-xl border border-red-200 p-6 animate-pulse">
-          <div className="h-8 bg-red-200 rounded w-2/3 mb-4"></div>
-          <div className="grid grid-cols-4 gap-4">
-            {[...Array(4)].map((_, i) => (
-              <div key={i} className="h-24 bg-red-100 rounded-lg"></div>
-            ))}
-          </div>
+      <div className="bg-white border border-gray-200 rounded-lg p-4 animate-pulse">
+        <div className="h-4 bg-gray-200 rounded w-64 mb-2"></div>
+        <div className="h-3 bg-gray-100 rounded w-96 mb-4"></div>
+        <div className="flex gap-2">
+          <div className="h-7 bg-gray-100 rounded w-28"></div>
+          <div className="h-7 bg-gray-100 rounded w-28"></div>
+          <div className="h-7 bg-gray-100 rounded w-28"></div>
         </div>
       </div>
     )
@@ -109,15 +104,14 @@ export default function RoomsOutOfServiceCard() {
 
   if (error) {
     return (
-      <div className="bg-gradient-to-br from-red-50 to-orange-50 rounded-xl border border-red-200 p-6">
+      <div className="bg-white border border-red-200 rounded-lg p-4">
         <div className="flex items-start gap-3">
-          <div className="w-10 h-10 bg-red-100 rounded-full flex items-center justify-center flex-shrink-0">
-            <AlertCircle className="w-5 h-5 text-red-600" />
+          <div className="w-9 h-9 bg-red-50 border border-red-200 rounded-md flex items-center justify-center flex-shrink-0">
+            <AlertCircle className="w-4 h-4 text-red-600" />
           </div>
           <div>
-            <h3 className="text-base font-semibold text-red-900">No se pudo cargar el monitoreo</h3>
-            <p className="text-sm text-red-700 mt-1">{error}</p>
-            <p className="text-xs text-red-600 mt-2">Revisa conexión a Supabase o permisos de acceso.</p>
+            <h3 className="text-sm font-semibold text-gray-900">No se pudo cargar el monitoreo</h3>
+            <p className="text-xs text-gray-600 mt-1">{error}</p>
           </div>
         </div>
       </div>
@@ -126,14 +120,14 @@ export default function RoomsOutOfServiceCard() {
 
   if (properties.length === 0) {
     return (
-      <div className="bg-gradient-to-br from-emerald-50 to-teal-50 rounded-xl border border-emerald-300 p-8">
-        <div className="flex items-center justify-center gap-4">
-          <div className="w-16 h-16 bg-emerald-100 rounded-full flex items-center justify-center">
-            <AlertTriangle className="w-8 h-8 text-emerald-600" />
+      <div className="bg-white border border-gray-200 rounded-lg p-4">
+        <div className="flex items-center gap-3">
+          <div className="w-9 h-9 bg-emerald-50 border border-emerald-200 rounded-md flex items-center justify-center">
+            <AlertTriangle className="w-4 h-4 text-emerald-700" />
           </div>
           <div>
-            <h3 className="text-xl font-bold text-emerald-900">¡Excelente Estado! 🎉</h3>
-            <p className="text-emerald-700 mt-1">No hay habitaciones fuera de servicio</p>
+            <h3 className="text-sm font-semibold text-gray-900">Sin incidencias</h3>
+            <p className="text-xs text-gray-500">No hay habitaciones en mantenimiento o bloqueadas.</p>
           </div>
         </div>
       </div>
@@ -141,189 +135,145 @@ export default function RoomsOutOfServiceCard() {
   }
 
   return (
-    <div className="space-y-4">
-      {/* Header Stats */}
-      <div className="bg-gradient-to-r from-red-600 via-red-500 to-orange-500 rounded-xl p-1">
-        <div className="bg-white rounded-lg p-6">
-          <div className="flex items-start justify-between mb-6">
-            <div className="flex items-center gap-4">
-              <div className="w-14 h-14 bg-red-100 rounded-lg flex items-center justify-center">
-                <AlertTriangle className="w-7 h-7 text-red-600" />
-              </div>
-              <div>
-                <h3 className="text-2xl font-bold text-gray-900">Habitaciones Fuera de Servicio</h3>
-                <p className="text-gray-600 text-sm mt-1">Monitoreo de impacto en ingresos</p>
-              </div>
-            </div>
-            <div className="text-right">
-              <div className="text-4xl font-bold text-red-600">{totalRoomsOut}</div>
-              <p className="text-xs text-gray-500 mt-1 uppercase tracking-widest font-semibold">Habitaciones</p>
-            </div>
+    <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+      {/* Header */}
+      <div className="px-4 py-3 border-b border-gray-200 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 min-w-0">
+          <div className="w-8 h-8 bg-red-50 border border-red-200 rounded-md flex items-center justify-center flex-shrink-0">
+            <AlertTriangle className="w-4 h-4 text-red-600" />
           </div>
-
-          {/* Key Metrics Grid */}
-          <div className="grid grid-cols-4 gap-4">
-            {/* Métrica 1: Ingresos Perdidos */}
-            <div className="bg-gradient-to-br from-red-50 to-red-100 rounded-lg p-4 border border-red-200">
-              <div className="flex items-center gap-2 mb-2">
-                <DollarSign className="w-5 h-5 text-red-600" />
-                <span className="text-xs font-bold text-red-700 uppercase tracking-wide">Ingresos Perdidos</span>
-              </div>
-              <div className="text-2xl font-bold text-red-900">${(totalLostRevenue / 1000).toFixed(1)}K</div>
-              <p className="text-xs text-red-600 mt-1">Días acumulados</p>
-            </div>
-
-            {/* Métrica 2: Mayor Antigüedad */}
-            <div className="bg-gradient-to-br from-orange-50 to-orange-100 rounded-lg p-4 border border-orange-200">
-              <div className="flex items-center gap-2 mb-2">
-                <Clock className="w-5 h-5 text-orange-600" />
-                <span className="text-xs font-bold text-orange-700 uppercase tracking-wide">Mayor Antigüedad</span>
-              </div>
-              <div className="text-2xl font-bold text-orange-900">{maxAging}d</div>
-              <p className="text-xs text-orange-600 mt-1">Fuera de servicio</p>
-            </div>
-
-            {/* Métrica 3: Promedio por Habitación */}
-            <div className="bg-gradient-to-br from-amber-50 to-amber-100 rounded-lg p-4 border border-amber-200">
-              <div className="flex items-center gap-2 mb-2">
-                <Lightbulb className="w-5 h-5 text-amber-600" />
-                <span className="text-xs font-bold text-amber-700 uppercase tracking-wide">Pérdida Promedio</span>
-              </div>
-              <div className="text-2xl font-bold text-amber-900">${(totalLostRevenue / Math.max(totalRoomsOut, 1)).toFixed(0)}</div>
-              <p className="text-xs text-amber-600 mt-1">Por habitación</p>
-            </div>
-
-            {/* Métrica 4: Propiedades Afectadas */}
-            <div className="bg-gradient-to-br from-rose-50 to-rose-100 rounded-lg p-4 border border-rose-200">
-              <div className="flex items-center gap-2 mb-2">
-                <Users className="w-5 h-5 text-rose-600" />
-                <span className="text-xs font-bold text-rose-700 uppercase tracking-wide">Propiedades</span>
-              </div>
-              <div className="text-2xl font-bold text-rose-900">{properties.length}</div>
-              <p className="text-xs text-rose-600 mt-1">Con impacto</p>
-            </div>
+          <div className="min-w-0">
+            <h3 className="text-sm font-semibold text-gray-900 truncate">Habitaciones fuera de servicio</h3>
+            <p className="text-xs text-gray-500 truncate">Mantenimiento y bloqueadas</p>
           </div>
+        </div>
+
+        <div className="flex items-center gap-2 flex-shrink-0">
+          <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md border border-gray-200 bg-gray-50 text-xs font-semibold text-gray-700 tabular-nums">
+            <AlertTriangle className="w-3.5 h-3.5 text-red-600" />
+            {totalRoomsOut}
+          </span>
+          <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md border border-gray-200 bg-gray-50 text-xs font-semibold text-gray-700 tabular-nums">
+            <Clock className="w-3.5 h-3.5 text-orange-600" />
+            {maxAgingDays}d
+          </span>
+          <span className="inline-flex items-center gap-1.5 px-2 py-1 rounded-md border border-gray-200 bg-gray-50 text-xs font-semibold text-gray-700 tabular-nums">
+            <Users className="w-3.5 h-3.5 text-indigo-600" />
+            {propertiesAffected}
+          </span>
         </div>
       </div>
 
-      {/* Properties List */}
-      <div className="space-y-3">
-        {properties.map(property => (
-          <div key={property.location_id} className="border border-gray-200 rounded-lg overflow-hidden hover:shadow-md transition-shadow">
-            {/* Property Header */}
-            <button
-              onClick={() => setExpandedLocation(expandedLocation === property.location_id ? null : property.location_id)}
-              className="w-full px-6 py-4 bg-gradient-to-r from-gray-50 to-gray-100 hover:from-gray-100 hover:to-gray-150 transition-colors flex items-center justify-between"
-            >
-              <div className="flex items-center gap-4 flex-1">
-                <div className={`w-12 h-12 rounded-lg flex items-center justify-center font-bold text-white ${
-                  property.total_rooms_out > 5 ? 'bg-gradient-to-br from-red-600 to-red-700' :
-                  property.total_rooms_out > 2 ? 'bg-gradient-to-br from-orange-500 to-orange-600' :
-                  'bg-gradient-to-br from-amber-500 to-amber-600'
-                }`}>
-                  {property.total_rooms_out}
-                </div>
-                <div className="text-left">
-                  <h4 className="font-bold text-gray-900 text-lg">{property.location_name}</h4>
-                  <div className="flex gap-4 mt-1 text-sm">
-                    <span className="text-gray-600">
-                      <span className="font-semibold text-red-600">${property.totalLostRevenue.toLocaleString()}</span> en pérdidas
+      {/* Properties */}
+      <div className="p-3 space-y-2">
+        {properties.map(property => {
+          const maintenanceCount = property.rooms.filter(r => r.status === 'mantenimiento').length
+          const blockedCount = property.rooms.filter(r => r.status === 'bloqueada').length
+
+          const severity =
+            property.total_rooms_out > 5
+              ? { label: 'Crítico', cls: 'bg-red-50 text-red-700 border-red-200' }
+              : property.total_rooms_out > 2
+                ? { label: 'Alto', cls: 'bg-orange-50 text-orange-700 border-orange-200' }
+                : { label: 'Medio', cls: 'bg-amber-50 text-amber-700 border-amber-200' }
+
+          return (
+            <div key={property.location_id} className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+              <button
+                onClick={() => setExpandedLocation(expandedLocation === property.location_id ? null : property.location_id)}
+                className="w-full px-3 py-3 hover:bg-gray-50 transition-colors flex items-center justify-between gap-3"
+              >
+                <div className="min-w-0 text-left">
+                  <div className="flex items-center gap-2">
+                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-md bg-gray-100 text-gray-900 text-xs font-bold tabular-nums">
+                      {property.total_rooms_out}
                     </span>
-                    <span className="text-gray-600">
-                      Tarifa: <span className="font-semibold">${property.nightly_rate}/noche</span>
-                    </span>
+                    <h4 className="text-sm font-semibold text-gray-900 truncate">{property.location_name}</h4>
+                  </div>
+                  <div className="mt-1 text-xs text-gray-500 flex flex-wrap gap-x-3 gap-y-1">
+                    <span className="tabular-nums">Máx. {property.maxDaysOut}d {property.maxHoursOut}h</span>
+                    <span className="tabular-nums">Mantenimiento: {maintenanceCount}</span>
+                    <span className="tabular-nums">Bloqueadas: {blockedCount}</span>
                   </div>
                 </div>
-              </div>
 
-              {/* Severity Indicator */}
-              <div className="flex items-center gap-3">
-                <div className={`px-3 py-1 rounded-full text-xs font-bold ${
-                  property.total_rooms_out > 5 ? 'bg-red-100 text-red-700' :
-                  property.total_rooms_out > 2 ? 'bg-orange-100 text-orange-700' :
-                  'bg-amber-100 text-amber-700'
-                }`}>
-                  {property.total_rooms_out > 5 ? '🔴 Crítico' : property.total_rooms_out > 2 ? '🟠 Alto' : '🟡 Medio'}
+                <div className="flex items-center gap-2 flex-shrink-0">
+                  <span className={`inline-flex items-center px-2 py-1 rounded-md border text-xs font-semibold ${severity.cls}`}>{severity.label}</span>
+                  {expandedLocation === property.location_id ? (
+                    <ChevronUp className="w-4 h-4 text-gray-400" />
+                  ) : (
+                    <ChevronDown className="w-4 h-4 text-gray-400" />
+                  )}
                 </div>
-                {expandedLocation === property.location_id ? (
-                  <ChevronUp className="w-5 h-5 text-gray-400" />
-                ) : (
-                  <ChevronDown className="w-5 h-5 text-gray-400" />
-                )}
-              </div>
-            </button>
+              </button>
 
-            {/* Expanded Content */}
-            {expandedLocation === property.location_id && (
-              <div className="border-t border-gray-200 p-6 bg-gradient-to-b from-gray-50 to-white space-y-4">
-                {/* Rooms Table */}
-                <div className="overflow-x-auto">
-                  <table className="w-full text-sm">
-                    <thead>
-                      <tr className="border-b-2 border-gray-200">
-                        <th className="text-left py-3 px-4 font-bold text-gray-700">Habitación</th>
-                        <th className="text-left py-3 px-4 font-bold text-gray-700">Estado</th>
-                        <th className="text-center py-3 px-4 font-bold text-gray-700">Antigüedad</th>
-                        <th className="text-right py-3 px-4 font-bold text-gray-700">Pérdida Estimada</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-gray-200">
-                      {property.rooms.map(room => (
-                        <tr key={room.id} className="hover:bg-gray-50 transition-colors">
-                          <td className="py-3 px-4">
-                            <div className="font-bold text-gray-900">Habitación #{room.number}</div>
-                            <div className="text-xs text-gray-500 mt-1">Piso {room.floor}</div>
-                          </td>
-                          <td className="py-3 px-4">
-                            <span className={`inline-flex items-center gap-2 px-3 py-1 rounded-full text-xs font-bold ${
-                              room.status === 'bloqueada'
-                                ? 'bg-red-100 text-red-700'
-                                : 'bg-orange-100 text-orange-700'
-                            }`}>
-                              <span className={`w-2 h-2 rounded-full ${
-                                room.status === 'bloqueada' ? 'bg-red-500' : 'bg-orange-500'
-                              }`}></span>
-                              {room.status === 'bloqueada' ? 'Bloqueada' : 'Mantenimiento'}
-                            </span>
-                          </td>
-                          <td className="py-3 px-4 text-center">
-                            <div className="font-bold text-gray-900">{room.daysOut}d {room.hoursOut}h</div>
-                          </td>
-                          <td className="py-3 px-4 text-right">
-                            <div className="font-bold text-red-600">${room.lostRevenue.toLocaleString()}</div>
-                          </td>
+              {expandedLocation === property.location_id && (
+                <div className="border-t border-gray-200 bg-gray-50 px-3 py-3 space-y-3">
+                  <div className="overflow-x-auto">
+                    <table className="w-full text-xs">
+                      <thead>
+                        <tr className="border-b border-gray-200">
+                          <th className="text-left py-2 pr-3 font-semibold text-gray-700">Habitación</th>
+                          <th className="text-left py-2 pr-3 font-semibold text-gray-700">Estado</th>
+                          <th className="text-right py-2 font-semibold text-gray-700">Antigüedad</th>
                         </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
+                      </thead>
+                      <tbody className="divide-y divide-gray-200">
+                        {property.rooms.map(room => (
+                          <tr key={room.id} className="hover:bg-white/60 transition-colors">
+                            <td className="py-2 pr-3">
+                              <div className="font-semibold text-gray-900">#{room.number}</div>
+                              <div className="text-[11px] text-gray-500">Piso {room.floor}</div>
+                            </td>
+                            <td className="py-2 pr-3">
+                              <span
+                                className={`inline-flex items-center gap-1.5 px-2 py-1 rounded-md border text-[11px] font-semibold ${
+                                  room.status === 'bloqueada'
+                                    ? 'bg-red-50 text-red-700 border-red-200'
+                                    : 'bg-orange-50 text-orange-700 border-orange-200'
+                                }`}
+                              >
+                                <span
+                                  className={`w-1.5 h-1.5 rounded-full ${room.status === 'bloqueada' ? 'bg-red-500' : 'bg-orange-500'}`}
+                                />
+                                {room.status === 'bloqueada' ? 'Bloqueada' : 'Mantenimiento'}
+                              </span>
+                            </td>
+                            <td className="py-2 text-right tabular-nums font-semibold text-gray-900">
+                              {room.daysOut}d {room.hoursOut}h
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
 
-                {/* Message Box & Action */}
-                <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-                  <label className="block text-sm font-bold text-gray-900 mb-2">
-                    <AlertCircle className="w-4 h-4 inline mr-2 text-blue-600" />
-                    Mensaje para el gerente (opcional)
-                  </label>
-                  <textarea
-                    value={messages[property.location_id] || ''}
-                    onChange={(e) => setMessages(prev => ({ ...prev, [property.location_id]: e.target.value }))}
-                    placeholder="Ej: Solicitar actualización sobre la demora en resolución y ETA de entrega..."
-                    className="w-full px-3 py-2 text-sm border border-blue-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
-                    rows={2}
-                  />
-                  <button
-                    onClick={() => handleNotify(property.location_id, property.location_name)}
-                    disabled={notifying === property.location_id}
-                    className="w-full mt-3 bg-gradient-to-r from-blue-600 to-blue-700 hover:from-blue-700 hover:to-blue-800 disabled:from-blue-400 disabled:to-blue-500 text-white font-bold py-3 rounded-lg flex items-center justify-center gap-2 transition-all transform hover:scale-105"
-                  >
-                    <Send className="w-5 h-5" />
-                    {notifying === property.location_id ? 'Enviando Notificación...' : 'Enviar Notificación al Gerente'}
-                  </button>
+                  <div className="bg-white border border-gray-200 rounded-lg p-3">
+                    <label className="block text-xs font-semibold text-gray-900 mb-2">
+                      <AlertCircle className="w-4 h-4 inline mr-2 text-blue-600" />
+                      Mensaje para el gerente (opcional)
+                    </label>
+                    <textarea
+                      value={messages[property.location_id] || ''}
+                      onChange={(e) => setMessages(prev => ({ ...prev, [property.location_id]: e.target.value }))}
+                      placeholder="Ej: Solicitar actualización y ETA de resolución..."
+                      className="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent resize-none"
+                      rows={2}
+                    />
+                    <button
+                      onClick={() => handleNotify(property.location_id, property.location_name)}
+                      disabled={notifying === property.location_id}
+                      className="w-full mt-3 inline-flex items-center justify-center gap-2 px-3 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-blue-400 text-white rounded-lg text-sm font-semibold transition-colors"
+                    >
+                      <Send className="w-4 h-4" />
+                      {notifying === property.location_id ? 'Enviando...' : 'Enviar notificación'}
+                    </button>
+                  </div>
                 </div>
-              </div>
-            )}
-          </div>
-        ))}
+              )}
+            </div>
+          )
+        })}
       </div>
     </div>
   )

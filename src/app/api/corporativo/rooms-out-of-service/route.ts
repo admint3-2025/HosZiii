@@ -31,32 +31,18 @@ export async function GET(request: NextRequest) {
   // Estados que consideramos "fuera de servicio"
   const outOfServiceStatuses = ['mantenimiento', 'bloqueada'] as const
 
-  type LocationRow = { id: string; name: string; nightly_rate?: number | null }
+  type LocationRow = { id: string; name: string }
 
   // Obtener todas las ubicaciones de hoteles
-  const locationsQuery = (select: string) =>
-    admin
-      .from('locations')
-      .select(select)
-      .eq('is_active', true)
-      .eq('business_type', 'hotel')
+  const { data: locations, error: locationsError } = await admin
+    .from('locations')
+    .select('id, name')
+    .eq('is_active', true)
+    .eq('business_type', 'hotel')
 
-  let locations: LocationRow[] | null = null
-
-  // Prefer nightly_rate when available; fall back if the column doesn't exist.
-  const locWithRate = await locationsQuery('id, name, nightly_rate')
-  if (locWithRate.error) {
-    console.error('[rooms-out-of-service] locations query error (with nightly_rate):', locWithRate.error)
-    const locFallback = await locationsQuery('id, name')
-
-    if (locFallback.error) {
-      console.error('[rooms-out-of-service] locations query error (fallback):', locFallback.error)
-      return Response.json({ error: locFallback.error.message }, { status: 500 })
-    }
-
-    locations = (locFallback.data as any) as LocationRow[]
-  } else {
-    locations = (locWithRate.data as any) as LocationRow[]
+  if (locationsError) {
+    console.error('[rooms-out-of-service] locations query error:', locationsError)
+    return Response.json({ error: locationsError.message }, { status: 500 })
   }
 
   if (!locations || locations.length === 0) {
@@ -98,10 +84,6 @@ export async function GET(request: NextRequest) {
         const updatedAt = new Date(room.updated_at)
         const daysOut = Math.floor((now.getTime() - updatedAt.getTime()) / (1000 * 60 * 60 * 24))
         const hoursOut = Math.floor(((now.getTime() - updatedAt.getTime()) % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60))
-        
-        // Calcular impacto en ingresos (asumiendo tarifa nightly)
-        const nightlyRate = location.nightly_rate || 150 // valor por defecto si no está disponible
-        const lostRevenue = daysOut * nightlyRate
 
         return {
           id: room.id,
@@ -111,25 +93,25 @@ export async function GET(request: NextRequest) {
           daysOut,
           hoursOut,
           updatedAt: room.updated_at,
-          lostRevenue
         }
       })
 
-      const totalLostRevenue = roomsWithAging.reduce((sum, r) => sum + r.lostRevenue, 0)
       const severityScore = roomsWithAging.reduce((sum, r) => sum + (r.daysOut * 10 + r.hoursOut), 0) // Mayor antigüedad = más crítico
+      const maxDaysOut = roomsWithAging.reduce((max, r) => Math.max(max, r.daysOut), 0)
+      const maxHoursOut = roomsWithAging.reduce((max, r) => (r.daysOut === maxDaysOut ? Math.max(max, r.hoursOut) : max), 0)
 
       return {
         location_id: location.id,
         location_name: location.name,
-        nightly_rate: location.nightly_rate,
         rooms: roomsWithAging.sort((a, b) => b.daysOut - a.daysOut), // Mayor antigüedad primero
         total_rooms_out: roomsWithAging.length,
-        totalLostRevenue,
-        severityScore
+        severityScore,
+        maxDaysOut,
+        maxHoursOut,
       }
     })
     .filter(Boolean)
-    .sort((a, b) => (b?.totalLostRevenue || 0) - (a?.totalLostRevenue || 0))
+    .sort((a, b) => (b?.total_rooms_out || 0) - (a?.total_rooms_out || 0) || (b?.severityScore || 0) - (a?.severityScore || 0))
 
   return Response.json({ properties })
 }
