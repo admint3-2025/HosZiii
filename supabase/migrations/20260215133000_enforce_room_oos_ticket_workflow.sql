@@ -33,6 +33,21 @@ AS $$
   );
 $$;
 
+-- Helper: existe cualquier ticket de mantenimiento vinculado (abierto o cerrado)
+CREATE OR REPLACE FUNCTION hk_has_any_maintenance_ticket(p_room_id UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+AS $$
+  SELECT EXISTS (
+    SELECT 1
+    FROM tickets_maintenance tm
+    WHERE tm.hk_room_id = p_room_id
+      AND tm.deleted_at IS NULL
+  );
+$$;
+
 
 -- RPC: Cambio de estado con guardrails de workflow
 -- Nota: se agrega p_changed_by porque la API usa service_role para ejecutar,
@@ -74,10 +89,12 @@ BEGIN
 
   v_has_open_maint := hk_has_open_maintenance_ticket(p_room_id);
 
-  -- Regla 1: entrar a OOS requiere ticket abierto
-  IF p_new_status IN ('mantenimiento', 'bloqueada') THEN
+  -- Regla 1:
+  -- - Entrar a 'mantenimiento' requiere ticket de mantenimiento ABIERTO.
+  -- - Entrar a 'bloqueada' está permitido sin ticket (Ama de Llaves puede detectar y bloquear primero).
+  IF p_new_status = 'mantenimiento' THEN
     IF NOT v_has_open_maint AND NOT COALESCE(v_is_override, FALSE) THEN
-      RAISE EXCEPTION 'No puedes marcar como % sin un ticket de mantenimiento abierto vinculado a la habitación', p_new_status;
+      RAISE EXCEPTION 'No puedes marcar como mantenimiento sin un ticket de mantenimiento abierto vinculado a la habitación';
     END IF;
   END IF;
 
@@ -85,6 +102,14 @@ BEGIN
   IF v_old_status IN ('mantenimiento', 'bloqueada') AND p_new_status NOT IN ('mantenimiento', 'bloqueada') THEN
     IF v_has_open_maint AND NOT COALESCE(v_is_override, FALSE) THEN
       RAISE EXCEPTION 'No puedes cambiar el estado mientras exista un ticket de mantenimiento abierto para esta habitación';
+    END IF;
+  END IF;
+
+  -- Regla 3: si se bloqueó SIN ticket, para desbloquear debe existir al menos 1 ticket vinculado.
+  -- Esto fuerza el flujo procesal: bloqueo -> ticket -> atención/cierre -> inspección/estado real.
+  IF v_old_status = 'bloqueada' AND p_new_status NOT IN ('mantenimiento', 'bloqueada') THEN
+    IF NOT hk_has_any_maintenance_ticket(p_room_id) AND NOT COALESCE(v_is_override, FALSE) THEN
+      RAISE EXCEPTION 'No puedes desbloquear una habitación sin antes crear un ticket de mantenimiento vinculado';
     END IF;
   END IF;
 
@@ -116,6 +141,18 @@ BEGIN
       AND status = 'pendiente'
       AND assignment_date = CURRENT_DATE;
   END IF;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Wrapper retrocompatible (para llamadas antiguas con auth.uid())
+CREATE OR REPLACE FUNCTION hk_change_room_status(
+  p_room_id UUID,
+  p_new_status hk_room_status,
+  p_notes TEXT DEFAULT NULL
+)
+RETURNS VOID AS $$
+BEGIN
+  PERFORM hk_change_room_status(p_room_id, p_new_status, auth.uid(), p_notes);
 END;
 $$ LANGUAGE plpgsql SECURITY DEFINER;
 
