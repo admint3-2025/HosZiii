@@ -660,15 +660,36 @@ export default function HousekeepingDashboard() {
       {/* Workflow Modal (prominent) */}
       {workflowModal?.isOpen && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-xl rounded-xl bg-white shadow-2xl border border-slate-200">
-            <div className="flex items-start justify-between gap-3 border-b px-4 py-3">
-              <div>
-                <div className="text-sm font-semibold text-slate-900">Ticket de mantenimiento (creación express)</div>
-                <div className="text-xs text-slate-600">Habitación {workflowModal.roomNumber}</div>
+          <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
+            <div className="flex items-start justify-between gap-3 border-b bg-slate-50/60 px-5 py-4">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 w-9 h-9 rounded-xl bg-indigo-600/10 text-indigo-700 flex items-center justify-center">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                </div>
+
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="text-sm font-bold text-slate-900">Ticket de mantenimiento (creación express)</div>
+                    <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                      Hab. {workflowModal.roomNumber}
+                    </span>
+                    {selectedLocation?.name && (
+                      <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                        {selectedLocation.name}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-slate-500 mt-0.5">
+                    Paso 1: crea el ticket · Paso 2: se marcará como <span className="font-semibold">mantenimiento</span>
+                  </div>
+                </div>
               </div>
+
               <button
                 type="button"
-                className="btn btn-ghost btn-xs"
+                className="btn btn-ghost btn-sm"
                 onClick={() => setWorkflowModal(null)}
                 disabled={ticketBusy}
               >
@@ -676,44 +697,71 @@ export default function HousekeepingDashboard() {
               </button>
             </div>
 
-            <div className="p-4 space-y-3">
-              <div className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
-                {workflowModal.message}
+            <div className="p-5 space-y-4">
+              <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-xs text-amber-900">
+                <div className="flex gap-2">
+                  <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <div className="leading-relaxed">
+                    {workflowModal.message}
+                    <div className="text-[11px] text-amber-800 mt-1">
+                      El ticket quedará vinculado a la habitación para auditoría y automatización.
+                    </div>
+                  </div>
+                </div>
               </div>
 
               {ticketError && (
-                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                  {ticketError}
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-800">
+                  <div className="flex gap-2">
+                    <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div className="leading-relaxed">{ticketError}</div>
+                  </div>
                 </div>
               )}
 
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700 block">Título</label>
-                <input
-                  className="input input-sm w-full"
-                  value={ticketTitle}
-                  onChange={(e) => setTicketTitle(e.target.value)}
-                  placeholder="Ej. Hab. 204 · Aire acondicionado no enfría"
-                  disabled={ticketBusy}
-                />
+              <div className="rounded-xl border border-slate-200 bg-white">
+                <div className="border-b border-slate-100 px-4 py-3">
+                  <div className="text-xs font-bold text-slate-800 uppercase tracking-wide">Información general</div>
+                </div>
+
+                <div className="p-4 space-y-4">
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700 block">
+                      Título <span className="text-red-500">*</span>
+                    </label>
+                    <input
+                      className="input input-sm w-full"
+                      value={ticketTitle}
+                      onChange={(e) => setTicketTitle(e.target.value)}
+                      placeholder="Ej. Hab. 204 · Aire acondicionado no enfría"
+                      disabled={ticketBusy}
+                    />
+                    <p className="text-[11px] text-slate-500">Resume el problema en una línea.</p>
+                  </div>
+
+                  <div className="space-y-1">
+                    <label className="text-xs font-semibold text-slate-700 block">Descripción</label>
+                    <textarea
+                      className="textarea textarea-sm w-full"
+                      rows={5}
+                      value={ticketDescription}
+                      onChange={(e) => setTicketDescription(e.target.value)}
+                      placeholder="Describe el problema rápidamente para que mantenimiento pueda actuar."
+                      disabled={ticketBusy}
+                    />
+                    <p className="text-[11px] text-slate-500">Incluye qué pasa, desde cuándo y cualquier detalle útil.</p>
+                  </div>
+                </div>
               </div>
 
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700 block">Descripción</label>
-                <textarea
-                  className="textarea textarea-sm w-full"
-                  rows={4}
-                  value={ticketDescription}
-                  onChange={(e) => setTicketDescription(e.target.value)}
-                  placeholder="Describe el problema rápidamente para que mantenimiento pueda actuar."
-                  disabled={ticketBusy}
-                />
-              </div>
-
-              <div className="flex flex-col sm:flex-row gap-2 pt-1">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <button
                   type="button"
-                  className="btn btn-primary flex-1"
+                  className="btn btn-primary flex-1 gap-2"
                   disabled={ticketBusy || !ticketTitle.trim()}
                   onClick={async () => {
                     setTicketBusy(true)
@@ -732,10 +780,7 @@ export default function HousekeepingDashboard() {
                         return
                       }
 
-                      // After ticket creation, apply status (trigger also enforces)
                       await handleStatusChange(workflowModal.roomId, 'mantenimiento', { skipWorkflowPrecheck: true })
-
-                      // Refresh data for correct incidents/status
                       if (selectedLocationId) await loadData(selectedLocationId)
                       setWorkflowModal(null)
                     } catch (e: any) {
@@ -745,15 +790,14 @@ export default function HousekeepingDashboard() {
                     }
                   }}
                 >
-                  {ticketBusy
-                    ? 'Creando…'
-                    : 'Crear ticket y poner en mantenimiento'}
+                  {ticketBusy && <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />}
+                  {ticketBusy ? 'Creando…' : 'Crear ticket y poner en mantenimiento'}
                 </button>
               </div>
 
-              <p className="text-[11px] text-slate-500">
-                Nota: el ticket se vincula a la habitación y activa el flujo en base de datos.
-              </p>
+              <div className="text-[11px] text-slate-500">
+                Se puede completar/editar el ticket después desde el módulo de Mantenimiento.
+              </div>
             </div>
           </div>
         </div>
@@ -762,15 +806,34 @@ export default function HousekeepingDashboard() {
       {/* Bloqueo: justificación obligatoria */}
       {blockModal?.isOpen && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 p-4">
-          <div className="w-full max-w-xl rounded-xl bg-white shadow-2xl border border-slate-200">
-            <div className="flex items-start justify-between gap-3 border-b px-4 py-3">
-              <div>
-                <div className="text-sm font-semibold text-slate-900">Bloquear habitación (temporal)</div>
-                <div className="text-xs text-slate-600">Habitación {blockModal.roomNumber}</div>
+          <div className="w-full max-w-2xl rounded-2xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
+            <div className="flex items-start justify-between gap-3 border-b bg-slate-50/60 px-5 py-4">
+              <div className="flex items-start gap-3">
+                <div className="mt-0.5 w-9 h-9 rounded-xl bg-slate-900/5 text-slate-700 flex items-center justify-center">
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 11c0 .734-.403 1.374-1 1.732V17h2v-4.268c-.597-.358-1-.998-1-1.732zm7 1a7 7 0 10-14 0 7 7 0 0014 0z" />
+                  </svg>
+                </div>
+
+                <div className="min-w-0">
+                  <div className="flex items-center gap-2 flex-wrap">
+                    <div className="text-sm font-bold text-slate-900">Bloquear habitación (temporal)</div>
+                    <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-700">
+                      Hab. {blockModal.roomNumber}
+                    </span>
+                    {selectedLocation?.name && (
+                      <span className="inline-flex items-center rounded-full border border-slate-200 bg-white px-2 py-0.5 text-[11px] font-semibold text-slate-600">
+                        {selectedLocation.name}
+                      </span>
+                    )}
+                  </div>
+                  <div className="text-xs text-slate-500 mt-0.5">La justificación es obligatoria y queda registrada.</div>
+                </div>
               </div>
+
               <button
                 type="button"
-                className="btn btn-ghost btn-xs"
+                className="btn btn-ghost btn-sm"
                 onClick={() => setBlockModal(null)}
                 disabled={blockBusy}
               >
@@ -778,31 +841,44 @@ export default function HousekeepingDashboard() {
               </button>
             </div>
 
-            <div className="p-4 space-y-3">
-              <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 text-xs text-slate-700">
-                Indica el motivo del bloqueo (muestra, solicitud especial, VIP, etc.). Esta nota queda registrada.
+            <div className="p-5 space-y-4">
+              <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-xs text-slate-700">
+                Úsalo para bloqueos no relacionados a mantenimiento (muestra, solicitud especial, VIP, etc.).
               </div>
 
               {blockError && (
-                <div className="rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700">
-                  {blockError}
+                <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-xs text-red-800">
+                  <div className="flex gap-2">
+                    <svg className="w-4 h-4 mt-0.5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <div className="leading-relaxed">{blockError}</div>
+                  </div>
                 </div>
               )}
 
-              <div className="space-y-1">
-                <label className="text-xs font-semibold text-slate-700 block">Justificación</label>
-                <textarea
-                  className="textarea textarea-sm w-full"
-                  rows={4}
-                  value={blockJustification}
-                  onChange={(e) => setBlockJustification(e.target.value)}
-                  placeholder="Ej. Bloqueada por muestra para cliente corporativo (hoy 4pm–6pm)."
-                  disabled={blockBusy}
-                />
-                <p className="text-[11px] text-slate-500">Mínimo: explica quién/por qué y (si aplica) hasta cuándo.</p>
+              <div className="rounded-xl border border-slate-200 bg-white">
+                <div className="border-b border-slate-100 px-4 py-3">
+                  <div className="text-xs font-bold text-slate-800 uppercase tracking-wide">Justificación</div>
+                </div>
+
+                <div className="p-4 space-y-2">
+                  <label className="text-xs font-semibold text-slate-700 block">
+                    Motivo <span className="text-red-500">*</span>
+                  </label>
+                  <textarea
+                    className="textarea textarea-sm w-full"
+                    rows={5}
+                    value={blockJustification}
+                    onChange={(e) => setBlockJustification(e.target.value)}
+                    placeholder="Ej. Bloqueada por muestra para cliente corporativo (hoy 4pm–6pm)."
+                    disabled={blockBusy}
+                  />
+                  <p className="text-[11px] text-slate-500">Incluye quién/por qué y (si aplica) hasta cuándo.</p>
+                </div>
               </div>
 
-              <div className="flex gap-2 pt-1">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <button
                   type="button"
                   className="btn btn-secondary flex-1"
@@ -813,7 +889,7 @@ export default function HousekeepingDashboard() {
                 </button>
                 <button
                   type="button"
-                  className="btn btn-primary flex-1"
+                  className="btn btn-primary flex-1 gap-2"
                   disabled={blockBusy || !blockJustification.trim()}
                   onClick={async () => {
                     setBlockBusy(true)
@@ -832,6 +908,7 @@ export default function HousekeepingDashboard() {
                     }
                   }}
                 >
+                  {blockBusy && <span className="w-4 h-4 border-2 border-white/40 border-t-white rounded-full animate-spin" />}
                   {blockBusy ? 'Aplicando…' : 'Bloquear'}
                 </button>
               </div>
