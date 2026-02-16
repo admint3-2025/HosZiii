@@ -69,10 +69,23 @@ export async function POST(request: Request) {
   const { error } = await admin.rpc('hk_change_room_status', {
     p_room_id: room_id,
     p_new_status: new_status,
+    p_changed_by: user.id,
     p_notes: notes || null,
   })
 
-  if (error) return new Response(error.message, { status: 500 })
+  if (error) {
+    // Workflow guardrails (e.g., requires open maintenance ticket)
+    const message = error.message || 'No se pudo cambiar el estado'
+
+    if (
+      message.toLowerCase().includes('ticket de mantenimiento abierto') ||
+      message.toLowerCase().includes('sin un ticket de mantenimiento')
+    ) {
+      return new Response(message, { status: 409 })
+    }
+
+    return new Response(message, { status: 500 })
+  }
 
   return Response.json({ ok: true })
 }

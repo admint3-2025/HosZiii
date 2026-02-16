@@ -354,7 +354,10 @@ export default function HousekeepingDashboard() {
       if (!res.ok) {
         // Revert on error
         if (selectedLocationId) loadData(selectedLocationId)
-        console.error('Error cambiando estado:', await res.text())
+        const msg = await res.text()
+        console.error('Error cambiando estado:', msg)
+        setError(msg || 'No se pudo cambiar el estado')
+        setTimeout(() => setError(null), 4000)
       }
     } catch {
       if (selectedLocationId) loadData(selectedLocationId)
