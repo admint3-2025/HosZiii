@@ -20,13 +20,21 @@ if (!SUPABASE_URL || !SERVICE_ROLE_KEY) {
   process.exit(1);
 }
 
+// Obtener nombre del archivo desde los argumentos
+const migrationFile = process.argv[2];
+if (!migrationFile) {
+  console.error('❌ Uso: node scripts/apply-migration.js <ruta-archivo.sql>');
+  console.error('   Ejemplo: node scripts/apply-migration.js supabase/migrations/20260215120000_fix.sql');
+  process.exit(1);
+}
+
 console.log('================================================');
-console.log('  MIGRACIÓN: Funcionalidad Multisede');
+console.log(`  MIGRACIÓN: ${migrationFile.split('/').pop()}`);
 console.log('================================================\n');
 console.log(`✓ URL: ${SUPABASE_URL}`);
 
 // Leer archivo SQL
-const sql = fs.readFileSync('supabase/migration-add-locations.sql', 'utf8');
+const sql = fs.readFileSync(migrationFile, 'utf8');
 
 // Determinar si usar http o https
 const protocol = SUPABASE_URL.startsWith('https') ? https : http;
@@ -59,12 +67,9 @@ const req = protocol.request(options, (res) => {
   res.on('end', () => {
     if (res.statusCode >= 200 && res.statusCode < 300) {
       console.log('✅ Migración aplicada exitosamente\n');
-      console.log('================================================');
-      console.log('  SIGUIENTES PASOS:');
-      console.log('================================================\n');
-      console.log('1. Crear sedes iniciales en la tabla locations');
-      console.log('2. Asignar sedes a usuarios en tabla profiles');
-      console.log('3. Verificar que el filtrado funcione correctamente\n');
+      console.log('Respuesta del servidor:');
+      console.log(data || 'Success. No rows returned');
+      console.log('\n✓ Completado');
     } else {
       console.error('❌ Error aplicando migración');
       console.error(`Status: ${res.statusCode}`);

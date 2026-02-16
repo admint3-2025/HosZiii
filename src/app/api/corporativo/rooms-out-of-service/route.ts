@@ -45,12 +45,17 @@ export async function GET(request: NextRequest) {
   const locationIds = locations.map(l => l.id)
 
   // Obtener habitaciones fuera de servicio
-  const { data: outOfServiceRooms } = await admin
+  const { data: outOfServiceRooms, error: roomsError } = await admin
     .from('hk_rooms')
     .select('id, location_id, number, floor, status, updated_at')
     .in('location_id', locationIds)
     .in('status', outOfServiceStatuses)
     .eq('is_active', true)
+
+  // Debug logging
+  console.log('[rooms-out-of-service] Query params:', { locationIds, outOfServiceStatuses })
+  console.log('[rooms-out-of-service] Rooms found:', outOfServiceRooms?.length || 0)
+  if (roomsError) console.error('[rooms-out-of-service] Error:', roomsError)
 
   if (!outOfServiceRooms || outOfServiceRooms.length === 0) {
     return Response.json({ properties: [] })

@@ -11,7 +11,9 @@
 
 DROP POLICY IF EXISTS "hk_rooms_select" ON hk_rooms;
 CREATE POLICY "hk_rooms_select" ON hk_rooms FOR SELECT USING (
-  EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND (role IN ('admin', 'supervisor') OR is_corporate = true))
+  -- Allow service role (admin client) full access
+  auth.role() = 'service_role'
+  OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND (role IN ('admin', 'supervisor') OR is_corporate = true))
 );
 
 DROP POLICY IF EXISTS "hk_rooms_insert" ON hk_rooms;
@@ -36,7 +38,8 @@ CREATE POLICY "hk_rooms_delete" ON hk_rooms FOR DELETE USING (
 
 DROP POLICY IF EXISTS "hk_staff_select" ON hk_staff;
 CREATE POLICY "hk_staff_select" ON hk_staff FOR SELECT USING (
-  EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND (role IN ('admin', 'supervisor') OR is_corporate = true))
+  auth.role() = 'service_role'
+  OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND (role IN ('admin', 'supervisor') OR is_corporate = true))
 );
 
 DROP POLICY IF EXISTS "hk_staff_all" ON hk_staff;
@@ -51,7 +54,8 @@ CREATE POLICY "hk_staff_all" ON hk_staff FOR ALL USING (
 
 DROP POLICY IF EXISTS "hk_assignments_select" ON hk_room_assignments;
 CREATE POLICY "hk_assignments_select" ON hk_room_assignments FOR SELECT USING (
-  EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND (role IN ('admin', 'supervisor') OR is_corporate = true))
+  auth.role() = 'service_role'
+  OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND (role IN ('admin', 'supervisor') OR is_corporate = true))
 );
 
 DROP POLICY IF EXISTS "hk_assignments_all" ON hk_room_assignments;
@@ -66,7 +70,8 @@ CREATE POLICY "hk_assignments_all" ON hk_room_assignments FOR ALL USING (
 
 DROP POLICY IF EXISTS "hk_status_log_select" ON hk_room_status_log;
 CREATE POLICY "hk_status_log_select" ON hk_room_status_log FOR SELECT USING (
-  EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND (role IN ('admin', 'supervisor') OR is_corporate = true))
+  auth.role() = 'service_role'
+  OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND (role IN ('admin', 'supervisor') OR is_corporate = true))
 );
 
 DROP POLICY IF EXISTS "hk_status_log_insert" ON hk_room_status_log;
@@ -81,7 +86,8 @@ CREATE POLICY "hk_status_log_insert" ON hk_room_status_log FOR INSERT WITH CHECK
 
 DROP POLICY IF EXISTS "hk_inventory_select" ON hk_inventory_items;
 CREATE POLICY "hk_inventory_select" ON hk_inventory_items FOR SELECT USING (
-  EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND (role IN ('admin', 'supervisor') OR is_corporate = true))
+  auth.role() = 'service_role'
+  OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND (role IN ('admin', 'supervisor') OR is_corporate = true))
 );
 
 DROP POLICY IF EXISTS "hk_inventory_all" ON hk_inventory_items;
@@ -96,7 +102,8 @@ CREATE POLICY "hk_inventory_all" ON hk_inventory_items FOR ALL USING (
 
 DROP POLICY IF EXISTS "hk_movements_select" ON hk_inventory_movements;
 CREATE POLICY "hk_movements_select" ON hk_inventory_movements FOR SELECT USING (
-  EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND (role IN ('admin', 'supervisor') OR is_corporate = true))
+  auth.role() = 'service_role'
+  OR EXISTS (SELECT 1 FROM profiles WHERE id = auth.uid() AND (role IN ('admin', 'supervisor') OR is_corporate = true))
 );
 
 DROP POLICY IF EXISTS "hk_movements_insert" ON hk_inventory_movements;
