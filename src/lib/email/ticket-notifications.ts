@@ -87,6 +87,64 @@ async function getITTicketTelegramContext(
 }
 
 /**
+ * Fetches full ticket context (location, category, description, priority, dates)
+ * for enriching email templates with complete information.
+ */
+type TicketFullContext = {
+  locationName?: string
+  locationCode?: string
+  category?: string
+  description?: string
+  priority?: string
+  createdAt?: string
+  closedAt?: string
+}
+
+async function fetchTicketFullContext(
+  supabase: ReturnType<typeof createSupabaseAdminClient>,
+  ticketId: string,
+  dataOverrides?: { description?: string; priority?: number; category?: string },
+): Promise<TicketFullContext> {
+  try {
+    const { data: ticket } = await supabase
+      .from('tickets')
+      .select('description, priority, category, created_at, closed_at, locations(name, code)')
+      .eq('id', ticketId)
+      .maybeSingle()
+
+    if (!ticket) return {}
+
+    const loc = (ticket as any)?.locations as any
+    const priorityVal = dataOverrides?.priority ?? ticket.priority
+    const priorityLabel = priorityVal ? (PRIORITY_LABELS[priorityVal] || String(priorityVal)) : undefined
+
+    // Format date nicely
+    const formatDate = (iso: string | null) => {
+      if (!iso) return undefined
+      try {
+        return new Date(iso).toLocaleString('es-MX', {
+          weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+          hour: 'numeric', minute: '2-digit', hour12: true,
+        })
+      } catch { return iso }
+    }
+
+    return {
+      locationName: loc?.name || undefined,
+      locationCode: loc?.code || undefined,
+      category: dataOverrides?.category || ticket.category || undefined,
+      description: dataOverrides?.description || ticket.description || undefined,
+      priority: priorityLabel,
+      createdAt: formatDate(ticket.created_at),
+      closedAt: formatDate(ticket.closed_at),
+    }
+  } catch (err) {
+    console.error('[fetchTicketFullContext] Error:', err)
+    return {}
+  }
+}
+
+/**
  * Notifica al solicitante que su ticket ha sido creado
  */
 export async function notifyTicketCreated(data: TicketNotificationData) {
@@ -255,6 +313,15 @@ export async function notifyTicketAssigned(data: TicketNotificationData) {
     const serviceLabel = getServiceLabelForTicketCategory(inferTicketAssetCategory(assetInfo?.assetType))
 
     const telegramCtx = await getITTicketTelegramContext(supabase, data.ticketId, data.ticketNumber)
+    const ctx = await fetchTicketFullContext(supabase, data.ticketId, data)
+
+    // Obtener requester name para mostrarlo al agente
+    const { data: requesterProfileForAgent } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', data.requesterId)
+      .single()
+    const requesterNameForAgent = requesterProfileForAgent?.full_name || undefined
 
     const template = ticketAssignedEmailTemplate({
       ticketNumber: data.ticketNumber,
@@ -264,6 +331,11 @@ export async function notifyTicketAssigned(data: TicketNotificationData) {
       assignedBy,
       ticketUrl,
       serviceLabel,
+      locationName: ctx.locationName,
+      locationCode: ctx.locationCode,
+      category: ctx.category,
+      description: ctx.description,
+      requesterName: requesterNameForAgent,
       assetTag: assetInfo?.assetTag,
       assetType: assetInfo?.assetType || undefined,
       assetBrand: assetInfo?.brand || undefined,
@@ -318,6 +390,10 @@ export async function notifyTicketAssigned(data: TicketNotificationData) {
         ticketUrl,
         requesterName,
         serviceLabel,
+        locationName: ctx.locationName,
+        locationCode: ctx.locationCode,
+        category: ctx.category,
+        description: ctx.description,
         assetTag: assetInfo?.assetTag,
         assetType: assetInfo?.assetType || undefined,
         assetBrand: assetInfo?.brand || undefined,
@@ -371,6 +447,7 @@ export async function notifyTicketStatusChanged(data: TicketNotificationData) {
     const telegramCtx = await getITTicketTelegramContext(supabase, data.ticketId, data.ticketNumber)
     const assetInfo = await fetchTicketAssetInfo(supabase, data.ticketId)
     const serviceLabel = getServiceLabelForTicketCategory(inferTicketAssetCategory(assetInfo?.assetType))
+    const ctx = await fetchTicketFullContext(supabase, data.ticketId, data)
 
     // Obtener quien hizo el cambio
     let changedBy = 'Sistema'
@@ -403,6 +480,12 @@ export async function notifyTicketStatusChanged(data: TicketNotificationData) {
         ticketUrl,
         recipientName: requesterName,
         serviceLabel,
+        locationName: ctx.locationName,
+        locationCode: ctx.locationCode,
+        category: ctx.category,
+        priority: ctx.priority,
+        description: ctx.description,
+        changedAt: ctx.closedAt || ctx.createdAt,
         assetTag: assetInfo?.assetTag,
         assetType: assetInfo?.assetType || undefined,
         assetBrand: assetInfo?.brand || undefined,
@@ -457,6 +540,12 @@ export async function notifyTicketStatusChanged(data: TicketNotificationData) {
           ticketUrl,
           recipientName: agentName,
           serviceLabel,
+          locationName: ctx.locationName,
+          locationCode: ctx.locationCode,
+          category: ctx.category,
+          priority: ctx.priority,
+          description: ctx.description,
+          changedAt: ctx.closedAt || ctx.createdAt,
           assetTag: assetInfo?.assetTag,
           assetType: assetInfo?.assetType || undefined,
           assetBrand: assetInfo?.brand || undefined,
@@ -512,6 +601,7 @@ export async function notifyTicketClosed(data: TicketNotificationData) {
 
     const assetInfo = await fetchTicketAssetInfo(supabase, data.ticketId)
     const serviceLabel = getServiceLabelForTicketCategory(inferTicketAssetCategory(assetInfo?.assetType))
+    const ctx = await fetchTicketFullContext(supabase, data.ticketId, data)
 
     // Obtener email del solicitante
     const { data: requester } = await supabase.auth.admin.getUserById(data.requesterId)
@@ -544,6 +634,13 @@ export async function notifyTicketClosed(data: TicketNotificationData) {
       recipientName: requesterName,
       resolution: data.resolution,
       serviceLabel,
+      locationName: ctx.locationName,
+      locationCode: ctx.locationCode,
+      category: ctx.category,
+      priority: ctx.priority,
+      description: ctx.description,
+      createdAt: ctx.createdAt,
+      closedAt: ctx.closedAt,
       assetTag: assetInfo?.assetTag,
       assetType: assetInfo?.assetType || undefined,
       assetBrand: assetInfo?.brand || undefined,
@@ -619,6 +716,13 @@ export async function notifyTicketClosed(data: TicketNotificationData) {
             recipientName: agentName,
             resolution: data.resolution,
             serviceLabel,
+            locationName: ctx.locationName,
+            locationCode: ctx.locationCode,
+            category: ctx.category,
+            priority: ctx.priority,
+            description: ctx.description,
+            createdAt: ctx.createdAt,
+            closedAt: ctx.closedAt,
             assetTag: assetInfo?.assetTag,
             assetType: assetInfo?.assetType || undefined,
             assetBrand: assetInfo?.brand || undefined,
@@ -696,6 +800,7 @@ export async function notifyTicketEscalated(data: TicketNotificationData) {
     // Obtener información del activo asociado
     const assetInfo = await fetchTicketAssetInfo(supabase, data.ticketId)
     const serviceLabel = getServiceLabelForTicketCategory(inferTicketAssetCategory(assetInfo?.assetType))
+    const ctx = await fetchTicketFullContext(supabase, data.ticketId, data)
 
     // Obtener quien escaló
     let escalatedBy = 'Sistema'
@@ -728,6 +833,10 @@ export async function notifyTicketEscalated(data: TicketNotificationData) {
         ticketUrl,
         isSpecialist: true,
         serviceLabel,
+        locationName: ctx.locationName,
+        locationCode: ctx.locationCode,
+        category: ctx.category,
+        description: ctx.description,
         assetTag: assetInfo?.assetTag,
         assetType: assetInfo?.assetType || undefined,
         assetBrand: assetInfo?.brand || undefined,
@@ -781,6 +890,10 @@ export async function notifyTicketEscalated(data: TicketNotificationData) {
         ticketUrl,
         isSpecialist: false,
         serviceLabel,
+        locationName: ctx.locationName,
+        locationCode: ctx.locationCode,
+        category: ctx.category,
+        description: ctx.description,
         assetTag: assetInfo?.assetTag,
         assetType: assetInfo?.assetType || undefined,
         assetBrand: assetInfo?.brand || undefined,

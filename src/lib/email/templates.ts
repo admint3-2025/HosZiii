@@ -596,6 +596,10 @@ export function ticketAssignedToRequesterEmailTemplate(params: {
   ticketUrl: string
   requesterName: string
   serviceLabel?: string
+  locationName?: string
+  locationCode?: string
+  category?: string
+  description?: string
   assetTag?: string
   assetType?: string
   assetBrand?: string
@@ -610,6 +614,10 @@ export function ticketAssignedToRequesterEmailTemplate(params: {
     ticketUrl,
     requesterName,
     serviceLabel: serviceLabelParam,
+    locationName,
+    locationCode,
+    category,
+    description,
     assetTag,
     assetType,
     assetBrand,
@@ -704,7 +712,31 @@ export function ticketAssignedToRequesterEmailTemplate(params: {
                 <div style="font-size:14px; color:#111827; font-weight:500;">${escapeHtml(assignedAgentName)}</div>
               </div>
             </div>
+
+            ${category ? `
+            <div style="padding-bottom:16px; margin-bottom:16px; border-bottom:1px solid #e5e7eb;">
+              <div style="font-size:11px; color:#6b7280; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:6px;">Categoría</div>
+              <div style="font-size:14px; color:#111827; font-weight:500;">${escapeHtml(category)}</div>
+            </div>
+            ` : ''}
           </div>
+
+          ${locationName ? `
+          <div style="margin-bottom:16px; padding:12px; background:#fef3c7; border-radius:8px; border:1px solid #fbbf24;">
+            <div style="font-size:11px; color:#92400e; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+              <span style="font-size:14px;">📍</span>
+              <span>Sede</span>
+            </div>
+            <div style="font-size:14px; color:#111827; font-weight:600;">${escapeHtml(locationCode || '')} - ${escapeHtml(locationName)}</div>
+          </div>
+          ` : ''}
+
+          ${description ? `
+          <div style="margin-bottom:16px; padding:16px; background:#f9fafb; border-radius:10px; border:1px solid #e5e7eb;">
+            <div style="font-size:11px; color:#6b7280; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:8px;">Descripción</div>
+            <div style="font-size:14px; color:#374151; line-height:1.6; white-space:pre-wrap;">${escapeHtml(description)}</div>
+          </div>
+          ` : ''}
 
             ${assetTag ? `
             <div style="margin-bottom:16px; padding:16px; background:#ecfeff; border-radius:10px; border:1px solid #bae6fd;">
@@ -760,6 +792,11 @@ export function ticketAssignedEmailTemplate(params: {
   assignedBy: string
   ticketUrl: string
   serviceLabel?: string
+  locationName?: string
+  locationCode?: string
+  category?: string
+  description?: string
+  requesterName?: string
   assetTag?: string
   assetType?: string
   assetBrand?: string
@@ -774,6 +811,11 @@ export function ticketAssignedEmailTemplate(params: {
     assignedBy,
     ticketUrl,
     serviceLabel: serviceLabelParam,
+    locationName,
+    locationCode,
+    category,
+    description,
+    requesterName,
     assetTag,
     assetType,
     assetBrand,
@@ -866,7 +908,38 @@ export function ticketAssignedEmailTemplate(params: {
                 <div style="font-size:14px; color:#111827; font-weight:500;">${escapeHtml(assignedBy)}</div>
               </div>
             </div>
+
+            ${category ? `
+            <div style="padding-bottom:16px; margin-bottom:16px; border-bottom:1px solid #e5e7eb;">
+              <div style="font-size:11px; color:#6b7280; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:6px;">Categoría</div>
+              <div style="font-size:14px; color:#111827; font-weight:500;">${escapeHtml(category)}</div>
+            </div>
+            ` : ''}
+
+            ${requesterName ? `
+            <div style="padding-bottom:16px; margin-bottom:16px; border-bottom:1px solid #e5e7eb;">
+              <div style="font-size:11px; color:#6b7280; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:6px;">Reportado por</div>
+              <div style="font-size:14px; color:#111827; font-weight:500;">${escapeHtml(requesterName)}</div>
+            </div>
+            ` : ''}
           </div>
+
+          ${locationName ? `
+          <div style="margin-bottom:16px; padding:12px; background:#fef3c7; border-radius:8px; border:1px solid #fbbf24;">
+            <div style="font-size:11px; color:#92400e; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+              <span style="font-size:14px;">📍</span>
+              <span>Sede</span>
+            </div>
+            <div style="font-size:14px; color:#111827; font-weight:600;">${escapeHtml(locationCode || '')} - ${escapeHtml(locationName)}</div>
+          </div>
+          ` : ''}
+
+          ${description ? `
+          <div style="margin-bottom:16px; padding:16px; background:#f9fafb; border-radius:10px; border:1px solid #e5e7eb;">
+            <div style="font-size:11px; color:#6b7280; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:8px;">Descripción</div>
+            <div style="font-size:14px; color:#374151; line-height:1.6; white-space:pre-wrap;">${escapeHtml(description)}</div>
+          </div>
+          ` : ''}
 
             ${assetTag ? `
             <div style="margin-bottom:16px; padding:16px; background:#ecfeff; border-radius:10px; border:1px solid #bae6fd;">
@@ -925,6 +998,9 @@ export function ticketStatusChangedEmailTemplate(params: {
   serviceLabel?: string
   locationName?: string
   locationCode?: string
+  category?: string
+  priority?: string
+  description?: string
   changedAt?: string
   resolution?: string
   assetTag?: string
@@ -944,6 +1020,9 @@ export function ticketStatusChangedEmailTemplate(params: {
     serviceLabel: serviceLabelParam,
     locationName,
     locationCode,
+    category,
+    priority,
+    description,
     changedAt,
     resolution,
     assetTag,
@@ -1104,6 +1183,23 @@ export function ticketStatusChangedEmailTemplate(params: {
             </div>
             ` : ''}
 
+            ${(category || priority) ? `
+            <div style="display:table; width:100%; margin-bottom:16px;">
+              ${category ? `
+              <div style="display:table-cell; width:${priority ? '50%' : '100%'}; padding-right:${priority ? '12px' : '0'};">
+                <div style="font-size:11px; color:#6b7280; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:6px;">Categoría</div>
+                <div style="font-size:14px; color:#111827; font-weight:500;">${escapeHtml(category)}</div>
+              </div>
+              ` : ''}
+              ${priority ? `
+              <div style="display:table-cell; width:${category ? '50%' : '100%'}; padding-left:${category ? '12px' : '0'}; ${category ? 'border-left:1px solid #e5e7eb;' : ''}">
+                <div style="font-size:11px; color:#6b7280; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:6px;">Prioridad</div>
+                <div style="display:inline-block; padding:4px 12px; background:#fef2f2; color:#dc2626; font-size:13px; font-weight:700; border-radius:6px;">${escapeHtml(priority)}</div>
+              </div>
+              ` : ''}
+            </div>
+            ` : ''}
+
             <div style="padding-bottom:16px;">
               <div style="font-size:11px; color:#6b7280; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:6px;">Actualizado por</div>
               <div style="font-size:14px; color:#111827; font-weight:500;">${escapeHtml(changedBy)}</div>
@@ -1116,6 +1212,14 @@ export function ticketStatusChangedEmailTemplate(params: {
             </div>
             ` : ''}
           </div>
+
+            ${description ? `
+            <div style="margin-bottom:24px; padding:16px; background:#f9fafb; border-radius:10px; border:1px solid #e5e7eb;">
+              <div style="font-size:11px; color:#6b7280; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:8px;">Descripción original</div>
+              <div style="font-size:14px; color:#374151; line-height:1.6; white-space:pre-wrap;">${escapeHtml(description)}</div>
+            </div>
+            ` : ''}
+
             ${assetTag ? `
             <div style="margin-bottom:24px; padding:16px; background:#ecfeff; border-radius:10px; border:1px solid #bae6fd;">
               <div style="font-size:11px; color:#0369a1; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
@@ -1178,6 +1282,13 @@ export function ticketClosedEmailTemplate(params: {
   recipientName: string
   serviceLabel?: string
   resolution?: string
+  locationName?: string
+  locationCode?: string
+  category?: string
+  priority?: string
+  description?: string
+  createdAt?: string
+  closedAt?: string
   assetTag?: string
   assetType?: string
   assetBrand?: string
@@ -1192,6 +1303,13 @@ export function ticketClosedEmailTemplate(params: {
     recipientName,
     serviceLabel: serviceLabelParam,
     resolution,
+    locationName,
+    locationCode,
+    category,
+    priority,
+    description,
+    createdAt,
+    closedAt,
     assetTag,
     assetType,
     assetBrand,
@@ -1281,6 +1399,61 @@ export function ticketClosedEmailTemplate(params: {
             </div>
           </div>
 
+          ${locationName ? `
+          <div style="margin-bottom:16px; padding:12px; background:#fef3c7; border-radius:8px; border:1px solid #fbbf24;">
+            <div style="font-size:11px; color:#92400e; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+              <span style="font-size:14px;">📍</span>
+              <span>Sede</span>
+            </div>
+            <div style="font-size:14px; color:#111827; font-weight:600;">${escapeHtml(locationCode || '')} - ${escapeHtml(locationName)}</div>
+          </div>
+          ` : ''}
+
+          ${(category || priority) ? `
+          <div style="display:table; width:100%; margin-bottom:16px;">
+            ${category ? `
+            <div style="display:table-cell; width:${priority ? '50%' : '100%'}; padding-right:${priority ? '12px' : '0'};">
+              <div style="font-size:11px; color:#6b7280; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:6px;">Categoría</div>
+              <div style="font-size:14px; color:#111827; font-weight:500;">${escapeHtml(category)}</div>
+            </div>
+            ` : ''}
+            ${priority ? `
+            <div style="display:table-cell; width:${category ? '50%' : '100%'}; padding-left:${category ? '12px' : '0'}; ${category ? 'border-left:1px solid #e5e7eb;' : ''}">
+              <div style="font-size:11px; color:#6b7280; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:6px;">Prioridad</div>
+              <div style="display:inline-block; padding:4px 12px; background:#fef2f2; color:#dc2626; font-size:13px; font-weight:700; border-radius:6px;">${escapeHtml(priority)}</div>
+            </div>
+            ` : ''}
+          </div>
+          ` : ''}
+
+          ${(createdAt || closedAt) ? `
+          <div style="display:table; width:100%; margin-bottom:16px;">
+            ${createdAt ? `
+            <div style="display:table-cell; width:${closedAt ? '50%' : '100%'}; padding-right:${closedAt ? '12px' : '0'};">
+              <div style="padding:12px; background:#f3f4f6; border-radius:8px;">
+                <div style="font-size:11px; color:#6b7280; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:4px;">📅 Creado</div>
+                <div style="font-size:13px; color:#111827; font-weight:500;">${escapeHtml(createdAt)}</div>
+              </div>
+            </div>
+            ` : ''}
+            ${closedAt ? `
+            <div style="display:table-cell; width:${createdAt ? '50%' : '100%'}; padding-left:${createdAt ? '12px' : '0'};">
+              <div style="padding:12px; background:#f0fdf4; border-radius:8px;">
+                <div style="font-size:11px; color:#166534; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:4px;">✅ Cerrado</div>
+                <div style="font-size:13px; color:#111827; font-weight:500;">${escapeHtml(closedAt)}</div>
+              </div>
+            </div>
+            ` : ''}
+          </div>
+          ` : ''}
+
+          ${description ? `
+          <div style="margin-bottom:16px; padding:16px; background:#f9fafb; border-radius:10px; border:1px solid #e5e7eb;">
+            <div style="font-size:11px; color:#6b7280; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:8px;">Descripción original</div>
+            <div style="font-size:14px; color:#374151; line-height:1.6; white-space:pre-wrap;">${escapeHtml(description)}</div>
+          </div>
+          ` : ''}
+
           ${assetTag ? `
           <div style="margin-bottom:24px; padding:16px; background:#ecfeff; border-radius:10px; border:1px solid #bae6fd;">
             <div style="font-size:11px; color:#0369a1; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:8px; display:flex; align-items:center; gap:6px;">
@@ -1346,6 +1519,10 @@ export function ticketEscalatedEmailTemplate(params: {
   ticketUrl: string
   isSpecialist: boolean
   serviceLabel?: string
+  locationName?: string
+  locationCode?: string
+  category?: string
+  description?: string
   assetTag?: string
   assetType?: string
   assetBrand?: string
@@ -1361,6 +1538,10 @@ export function ticketEscalatedEmailTemplate(params: {
     ticketUrl,
     isSpecialist,
     serviceLabel: serviceLabelParam,
+    locationName,
+    locationCode,
+    category,
+    description,
     assetTag,
     assetType,
     assetBrand,
@@ -1486,6 +1667,30 @@ export function ticketEscalatedEmailTemplate(params: {
               </div>
             </div>
           </div>
+
+          ${locationName ? `
+          <div style="margin-bottom:20px; padding:12px; background:#fef3c7; border-radius:8px; border:1px solid #fbbf24;">
+            <div style="font-size:11px; color:#92400e; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:4px; display:flex; align-items:center; gap:6px;">
+              <span style="font-size:14px;">📍</span>
+              <span>Sede</span>
+            </div>
+            <div style="font-size:14px; color:#111827; font-weight:600;">${escapeHtml(locationCode || '')} - ${escapeHtml(locationName)}</div>
+          </div>
+          ` : ''}
+
+          ${category ? `
+          <div style="margin-bottom:20px;">
+            <div style="font-size:11px; color:#6b7280; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:6px;">Categoría</div>
+            <div style="font-size:14px; color:#111827; font-weight:500;">${escapeHtml(category)}</div>
+          </div>
+          ` : ''}
+
+          ${description ? `
+          <div style="margin-bottom:20px; padding:16px; background:#f9fafb; border-radius:10px; border:1px solid #e5e7eb;">
+            <div style="font-size:11px; color:#6b7280; text-transform:uppercase; font-weight:700; letter-spacing:0.5px; margin-bottom:8px;">Descripción</div>
+            <div style="font-size:14px; color:#374151; line-height:1.6; white-space:pre-wrap;">${escapeHtml(description)}</div>
+          </div>
+          ` : ''}
 
           ${assetTag ? `
           <div style="margin-bottom:24px; padding:16px; background:#ecfeff; border-radius:10px; border:1px solid #bae6fd;">
