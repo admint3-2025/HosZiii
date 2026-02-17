@@ -13,7 +13,6 @@ import { getCategoryPathLabel } from '@/lib/categories/path'
 import { sendTelegramNotification, TELEGRAM_TEMPLATES } from '@/lib/telegram'
 import { formatTicketCode } from '@/lib/tickets/code'
 import {
-  fetchTicketAssetCategory,
   getServiceLabelForTicketCategory,
   inferTicketAssetCategory,
   recipientMatchesTicketCategory,
@@ -969,23 +968,27 @@ export async function notifyLocationStaff(data: TicketNotificationData) {
     console.log(`[notifyLocationStaff] Location ID: ${locationId}`)
     console.log(`[notifyLocationStaff] Actor ID a excluir: ${data.actorId || 'ninguno'}`)
 
-    const ticketCategory = await fetchTicketAssetCategory(supabase as any, data.ticketId)
+    // IMPORTANTE: Los tickets de la tabla 'tickets' son SIEMPRE IT.
+    // Forzar categoría IT para filtrado correcto (evita que técnicos de
+    // mantenimiento reciban notificaciones de tickets IT y viceversa).
+    const ticketCategory = 'IT' as const
     const serviceLabel = getServiceLabelForTicketCategory(ticketCategory)
     
+    // IDs a excluir: actor + requester + assigned agent
+    // (ya reciben notificación directa, evita duplicados)
+    const excludeIds = new Set<string>()
+    if (data.actorId) excludeIds.add(data.actorId)
+    if (data.requesterId) excludeIds.add(data.requesterId)
+    if (data.assignedAgentId) excludeIds.add(data.assignedAgentId)
+    console.log(`[notifyLocationStaff] IDs excluidos (actor/requester/agent): ${[...excludeIds].join(', ') || 'ninguno'}`)
+
     // Obtener todos los supervisores y técnicos de esa ubicación
     // Buscar en profiles.location_id Y en user_locations (multi-sede)
-    let query = supabase
+    const { data: staffByProfile, error: staffError } = await supabase
       .from('profiles')
       .select('id, full_name, role, asset_category, hub_visible_modules')
       .eq('location_id', locationId)
       .in('role', ['agent_l1', 'agent_l2', 'supervisor'])
-    
-    // Excluir al actor solo si existe
-    if (data.actorId) {
-      query = query.neq('id', data.actorId)
-    }
-    
-    const { data: staffByProfile, error: staffError } = await query
     
     if (staffError) {
       console.error('[notifyLocationStaff] Error obteniendo personal:', staffError)
@@ -1002,23 +1005,19 @@ export async function notifyLocationStaff(data: TicketNotificationData) {
     
     let staffByUserLocations: any[] = []
     if (userIdsFromUserLocations.length > 0) {
-      let ulQuery = supabase
+      const { data: staffData } = await supabase
         .from('profiles')
         .select('id, full_name, role, asset_category, hub_visible_modules')
         .in('id', userIdsFromUserLocations)
         .in('role', ['agent_l1', 'agent_l2', 'supervisor'])
       
-      if (data.actorId) {
-        ulQuery = ulQuery.neq('id', data.actorId)
-      }
-      
-      const { data: staffData } = await ulQuery
       staffByUserLocations = staffData || []
     }
 
-    // Combinar y deduplicar por ID
+    // Combinar, deduplicar por ID, y excluir actor/requester/assigned
     const allStaff = [...(staffByProfile || []), ...staffByUserLocations]
     const uniqueStaff = Array.from(new Map(allStaff.map((s: any) => [s.id, s])).values())
+      .filter((s: any) => !excludeIds.has(s.id))
     
     const filteredStaffProfiles = uniqueStaff.filter((staff: any) =>
       recipientMatchesTicketCategory({
@@ -1029,15 +1028,15 @@ export async function notifyLocationStaff(data: TicketNotificationData) {
       }),
     )
 
-    console.log(`[notifyLocationStaff] Personal encontrado (profiles + user_locations): ${uniqueStaff.length}`)
-    console.log(`[notifyLocationStaff] Personal permitido por categoría: ${filteredStaffProfiles.length}`)
+    console.log(`[notifyLocationStaff] Personal encontrado (profiles + user_locations): ${allStaff.length} → deduplicado/excluido: ${uniqueStaff.length}`)
+    console.log(`[notifyLocationStaff] Personal IT permitido por categoría: ${filteredStaffProfiles.length}`)
     
     if (filteredStaffProfiles.length === 0) {
-      console.log('[notifyLocationStaff] No se encontró personal de la sede para notificar')
+      console.log('[notifyLocationStaff] No se encontró personal IT de la sede para notificar')
       return
     }
     
-    console.log(`[notifyLocationStaff] Se notificará a ${filteredStaffProfiles.length} miembro(s) del personal`)
+    console.log(`[notifyLocationStaff] Se notificará a ${filteredStaffProfiles.length} miembro(s) del personal IT`)
     
     const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
     const ticketUrl = `${baseUrl}/tickets/${data.ticketId}`
@@ -1062,9 +1061,6 @@ export async function notifyLocationStaff(data: TicketNotificationData) {
     // Enviar notificación a cada miembro del personal
     for (const staff of filteredStaffProfiles as any[]) {
       try {
-        // Evitar duplicación: no enviar notificación push si el staff es el mismo solicitante
-        const isRequester = staff.id === data.requesterId
-        
         // Obtener email del auth
         const { data: authUser } = await supabase.auth.admin.getUserById(staff.id)
         
@@ -1107,20 +1103,19 @@ export async function notifyLocationStaff(data: TicketNotificationData) {
         
         console.log(`[notifyLocationStaff] ✓ Notificación enviada a ${authUser.user.email} (${staffName})`)
 
-        // Notificación in-app (siempre, incluso si es el solicitante)
-        // Si es el solicitante, usar mensaje personalizado
+        // Notificación in-app para staff de la sede
         try {
-          const pushTitle = isRequester 
-            ? `[IT] Solicitud #${telegramCtx.ticketCode} creada`
+          const pushTitle = isUpdate
+            ? `[IT] Ticket #${telegramCtx.ticketCode} actualizado en ${locationCode || locationName}`
             : `[IT] Nueva solicitud #${telegramCtx.ticketCode} en ${locationCode || locationName}`
           
-          const pushMessage = isRequester
-            ? `Tu solicitud de soporte IT "${data.title}" ha sido registrada.`
+          const pushMessage = isUpdate
+            ? `${actorName} actualizó el ticket: "${data.title}" → ${data.newStatus ? STATUS_LABELS[data.newStatus] || data.newStatus : ''}`
             : `${actorName} creó una solicitud: "${data.title}"`
           
           await supabase.from('notifications').insert({
             user_id: staff.id,
-            type: 'TICKET_CREATED',
+            type: isUpdate ? 'TICKET_STATUS_CHANGED' : 'TICKET_CREATED',
             title: pushTitle,
             message: pushMessage,
             ticket_id: data.ticketId,
@@ -1128,7 +1123,7 @@ export async function notifyLocationStaff(data: TicketNotificationData) {
             actor_id: data.actorId,
             is_read: false,
           })
-          console.log(`[notifyLocationStaff] ✓ Notificación push enviada a ${isRequester ? 'solicitante' : 'staff'} ${staff.id}`)
+          console.log(`[notifyLocationStaff] ✓ Notificación push enviada a staff ${staff.id}`)
         } catch (err) {
           console.error(`[notifyLocationStaff] ✗ Error creando push para ${staff.id}:`, err)
         }

@@ -222,12 +222,15 @@ async function notifyMaintenanceLocationStaff(data: MaintenanceTicketNotificatio
       })
     )
     
-    // Excluir al actor (quien creó el ticket)
-    const filteredStaff = data.actorId 
-      ? maintenanceStaff.filter(s => s.id !== data.actorId)
-      : maintenanceStaff
+    // Excluir actor, requester y assigned agent (ya reciben notificación directa)
+    const excludeIds = new Set<string>()
+    if (data.actorId) excludeIds.add(data.actorId)
+    if (data.requesterId) excludeIds.add(data.requesterId)
+    if (data.assignedAgentId) excludeIds.add(data.assignedAgentId)
     
-    console.log(`[notifyMaintenanceLocationStaff] Personal de mantenimiento encontrado: ${filteredStaff.length}`)
+    const filteredStaff = maintenanceStaff.filter(s => !excludeIds.has(s.id))
+    
+    console.log(`[notifyMaintenanceLocationStaff] Personal de mantenimiento encontrado: ${filteredStaff.length} (excluidos: ${excludeIds.size})`)
     
     if (filteredStaff.length === 0) {
       console.log('[notifyMaintenanceLocationStaff] No hay personal de mantenimiento para notificar')
