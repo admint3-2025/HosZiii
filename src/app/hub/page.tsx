@@ -79,11 +79,11 @@ const modules: Module[] = [
       const hm = profile?.hub_visible_modules as Record<string, string | boolean> | null
       const access = hm?.['it-helpdesk']
       const isSupervisor = access === 'supervisor' || profile?.role === 'admin'
-      // Supervisores y agentes van al dashboard
-      if (isSupervisor || profile?.role === 'agent_l1' || profile?.role === 'agent_l2') {
+      // Solo supervisores IT y admin van al dashboard
+      if (isSupervisor) {
         return '/dashboard'
       }
-      // Usuarios normales van a su bandeja de tickets
+      // Agentes y usuarios normales van a su bandeja de tickets
       return '/tickets?view=mine'
     },
     bgGradient: 'from-blue-500 via-indigo-500 to-purple-600',
