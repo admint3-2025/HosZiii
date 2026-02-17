@@ -78,7 +78,7 @@ export async function POST(
         userName: fullName,
         userEmail: email,
         temporaryPassword: tempPassword,
-        loginUrl: process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000',
+        loginUrl: `${process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'}/login`,
       })
 
       await sendMail({

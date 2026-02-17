@@ -131,23 +131,31 @@ export function temporaryPasswordEmailTemplate(params: {
 }) {
   const { appName, userName, userEmail, temporaryPassword, loginUrl } = params
 
-  const subject = `${appName} — Contraseña temporal generada`
+  const subject = `🔑 ${appName} — Tu nueva contraseña de acceso`
 
   const text = [
-    `Contraseña temporal para ${appName}`,
+    `Acceso a ${appName}`,
     ``,
     `Hola ${userName},`,
     ``,
-    `Se ha generado una contraseña temporal para tu cuenta.`,
+    `Se ha generado una contraseña para tu cuenta en ${appName}.`,
     ``,
+    `═══════════════════════════════`,
+    `TUS CREDENCIALES DE ACCESO`,
+    `═══════════════════════════════`,
     `Email: ${userEmail}`,
-    `Contraseña temporal: ${temporaryPassword}`,
+    `Contraseña: ${temporaryPassword}`,
+    `═══════════════════════════════`,
     ``,
-    `Inicia sesión en: ${loginUrl}`,
+    `PASOS PARA INGRESAR:`,
+    `1. Abre tu navegador y ve a: ${loginUrl}`,
+    `2. Ingresa tu email y la contraseña indicada`,
+    `3. Una vez dentro, cambia tu contraseña en Perfil > Seguridad`,
     ``,
-    `IMPORTANTE: Por seguridad, te recomendamos encarecidamente cambiar esta contraseña temporal después de iniciar sesión. No dejes la contraseña que se te asignó de forma automática.`,
+    `🔗 Enlace directo: ${loginUrl}`,
     ``,
-    `Si no solicitaste este cambio, contacta al administrador del sistema inmediatamente.`,
+    `IMPORTANTE: Cambia esta contraseña después de tu primer inicio de sesión.`,
+    `Si no solicitaste este cambio, contacta al administrador del sistema.`,
   ].join('\n')
 
   const html = `
@@ -157,89 +165,140 @@ export function temporaryPasswordEmailTemplate(params: {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
   </head>
-  <body style="margin:0; padding:0; background-color:#f9fafb;">
-    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background:#f9fafb; padding:40px 20px;">
-      <!-- Logo / Header -->
+  <body style="margin:0; padding:0; background-color:#f0f4f8;">
+    <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background:#f0f4f8; padding:40px 20px;">
+
+      <!-- Logo -->
       <div style="max-width:600px; margin:0 auto 24px auto; text-align:center;">
-        <img src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png" alt="ZIII HoS" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
+        <img src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png" alt="${escapeHtml(appName)}" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
       </div>
 
       <!-- Main Card -->
-      <div style="max-width:600px; margin:0 auto; background:#ffffff; border-radius:16px; box-shadow:0 4px 6px rgba(0,0,0,0.07); overflow:hidden;">
-        
-        <!-- Header -->
-        <div style="background:linear-gradient(135deg, #1e40af 0%, #4f46e5 100%); padding:24px 24px 16px 24px;">
-          <div style="background:rgba(255,255,255,0.15); backdrop-filter:blur(10px); border-radius:12px; padding:12px; text-align:center; border:1px solid rgba(255,255,255,0.2);">
-            <div style="font-size:36px; margin-bottom:6px;">🔐</div>
-            <h2 style="margin:0; font-size:20px; font-weight:700; color:#ffffff;">Contraseña temporal</h2>
+      <div style="max-width:600px; margin:0 auto; background:#ffffff; border-radius:20px; box-shadow:0 8px 30px rgba(0,0,0,0.08); overflow:hidden;">
+
+        <!-- Gradient Header -->
+        <div style="background:linear-gradient(135deg, #0f172a 0%, #1e3a5f 50%, #1e40af 100%); padding:32px 32px 24px 32px; text-align:center;">
+          <div style="display:inline-block; background:rgba(255,255,255,0.12); border-radius:16px; padding:14px 28px; border:1px solid rgba(255,255,255,0.15);">
+            <div style="font-size:40px; margin-bottom:8px;">🔑</div>
+            <h1 style="margin:0; font-size:22px; font-weight:700; color:#ffffff; letter-spacing:-0.3px;">Tu acceso a ${escapeHtml(appName)}</h1>
+            <p style="margin:8px 0 0 0; font-size:14px; color:rgba(255,255,255,0.75); font-weight:400;">Credenciales de ingreso al sistema</p>
           </div>
         </div>
 
-        <!-- Content -->
-        <div style="padding:32px;">
-          <p style="margin:0 0 24px 0; font-size:15px; color:#374151; line-height:1.6;">
-            Hola <strong style="color:#111827;">${escapeHtml(userName)}</strong>,
+        <!-- Body -->
+        <div style="padding:36px 32px;">
+
+          <p style="margin:0 0 20px 0; font-size:15px; color:#374151; line-height:1.7;">
+            Hola <strong style="color:#0f172a;">${escapeHtml(userName)}</strong>,
+          </p>
+          <p style="margin:0 0 28px 0; font-size:15px; color:#374151; line-height:1.7;">
+            Se ha configurado una contraseña para tu cuenta. A continuación encontrarás tus credenciales y los pasos para ingresar al sistema.
           </p>
 
-          <p style="margin:0 0 24px 0; font-size:15px; color:#374151; line-height:1.6;">
-            Se ha generado una contraseña temporal para tu cuenta en <strong style="color:#111827;">${escapeHtml(appName)}</strong>.
-          </p>
+          <!-- ═══ CREDENTIALS BOX ═══ -->
+          <div style="margin:0 0 28px 0; border-radius:14px; overflow:hidden; border:2px solid #e2e8f0;">
 
-          <!-- Credentials Box -->
-          <div style="margin:24px 0; padding:20px; background:#f9fafb; border-radius:12px; border:2px solid #e5e7eb;">
-            <div style="margin-bottom:16px;">
-              <p style="margin:0 0 6px 0; font-size:12px; color:#6b7280; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">
-                Email
-              </p>
-              <p style="margin:0; font-size:14px; color:#111827; font-family:'Courier New', monospace; background:#ffffff; padding:10px; border-radius:6px; border:1px solid #e5e7eb;">
-                ${escapeHtml(userEmail)}
-              </p>
+            <!-- Credentials Header -->
+            <div style="background:linear-gradient(135deg, #1e293b 0%, #334155 100%); padding:14px 20px; text-align:center;">
+              <span style="font-size:13px; font-weight:700; color:#ffffff; text-transform:uppercase; letter-spacing:1.5px;">🔐 Credenciales de acceso</span>
             </div>
-            <div>
-              <p style="margin:0 0 6px 0; font-size:12px; color:#6b7280; font-weight:600; text-transform:uppercase; letter-spacing:0.5px;">
-                Contraseña temporal
-              </p>
-              <p style="margin:0; font-size:16px; color:#111827; font-family:'Courier New', monospace; background:#ffffff; padding:12px; border-radius:6px; border:1px solid #e5e7eb; font-weight:700; letter-spacing:1px; text-align:center;">
+
+            <!-- Email row -->
+            <div style="padding:18px 24px; border-bottom:1px solid #e2e8f0; background:#f8fafc;">
+              <div style="font-size:11px; color:#64748b; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:6px;">📧 Email / Usuario</div>
+              <div style="font-size:15px; color:#0f172a; font-weight:600; font-family:'Courier New', Courier, monospace; background:#ffffff; padding:10px 14px; border-radius:8px; border:1px solid #cbd5e1;">
+                ${escapeHtml(userEmail)}
+              </div>
+            </div>
+
+            <!-- Password row -->
+            <div style="padding:18px 24px; background:#fffbeb;">
+              <div style="font-size:11px; color:#92400e; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:6px;">🔑 Contraseña</div>
+              <div style="font-size:20px; color:#0f172a; font-weight:800; font-family:'Courier New', Courier, monospace; background:#ffffff; padding:14px 18px; border-radius:8px; border:2px solid #f59e0b; text-align:center; letter-spacing:2px;">
                 ${escapeHtml(temporaryPassword)}
-              </p>
+              </div>
             </div>
           </div>
 
-          <!-- CTA Button -->
+          <!-- ═══ LOGIN BUTTON ═══ -->
           <div style="text-align:center; margin:32px 0;">
             <a href="${escapeAttr(loginUrl)}"
-               style="display:inline-block; background:linear-gradient(135deg, #4f46e5 0%, #7c3aed 100%); color:#ffffff; text-decoration:none; padding:14px 32px; border-radius:12px; font-size:16px; font-weight:600; box-shadow:0 4px 12px rgba(79, 70, 229, 0.3); transition:transform 0.2s;">
-              Iniciar sesión
+               style="display:inline-block; background:linear-gradient(135deg, #1e40af 0%, #3b82f6 100%); color:#ffffff; text-decoration:none; padding:16px 48px; border-radius:14px; font-size:17px; font-weight:700; box-shadow:0 6px 20px rgba(30, 64, 175, 0.35); letter-spacing:0.3px;">
+              Ingresar al Sistema →
             </a>
           </div>
 
-          <!-- Important Notice -->
-          <div style="margin-top:24px; padding:16px; background:#fef3c7; border-left:4px solid #f59e0b; border-radius:8px;">
-            <p style="margin:0 0 8px 0; font-size:13px; color:#92400e; font-weight:700;">
-              ⚠️ IMPORTANTE - ACCIÓN RECOMENDADA
+          <!-- Fallback URL (visible text) -->
+          <div style="margin:0 0 28px 0; padding:14px 18px; background:#eff6ff; border-radius:10px; border:1px solid #bfdbfe; text-align:center;">
+            <div style="font-size:11px; color:#1e40af; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:6px;">🌐 Enlace de acceso directo</div>
+            <a href="${escapeAttr(loginUrl)}" style="font-size:14px; color:#1d4ed8; font-weight:600; word-break:break-all; text-decoration:underline;">
+              ${escapeHtml(loginUrl)}
+            </a>
+          </div>
+
+          <!-- ═══ STEPS ═══ -->
+          <div style="margin:0 0 28px 0; padding:24px; background:linear-gradient(135deg, #f0fdf4 0%, #ecfdf5 100%); border-radius:14px; border:1px solid #bbf7d0;">
+            <div style="font-size:13px; font-weight:700; color:#166534; text-transform:uppercase; letter-spacing:0.8px; margin-bottom:16px; display:flex; align-items:center; gap:8px;">
+              <span style="font-size:16px;">📋</span>
+              <span>Pasos para ingresar</span>
+            </div>
+
+            <div style="display:table; width:100%; margin-bottom:12px;">
+              <div style="display:table-cell; width:36px; vertical-align:top;">
+                <div style="width:28px; height:28px; background:#16a34a; color:#ffffff; border-radius:50%; text-align:center; line-height:28px; font-size:13px; font-weight:800;">1</div>
+              </div>
+              <div style="display:table-cell; vertical-align:top; padding-left:10px; padding-top:4px;">
+                <span style="font-size:14px; color:#15803d; font-weight:600;">Abre el enlace de arriba</span>
+                <span style="font-size:13px; color:#166534; font-weight:400;"> o copia la URL en tu navegador</span>
+              </div>
+            </div>
+
+            <div style="display:table; width:100%; margin-bottom:12px;">
+              <div style="display:table-cell; width:36px; vertical-align:top;">
+                <div style="width:28px; height:28px; background:#16a34a; color:#ffffff; border-radius:50%; text-align:center; line-height:28px; font-size:13px; font-weight:800;">2</div>
+              </div>
+              <div style="display:table-cell; vertical-align:top; padding-left:10px; padding-top:4px;">
+                <span style="font-size:14px; color:#15803d; font-weight:600;">Ingresa tu email</span>
+                <span style="font-size:13px; color:#166534; font-weight:400;"> y la contraseña que aparece arriba</span>
+              </div>
+            </div>
+
+            <div style="display:table; width:100%;">
+              <div style="display:table-cell; width:36px; vertical-align:top;">
+                <div style="width:28px; height:28px; background:#16a34a; color:#ffffff; border-radius:50%; text-align:center; line-height:28px; font-size:13px; font-weight:800;">3</div>
+              </div>
+              <div style="display:table-cell; vertical-align:top; padding-left:10px; padding-top:4px;">
+                <span style="font-size:14px; color:#15803d; font-weight:600;">Cambia tu contraseña</span>
+                <span style="font-size:13px; color:#166534; font-weight:400;"> desde Perfil → Seguridad</span>
+              </div>
+            </div>
+          </div>
+
+          <!-- ═══ WARNINGS ═══ -->
+          <div style="margin-bottom:16px; padding:16px 18px; background:linear-gradient(135deg, #fef3c7 0%, #fefce8 100%); border-radius:12px; border-left:4px solid #f59e0b;">
+            <p style="margin:0 0 6px 0; font-size:13px; color:#78350f; font-weight:700;">
+              ⚠️ IMPORTANTE
             </p>
-            <p style="margin:0; font-size:13px; color:#92400e; line-height:1.5;">
-              Por seguridad, te recomendamos encarecidamente que cambies esta contraseña temporal después de iniciar sesión. No dejes la contraseña que se te asignó de forma automática. Elige una contraseña segura que solo tú conozcas.
+            <p style="margin:0; font-size:13px; color:#92400e; line-height:1.6;">
+              Esta contraseña es temporal. Cámbiala después de tu primer inicio de sesión por una contraseña segura que solo tú conozcas.
             </p>
           </div>
 
-          <!-- Security Notice -->
-          <div style="margin-top:16px; padding:14px; background:#fef2f2; border-left:4px solid #ef4444; border-radius:8px;">
-            <p style="margin:0; font-size:13px; color:#991b1b; line-height:1.5;">
-              <strong>🔒 Nota de seguridad:</strong> Si no solicitaste este cambio, contacta al administrador del sistema inmediatamente. Tu cuenta podría estar en riesgo.
+          <div style="padding:14px 18px; background:linear-gradient(135deg, #fef2f2 0%, #fff1f2 100%); border-radius:12px; border-left:4px solid #ef4444;">
+            <p style="margin:0; font-size:13px; color:#991b1b; line-height:1.6;">
+              <strong>🛡️ Seguridad:</strong> Si no solicitaste este cambio, contacta al administrador del sistema inmediatamente.
             </p>
           </div>
         </div>
-
       </div>
 
       <!-- Footer -->
       <div style="max-width:600px; margin:24px auto 0 auto; text-align:center;">
-        <p style="margin:0 0 8px 0; font-size:12px; color:#9ca3af;">
-          Este correo fue enviado automáticamente por <strong>ZIII HoS</strong>
+        <p style="margin:0 0 8px 0; font-size:12px; color:#94a3b8;">
+          Enviado automáticamente por <strong style="color:#64748b;">${escapeHtml(appName)}</strong>
         </p>
-        <p style="margin:0; font-size:11px; color:#d1d5db;">
-          No respondas a este mensaje · Sistema de Mesa de Ayuda ITIL
+        <p style="margin:0; font-size:11px; color:#cbd5e1;">
+          No respondas a este correo · Sistema de gestión hotelera
         </p>
       </div>
     </div>
