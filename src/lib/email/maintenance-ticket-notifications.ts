@@ -20,11 +20,10 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 const PRIORITY_LABELS: Record<number, string> = {
-  1: 'Baja',
-  2: 'Media',
-  3: 'Alta',
-  4: 'Crítica',
-  5: 'Urgente',
+  1: 'Crítica',
+  2: 'Alta',
+  3: 'Media',
+  4: 'Baja',
 }
 
 type MaintenanceTicketNotificationData = {

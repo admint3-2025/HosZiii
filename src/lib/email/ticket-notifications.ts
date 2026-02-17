@@ -30,11 +30,10 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 const PRIORITY_LABELS: Record<number, string> = {
-  1: 'Baja',
-  2: 'Media',
-  3: 'Alta',
-  4: 'Crítica',
-  5: 'Urgente',
+  1: 'Crítica',
+  2: 'Alta',
+  3: 'Media',
+  4: 'Baja',
 }
 
 type AssetEmailInfo = {
@@ -198,7 +197,7 @@ export async function notifyTicketCreated(data: TicketNotificationData) {
 
     console.log('[notifyTicketCreated] Generando template de email...')
     const template = ticketCreatedEmailTemplate({
-      ticketNumber: data.ticketNumber,
+      ticketNumber: telegramCtx.ticketCode,
       title: data.title,
       description: data.description || '',
       priority: PRIORITY_LABELS[data.priority || 3] || 'Media',
@@ -334,7 +333,7 @@ export async function notifyTicketAssigned(data: TicketNotificationData) {
     const requesterNameForAgent = requesterProfileForAgent?.full_name || undefined
 
     const template = ticketAssignedEmailTemplate({
-      ticketNumber: data.ticketNumber,
+      ticketNumber: telegramCtx.ticketCode,
       title: data.title,
       priority: PRIORITY_LABELS[data.priority || 3] || 'Media',
       assignedTo: agentName,
@@ -393,7 +392,7 @@ export async function notifyTicketAssigned(data: TicketNotificationData) {
 
       // Usar template específico para el solicitante
       const requesterTemplate = ticketAssignedToRequesterEmailTemplate({
-        ticketNumber: data.ticketNumber,
+        ticketNumber: telegramCtx.ticketCode,
         title: data.title,
         priority: PRIORITY_LABELS[data.priority || 3] || 'Media',
         assignedAgentName: agentName,
@@ -482,7 +481,7 @@ export async function notifyTicketStatusChanged(data: TicketNotificationData) {
       const requesterName = requesterProfile?.full_name || requester.user.email
 
       const template = ticketStatusChangedEmailTemplate({
-        ticketNumber: data.ticketNumber,
+        ticketNumber: telegramCtx.ticketCode,
         title: data.title,
         oldStatus: STATUS_LABELS[data.oldStatus] || data.oldStatus,
         newStatus: STATUS_LABELS[data.newStatus] || data.newStatus,
@@ -542,7 +541,7 @@ export async function notifyTicketStatusChanged(data: TicketNotificationData) {
         const agentName = agentProfile?.full_name || agent.user.email
 
         const template = ticketStatusChangedEmailTemplate({
-          ticketNumber: data.ticketNumber,
+          ticketNumber: telegramCtx.ticketCode,
           title: data.title,
           oldStatus: STATUS_LABELS[data.oldStatus] || data.oldStatus,
           newStatus: STATUS_LABELS[data.newStatus] || data.newStatus,
@@ -637,7 +636,7 @@ export async function notifyTicketClosed(data: TicketNotificationData) {
     }
 
     const template = ticketClosedEmailTemplate({
-      ticketNumber: data.ticketNumber,
+      ticketNumber: telegramCtx.ticketCode,
       title: data.title,
       closedBy,
       ticketUrl,
@@ -672,10 +671,10 @@ export async function notifyTicketClosed(data: TicketNotificationData) {
       await supabase.from('notifications').insert({
         user_id: data.requesterId,
         type: 'TICKET_CLOSED',
-        title: `✅ Ticket #${data.ticketNumber} cerrado`,
+        title: `✅ Ticket #${telegramCtx.ticketCode} cerrado`,
         message: `Tu ticket "${data.title}" fue cerrado por ${closedBy}.`,
         ticket_id: data.ticketId,
-        ticket_number: data.ticketNumber,
+        ticket_number: telegramCtx.ticketCode,
         actor_id: data.actorId,
         is_read: false,
       })
@@ -719,7 +718,7 @@ export async function notifyTicketClosed(data: TicketNotificationData) {
         // EMAIL agente
         if (agentEmail) {
           const templateAgent = ticketClosedEmailTemplate({
-            ticketNumber: data.ticketNumber,
+            ticketNumber: telegramCtx.ticketCode,
             title: data.title,
             closedBy,
             ticketUrl,
@@ -755,10 +754,10 @@ export async function notifyTicketClosed(data: TicketNotificationData) {
           await supabase.from('notifications').insert({
             user_id: data.assignedAgentId,
             type: 'TICKET_CLOSED',
-            title: `✅ Ticket #${data.ticketNumber} cerrado`,
+            title: `✅ Ticket #${telegramCtx.ticketCode} cerrado`,
             message: `El ticket "${data.title}" fue cerrado por ${closedBy}.`,
             ticket_id: data.ticketId,
-            ticket_number: data.ticketNumber,
+            ticket_number: telegramCtx.ticketCode,
             actor_id: data.actorId,
             is_read: false,
           })
@@ -835,7 +834,7 @@ export async function notifyTicketEscalated(data: TicketNotificationData) {
       const specialistName = specialistProfile?.full_name || specialist.user.email
 
       const templateSpecialist = ticketEscalatedEmailTemplate({
-        ticketNumber: data.ticketNumber,
+        ticketNumber: telegramCtx.ticketCode,
         title: data.title,
         priority: PRIORITY_LABELS[data.priority || 3] || 'Media',
         escalatedBy,
@@ -892,7 +891,7 @@ export async function notifyTicketEscalated(data: TicketNotificationData) {
       const specialistName = specialistProfile?.full_name || 'Especialista'
 
       const templateRequester = ticketEscalatedEmailTemplate({
-        ticketNumber: data.ticketNumber,
+        ticketNumber: telegramCtx.ticketCode,
         title: data.title,
         priority: PRIORITY_LABELS[data.priority || 3] || 'Media',
         escalatedBy,
@@ -1078,7 +1077,7 @@ export async function notifyLocationStaff(data: TicketNotificationData) {
         
         // Usar el template del sistema
         const template = ticketLocationStaffNotificationTemplate({
-          ticketNumber: data.ticketNumber,
+          ticketNumber: telegramCtx.ticketCode,
           title: data.title,
           description: data.description,
           priority: PRIORITY_LABELS[data.priority || 3] || 'Media',
@@ -1112,8 +1111,8 @@ export async function notifyLocationStaff(data: TicketNotificationData) {
         // Si es el solicitante, usar mensaje personalizado
         try {
           const pushTitle = isRequester 
-            ? `[IT] Solicitud #${data.ticketNumber} creada`
-            : `[IT] Nueva solicitud #${data.ticketNumber} en ${locationCode || locationName}`
+            ? `[IT] Solicitud #${telegramCtx.ticketCode} creada`
+            : `[IT] Nueva solicitud #${telegramCtx.ticketCode} en ${locationCode || locationName}`
           
           const pushMessage = isRequester
             ? `Tu solicitud de soporte IT "${data.title}" ha sido registrada.`
@@ -1125,7 +1124,7 @@ export async function notifyLocationStaff(data: TicketNotificationData) {
             title: pushTitle,
             message: pushMessage,
             ticket_id: data.ticketId,
-            ticket_number: data.ticketNumber,
+            ticket_number: telegramCtx.ticketCode,
             actor_id: data.actorId,
             is_read: false,
           })
@@ -1166,7 +1165,7 @@ export async function notifyLocationStaff(data: TicketNotificationData) {
       }
     }
     
-    console.log(`[notifyLocationStaff] ✓ Proceso de notificación de sede completado para ticket #${data.ticketNumber}`)
+    console.log(`[notifyLocationStaff] ✓ Proceso de notificación de sede completado para ticket #${telegramCtx.ticketCode}`)
   } catch (error) {
     console.error('[notifyLocationStaff] Error en notificación de personal de sede:', error)
     // No lanzar error para no bloquear otras operaciones
