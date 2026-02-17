@@ -174,9 +174,9 @@ export default async function TicketsPage({
         <div className="absolute top-0 right-0 w-64 h-64 bg-white/10 rounded-full blur-3xl -mr-32 -mt-32"></div>
         <div className="absolute bottom-0 left-0 w-64 h-64 bg-indigo-400/20 rounded-full blur-3xl -ml-32 -mb-32"></div>
         
-        <div className="relative z-10 flex items-center justify-between gap-4">
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div>
-            <div className="flex items-center gap-3 mb-1">
+            <div className="flex items-center gap-3 flex-wrap mb-1">
               <div className="p-2 bg-white/20 backdrop-blur-sm rounded-lg">
                 <svg className="w-5 h-5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -285,12 +285,12 @@ export default async function TicketsPage({
                   <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z" />
                 </svg>
               </th>
-              <th className="px-6 py-4 text-left font-semibold text-gray-700 uppercase tracking-wider text-xs">#</th>
-              <th className="px-6 py-4 text-left font-semibold text-gray-700 uppercase tracking-wider text-xs">Título</th>
-              <th className="px-6 py-4 text-left font-semibold text-gray-700 uppercase tracking-wider text-xs">Categoría</th>
-              <th className="px-6 py-4 text-left font-semibold text-gray-700 uppercase tracking-wider text-xs">Estado</th>
-              <th className="px-6 py-4 text-left font-semibold text-gray-700 uppercase tracking-wider text-xs">Sede</th>
-              <th className="px-6 py-4 text-left font-semibold text-gray-700 uppercase tracking-wider text-xs">Creado</th>
+              <th className="px-3 sm:px-6 py-3 sm:py-4 text-left font-semibold text-gray-700 uppercase tracking-wider text-xs">#</th>
+              <th className="px-3 sm:px-6 py-3 sm:py-4 text-left font-semibold text-gray-700 uppercase tracking-wider text-xs">Título</th>
+              <th className="hidden md:table-cell px-3 sm:px-6 py-3 sm:py-4 text-left font-semibold text-gray-700 uppercase tracking-wider text-xs">Categoría</th>
+              <th className="px-3 sm:px-6 py-3 sm:py-4 text-left font-semibold text-gray-700 uppercase tracking-wider text-xs">Estado</th>
+              <th className="hidden lg:table-cell px-3 sm:px-6 py-3 sm:py-4 text-left font-semibold text-gray-700 uppercase tracking-wider text-xs">Sede</th>
+              <th className="hidden sm:table-cell px-3 sm:px-6 py-3 sm:py-4 text-left font-semibold text-gray-700 uppercase tracking-wider text-xs">Creado</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-100">
@@ -342,10 +342,10 @@ export default async function TicketsPage({
                       </div>
                     </div>
                   </td>
-                  <td className="px-6 py-4 text-sm font-semibold text-gray-800">
+                  <td className="px-3 sm:px-6 py-3 sm:py-4 text-sm font-semibold text-gray-800">
                     {formatTicketCode({ ticket_number: t.ticket_number, created_at: t.created_at })}
                   </td>
-        <td className="px-6 py-4">
+        <td className="px-3 sm:px-6 py-3 sm:py-4">
           <Link href={`/tickets/${t.id}`} className="font-semibold text-gray-900 hover:text-blue-600 transition-colors flex items-center gap-2 group/link">
           <span className="group-hover/link:underline">{t.title}</span>
           <svg className="w-4 h-4 opacity-0 group-hover/link:opacity-100 transition-opacity" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -353,7 +353,7 @@ export default async function TicketsPage({
           </svg>
           </Link>
         </td>
-        <td className="px-6 py-4">
+        <td className="hidden md:table-cell px-3 sm:px-6 py-3 sm:py-4">
           <span className="inline-flex items-center gap-1.5 text-gray-700 text-xs">
                     <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
@@ -361,10 +361,10 @@ export default async function TicketsPage({
                     {getCategoryPathLabel(categories ?? [], t.category_id) || '—'}
                   </span>
                 </td>
-                <td className="px-6 py-4">
+                <td className="px-3 sm:px-6 py-3 sm:py-4">
                   <StatusBadge status={t.status} />
                 </td>
-                <td className="px-6 py-4">
+                <td className="hidden lg:table-cell px-3 sm:px-6 py-3 sm:py-4">
                   <div className="inline-flex flex-col text-xs text-gray-700">
                     <span className="font-semibold">
                       {(t.locations as any)?.code || '—'}
@@ -374,7 +374,7 @@ export default async function TicketsPage({
                     )}
                   </div>
                 </td>
-                <td className="px-6 py-4">
+                <td className="hidden sm:table-cell px-3 sm:px-6 py-3 sm:py-4">
                   <div className="flex items-center gap-2 text-gray-600 text-xs">
                     <svg className="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
@@ -394,7 +394,7 @@ export default async function TicketsPage({
             })}
             {tickets?.length === 0 ? (
               <tr>
-					<td className="px-6 py-16 text-center" colSpan={7}>
+					<td className="px-3 sm:px-6 py-16 text-center" colSpan={7}>
                   <div className="flex flex-col items-center gap-3">
                     <div className="p-4 bg-gray-100 rounded-full">
                       <svg className="w-12 h-12 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

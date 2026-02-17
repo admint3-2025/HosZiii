@@ -218,9 +218,9 @@ export default async function AssetsPage({
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex justify-between items-center">
+      <div className="flex flex-wrap justify-between items-start gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Gestión de Activos</h1>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900">Gestión de Activos</h1>
           <p className="text-sm text-gray-600 mt-1">{getSubtitle()}</p>
           {userRole !== 'admin' && userLocations.length > 0 && (
             <div className="mt-2 flex items-center gap-2 text-xs">
@@ -235,7 +235,7 @@ export default async function AssetsPage({
           )}
         </div>
         {(userRole === 'admin' || userRole === 'supervisor') && (
-          <div className="flex items-center gap-3">
+          <div className="flex flex-wrap items-center gap-3">
             {userRole === 'admin' && (
               <Link
                 href="/assets/disposals"

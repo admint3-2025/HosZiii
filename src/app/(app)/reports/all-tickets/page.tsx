@@ -273,7 +273,7 @@ export default async function AllTicketsReportPage({
             </Link>
           </div>
 
-          <form method="GET" className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-6 items-end">
+          <form method="GET" className="mt-4 grid gap-3 grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-6 items-end">
             <div className="lg:col-span-2">
               <label className="text-xs font-medium text-gray-600">Buscar</label>
               <input
@@ -464,7 +464,7 @@ export default async function AllTicketsReportPage({
       {/* Botón de exportación (placeholder) */}
       <div className="card bg-gradient-to-r from-green-50 to-emerald-50 border-green-200">
         <div className="card-body">
-          <div className="flex items-center justify-between">
+          <div className="flex flex-wrap items-center justify-between gap-4">
             <div className="flex items-center gap-3">
               <div className="text-3xl">📊</div>
               <div>

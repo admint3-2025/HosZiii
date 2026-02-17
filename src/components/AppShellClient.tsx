@@ -247,6 +247,7 @@ export default function AppShellClient({
   const pathname = usePathname()
   const hideSidebar = pathname === '/profile' || pathname.startsWith('/profile/')
   const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false)
   const [expandedMenus, setExpandedMenus] = useState<Record<string, boolean>>({})
   const [clientIp, setClientIp] = useState<string | null>(null)
   
@@ -800,18 +801,29 @@ export default function AppShellClient({
         {/* Decoración de fondo - movida al área de scroll */}
         
         {/* Header fijo - Premium Dark Style */}
-        <header className="h-[72px] lg:h-20 flex items-center justify-between px-4 lg:px-8 z-40 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-b border-slate-700/50 shadow-xl flex-shrink-0">
-          {/* Izquierda - Sede actual */}
-          <div className="flex items-center">
+        <header className="h-[56px] sm:h-[64px] lg:h-20 flex items-center justify-between px-3 sm:px-4 lg:px-8 z-40 bg-gradient-to-r from-slate-900 via-slate-800 to-slate-900 border-b border-slate-700/50 shadow-xl flex-shrink-0">
+          {/* Izquierda - Hamburger + Logo + Sede */}
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            {/* Hamburger - solo móvil/tablet */}
+            {!hideSidebar && (
+              <button
+                onClick={() => setMobileMenuOpen(true)}
+                className="lg:hidden p-2 -ml-1 rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0"
+                aria-label="Abrir menú"
+              >
+                <Icons.Menu className="w-6 h-6" />
+              </button>
+            )}
+
             {/* Logo móvil */}
-            <div className="lg:hidden flex items-center gap-2 mr-4">
-              <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow-lg p-1 border border-white/20">
+            <div className="lg:hidden flex items-center gap-2 flex-shrink-0">
+              <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow-lg p-0.5 sm:p-1 border border-white/20">
                 <Image
                   src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png"
                   alt="ZIII Logo"
-                  width={32}
-                  height={32}
-                  className="w-8 h-8 object-contain"
+                  width={28}
+                  height={28}
+                  className="w-7 h-7 sm:w-8 sm:h-8 object-contain"
                   unoptimized
                 />
               </div>
@@ -819,9 +831,9 @@ export default function AppShellClient({
 
             {/* Sede activa - Dark Style */}
             {locationCodes.length > 0 && (
-              <div className="hidden md:inline-flex items-center gap-2 px-4 py-2 rounded-full border border-emerald-500/40 bg-emerald-500/10 backdrop-blur-sm" title={locationNames.join(', ')}>
+              <div className="hidden sm:inline-flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 rounded-full border border-emerald-500/40 bg-emerald-500/10 backdrop-blur-sm" title={locationNames.join(', ')}>
                 <div className="w-2 h-2 rounded-full bg-emerald-400 shadow-lg shadow-emerald-500/50"></div>
-                <span className="text-xs font-bold text-emerald-100 uppercase tracking-wider">
+                <span className="text-[10px] sm:text-xs font-bold text-emerald-100 uppercase tracking-wider">
                   {locationCodes.join(' · ')}
                 </span>
               </div>
@@ -829,8 +841,20 @@ export default function AppShellClient({
           </div>
 
           {/* Derecha - Todo agrupado */}
-          <div className="flex items-center gap-5">
-            {/* Grupo usuario + perfil - Premium Dark */}
+          <div className="flex items-center gap-2 sm:gap-3 lg:gap-5">
+            {/* Nombre usuario compacto - solo tablet */}
+            <div className="hidden md:flex lg:hidden items-center gap-2 bg-slate-800/60 backdrop-blur-sm rounded-xl border border-slate-700/50 px-3 py-1.5 min-w-0 max-w-[200px]">
+              <div className="w-8 h-8 bg-gradient-to-br from-violet-500 via-purple-600 to-indigo-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg ring-1 ring-violet-400/20">
+                <span className="text-white text-xs font-bold">
+                  {getAvatarInitial({ fullName: profile?.full_name || user?.user_metadata?.full_name, description: profile?.position, email: user?.email })}
+                </span>
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs font-semibold text-white truncate">{profile?.full_name || user?.email?.split('@')[0] || 'Usuario'}</p>
+              </div>
+            </div>
+
+            {/* Grupo usuario + perfil - Premium Dark - Desktop */}
             <div className="hidden lg:flex items-center gap-4 bg-slate-800/60 backdrop-blur-sm rounded-2xl border border-slate-700/50 shadow-lg pl-2 pr-3 py-2 max-w-[720px] min-w-0">
               {/* Avatar Premium */}
               <div className="w-11 h-11 bg-gradient-to-br from-violet-500 via-purple-600 to-indigo-600 rounded-full flex items-center justify-center flex-shrink-0 shadow-lg shadow-violet-500/30 ring-2 ring-violet-400/20">
@@ -898,7 +922,7 @@ export default function AppShellClient({
         </header>
 
         {/* Main content area - con scroll independiente */}
-        <main className="flex-1 overflow-y-auto px-4 lg:px-6 xl:px-8 py-4 lg:py-6 pb-24 lg:pb-6 scroll-smooth relative">
+        <main className="flex-1 overflow-y-auto px-3 sm:px-4 lg:px-6 xl:px-8 py-3 sm:py-4 lg:py-6 pb-6 scroll-smooth relative">
           {/* Decoración de fondo dentro del área scrolleable */}
           <div className="fixed top-0 right-0 w-[500px] h-[500px] bg-indigo-200/20 rounded-full blur-3xl -mr-32 -mt-32 pointer-events-none z-0"></div>
           <div className="fixed bottom-0 left-0 w-[400px] h-[400px] bg-blue-200/20 rounded-full blur-3xl -ml-32 -mb-32 pointer-events-none z-0"></div>
@@ -909,9 +933,15 @@ export default function AppShellClient({
         </main>
       </div>
 
-      {/* Mobile navigation */}
+      {/* Mobile navigation - Drawer lateral */}
       {!hideSidebar && (
-        <MobileSidebar userData={userData} />
+        <MobileSidebar
+          userData={userData}
+          profile={profile}
+          user={user}
+          open={mobileMenuOpen}
+          onClose={() => setMobileMenuOpen(false)}
+        />
       )}
     </div>
   )

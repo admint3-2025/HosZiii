@@ -642,7 +642,7 @@ export default function UserList() {
                   {/* Fila expandida para edición */}
                   {editing && (
                     <tr key={`${u.id}-edit`} className="bg-white border-l-4 border-blue-500">
-                      <td colSpan={7} className="px-3 py-4">
+                      <td colSpan={9} className="px-3 py-4">
                         <div className="space-y-3">
                           <div className="flex items-center gap-2 text-sm font-semibold text-gray-700 mb-3">
                             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -898,7 +898,7 @@ export default function UserList() {
 
             {sorted.length === 0 ? (
               <tr>
-                <td className="px-3 py-8 text-center text-gray-500 text-xs" colSpan={7}>
+                <td className="px-3 py-8 text-center text-gray-500 text-xs" colSpan={9}>
                   {busy ? 'Cargando…' : 'No hay usuarios'}
                 </td>
               </tr>

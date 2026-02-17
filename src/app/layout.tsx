@@ -16,6 +16,9 @@ export const metadata: Metadata = {
     shortcut: 'https://systemach-sas.com/logo_ziii/ZIII%20logo.png',
     apple: 'https://systemach-sas.com/logo_ziii/ZIII%20logo.png',
   },
+  other: {
+    'viewport': 'width=device-width, initial-scale=1, viewport-fit=cover',
+  },
 }
 
 export default function RootLayout({

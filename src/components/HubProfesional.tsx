@@ -172,7 +172,7 @@ const HubProfesional = () => {
       
       {/* Sidebar Industrial */}
       <aside 
-        className={`${sidebarOpen ? 'w-64' : 'w-20'} flex-shrink-0 bg-[#0c0c0e] border-r border-gray-800 transition-all duration-300 flex flex-col z-20`}
+        className={`${sidebarOpen ? 'w-64' : 'w-20'} hidden md:flex flex-shrink-0 bg-[#0c0c0e] border-r border-gray-800 transition-all duration-300 flex-col z-20`}
       >
         <div className="h-20 flex items-center px-6 border-b border-gray-800 bg-[#0f0f12]">
           <div className="flex items-center gap-4 overflow-hidden">
@@ -238,11 +238,11 @@ const HubProfesional = () => {
       <main className="flex-1 flex flex-col h-full overflow-hidden bg-[#09090b] relative z-10">
         
         {/* Top Navigation Bar - Functional */}
-        <header className="h-16 flex items-center justify-between px-6 border-b border-gray-800 bg-[#09090b]">
-          <div className="flex items-center gap-4">
-            <h1 className="text-lg font-semibold text-white tracking-tight uppercase">Dashboard Corporativo</h1>
-            <span className="h-4 w-px bg-gray-700 mx-2"></span>
-            <div className="flex items-center text-xs text-gray-500 font-mono">
+        <header className="min-h-[3.5rem] sm:h-16 flex flex-wrap items-center justify-between gap-2 px-4 sm:px-6 py-2 border-b border-gray-800 bg-[#09090b]">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
+            <h1 className="text-sm sm:text-lg font-semibold text-white tracking-tight uppercase truncate">Dashboard Corporativo</h1>
+            <span className="hidden sm:block h-4 w-px bg-gray-700 mx-2"></span>
+            <div className="hidden sm:flex items-center text-xs text-gray-500 font-mono">
               <span className="mr-2">SISTEMA: EN LÍNEA</span>
               <span className="relative flex h-2 w-2">
                 <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
@@ -251,13 +251,13 @@ const HubProfesional = () => {
             </div>
           </div>
 
-          <div className="flex items-center gap-4">
-            <div className="relative">
+          <div className="flex items-center gap-2 sm:gap-4">
+            <div className="relative hidden sm:block">
               <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-500" size={16} />
               <input 
                 type="text" 
                 placeholder="Buscar referencia..." 
-                className="bg-[#121214] border border-gray-700 text-sm rounded-sm pl-9 pr-4 py-1.5 w-64 focus:outline-none focus:border-gray-500 transition-colors placeholder:text-gray-600 text-gray-300"
+                className="bg-[#121214] border border-gray-700 text-sm rounded-sm pl-9 pr-4 py-1.5 w-40 sm:w-64 focus:outline-none focus:border-gray-500 transition-colors placeholder:text-gray-600 text-gray-300"
               />
             </div>
             <button className="p-2 text-gray-400 hover:text-white border border-gray-700 rounded-sm hover:bg-gray-800 transition-colors">
@@ -270,11 +270,11 @@ const HubProfesional = () => {
         </header>
 
         {/* Workspace */}
-        <div className="flex-1 overflow-y-auto p-6 scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
+        <div className="flex-1 overflow-y-auto p-4 sm:p-6 scrollbar-thin scrollbar-thumb-gray-800 scrollbar-track-transparent">
           <div className="max-w-[1600px] mx-auto space-y-6">
             
             {/* Control Bar */}
-            <div className="flex items-center justify-between">
+            <div className="flex flex-wrap items-center justify-between gap-3">
               <div className="flex items-center gap-2">
                 <span className="text-gray-500 font-mono text-xs">PERIODO:</span>
                 <select className="bg-[#121214] border border-gray-700 text-white text-xs py-1 px-3 rounded-sm focus:outline-none">

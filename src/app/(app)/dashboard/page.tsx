@@ -423,7 +423,7 @@ export default async function DashboardPage() {
             <p className="text-xs text-slate-500">Indicadores clave de rendimiento en tiempo real</p>
           </div>
         </div>
-        <div className="grid gap-4 grid-cols-2 lg:grid-cols-4">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
         <InteractiveKPI
           label="Tickets Activos"
           value={abiertos}

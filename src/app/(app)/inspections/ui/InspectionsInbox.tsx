@@ -483,13 +483,13 @@ export default function InspectionsInbox() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-100 p-6">
+    <div className="min-h-screen bg-slate-100 p-4 sm:p-6">
       {/* Header Profesional */}
-      <div className="relative overflow-hidden rounded-xl bg-slate-900 border border-slate-800 shadow-lg mb-6 p-6">
+      <div className="relative overflow-hidden rounded-xl bg-slate-900 border border-slate-800 shadow-lg mb-6 p-4 sm:p-6">
         <div className="absolute inset-0 bg-gradient-to-r from-indigo-600/5 to-transparent"></div>
         <div className="absolute top-0 right-0 w-96 h-96 bg-indigo-600/5 rounded-full blur-3xl"></div>
         
-        <div className="relative z-10 flex items-center justify-between">
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-slate-800 flex items-center justify-center border border-slate-700">
               <svg className="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">

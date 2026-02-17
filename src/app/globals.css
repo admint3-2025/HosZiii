@@ -109,6 +109,27 @@ body {
   .custom-scrollbar::-webkit-scrollbar-thumb:hover {
     background: rgba(100, 116, 139, 0.5);
   }
+
+  /* Responsive table wrapper: allows horizontal scroll on small screens */
+  .responsive-table-wrapper {
+    @apply w-full overflow-x-auto -mx-3 px-3;
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* Touch-friendly tap targets */
+  @media (max-width: 640px) {
+    .btn {
+      @apply min-h-[44px] px-4 py-3;
+    }
+    .input, .select, .textarea {
+      @apply min-h-[44px] text-base;
+    }
+  }
+
+  /* Safe area padding for mobile devices with notches/gesture bars */
+  .safe-bottom {
+    padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
+  }
 }
 
 @layer utilities {
