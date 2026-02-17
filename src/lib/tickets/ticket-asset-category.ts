@@ -57,9 +57,14 @@ export function recipientMatchesTicketCategory(params: {
 }): boolean {
   const { recipientAssetCategory, ticketCategory, recipientRole } = params
 
+  // Admins get everything
   if (recipientRole === 'admin') return true
+  // If the ticket has no category, don't filter
   if (!ticketCategory) return true
-  if (!recipientAssetCategory) return true
+  // If the recipient has NO asset_category assigned, they should NOT get
+  // category-specific ticket notifications (previously returned true which
+  // caused supervisors without IT/MAINTENANCE assignment to receive all tickets)
+  if (!recipientAssetCategory) return false
 
   return recipientAssetCategory === ticketCategory
 }

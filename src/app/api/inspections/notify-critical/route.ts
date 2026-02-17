@@ -104,11 +104,12 @@ export async function POST(req: NextRequest) {
 
     // 5. Obtener administradores y supervisores corporativos del sistema
     // Usar admin client para acceder a auth.users y verificar que NO estén baneados
+    // FILTRAR por allowed_departments: solo notificar a quienes tienen acceso al departamento de la inspección
     const supabaseAdmin = createSupabaseAdminClient()
     
     const { data: profiles, error: profilesError } = await supabaseAdmin
       .from('profiles')
-      .select('id, full_name, email, role, is_corporate')
+      .select('id, full_name, email, role, is_corporate, allowed_departments')
       .or('role.eq.admin,is_corporate.eq.true')
 
     if (profilesError || !profiles || profiles.length === 0) {
@@ -126,6 +127,19 @@ export async function POST(req: NextRequest) {
     )
 
     const admins = profiles.filter(p => activeUserIds.has(p.id))
+      // Filtrar por departamento: solo notificar a quienes tienen acceso al departamento de la inspección
+      .filter((p: any) => {
+        // Admins sin restricción de departamentos reciben todo
+        if (p.role === 'admin' && (!p.allowed_departments || p.allowed_departments.length === 0)) return true
+        // Corporativos sin allowed_departments = acceso a todos
+        if (!p.allowed_departments || p.allowed_departments.length === 0) return true
+        // Si tiene allowed_departments, filtrar por el departamento de la inspección
+        const inspDept = (inspection.department || '').toUpperCase().trim()
+        if (!inspDept) return true // Sin departamento en inspección = no filtrar
+        return (p.allowed_departments as string[]).some(
+          (d: string) => d.toUpperCase().trim() === inspDept
+        )
+      })
 
     if (!admins || admins.length === 0) {
       console.error('[notify-critical] No se encontraron administradores activos')

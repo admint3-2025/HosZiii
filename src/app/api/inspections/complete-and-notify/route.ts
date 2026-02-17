@@ -151,8 +151,11 @@ export async function POST(req: NextRequest) {
     // 6. Obtener todos los administradores del sistema con sus emails usando RPC
     console.log('[complete-and-notify] 👥 Buscando administradores con emails...')
     
-    const { data: adminsData, error: adminsError } = await supabaseAdmin
-      .rpc('get_admin_emails')
+    // Query directa en vez de RPC para incluir allowed_departments en el filtro
+    const { data: allProfiles, error: adminsError } = await supabaseAdmin
+      .from('profiles')
+      .select('id, full_name, email, role, is_corporate, allowed_departments')
+      .or('role.eq.admin,is_corporate.eq.true')
 
     if (adminsError) {
       console.error('[complete-and-notify] ⚠️ Error obteniendo administradores:', adminsError)
@@ -164,13 +167,27 @@ export async function POST(req: NextRequest) {
       }, { status: 200 })
     }
 
-    const admins = (adminsData || []) as AdminEmail[]
+    // Filtrar por departamento de la inspección: solo notificar a quienes tienen acceso
+    const inspDept = (inspection.department || '').toUpperCase().trim()
+    const admins = ((allProfiles || []) as (AdminEmail & { allowed_departments?: string[] | null })[])
+      .filter(a => a.role === 'admin' || a.is_corporate)
+      .filter(a => {
+        // Admins sin restricción de departamentos reciben todo
+        if (a.role === 'admin' && (!a.allowed_departments || a.allowed_departments.length === 0)) return true
+        // Corporativos sin allowed_departments = acceso a todos
+        if (!a.allowed_departments || a.allowed_departments.length === 0) return true
+        // Si tiene allowed_departments, filtrar por el departamento de la inspección
+        if (!inspDept) return true // Sin departamento en inspección = no filtrar
+        return a.allowed_departments.some(
+          (d: string) => d.toUpperCase().trim() === inspDept
+        )
+      })
 
-    // Correos y notificaciones SOLO para admin y corporativo
-    const emailRecipients = admins.filter(a => a.role === 'admin' || a.is_corporate)
+    // Correos y notificaciones SOLO para los admin/corporativo filtrados por departamento
+    const emailRecipients = [...admins]
 
-    // Destinatarios de push: admin y corporativo ÚNICAMENTE
-    const pushRecipients = admins.filter(a => a.role === 'admin' || a.is_corporate)
+    // Destinatarios de push: mismos destinatarios filtrados
+    const pushRecipients = [...admins]
 
     // Fallback para correos si no hay admins: usar usuario actual
     if (emailRecipients.length === 0 && user.email) {

@@ -851,6 +851,7 @@ export async function notifyLocationStaff(data: TicketNotificationData) {
     const serviceLabel = getServiceLabelForTicketCategory(ticketCategory)
     
     // Obtener todos los supervisores y técnicos de esa ubicación
+    // Buscar en profiles.location_id Y en user_locations (multi-sede)
     let query = supabase
       .from('profiles')
       .select('id, full_name, role, asset_category')
@@ -862,14 +863,42 @@ export async function notifyLocationStaff(data: TicketNotificationData) {
       query = query.neq('id', data.actorId)
     }
     
-    const { data: staffProfiles, error: staffError } = await query
+    const { data: staffByProfile, error: staffError } = await query
     
     if (staffError) {
       console.error('[notifyLocationStaff] Error obteniendo personal:', staffError)
       return
     }
+
+    // También buscar por user_locations (multi-sede)
+    const { data: userLocations } = await supabase
+      .from('user_locations')
+      .select('user_id')
+      .eq('location_id', locationId)
+
+    const userIdsFromUserLocations = (userLocations || []).map((ul: any) => ul.user_id)
     
-    const filteredStaffProfiles = (staffProfiles || []).filter((staff: any) =>
+    let staffByUserLocations: any[] = []
+    if (userIdsFromUserLocations.length > 0) {
+      let ulQuery = supabase
+        .from('profiles')
+        .select('id, full_name, role, asset_category')
+        .in('id', userIdsFromUserLocations)
+        .in('role', ['agent_l1', 'agent_l2', 'supervisor'])
+      
+      if (data.actorId) {
+        ulQuery = ulQuery.neq('id', data.actorId)
+      }
+      
+      const { data: staffData } = await ulQuery
+      staffByUserLocations = staffData || []
+    }
+
+    // Combinar y deduplicar por ID
+    const allStaff = [...(staffByProfile || []), ...staffByUserLocations]
+    const uniqueStaff = Array.from(new Map(allStaff.map((s: any) => [s.id, s])).values())
+    
+    const filteredStaffProfiles = uniqueStaff.filter((staff: any) =>
       recipientMatchesTicketCategory({
         recipientAssetCategory: staff.asset_category,
         ticketCategory,
@@ -877,7 +906,7 @@ export async function notifyLocationStaff(data: TicketNotificationData) {
       }),
     )
 
-    console.log(`[notifyLocationStaff] Personal encontrado en la base de datos: ${staffProfiles?.length || 0}`)
+    console.log(`[notifyLocationStaff] Personal encontrado (profiles + user_locations): ${uniqueStaff.length}`)
     console.log(`[notifyLocationStaff] Personal permitido por categoría: ${filteredStaffProfiles.length}`)
     
     if (filteredStaffProfiles.length === 0) {
