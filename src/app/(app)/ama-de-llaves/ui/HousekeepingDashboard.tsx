@@ -869,10 +869,21 @@ export default function HousekeepingDashboard() {
       )}
 
       {/* Content */}
-      {!loading && rooms.length === 0 && selectedLocationId && (
+      {!loading && rooms.length === 0 && selectedLocationId && activeTab !== 'gestion' && (
         <EmptyState
           locationName={selectedLocation?.name ?? 'esta propiedad'}
         />
+      )}
+
+      {/* ─── Gestión Tab (always available, even with 0 rooms) ─── */}
+      {!loading && activeTab === 'gestion' && selectedLocationId && (
+        <div className="animate-in fade-in duration-300">
+          <RoomManagementPanel
+            rooms={rooms}
+            locationId={selectedLocationId}
+            onRefresh={() => selectedLocationId && loadData(selectedLocationId)}
+          />
+        </div>
       )}
 
       {!loading && rooms.length > 0 && (
@@ -952,17 +963,6 @@ export default function HousekeepingDashboard() {
           {activeTab === 'habitaciones' && (
             <div className="animate-in fade-in duration-300">
               <RoomGrid rooms={rooms} onStatusChange={handleStatusChange} />
-            </div>
-          )}
-
-          {/* ─── Gestión Tab ─── */}
-          {activeTab === 'gestion' && selectedLocationId && (
-            <div className="animate-in fade-in duration-300">
-              <RoomManagementPanel
-                rooms={rooms}
-                locationId={selectedLocationId}
-                onRefresh={() => selectedLocationId && loadData(selectedLocationId)}
-              />
             </div>
           )}
 
