@@ -9,6 +9,7 @@ import {
   ticketLocationStaffNotificationTemplate,
 } from './templates'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { getCategoryPathLabel } from '@/lib/categories/path'
 import { sendTelegramNotification, TELEGRAM_TEMPLATES } from '@/lib/telegram'
 import { formatTicketCode } from '@/lib/tickets/code'
 import {
@@ -108,7 +109,7 @@ async function fetchTicketFullContext(
   try {
     const { data: ticket } = await supabase
       .from('tickets')
-      .select('description, priority, category, created_at, closed_at, locations(name, code)')
+      .select('description, priority, category_id, created_at, closed_at, locations(name, code)')
       .eq('id', ticketId)
       .maybeSingle()
 
@@ -117,6 +118,15 @@ async function fetchTicketFullContext(
     const loc = (ticket as any)?.locations as any
     const priorityVal = dataOverrides?.priority ?? ticket.priority
     const priorityLabel = priorityVal ? (PRIORITY_LABELS[priorityVal] || String(priorityVal)) : undefined
+
+    // Resolve category name from category_id
+    let categoryLabel: string | undefined = dataOverrides?.category
+    if (!categoryLabel && ticket.category_id) {
+      try {
+        const { data: cats } = await supabase.from('categories').select('id, name, parent_id')
+        categoryLabel = getCategoryPathLabel(cats ?? [], ticket.category_id) || undefined
+      } catch { /* ignore */ }
+    }
 
     // Format date nicely
     const formatDate = (iso: string | null) => {
@@ -132,7 +142,7 @@ async function fetchTicketFullContext(
     return {
       locationName: loc?.name || undefined,
       locationCode: loc?.code || undefined,
-      category: dataOverrides?.category || ticket.category || undefined,
+      category: categoryLabel,
       description: dataOverrides?.description || ticket.description || undefined,
       priority: priorityLabel,
       createdAt: formatDate(ticket.created_at),

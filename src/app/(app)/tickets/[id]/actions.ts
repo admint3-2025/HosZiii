@@ -68,7 +68,7 @@ export async function updateTicketStatus(input: UpdateTicketStatusInput) {
   // Get ticket details for notifications
   const { data: ticket } = await supabase
     .from('tickets')
-    .select('id, ticket_number, title, priority, requester_id, assigned_agent_id, description, category')
+    .select('id, ticket_number, title, priority, requester_id, assigned_agent_id, description, category_id')
     .eq('id', input.ticketId)
     .single()
 
@@ -183,7 +183,6 @@ export async function updateTicketStatus(input: UpdateTicketStatusInput) {
     title: ticket.title,
     priority: ticket.priority,
     description: ticket.description || undefined,
-    category: ticket.category || undefined,
     requesterId: ticket.requester_id,
     oldStatus: input.currentStatus,
     newStatus: input.nextStatus,
@@ -356,7 +355,7 @@ export async function escalateTicket(ticketId: string, currentLevel: number, ass
   // Obtener datos del ticket para notificaciones
   const { data: ticket } = await supabase
     .from('tickets')
-    .select('id, ticket_number, title, priority, requester_id, assigned_agent_id, created_at, description, category, locations(name, code)')
+    .select('id, ticket_number, title, priority, requester_id, assigned_agent_id, created_at, description, category_id, locations(name, code)')
     .eq('id', ticketId)
     .single()
 
@@ -599,7 +598,6 @@ export async function escalateTicket(ticketId: string, currentLevel: number, ass
       title: ticket.title,
       priority: ticket.priority,
       description: ticket.description || undefined,
-      category: ticket.category || undefined,
       requesterId: ticket.requester_id,
       assignedAgentId: assignToAgentId,
       actorId: user.id,
