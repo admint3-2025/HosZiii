@@ -361,6 +361,23 @@ export async function notifyTicketAssigned(data: TicketNotificationData) {
 
     console.log(`✓ Notificación de asignación enviada a ${agent.user.email} para ticket #${data.ticketNumber}`)
 
+    // Push in-app al agente
+    try {
+      await supabase.from('notifications').insert({
+        user_id: data.assignedAgentId,
+        type: 'TICKET_ASSIGNED',
+        title: 'Ticket asignado a ti',
+        message: `Te han asignado el ticket ${telegramCtx.ticketCode}: "${data.title}"`,
+        ticket_id: data.ticketId,
+        ticket_number: telegramCtx.ticketCode,
+        actor_id: data.actorId || data.requesterId,
+        is_read: false,
+      })
+      console.log(`[notifyTicketAssigned] ✓ Push in-app enviado al agente ${data.assignedAgentId}`)
+    } catch (err) {
+      console.error('[notifyTicketAssigned] ✗ Error creando push para agente:', err)
+    }
+
     // Telegram al agente (si está vinculado)
     try {
       const t = TELEGRAM_TEMPLATES.ticket_assigned({
@@ -417,6 +434,23 @@ export async function notifyTicketAssigned(data: TicketNotificationData) {
       })
 
       console.log(`✓ Notificación de asignación enviada al solicitante ${requester.user.email}`)
+
+      // Push in-app al solicitante
+      try {
+        await supabase.from('notifications').insert({
+          user_id: data.requesterId,
+          type: 'TICKET_ASSIGNED',
+          title: 'Tu ticket ha sido asignado',
+          message: `Tu ticket ${telegramCtx.ticketCode} ha sido asignado a ${agentName}`,
+          ticket_id: data.ticketId,
+          ticket_number: telegramCtx.ticketCode,
+          actor_id: data.assignedAgentId,
+          is_read: false,
+        })
+        console.log(`[notifyTicketAssigned] ✓ Push in-app enviado al solicitante ${data.requesterId}`)
+      } catch (err) {
+        console.error('[notifyTicketAssigned] ✗ Error creando push para solicitante:', err)
+      }
 
       // Telegram al solicitante (si está vinculado)
       try {
@@ -510,6 +544,23 @@ export async function notifyTicketStatusChanged(data: TicketNotificationData) {
 
       console.log(`✓ Notificación de cambio de estado enviada a solicitante para ticket #${data.ticketNumber}`)
 
+      // Push in-app al solicitante
+      try {
+        await supabase.from('notifications').insert({
+          user_id: data.requesterId,
+          type: 'TICKET_STATUS_CHANGED',
+          title: 'Estado actualizado',
+          message: `Tu ticket ${telegramCtx.ticketCode} cambió a: ${STATUS_LABELS[data.newStatus!] || data.newStatus}`,
+          ticket_id: data.ticketId,
+          ticket_number: telegramCtx.ticketCode,
+          actor_id: data.actorId,
+          is_read: false,
+        })
+        console.log(`[notifyTicketStatusChanged] ✓ Push in-app enviado al solicitante ${data.requesterId}`)
+      } catch (err) {
+        console.error('[notifyTicketStatusChanged] ✗ Error creando push para solicitante:', err)
+      }
+
       // Telegram solicitante
       try {
         const t = TELEGRAM_TEMPLATES.ticket_status_changed({
@@ -569,6 +620,23 @@ export async function notifyTicketStatusChanged(data: TicketNotificationData) {
         })
 
         console.log(`✓ Notificación de cambio de estado enviada a agente para ticket #${data.ticketNumber}`)
+
+        // Push in-app al agente
+        try {
+          await supabase.from('notifications').insert({
+            user_id: data.assignedAgentId,
+            type: 'TICKET_STATUS_CHANGED',
+            title: 'Estado actualizado',
+            message: `El ticket ${telegramCtx.ticketCode} cambió a: ${STATUS_LABELS[data.newStatus!] || data.newStatus}`,
+            ticket_id: data.ticketId,
+            ticket_number: telegramCtx.ticketCode,
+            actor_id: data.actorId,
+            is_read: false,
+          })
+          console.log(`[notifyTicketStatusChanged] ✓ Push in-app enviado al agente ${data.assignedAgentId}`)
+        } catch (err) {
+          console.error('[notifyTicketStatusChanged] ✗ Error creando push para agente:', err)
+        }
 
         // Telegram agente
         try {
