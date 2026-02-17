@@ -27,11 +27,13 @@ export default function NotificationBell() {
 
   const loadNotifications = useCallback(async () => {
     try {
+      // Solo cargar notificaciones NO leídas — las leídas se eliminan
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
+        .eq('is_read', false)
         .order('created_at', { ascending: false })
-        .limit(20)
+        .limit(30)
 
       if (error) throw error
 
@@ -43,7 +45,16 @@ export default function NotificationBell() {
       }
 
       setNotifications(filteredData)
-      setUnreadCount(filteredData?.filter((n: any) => !n.is_read).length || 0)
+      setUnreadCount(filteredData.length)
+
+      // Limpiar notificaciones antiguas leídas en background (por si quedaron)
+      supabase
+        .from('notifications')
+        .delete()
+        .eq('is_read', true)
+        .then(({ error: delErr }) => {
+          if (delErr) console.error('[NotificationBell] Error limpiando leídas:', delErr)
+        })
     } catch (error) {
       console.error('Error cargando notificaciones:', error)
     } finally {
@@ -116,14 +127,14 @@ export default function NotificationBell() {
             }
           } else if (payload.eventType === 'UPDATE') {
             const updatedNotif = payload.new as Notification
-            setNotifications((prev) =>
-              prev.map((n) =>
-                n.id === updatedNotif.id ? updatedNotif : n
+            if (updatedNotif.is_read) {
+              // Leída = desaparece del listado
+              setNotifications((prev) => prev.filter((n) => n.id !== updatedNotif.id))
+              setUnreadCount((prev) => Math.max(0, prev - 1))
+            } else {
+              setNotifications((prev) =>
+                prev.map((n) => n.id === updatedNotif.id ? updatedNotif : n)
               )
-            )
-            // Recalcular contador solo si cambió is_read
-            if (payload.old.is_read !== updatedNotif.is_read) {
-              setUnreadCount((prev) => updatedNotif.is_read ? prev - 1 : prev + 1)
             }
           } else if (payload.eventType === 'DELETE') {
             setNotifications((prev) => prev.filter((n) => n.id !== payload.old.id))
@@ -152,39 +163,43 @@ export default function NotificationBell() {
 
   async function markAsRead(id: string) {
     try {
+      // Eliminar de la UI inmediatamente
+      setNotifications((prev) => prev.filter((n) => n.id !== id))
+      setUnreadCount((prev) => Math.max(0, prev - 1))
+
+      // Eliminar de la BD (push = efímero, leída = desaparece)
       const { error } = await supabase
         .from('notifications')
-        .update({ is_read: true, read_at: new Date().toISOString() })
+        .delete()
         .eq('id', id)
 
       if (error) throw error
-
-      setNotifications((prev) =>
-        prev.map((n) => (n.id === id ? { ...n, is_read: true } : n))
-      )
-      setUnreadCount((prev) => Math.max(0, prev - 1))
     } catch (error) {
-      console.error('Error marcando notificación como leída:', error)
+      console.error('Error eliminando notificación:', error)
+      // Recargar por si el estado quedó inconsistente
+      loadNotifications()
     }
   }
 
-  async function markAllAsRead() {
+  async function dismissAll() {
     try {
-      const unreadIds = notifications.filter((n) => !n.is_read).map((n) => n.id)
-      
-      if (unreadIds.length === 0) return
+      const ids = notifications.map((n) => n.id)
+      if (ids.length === 0) return
 
+      // Limpiar UI inmediatamente
+      setNotifications([])
+      setUnreadCount(0)
+
+      // Eliminar de la BD
       const { error } = await supabase
         .from('notifications')
-        .update({ is_read: true, read_at: new Date().toISOString() })
-        .in('id', unreadIds)
+        .delete()
+        .in('id', ids)
 
       if (error) throw error
-
-      setNotifications((prev) => prev.map((n) => ({ ...n, is_read: true })))
-      setUnreadCount(0)
     } catch (error) {
-      console.error('Error marcando todas como leídas:', error)
+      console.error('Error eliminando notificaciones:', error)
+      loadNotifications()
     }
   }
 
@@ -290,10 +305,10 @@ export default function NotificationBell() {
                 </h3>
                 {unreadCount > 0 && (
                   <button
-                    onClick={markAllAsRead}
+                    onClick={dismissAll}
                     className="text-xs text-violet-600 hover:text-violet-700 font-medium"
                   >
-                    Marcar todas como leídas
+                    Limpiar todas
                   </button>
                 )}
               </div>
@@ -314,13 +329,11 @@ export default function NotificationBell() {
                 <div className="divide-y divide-gray-100">
                   {notifications.map((notification) => {
                     const theme = getNotificationTheme(notification.title, notification.message)
-                    const bgColor = !notification.is_read 
-                      ? theme.isMantenimiento 
+                    const bgColor = theme.isMantenimiento 
                         ? 'bg-orange-50/40' 
                         : theme.isIT 
                           ? 'bg-indigo-50/40' 
                           : 'bg-blue-50/30'
-                      : ''
                     const badgeColor = theme.isMantenimiento 
                       ? 'bg-orange-600' 
                       : theme.isIT 
@@ -344,9 +357,7 @@ export default function NotificationBell() {
                             <p className="text-sm font-semibold text-gray-900">
                               {theme.cleanTitle}
                             </p>
-                            {!notification.is_read && (
-                              <div className={`w-2 h-2 ${badgeColor} rounded-full flex-shrink-0 mt-1`}></div>
-                            )}
+                            <div className={`w-2 h-2 ${badgeColor} rounded-full flex-shrink-0 mt-1`}></div>
                           </div>
                           <p className="text-sm text-gray-600 mt-1">
                             {notification.message}
@@ -386,14 +397,13 @@ export default function NotificationBell() {
                                 Ver solicitud →
                               </Link>
                             )}
-                            {!notification.is_read && (
-                              <button
-                                onClick={() => markAsRead(notification.id)}
-                                className="text-xs text-gray-500 hover:text-gray-700"
-                              >
-                                Marcar como leída
-                              </button>
-                            )}
+                            <button
+                              onClick={() => markAsRead(notification.id)}
+                              className="text-xs text-gray-400 hover:text-red-500 ml-auto"
+                              title="Descartar"
+                            >
+                              ✕
+                            </button>
                           </div>
                         </div>
                       </div>
@@ -404,20 +414,6 @@ export default function NotificationBell() {
               )}
             </div>
 
-            {/* Footer */}
-            {notifications.length > 0 && (
-              <div className="px-4 py-2 border-t border-gray-200 bg-gray-50">
-                <button
-                  onClick={() => {
-                    setIsOpen(false)
-                    // Aquí podrías redirigir a una página de todas las notificaciones
-                  }}
-                  className="text-xs text-blue-600 hover:text-blue-700 font-medium w-full text-center"
-                >
-                  Ver todas las notificaciones
-                </button>
-              </div>
-            )}
           </div>
         </>
       )}
