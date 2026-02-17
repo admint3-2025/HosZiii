@@ -363,7 +363,7 @@ export async function notifyTicketAssigned(data: TicketNotificationData) {
 
     // Push in-app al agente
     try {
-      await supabase.from('notifications').insert({
+      const { error: pushErr } = await supabase.from('notifications').insert({
         user_id: data.assignedAgentId,
         type: 'TICKET_ASSIGNED',
         title: 'Ticket asignado a ti',
@@ -373,6 +373,7 @@ export async function notifyTicketAssigned(data: TicketNotificationData) {
         actor_id: data.actorId || data.requesterId,
         is_read: false,
       })
+      if (pushErr) throw pushErr
       console.log(`[notifyTicketAssigned] ✓ Push in-app enviado al agente ${data.assignedAgentId}`)
     } catch (err) {
       console.error('[notifyTicketAssigned] ✗ Error creando push para agente:', err)
@@ -437,7 +438,7 @@ export async function notifyTicketAssigned(data: TicketNotificationData) {
 
       // Push in-app al solicitante
       try {
-        await supabase.from('notifications').insert({
+        const { error: pushErr } = await supabase.from('notifications').insert({
           user_id: data.requesterId,
           type: 'TICKET_ASSIGNED',
           title: 'Tu ticket ha sido asignado',
@@ -447,6 +448,7 @@ export async function notifyTicketAssigned(data: TicketNotificationData) {
           actor_id: data.assignedAgentId,
           is_read: false,
         })
+        if (pushErr) throw pushErr
         console.log(`[notifyTicketAssigned] ✓ Push in-app enviado al solicitante ${data.requesterId}`)
       } catch (err) {
         console.error('[notifyTicketAssigned] ✗ Error creando push para solicitante:', err)
@@ -546,7 +548,7 @@ export async function notifyTicketStatusChanged(data: TicketNotificationData) {
 
       // Push in-app al solicitante
       try {
-        await supabase.from('notifications').insert({
+        const { error: pushErr } = await supabase.from('notifications').insert({
           user_id: data.requesterId,
           type: 'TICKET_STATUS_CHANGED',
           title: 'Estado actualizado',
@@ -556,6 +558,7 @@ export async function notifyTicketStatusChanged(data: TicketNotificationData) {
           actor_id: data.actorId,
           is_read: false,
         })
+        if (pushErr) throw pushErr
         console.log(`[notifyTicketStatusChanged] ✓ Push in-app enviado al solicitante ${data.requesterId}`)
       } catch (err) {
         console.error('[notifyTicketStatusChanged] ✗ Error creando push para solicitante:', err)
@@ -623,7 +626,7 @@ export async function notifyTicketStatusChanged(data: TicketNotificationData) {
 
         // Push in-app al agente
         try {
-          await supabase.from('notifications').insert({
+          const { error: pushErr } = await supabase.from('notifications').insert({
             user_id: data.assignedAgentId,
             type: 'TICKET_STATUS_CHANGED',
             title: 'Estado actualizado',
@@ -633,6 +636,7 @@ export async function notifyTicketStatusChanged(data: TicketNotificationData) {
             actor_id: data.actorId,
             is_read: false,
           })
+          if (pushErr) throw pushErr
           console.log(`[notifyTicketStatusChanged] ✓ Push in-app enviado al agente ${data.assignedAgentId}`)
         } catch (err) {
           console.error('[notifyTicketStatusChanged] ✗ Error creando push para agente:', err)
@@ -735,7 +739,7 @@ export async function notifyTicketClosed(data: TicketNotificationData) {
 
     // PUSH in-app (solicitante)
     try {
-      await supabase.from('notifications').insert({
+      const { error: pushErr } = await supabase.from('notifications').insert({
         user_id: data.requesterId,
         type: 'TICKET_CLOSED',
         title: `✅ Ticket #${telegramCtx.ticketCode} cerrado`,
@@ -745,6 +749,7 @@ export async function notifyTicketClosed(data: TicketNotificationData) {
         actor_id: data.actorId,
         is_read: false,
       })
+      if (pushErr) throw pushErr
     } catch (err) {
       console.error('[notifyTicketClosed] ✗ Error creando push (solicitante):', err)
     }
@@ -818,7 +823,7 @@ export async function notifyTicketClosed(data: TicketNotificationData) {
 
         // PUSH agente
         try {
-          await supabase.from('notifications').insert({
+          const { error: pushErr } = await supabase.from('notifications').insert({
             user_id: data.assignedAgentId,
             type: 'TICKET_CLOSED',
             title: `✅ Ticket #${telegramCtx.ticketCode} cerrado`,
@@ -828,6 +833,7 @@ export async function notifyTicketClosed(data: TicketNotificationData) {
             actor_id: data.actorId,
             is_read: false,
           })
+          if (pushErr) throw pushErr
         } catch (err) {
           console.error('[notifyTicketClosed] ✗ Error creando push (agente):', err)
         }
@@ -1082,8 +1088,14 @@ export async function notifyLocationStaff(data: TicketNotificationData) {
       staffByUserLocations = staffData || []
     }
 
-    // Combinar, deduplicar por ID, y excluir actor/requester/assigned
-    const allStaff = [...(staffByProfile || []), ...staffByUserLocations]
+    // user_locations es la fuente de verdad para multi-sede.
+    // Solo usar profiles.location_id como fallback cuando no existan mapeos en user_locations.
+    const locationScopedStaff = userIdsFromUserLocations.length > 0
+      ? staffByUserLocations
+      : (staffByProfile || [])
+
+    // Deduplicar por ID y excluir actor/requester/assigned
+    const allStaff = locationScopedStaff
     const uniqueStaff = Array.from(new Map(allStaff.map((s: any) => [s.id, s])).values())
       .filter((s: any) => !excludeIds.has(s.id))
     
@@ -1096,7 +1108,8 @@ export async function notifyLocationStaff(data: TicketNotificationData) {
       }),
     )
 
-    console.log(`[notifyLocationStaff] Personal encontrado (profiles + user_locations): ${allStaff.length} → deduplicado/excluido: ${uniqueStaff.length}`)
+    console.log(`[notifyLocationStaff] Fuente de destinatarios: ${userIdsFromUserLocations.length > 0 ? 'user_locations' : 'profiles.location_id (fallback)'}`)
+    console.log(`[notifyLocationStaff] Personal encontrado por sede: ${allStaff.length} → deduplicado/excluido: ${uniqueStaff.length}`)
     console.log(`[notifyLocationStaff] Personal IT permitido por categoría: ${filteredStaffProfiles.length}`)
     
     if (filteredStaffProfiles.length === 0) {
@@ -1181,7 +1194,7 @@ export async function notifyLocationStaff(data: TicketNotificationData) {
             ? `${actorName} actualizó el ticket: "${data.title}" → ${data.newStatus ? STATUS_LABELS[data.newStatus] || data.newStatus : ''}`
             : `${actorName} creó una solicitud: "${data.title}"`
           
-          await supabase.from('notifications').insert({
+          const { error: pushErr } = await supabase.from('notifications').insert({
             user_id: staff.id,
             type: isUpdate ? 'TICKET_STATUS_CHANGED' : 'TICKET_CREATED',
             title: pushTitle,
@@ -1191,6 +1204,7 @@ export async function notifyLocationStaff(data: TicketNotificationData) {
             actor_id: data.actorId,
             is_read: false,
           })
+          if (pushErr) throw pushErr
           console.log(`[notifyLocationStaff] ✓ Notificación push enviada a staff ${staff.id}`)
         } catch (err) {
           console.error(`[notifyLocationStaff] ✗ Error creando push para ${staff.id}:`, err)

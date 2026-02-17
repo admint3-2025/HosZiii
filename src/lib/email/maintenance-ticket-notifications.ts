@@ -113,7 +113,7 @@ export async function notifyMaintenanceTicketCreated(data: MaintenanceTicketNoti
       console.log(`[notifyMaintenanceTicketCreated] ✓ Email enviado al solicitante: ${requester.user.email}`)
       
       // Notificación in-app al solicitante
-      await supabase
+      const { error: pushErr } = await supabase
         .from('notifications')
         .insert({
           user_id: data.requesterId,
@@ -125,6 +125,7 @@ export async function notifyMaintenanceTicketCreated(data: MaintenanceTicketNoti
           actor_id: data.actorId,
           is_read: false,
         })
+      if (pushErr) console.error('[notifyMaintenanceTicketCreated] ✗ Error creando push (solicitante):', pushErr)
 
       // Telegram solicitante
       try {
@@ -208,8 +209,14 @@ async function notifyMaintenanceLocationStaff(data: MaintenanceTicketNotificatio
       staffByUserLocations = staffData || []
     }
     
-    // Combinar y deduplicar por ID
-    const allStaff = [...(staffByProfile || []), ...staffByUserLocations]
+    // user_locations es la fuente de verdad para multi-sede.
+    // Solo usar profiles.location_id como fallback cuando no existan mapeos en user_locations.
+    const locationScopedStaff = userIdsFromUserLocations.length > 0
+      ? staffByUserLocations
+      : (staffByProfile || [])
+
+    // Deduplicar por ID
+    const allStaff = locationScopedStaff
     const uniqueStaff = Array.from(new Map(allStaff.map(s => [s.id, s])).values())
     
     // Filtrar: supervisors por hub_visible_modules, agents por asset_category
@@ -230,6 +237,7 @@ async function notifyMaintenanceLocationStaff(data: MaintenanceTicketNotificatio
     
     const filteredStaff = maintenanceStaff.filter(s => !excludeIds.has(s.id))
     
+    console.log(`[notifyMaintenanceLocationStaff] Fuente de destinatarios: ${userIdsFromUserLocations.length > 0 ? 'user_locations' : 'profiles.location_id (fallback)'}`)
     console.log(`[notifyMaintenanceLocationStaff] Personal de mantenimiento encontrado: ${filteredStaff.length} (excluidos: ${excludeIds.size})`)
     
     if (filteredStaff.length === 0) {
@@ -298,7 +306,7 @@ async function notifyMaintenanceLocationStaff(data: MaintenanceTicketNotificatio
           ? `Tu solicitud de mantenimiento "${data.title}" ha sido registrada.`
           : `${actorName} creó una solicitud: "${data.title}"`
         
-        await supabase
+        const { error: pushErr } = await supabase
           .from('notifications')
           .insert({
             user_id: staff.id,
@@ -310,6 +318,7 @@ async function notifyMaintenanceLocationStaff(data: MaintenanceTicketNotificatio
             actor_id: data.actorId,
             is_read: false,
           })
+        if (pushErr) console.error(`[notifyMaintenanceLocationStaff] ✗ Error creando push para ${staff.id}:`, pushErr)
         
         console.log(`[notifyMaintenanceLocationStaff] ✓ Notificación in-app enviada a: ${staff.full_name} (${isRequester ? 'solicitante' : 'staff'})`)
 
@@ -422,8 +431,13 @@ export async function notifyMaintenanceTicketComment(data: MaintenanceCommentNot
           staffByUserLocations = staffData || []
         }
         
+        // user_locations es fuente de verdad; profiles.location_id queda como fallback.
+        const locationScopedStaff = userIdsFromUserLocations.length > 0
+          ? staffByUserLocations
+          : (staffByProfile || [])
+
         // Combine and deduplicate
-        const allLocationStaff = [...(staffByProfile || []), ...staffByUserLocations]
+        const allLocationStaff = locationScopedStaff
         const uniqueLocationStaff = Array.from(new Map(allLocationStaff.map((s: any) => [s.id, s])).values())
         
         // Filter: supervisors by hub_visible_modules, agents by asset_category
@@ -567,7 +581,7 @@ export async function notifyMaintenanceTicketStatusChanged(data: MaintenanceTick
       console.log(`[notifyMaintenanceTicketStatusChanged] ✓ Email enviado a solicitante: ${requester.user.email}`)
       
       // PUSH
-      await supabase
+      const { error: pushErr } = await supabase
         .from('notifications')
         .insert({
           user_id: data.requesterId,
@@ -579,6 +593,7 @@ export async function notifyMaintenanceTicketStatusChanged(data: MaintenanceTick
           actor_id: data.actorId,
           is_read: false,
         })
+      if (pushErr) console.error('[notifyMaintenanceTicketStatusChanged] ✗ Error creando push (solicitante):', pushErr)
 
       // Telegram solicitante
       try {
@@ -641,7 +656,7 @@ export async function notifyMaintenanceTicketStatusChanged(data: MaintenanceTick
         console.log(`[notifyMaintenanceTicketStatusChanged] ✓ Email enviado a agente: ${agent.user.email}`)
         
         // PUSH
-        await supabase
+        const { error: pushErr2 } = await supabase
           .from('notifications')
           .insert({
             user_id: data.assignedAgentId,
@@ -653,6 +668,7 @@ export async function notifyMaintenanceTicketStatusChanged(data: MaintenanceTick
             actor_id: data.actorId,
             is_read: false,
           })
+        if (pushErr2) console.error('[notifyMaintenanceTicketStatusChanged] ✗ Error creando push (agente):', pushErr2)
 
         // Telegram agente
         try {

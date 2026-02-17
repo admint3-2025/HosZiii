@@ -103,7 +103,7 @@ export async function sendMultiChannelNotification(
     // 2. Enviar Push in-app (Supabase Realtime)
     if (channels.push) {
       try {
-        await createSupabaseAdminClient()
+        const { error: pushErr } = await createSupabaseAdminClient()
           .from('notifications')
           .insert({
             user_id: payload.userId,
@@ -115,6 +115,7 @@ export async function sendMultiChannelNotification(
             link: payload.link,
           })
 
+        if (pushErr) throw pushErr
         result.channels.push = { sent: true }
         console.log(`[Notifications] ✓ Push in-app enviado`)
       } catch (error) {

@@ -26,11 +26,14 @@ export default function NotificationBell() {
   const supabase = useMemo(() => createSupabaseBrowserClient(), [])
 
   const loadNotifications = useCallback(async () => {
+    if (!userId) return
+
     try {
       // Solo cargar notificaciones NO leídas — las leídas se eliminan
       const { data, error } = await supabase
         .from('notifications')
         .select('*')
+        .eq('user_id', userId)
         .eq('is_read', false)
         .order('created_at', { ascending: false })
         .limit(30)
@@ -51,6 +54,7 @@ export default function NotificationBell() {
       supabase
         .from('notifications')
         .delete()
+        .eq('user_id', userId)
         .eq('is_read', true)
         .then(({ error: delErr }) => {
           if (delErr) console.error('[NotificationBell] Error limpiando leídas:', delErr)
@@ -60,7 +64,7 @@ export default function NotificationBell() {
     } finally {
       setIsLoading(false)
     }
-  }, [supabase, userRole, isCorporate])
+  }, [supabase, userId, userRole, isCorporate])
 
   // Obtener usuario actual y su rol de forma segura
   useEffect(() => {
