@@ -653,8 +653,8 @@ export default function InspectionsInbox() {
                           <span className="text-slate-400">—</span>
                         )}
                       </td>
-                      <td className="py-2 pr-0 whitespace-nowrap">
-                        <div className="flex items-center justify-end gap-2">
+                      <td className="py-2 pr-0">
+                        <div className="flex flex-wrap items-center justify-end gap-2">
                           <button
                             onClick={() => handleOpen(r)}
                             className={`px-3 py-1.5 rounded-lg transition-colors text-xs font-semibold ${

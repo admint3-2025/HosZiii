@@ -848,12 +848,12 @@ function AreaCard({ area, onUpdateItem, isReadOnly = false }: { area: Inspection
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors"
       >
-        <div className="flex items-center gap-3">
-          <div className={`px-3 py-1.5 rounded-lg font-bold text-lg ${scoreColor}`}>
+        <div className="flex items-center gap-3 min-w-0">
+          <div className={`px-3 py-1.5 rounded-lg font-bold text-lg flex-shrink-0 ${scoreColor}`}>
             {calculatedScore}
           </div>
-          <div className="text-left">
-            <h3 className="text-sm font-semibold text-slate-800">{area.area}</h3>
+          <div className="text-left min-w-0">
+            <h3 className="text-sm font-semibold text-slate-800 truncate">{area.area}</h3>
             <p className="text-xs text-slate-500">{cumpleCount}/{applicableItems} items cumplen{totalItems !== applicableItems ? ` (${totalItems - applicableItems} N/A)` : ''}</p>
           </div>
         </div>
@@ -862,7 +862,7 @@ function AreaCard({ area, onUpdateItem, isReadOnly = false }: { area: Inspection
 
       {expanded && (
         <div className="border-t border-slate-100">
-          <div className="grid grid-cols-12 gap-2 px-4 py-2 bg-slate-50 text-xs font-semibold text-slate-600 border-b border-slate-100">
+          <div className="hidden md:grid grid-cols-12 gap-2 px-4 py-2 bg-slate-50 text-xs font-semibold text-slate-600 border-b border-slate-100">
             <div className="col-span-4">Descripción</div>
             <div className="col-span-2 text-center">Cumplimiento</div>
             <div className="col-span-2 text-center">Calificación</div>
@@ -870,12 +870,13 @@ function AreaCard({ area, onUpdateItem, isReadOnly = false }: { area: Inspection
           </div>
           
           {area.items.map((item) => (
-            <div key={item.id} className="grid grid-cols-12 gap-2 px-4 py-3 border-b border-slate-50 hover:bg-slate-50 items-center">
-              <div className="col-span-4">
-                <span className="text-xs text-slate-700">{item.descripcion}</span>
+            <div key={item.id} className="md:grid md:grid-cols-12 gap-2 px-4 py-3 border-b border-slate-50 hover:bg-slate-50 items-center space-y-2 md:space-y-0">
+              <div className="md:col-span-4">
+                <span className="text-xs font-medium md:font-normal text-slate-700">{item.descripcion}</span>
               </div>
               
-              <div className="col-span-2 text-center">
+              <div className="md:col-span-2 flex items-center gap-2 md:justify-center">
+                <span className="text-[10px] text-slate-400 md:hidden font-semibold uppercase">Cumplimiento:</span>
                 {item.cumplimiento_editable && !isReadOnly ? (
                   <select
                     value={item.cumplimiento_valor}
@@ -904,14 +905,22 @@ function AreaCard({ area, onUpdateItem, isReadOnly = false }: { area: Inspection
                 )}
               </div>
               
-              <div className="col-span-2 text-center">
+              <div className="md:col-span-2 flex items-center gap-2 md:justify-center">
+                <span className="text-[10px] text-slate-400 md:hidden font-semibold uppercase">Calif:</span>
                 {item.calif_editable && item.cumplimiento_valor === 'Cumple' && !isReadOnly ? (
                   <input
                     type="number"
+                    inputMode="numeric"
                     min="0"
                     max="10"
-                    value={item.calif_valor}
-                    onChange={(e) => onUpdateItem(area.area, item.id, 'calif_valor', parseInt(e.target.value) || 0)}
+                    value={item.calif_valor || ''}
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => {
+                      const raw = e.target.value
+                      if (raw === '') { onUpdateItem(area.area, item.id, 'calif_valor', 0); return }
+                      const n = parseInt(raw, 10)
+                      if (!isNaN(n)) onUpdateItem(area.area, item.id, 'calif_valor', Math.min(10, Math.max(0, n)))
+                    }}
                     className="w-14 text-center text-xs font-bold px-2 py-1 rounded border border-slate-200 focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
                   />
                 ) : (
@@ -921,7 +930,7 @@ function AreaCard({ area, onUpdateItem, isReadOnly = false }: { area: Inspection
                 )}
               </div>
               
-              <div className="col-span-4">
+              <div className="md:col-span-4">
                 {item.comentarios_libre && !isReadOnly ? (
                   <input
                     type="text"
@@ -1242,7 +1251,7 @@ export default function RRHHDashboard({
       </div>
 
       {/* Footer */}
-      <div className="mt-6 flex items-center justify-between">
+      <div className="mt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="text-xs text-slate-400">
           <span>Última actualización: {new Date().toLocaleString('es-MX')}</span>
           {inspectionStatus && (

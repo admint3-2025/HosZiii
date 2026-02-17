@@ -968,12 +968,12 @@ function AreaCard({
         onClick={() => setExpanded(!expanded)}
         className="w-full flex items-center justify-between px-4 py-3 hover:bg-slate-50 transition-colors"
       >
-        <div className="flex items-center gap-3">
-          <div className={`px-3 py-1.5 rounded-lg font-bold text-lg ${scoreColor}`}>
+        <div className="flex items-center gap-3 min-w-0">
+          <div className={`px-3 py-1.5 rounded-lg font-bold text-lg flex-shrink-0 ${scoreColor}`}>
             {calculatedScore}
           </div>
-          <div className="text-left">
-            <h3 className="text-sm font-semibold text-slate-800">{area.area}</h3>
+          <div className="text-left min-w-0">
+            <h3 className="text-sm font-semibold text-slate-800 truncate">{area.area}</h3>
             <p className="text-xs text-slate-500">
               {cumpleCount}/{totalItems - pendingCount} items cumplen
               {pendingCount > 0 && (
@@ -994,7 +994,7 @@ function AreaCard({
 
       {expanded && (
         <div className="border-t border-slate-100">
-          <div className="grid grid-cols-12 gap-2 px-4 py-2 bg-slate-50 text-xs font-semibold text-slate-600 border-b border-slate-100">
+          <div className="hidden md:grid grid-cols-12 gap-2 px-4 py-2 bg-slate-50 text-xs font-semibold text-slate-600 border-b border-slate-100">
             <div className="col-span-4">Descripción</div>
             <div className="col-span-2 text-center">{isMarketing ? 'Existencia' : 'Cumplimiento'}</div>
             <div className="col-span-2 text-center">Calificación</div>
@@ -1177,20 +1177,21 @@ function AreaCard({
             return (
             <div 
               key={item.id} 
-              className={`grid grid-cols-12 gap-2 px-4 py-3 border-b items-start ${
+              className={`md:grid md:grid-cols-12 gap-2 px-4 py-3 border-b items-start space-y-2 md:space-y-0 ${
                 isPending 
                   ? 'bg-amber-50/50 border-amber-100 hover:bg-amber-50' 
                   : 'border-slate-50 hover:bg-slate-50'
               }`}
             >
-              <div className="col-span-4 flex items-center gap-2">
+              <div className="md:col-span-4 flex items-center gap-2">
                 {isPending && (
                   <span className="flex-shrink-0 w-1.5 h-1.5 rounded-full bg-amber-400" title="Pendiente de evaluar" />
                 )}
-                <span className={`text-xs ${isPending ? 'text-amber-700' : 'text-slate-700'}`}>{item.descripcion}</span>
+                <span className={`text-xs font-medium md:font-normal ${isPending ? 'text-amber-700' : 'text-slate-700'}`}>{item.descripcion}</span>
               </div>
               
-              <div className="col-span-2 text-center">
+              <div className="md:col-span-2 flex items-center gap-2 md:justify-center">
+                <span className="text-[10px] text-slate-400 md:hidden font-semibold uppercase">{isMarketing ? 'Existencia:' : 'Cumplimiento:'}</span>
                 {item.cumplimiento_editable && !isReadOnly ? (
                   isMarketing ? (
                     <div className="inline-flex rounded-md border border-slate-200 overflow-hidden">
@@ -1276,14 +1277,22 @@ function AreaCard({
                 )}
               </div>
               
-              <div className="col-span-2 text-center">
+              <div className="md:col-span-2 flex items-center gap-2 md:justify-center">
+                <span className="text-[10px] text-slate-400 md:hidden font-semibold uppercase">Calif:</span>
                 {item.calif_editable && item.cumplimiento_valor === 'Cumple' && !isReadOnly ? (
                   <input
                     type="number"
+                    inputMode="numeric"
                     min="0"
                     max="10"
-                    value={item.calif_valor}
-                    onChange={(e) => onUpdateItem(area.area, item.id, 'calif_valor', parseInt(e.target.value) || 0)}
+                    value={item.calif_valor || ''}
+                    onFocus={(e) => e.target.select()}
+                    onChange={(e) => {
+                      const raw = e.target.value
+                      if (raw === '') { onUpdateItem(area.area, item.id, 'calif_valor', 0); return }
+                      const n = parseInt(raw, 10)
+                      if (!isNaN(n)) onUpdateItem(area.area, item.id, 'calif_valor', Math.min(10, Math.max(0, n)))
+                    }}
                     className="w-14 text-center text-xs font-bold px-2 py-1 rounded border border-slate-200 focus:border-blue-400 focus:ring-1 focus:ring-blue-400"
                   />
                 ) : (
@@ -1293,7 +1302,7 @@ function AreaCard({
                 )}
               </div>
               
-              <div className="col-span-4">
+              <div className="md:col-span-4">
                 {item.comentarios_libre && !isReadOnly ? (
                   <input
                     type="text"
@@ -1615,23 +1624,23 @@ export default function InspectionDashboard({
     <div className="bg-slate-50">
       {/* Header compacto integrado */}
       <div className="bg-gradient-to-r from-slate-800 via-slate-700 to-slate-800 border-b border-slate-600 px-4 py-2.5">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div className="flex items-center gap-3 min-w-0">
+            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-teal-600 flex items-center justify-center flex-shrink-0">
               <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
               </svg>
             </div>
-            <div>
-              <div className="flex items-center gap-2">
-                <span className="text-sm font-semibold text-white">{departmentName}</span>
-                <span className="text-slate-500">•</span>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-semibold text-white truncate">{departmentName}</span>
+                <span className="text-slate-500 hidden sm:inline">•</span>
                 <span className="text-sm font-medium text-emerald-400">{propertyCode}</span>
               </div>
-              <p className="text-xs text-slate-400">{propertyName}</p>
+              <p className="text-xs text-slate-400 truncate">{propertyName}</p>
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 flex-shrink-0">
             <button
               onClick={onBack ? onBack : () => window.location.href = '/inspections'}
               className="flex items-center gap-1 px-2.5 py-1.5 rounded-md text-slate-300 text-xs hover:text-white hover:bg-white/10 transition-colors"
@@ -1820,7 +1829,7 @@ export default function InspectionDashboard({
       </div>
 
       {/* Footer */}
-      <div className="mt-6 flex items-center justify-between">
+      <div className="mt-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div className="text-xs text-slate-400">
           <span>Última actualización: {new Date().toLocaleString('es-MX')}</span>
           {inspectionStatus && (
