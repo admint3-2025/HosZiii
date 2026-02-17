@@ -136,6 +136,8 @@ export default function MaintenanceTicketComments({
           if (attachmentData) {
             uploadedAttachments.push(attachmentData)
           }
+        } else if (!uploadResult.success) {
+          setError(`Error al subir "${file.name}": ${uploadResult.error || 'Error desconocido'}`)
         }
       }
 
@@ -339,9 +341,9 @@ export default function MaintenanceTicketComments({
                       ref={fileInputRef}
                       type="file"
                       multiple
-                      accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                      accept="image/*,image/heic,image/heif,.pdf,.doc,.docx,.xls,.xlsx,.txt"
                       onChange={handleFileSelect}
-                      className="hidden"
+                      className="sr-only"
                       disabled={busy}
                     />
                   </label>

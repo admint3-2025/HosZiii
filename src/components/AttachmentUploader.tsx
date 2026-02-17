@@ -91,31 +91,27 @@ export default function AttachmentUploader({ onFilesChange, maxFiles = 5 }: Prop
         </label>
         
         <div className="flex items-center gap-3">
-          <button
-            type="button"
-            onClick={() => fileInputRef.current?.click()}
-            disabled={files.length >= maxFiles}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium text-sm rounded-lg border border-gray-300 transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+          <label
+            className={`inline-flex items-center gap-2 px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium text-sm rounded-lg border border-gray-300 transition-colors cursor-pointer ${files.length >= maxFiles ? 'opacity-50 pointer-events-none' : ''}`}
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
             </svg>
             Agregar archivo
-          </button>
+            <input
+              ref={fileInputRef}
+              type="file"
+              onChange={handleFileSelect}
+              className="sr-only"
+              accept="image/*,image/heic,image/heif,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+              multiple
+            />
+          </label>
           
           <span className="text-xs text-gray-500">
             {files.length}/{maxFiles} archivos • Máx 10MB cada uno
           </span>
         </div>
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          onChange={handleFileSelect}
-          className="hidden"
-          accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt"
-          multiple
-        />
 
         <p className="mt-2 text-xs text-gray-500">
           Formatos: Imágenes, PDF, Word, Excel, Texto

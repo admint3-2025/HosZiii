@@ -1019,7 +1019,7 @@ export default function TicketCreateFormModern({
                     <h2 className="text-sm font-bold text-slate-800 uppercase tracking-wide">Evidencia</h2>
                   </div>
 
-                  <div
+                  <label
                     className={`min-h-[160px] border-2 border-dashed border-slate-300 rounded-xl bg-slate-50/50 transition-all p-4 flex flex-col items-center justify-center text-center cursor-pointer relative group ${
                       accent === 'orange'
                         ? 'hover:bg-orange-50/30 hover:border-orange-400'
@@ -1038,8 +1038,9 @@ export default function TicketCreateFormModern({
                     <input
                       type="file"
                       multiple
-                      className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      onChange={(e) => addFiles(Array.from(e.target.files || []))}
+                      accept="image/*,image/heic,image/heif,application/pdf,.doc,.docx,.xls,.xlsx,.txt"
+                      className="sr-only"
+                      onChange={(e) => { addFiles(Array.from(e.target.files || [])); e.target.value = '' }}
                     />
                     <div className="w-14 h-14 bg-white rounded-full shadow-sm border border-slate-200 flex items-center justify-center mb-4 group-hover:scale-110 transition-all">
                       <Paperclip
@@ -1053,7 +1054,7 @@ export default function TicketCreateFormModern({
                     </div>
                     <p className="text-sm font-bold text-slate-700 transition-colors">Subir Archivos</p>
                     <p className="text-xs text-slate-400 mt-2 max-w-[160px] mx-auto">Arrastra o haz clic (máx. 5)</p>
-                  </div>
+                  </label>
 
                   <div className="mt-4 space-y-2 overflow-y-auto max-h-[220px] pr-1">
                     {attachments.length === 0 && <div className="text-center py-4 text-xs text-slate-400 italic">Sin archivos adjuntos</div>}

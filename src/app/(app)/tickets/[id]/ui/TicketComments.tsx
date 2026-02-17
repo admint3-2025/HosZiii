@@ -101,7 +101,13 @@ export default function TicketComments({
 
   function handleFileSelect(e: React.ChangeEvent<HTMLInputElement>) {
     const files = Array.from(e.target.files || [])
-    const imageFiles = files.filter(f => f.type.startsWith('image/'))
+    // Aceptar imágenes por tipo MIME o extensión (HEIC/HEIF en móviles pueden no tener MIME)
+    const imageExts = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif']
+    const imageFiles = files.filter(f => {
+      if (f.type.startsWith('image/')) return true
+      const ext = f.name.split('.').pop()?.toLowerCase() || ''
+      return imageExts.includes(ext)
+    })
     
     if (imageFiles.length !== files.length) {
       setError('Solo se permiten archivos de imagen')
@@ -123,6 +129,9 @@ export default function TicketComments({
       const url = URL.createObjectURL(file)
       setPreviewUrls(prev => [...prev, url])
     })
+
+    // Reset input para permitir re-seleccionar el mismo archivo
+    e.target.value = ''
   }
 
   function removeAttachment(index: number) {
@@ -181,6 +190,7 @@ export default function TicketComments({
 
           if (uploadErr) {
             console.error('Error subiendo imagen:', uploadErr)
+            setError(`Error al subir imagen: ${uploadErr.message}`)
             continue
           }
 
@@ -199,9 +209,11 @@ export default function TicketComments({
 
           if (attachErr) {
             console.error('Error registrando adjunto:', attachErr)
+            setError(`Error al registrar adjunto: ${attachErr.message}`)
           }
         } catch (err) {
           console.error('Error procesando archivo:', err)
+          setError('Error inesperado al procesar archivo. Intente de nuevo.')
         }
       }
     }
@@ -434,9 +446,9 @@ export default function TicketComments({
                 <input
                   type="file"
                   multiple
-                  accept="image/*"
+                  accept="image/*,image/heic,image/heif"
                   onChange={handleFileSelect}
-                  className="hidden"
+                  className="sr-only"
                   disabled={busy}
                 />
               </label>

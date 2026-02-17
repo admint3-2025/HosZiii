@@ -133,13 +133,19 @@ export default function AssetImageUpload({
           </div>
         </div>
       ) : (
-        <div
-          onClick={() => fileInputRef.current?.click()}
+        <label
           className={`
             w-full h-48 border-2 border-dashed rounded-lg flex flex-col items-center justify-center cursor-pointer transition-colors
             ${isUploading ? 'border-blue-300 bg-blue-50' : 'border-gray-300 hover:border-blue-400 hover:bg-gray-50'}
           `}
         >
+          <input
+            ref={fileInputRef}
+            type="file"
+            accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif"
+            onChange={handleFileSelect}
+            className="sr-only"
+          />
           {isUploading ? (
             <div className="flex flex-col items-center gap-2">
               <svg className="w-8 h-8 text-blue-500 animate-spin" fill="none" viewBox="0 0 24 24">
@@ -157,16 +163,8 @@ export default function AssetImageUpload({
               <span className="text-xs text-gray-400 mt-1">JPG, PNG, WebP o GIF (máx. 5MB)</span>
             </>
           )}
-        </div>
+        </label>
       )}
-
-      <input
-        ref={fileInputRef}
-        type="file"
-        accept="image/jpeg,image/png,image/webp,image/gif"
-        onChange={handleFileSelect}
-        className="hidden"
-      />
 
       {error && (
         <div className="text-sm text-red-600 flex items-center gap-1">

@@ -1360,14 +1360,14 @@ function AreaCard({
                             </button>
                             <div className="absolute top-1 right-1 flex gap-1">
                               <label
-                                className="px-2 py-1 text-[10px] bg-white/90 border border-slate-200 rounded hover:bg-white cursor-pointer"
+                                className="px-2.5 py-1.5 text-xs bg-white/90 border border-slate-200 rounded hover:bg-white cursor-pointer min-h-[32px] flex items-center"
                                 title="Reemplazar"
                               >
                                 {isUp ? '...' : 'Cambiar'}
                                 <input
                                   type="file"
-                                  accept="image/jpeg,image/png,image/webp,image/gif"
-                                  className="hidden"
+                                  accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif"
+                                  className="sr-only"
                                   disabled={isReadOnly || isUp}
                                   onChange={(e) => {
                                     const f = e.target.files?.[0]
@@ -1407,8 +1407,8 @@ function AreaCard({
                             {isUp ? 'Subiendo...' : `📷 Agregar foto ${slot}`}
                             <input
                               type="file"
-                              accept="image/jpeg,image/png,image/webp,image/gif"
-                              className="hidden"
+                              accept="image/jpeg,image/png,image/webp,image/gif,image/heic,image/heif"
+                              className="sr-only"
                               disabled={isReadOnly || isUp}
                               onChange={(e) => {
                                 const f = e.target.files?.[0]

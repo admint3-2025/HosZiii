@@ -481,7 +481,7 @@ export default function RoomManagementPanel({ rooms, locationId, onRefresh }: Pr
                   type="file"
                   accept=".csv,.tsv,.txt"
                   onChange={handleFileSelect}
-                  className="hidden"
+                  className="sr-only"
                 />
               </label>
             </div>

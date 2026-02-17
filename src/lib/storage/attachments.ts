@@ -7,6 +7,8 @@ const ALLOWED_FILE_TYPES = [
   'image/png',
   'image/gif',
   'image/webp',
+  'image/heic',
+  'image/heif',
   'application/pdf',
   'application/msword',
   'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
@@ -33,7 +35,12 @@ export function validateFile(file: File): { valid: boolean; error?: string } {
     }
   }
 
-  if (!ALLOWED_FILE_TYPES.includes(file.type)) {
+  // Algunos navegadores móviles no asignan MIME type (ej. HEIC en Android)
+  // Verificar por extensión como fallback
+  const ext = file.name.split('.').pop()?.toLowerCase() || ''
+  const allowedExtensions = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif', 'pdf', 'doc', 'docx', 'xls', 'xlsx', 'txt']
+
+  if (!ALLOWED_FILE_TYPES.includes(file.type) && !allowedExtensions.includes(ext)) {
     return {
       valid: false,
       error: `Tipo de archivo no permitido. Permitidos: imágenes, PDF, Word, Excel, texto`,
