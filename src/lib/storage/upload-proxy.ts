@@ -1,7 +1,12 @@
+import { uploadToStorage } from '@/lib/storage/upload-action'
+
 /**
- * Proxy de upload — sube archivos a Supabase Storage a través del servidor Next.js.
+ * Proxy de upload — sube archivos a Supabase Storage a través de un Server Action.
  * Esto evita que el navegador (especialmente en móvil) necesite conectarse directamente
  * a la IP/puerto interna de Supabase.
+ * 
+ * Usa Server Actions en vez de API route handler para respetar el bodySizeLimit de 15MB
+ * configurado en next.config.ts (los API route handlers tienen un límite menor ~4.5MB).
  */
 export async function uploadViaProxy(
   file: File | Blob,
@@ -18,22 +23,8 @@ export async function uploadViaProxy(
       formData.append('upsert', '1')
     }
 
-    const response = await fetch('/api/storage/upload', {
-      method: 'POST',
-      body: formData,
-    })
-
-    if (!response.ok) {
-      const data = await response.json().catch(() => ({ error: `HTTP ${response.status}` }))
-      return { success: false, error: data.error || `Error ${response.status}` }
-    }
-
-    const data = await response.json()
-    return {
-      success: true,
-      path: data.path,
-      publicUrl: data.publicUrl,
-    }
+    const result = await uploadToStorage(formData)
+    return result
   } catch (error) {
     console.error('[uploadViaProxy] Error:', error)
     return { success: false, error: 'Error de conexión al subir archivo' }
