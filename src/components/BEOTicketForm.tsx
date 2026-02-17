@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
+import { uploadViaProxy } from '@/lib/storage/upload-proxy'
 
 type Location = {
   id: string
@@ -158,12 +159,10 @@ ${formData.description.trim() ? `\n**Notas adicionales:**\n${formData.descriptio
         const fileExt = file.name.split('.').pop()
         const fileName = `${ticket.id}/${Date.now()}-${Math.random().toString(36).substring(7)}.${fileExt}`
         
-        const { error: uploadError } = await supabase.storage
-          .from('ticket-attachments')
-          .upload(fileName, file)
+        const uploadResult = await uploadViaProxy(file, 'ticket-attachments', fileName)
 
-        if (uploadError) {
-          console.error('Error uploading BEO file:', uploadError)
+        if (!uploadResult.success) {
+          console.error('Error uploading BEO file:', uploadResult.error)
           continue
         }
 

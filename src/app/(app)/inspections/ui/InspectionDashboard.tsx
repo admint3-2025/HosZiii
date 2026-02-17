@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
+import { uploadViaProxy } from '@/lib/storage/upload-proxy'
 
 // Tipos
 type InspectionItem = {
@@ -1067,8 +1068,9 @@ function AreaCard({
                 return
               }
 
-              const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
-              if (!validTypes.includes(file.type)) {
+              const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif', 'image/heic', 'image/heif']
+              const ext = file.name.split('.').pop()?.toLowerCase() || ''
+              if (!validTypes.includes(file.type) && !['jpg', 'jpeg', 'png', 'gif', 'webp', 'heic', 'heif'].includes(ext)) {
                 alert('Tipo de archivo no válido. Use JPG, PNG, WebP o GIF.')
                 return
               }
@@ -1089,10 +1091,8 @@ function AreaCard({
                 const processed = await compressImageForUpload(file)
 
                 const storagePath = `inspections/${inspectionType}/${inspectionId}/${itemDbId}/slot-${slot}.jpg`
-                const { error: upErr } = await supabase.storage
-                  .from('inspection-evidences')
-                  .upload(storagePath, processed, { cacheControl: '3600', upsert: true })
-                if (upErr) throw upErr
+                const uploadResult = await uploadViaProxy(processed, 'inspection-evidences', storagePath, { upsert: true })
+                if (!uploadResult.success) throw new Error(uploadResult.error || 'Error al subir evidencia')
 
                 const table = inspectionType === 'rrhh'
                   ? 'inspections_rrhh_item_evidences'

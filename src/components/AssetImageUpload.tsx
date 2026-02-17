@@ -2,6 +2,7 @@
 
 import { useState, useRef } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
+import { uploadViaProxy } from '@/lib/storage/upload-proxy'
 
 type AssetImageUploadProps = {
   assetId?: string
@@ -42,29 +43,19 @@ export default function AssetImageUpload({
     setIsUploading(true)
 
     try {
-      const supabase = createSupabaseBrowserClient()
-
       // Generar nombre único para el archivo
       const fileExt = file.name.split('.').pop()
       const fileName = `${assetId || 'new'}-${Date.now()}.${fileExt}`
       const filePath = `assets/${fileName}`
 
-      // Subir archivo
-      const { error: uploadError } = await supabase.storage
-        .from('asset-images')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: true,
-        })
+      // Subir archivo via proxy
+      const uploadResult = await uploadViaProxy(file, 'asset-images', filePath, { upsert: true })
 
-      if (uploadError) {
-        throw uploadError
+      if (!uploadResult.success) {
+        throw new Error(uploadResult.error || 'Error al subir archivo')
       }
 
-      // Obtener URL pública
-      const { data: { publicUrl } } = supabase.storage
-        .from('asset-images')
-        .getPublicUrl(filePath)
+      const publicUrl = uploadResult.publicUrl || ''
 
       setPreviewUrl(publicUrl)
       onImageUploaded(publicUrl)

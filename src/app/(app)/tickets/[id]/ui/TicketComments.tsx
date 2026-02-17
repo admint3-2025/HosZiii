@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient, getSafeUser } from '@/lib/supabase/browser'
 import { getSignedUrl } from '@/lib/storage/attachments'
+import { uploadViaProxy } from '@/lib/storage/upload-proxy'
 import { getAvatarInitial } from '@/lib/ui/avatar'
 
 function AttachmentLink({
@@ -180,17 +181,12 @@ export default function TicketComments({
           const fileExt = file.name.split('.').pop()
           const storagePath = `${ticketId}/${timestamp}-${randomStr}.${fileExt}`
 
-          // Subir a storage
-          const { error: uploadErr } = await supabase.storage
-            .from('ticket-attachments')
-            .upload(storagePath, file, {
-              cacheControl: '3600',
-              upsert: false,
-            })
+          // Subir a storage via proxy
+          const uploadResult = await uploadViaProxy(file, 'ticket-attachments', storagePath)
 
-          if (uploadErr) {
-            console.error('Error subiendo imagen:', uploadErr)
-            setError(`Error al subir imagen: ${uploadErr.message}`)
+          if (!uploadResult.success) {
+            console.error('Error subiendo imagen:', uploadResult.error)
+            setError(`Error al subir imagen: ${uploadResult.error}`)
             continue
           }
 

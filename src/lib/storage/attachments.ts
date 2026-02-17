@@ -1,4 +1,5 @@
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
+import { uploadViaProxy } from '@/lib/storage/upload-proxy'
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024 // 10MB
 const ALLOWED_FILE_TYPES = [
@@ -72,23 +73,15 @@ export async function uploadTicketAttachment(
   const fileName = `${ticketId}/${timestamp}-${randomStr}.${fileExt}`
 
   try {
-    // Subir archivo a Storage
-    const { error: uploadError } = await supabase.storage
-      .from('ticket-attachments')
-      .upload(fileName, file, {
-        cacheControl: '3600',
-        upsert: false,
-      })
+    // Subir archivo a Storage via proxy (evita problemas de red en móvil)
+    const uploadResult = await uploadViaProxy(file, 'ticket-attachments', fileName)
 
-    if (uploadError) {
-      console.error('Error uploading file:', uploadError)
-      return { success: false, error: uploadError.message }
+    if (!uploadResult.success) {
+      console.error('Error uploading file:', uploadResult.error)
+      return { success: false, error: uploadResult.error || 'Error al subir archivo' }
     }
 
-    // Obtener URL pública (firmada temporalmente)
-    const { data: urlData } = supabase.storage
-      .from('ticket-attachments')
-      .getPublicUrl(fileName)
+    const publicUrl = uploadResult.publicUrl || ''
 
     // Registrar en la base de datos
     const { error: dbError } = await supabase
@@ -112,7 +105,7 @@ export async function uploadTicketAttachment(
     return {
       success: true,
       path: fileName,
-      publicUrl: urlData.publicUrl,
+      publicUrl: publicUrl,
     }
   } catch (error) {
     console.error('Unexpected error:', error)
@@ -230,17 +223,12 @@ export async function uploadMaintenanceTicketAttachment(
   const fileName = `${ticketId}/${timestamp}-${randomStr}.${fileExt}`
 
   try {
-    // Subir archivo a Storage (bucket de mantenimiento)
-    const { error: uploadError } = await supabase.storage
-      .from('maintenance-attachments')
-      .upload(fileName, file, {
-        cacheControl: '3600',
-        upsert: false,
-      })
+    // Subir archivo a Storage via proxy (evita problemas de red en móvil)
+    const uploadResult = await uploadViaProxy(file, 'maintenance-attachments', fileName)
 
-    if (uploadError) {
-      console.error('Error uploading maintenance file:', uploadError)
-      return { success: false, error: uploadError.message }
+    if (!uploadResult.success) {
+      console.error('Error uploading maintenance file:', uploadResult.error)
+      return { success: false, error: uploadResult.error || 'Error al subir archivo' }
     }
 
     // Registrar en la base de datos (tabla de mantenimiento)
