@@ -7,6 +7,7 @@ import {
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { extractMaintenanceTicketSequence } from '@/lib/tickets/code'
 import { sendTelegramNotification, TELEGRAM_TEMPLATES } from '@/lib/telegram'
+import { recipientMatchesTicketCategory } from '@/lib/tickets/ticket-asset-category'
 
 const STATUS_LABELS: Record<string, string> = {
   NEW: 'Nuevo',
@@ -182,12 +183,12 @@ async function notifyMaintenanceLocationStaff(data: MaintenanceTicketNotificatio
 
     // Obtener supervisores/técnicos de MANTENIMIENTO en esa sede
     // Buscar en profiles.location_id Y en user_locations
+    // No filtramos por asset_category en la query — lo hacemos en JS con hub_visible_modules
     const { data: staffByProfile } = await supabase
       .from('profiles')
-      .select('id, full_name, role, asset_category')
+      .select('id, full_name, role, asset_category, hub_visible_modules')
       .eq('location_id', locationId)
       .in('role', ['agent_l1', 'agent_l2', 'supervisor'])
-      .eq('asset_category', 'MAINTENANCE')
     
     const { data: userLocations } = await supabase
       .from('user_locations')
@@ -196,27 +197,36 @@ async function notifyMaintenanceLocationStaff(data: MaintenanceTicketNotificatio
     
     const userIdsFromUserLocations = (userLocations || []).map(ul => ul.user_id)
     
-    // Si hay user_ids de user_locations, buscar sus perfiles de MANTENIMIENTO
+    // Si hay user_ids de user_locations, buscar sus perfiles
     let staffByUserLocations: any[] = []
     if (userIdsFromUserLocations.length > 0) {
       const { data: staffData } = await supabase
         .from('profiles')
-        .select('id, full_name, role, asset_category')
+        .select('id, full_name, role, asset_category, hub_visible_modules')
         .in('id', userIdsFromUserLocations)
         .in('role', ['agent_l1', 'agent_l2', 'supervisor'])
-        .eq('asset_category', 'MAINTENANCE')
       
       staffByUserLocations = staffData || []
     }
     
-    // Combinar y dedupli car por ID
+    // Combinar y deduplicar por ID
     const allStaff = [...(staffByProfile || []), ...staffByUserLocations]
     const uniqueStaff = Array.from(new Map(allStaff.map(s => [s.id, s])).values())
     
+    // Filtrar: supervisors por hub_visible_modules, agents por asset_category
+    const maintenanceStaff = uniqueStaff.filter((s: any) =>
+      recipientMatchesTicketCategory({
+        recipientAssetCategory: s.asset_category,
+        ticketCategory: 'MAINTENANCE',
+        recipientRole: s.role,
+        recipientHubModules: s.hub_visible_modules,
+      })
+    )
+    
     // Excluir al actor (quien creó el ticket)
     const filteredStaff = data.actorId 
-      ? uniqueStaff.filter(s => s.id !== data.actorId)
-      : uniqueStaff
+      ? maintenanceStaff.filter(s => s.id !== data.actorId)
+      : maintenanceStaff
     
     console.log(`[notifyMaintenanceLocationStaff] Personal de mantenimiento encontrado: ${filteredStaff.length}`)
     
@@ -385,12 +395,12 @@ export async function notifyMaintenanceTicketComment(data: MaintenanceCommentNot
         .single()
       
       if (ticket?.location_id) {
+        // Fetch all agents/supervisors at location (filter by module in JS)
         const { data: staffByProfile } = await supabase
           .from('profiles')
-          .select('id')
+          .select('id, role, asset_category, hub_visible_modules')
           .eq('location_id', ticket.location_id)
           .in('role', ['agent_l1', 'agent_l2', 'supervisor'])
-          .eq('asset_category', 'MAINTENANCE')
         
         const { data: userLocations } = await supabase
           .from('user_locations')
@@ -399,21 +409,31 @@ export async function notifyMaintenanceTicketComment(data: MaintenanceCommentNot
         
         const userIdsFromUserLocations = (userLocations || []).map((ul: { user_id: string }) => ul.user_id)
         
+        let staffByUserLocations: any[] = []
         if (userIdsFromUserLocations.length > 0) {
-          const { data: staffByUserLocations } = await supabase
+          const { data: staffData } = await supabase
             .from('profiles')
-            .select('id')
+            .select('id, role, asset_category, hub_visible_modules')
             .in('id', userIdsFromUserLocations)
             .in('role', ['agent_l1', 'agent_l2', 'supervisor'])
-            .eq('asset_category', 'MAINTENANCE')
           
-          staffByUserLocations?.forEach((s: { id: string }) => {
-            if (s.id !== data.authorId) recipientIds.add(s.id)
-          })
+          staffByUserLocations = staffData || []
         }
         
-        staffByProfile?.forEach((s: { id: string }) => {
-          if (s.id !== data.authorId) recipientIds.add(s.id)
+        // Combine and deduplicate
+        const allLocationStaff = [...(staffByProfile || []), ...staffByUserLocations]
+        const uniqueLocationStaff = Array.from(new Map(allLocationStaff.map((s: any) => [s.id, s])).values())
+        
+        // Filter: supervisors by hub_visible_modules, agents by asset_category
+        uniqueLocationStaff.forEach((s: any) => {
+          if (s.id !== data.authorId && recipientMatchesTicketCategory({
+            recipientAssetCategory: s.asset_category,
+            ticketCategory: 'MAINTENANCE',
+            recipientRole: s.role,
+            recipientHubModules: s.hub_visible_modules,
+          })) {
+            recipientIds.add(s.id)
+          }
         })
       }
     }

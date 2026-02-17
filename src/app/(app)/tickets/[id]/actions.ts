@@ -430,7 +430,7 @@ export async function escalateTicket(ticketId: string, currentLevel: number, ass
     try {
       const { data: prevProfile } = await adminClient
         .from('profiles')
-        .select('role, asset_category')
+        .select('role, asset_category, hub_visible_modules')
         .eq('id', previousAgentId)
         .single()
 
@@ -438,6 +438,7 @@ export async function escalateTicket(ticketId: string, currentLevel: number, ass
         recipientAssetCategory: (prevProfile as any)?.asset_category,
         ticketCategory,
         recipientRole: (prevProfile as any)?.role,
+        recipientHubModules: (prevProfile as any)?.hub_visible_modules,
       })
 
       if (!canNotify) {
@@ -794,7 +795,7 @@ export async function requestEscalation(ticketId: string, reason: string) {
   // Buscar supervisores de la misma sede
   const { data: supervisors } = await supabase
     .from('profiles')
-    .select('id, full_name, role, asset_category')
+    .select('id, full_name, role, asset_category, hub_visible_modules')
     .eq('location_id', profile.location_id)
     .eq('role', 'supervisor')
 
@@ -839,6 +840,7 @@ export async function requestEscalation(ticketId: string, reason: string) {
         recipientAssetCategory: (supervisor as any).asset_category,
         ticketCategory,
         recipientRole: (supervisor as any).role,
+        recipientHubModules: (supervisor as any).hub_visible_modules,
       })
 
       if (!canNotify) {

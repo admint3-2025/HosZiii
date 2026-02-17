@@ -854,7 +854,7 @@ export async function notifyLocationStaff(data: TicketNotificationData) {
     // Buscar en profiles.location_id Y en user_locations (multi-sede)
     let query = supabase
       .from('profiles')
-      .select('id, full_name, role, asset_category')
+      .select('id, full_name, role, asset_category, hub_visible_modules')
       .eq('location_id', locationId)
       .in('role', ['agent_l1', 'agent_l2', 'supervisor'])
     
@@ -882,7 +882,7 @@ export async function notifyLocationStaff(data: TicketNotificationData) {
     if (userIdsFromUserLocations.length > 0) {
       let ulQuery = supabase
         .from('profiles')
-        .select('id, full_name, role, asset_category')
+        .select('id, full_name, role, asset_category, hub_visible_modules')
         .in('id', userIdsFromUserLocations)
         .in('role', ['agent_l1', 'agent_l2', 'supervisor'])
       
@@ -903,6 +903,7 @@ export async function notifyLocationStaff(data: TicketNotificationData) {
         recipientAssetCategory: staff.asset_category,
         ticketCategory,
         recipientRole: staff.role,
+        recipientHubModules: staff.hub_visible_modules,
       }),
     )
 

@@ -50,22 +50,38 @@ export function getServiceLabelForTicketCategory(category: TicketAssetCategory):
   return category === 'MAINTENANCE' ? 'Operación y mantenimiento' : 'Mesa de Ayuda ITIL'
 }
 
+/**
+ * Determines if a recipient should receive notifications for a ticket category.
+ * 
+ * For supervisors: checks hub_visible_modules (source of truth for module access)
+ * For agents: checks asset_category (their technical specialization)
+ * For admins: always true
+ */
 export function recipientMatchesTicketCategory(params: {
   recipientAssetCategory: string | null | undefined
   ticketCategory: TicketAssetCategory
   recipientRole?: string | null | undefined
+  recipientHubModules?: Record<string, string | boolean> | null | undefined
 }): boolean {
-  const { recipientAssetCategory, ticketCategory, recipientRole } = params
+  const { recipientAssetCategory, ticketCategory, recipientRole, recipientHubModules } = params
 
   // Admins get everything
   if (recipientRole === 'admin') return true
   // If the ticket has no category, don't filter
   if (!ticketCategory) return true
-  // If the recipient has NO asset_category assigned, they should NOT get
-  // category-specific ticket notifications (previously returned true which
-  // caused supervisors without IT/MAINTENANCE assignment to receive all tickets)
-  if (!recipientAssetCategory) return false
 
+  // For supervisors: use hub_visible_modules as source of truth
+  if (recipientRole === 'supervisor') {
+    if (!recipientHubModules) return false
+    // Map ticket category to module ID
+    const moduleId = ticketCategory === 'IT' ? 'it-helpdesk' : 'mantenimiento'
+    const access = recipientHubModules[moduleId]
+    // Only supervisors with 'supervisor' level access to the module get notifications
+    return access === 'supervisor'
+  }
+
+  // For agents (agent_l1, agent_l2): use asset_category (their specialization)
+  if (!recipientAssetCategory) return false
   return recipientAssetCategory === ticketCategory
 }
 
