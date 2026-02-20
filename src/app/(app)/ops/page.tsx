@@ -76,25 +76,34 @@ export default async function OpsPage({
     ? (params.view as 'operativa' | 'riesgo' | 'financiera')
     : 'operativa'
 
-  const [calendarData, complianceData, financialData] = await Promise.all([
-    getOperationalCalendar(supabase, {
-      from: params.from ?? null,
-      to: params.to ?? null,
-      departamento: params.departamento ?? null,
-      centroCosto: params.centro_costo ?? null,
-      estado: params.estado ?? null,
-      limit: 500,
-    }),
-    getComplianceAging(supabase, {
-      asOfDate: params.as_of_date ?? null,
-      departamento: params.departamento ?? null,
-      centroCosto: params.centro_costo ?? null,
-    }),
-    getFinancialControl(supabase, {
-      departamento: params.departamento ?? null,
-      centroCosto: params.centro_costo ?? null,
-    }),
-  ])
+  let calendarData: Awaited<ReturnType<typeof getOperationalCalendar>> = []
+  let complianceData: Awaited<ReturnType<typeof getComplianceAging>> = []
+  let financialData: Awaited<ReturnType<typeof getFinancialControl>> = []
+  let loadError: string | null = null
+
+  try {
+    ;[calendarData, complianceData, financialData] = await Promise.all([
+      getOperationalCalendar(supabase, {
+        from: params.from ?? null,
+        to: params.to ?? null,
+        departamento: params.departamento ?? null,
+        centroCosto: params.centro_costo ?? null,
+        estado: params.estado ?? null,
+        limit: 500,
+      }),
+      getComplianceAging(supabase, {
+        asOfDate: params.as_of_date ?? null,
+        departamento: params.departamento ?? null,
+        centroCosto: params.centro_costo ?? null,
+      }),
+      getFinancialControl(supabase, {
+        departamento: params.departamento ?? null,
+        centroCosto: params.centro_costo ?? null,
+      }),
+    ])
+  } catch (error: any) {
+    loadError = String(error?.message ?? error)
+  }
 
   const departamentos = Array.from(
     new Set([
@@ -135,6 +144,16 @@ export default async function OpsPage({
           </div>
         </div>
       </header>
+
+      {loadError && (
+        <section className="rounded-lg border border-rose-900/60 bg-rose-950/30 p-3">
+          <p className="text-xs font-semibold text-rose-300">No se pudo cargar Operaciones</p>
+          <p className="mt-1 text-xs text-rose-200/90">
+            Verifica que la migración del módulo esté aplicada en Supabase y que existan las vistas/RPC del esquema `ops`.
+          </p>
+          <p className="mt-2 break-all text-[11px] text-rose-200/80">Detalle técnico: {loadError}</p>
+        </section>
+      )}
 
       <section className="rounded-lg border border-slate-800 bg-slate-950 p-3">
         <form className="grid grid-cols-1 gap-2 md:grid-cols-7">
