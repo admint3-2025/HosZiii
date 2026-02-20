@@ -179,6 +179,24 @@ const modules: Module[] = [
     requiredRoles: ['admin', 'supervisor'],
   },
   {
+    id: 'ops',
+    name: 'OPERACIONES',
+    description: 'Presupuestos, Agendamiento y Cumplimiento',
+    icon: (
+      <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V6a2 2 0 012-2h4a2 2 0 012 2v1" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2v-8z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 13h18" />
+      </svg>
+    ),
+    href: '/ops',
+    bgGradient: 'from-slate-500 via-slate-600 to-indigo-700',
+    iconBg: 'bg-slate-100',
+    textColor: 'text-slate-900',
+    requiredRoles: ['admin', 'supervisor'],
+    checkPermission: (profile: any) => profile?.role === 'admin' || profile?.role === 'supervisor',
+  },
+  {
     id: 'administracion',
     name: 'ADMINISTRACIÓN',
     description: 'Configuración del Sistema: Usuarios, Permisos, Auditoría',
@@ -238,6 +256,8 @@ export default async function HubPage() {
   const accessibleModules = modules.filter((m) => {
     // Admin ve todo siempre
     if (isAdmin) return true
+    // Módulos con validación explícita (ej. ops)
+    if (m.checkPermission && m.checkPermission(profile)) return true
     // Sin configuración de módulos → solo mostrar módulos con acceso universal
     if (!hubVisibleModules || typeof hubVisibleModules !== 'object') {
       // Fallback legacy: mostrar módulos según requiredRoles

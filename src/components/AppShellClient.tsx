@@ -264,6 +264,7 @@ export default function AppShellClient({
     if (pathname.startsWith('/admin')) return 'admin'
     if (pathname.startsWith('/politicas')) return 'politicas'
     if (pathname.startsWith('/corporativo')) return 'corporativo'
+    if (pathname.startsWith('/ops')) return 'ops'
     if (pathname.startsWith('/inspections')) return 'corporativo' // Inspecciones RRHH
     if (pathname.startsWith('/academia')) return 'academia'
     // Reportes: mantener en `Administración` para que el sidebar no cambie
@@ -391,8 +392,19 @@ export default function AppShellClient({
           { id: 'corp_home', label: 'Dashboard', icon: 'Dashboard', href: '/corporativo/dashboard' },
           { id: 'corp_inspecciones', label: 'Inspecciones', icon: 'ShieldCheck', href: '/corporativo/inspecciones' },
           { id: 'corp_inbox', label: 'Bandeja Inspecciones', icon: 'BarChart', href: '/inspections/inbox' },
+          { id: 'corp_ops', label: 'Operaciones', icon: 'Briefcase', href: '/ops', roles: ['admin', 'supervisor'] },
           { id: 'corp_academia', label: 'Admin Academia', icon: 'GraduationCap', href: '/corporativo/academia/admin' },
           { id: 'corp_politicas', label: 'Admin Políticas', icon: 'Book', href: '/corporativo/politicas/admin' },
+        ],
+      },
+    ],
+    ops: [
+      {
+        group: 'Operaciones',
+        items: [
+          { id: 'ops_home', label: 'Operación Unificada', icon: 'Briefcase', href: '/ops', roles: ['admin', 'supervisor'] },
+          { id: 'ops_risk', label: 'Riesgo y Cumplimiento', icon: 'BarChart', href: '/ops?view=riesgo', roles: ['admin', 'supervisor'] },
+          { id: 'ops_fin', label: 'Control Financiero', icon: 'Reports', href: '/ops?view=financiera', roles: ['admin', 'supervisor'] },
         ],
       },
     ],
@@ -417,6 +429,7 @@ export default function AppShellClient({
       {
         group: 'Administración',
         items: [
+          { id: 'admin_ops', label: 'ZIII-Ops', icon: 'Briefcase', href: '/ops', roles: ['admin'] },
           { id: 'admin_users', label: 'Usuarios', icon: 'Users', href: '/admin/users', roles: ['admin'] },
           { id: 'admin_locations', label: 'Ubicaciones', icon: 'Location', href: '/admin/locations', roles: ['admin'] },
           { id: 'admin_reports', label: 'Reportes', icon: 'Reports', href: '/reports', roles: ['admin'] },
@@ -431,6 +444,7 @@ export default function AppShellClient({
     'ama-de-llaves': [],
     helpdesk: [],
     corporativo: [],
+    ops: [],
     politicas: [],
     admin: [],
   }

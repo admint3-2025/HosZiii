@@ -64,6 +64,7 @@ export default function MobileSidebar({ userData, profile, user, open, onClose }
   const hkAccess = moduleAccess("ama-de-llaves")
   const corpAccess = moduleAccess("corporativo")
   const isAdmin = userData.role === "admin"
+  const canAccessOps = isAdmin || userData.role === 'supervisor'
   const canManageIT = itAccess === "supervisor"
   const canManageMaintenance = mntAccess === "supervisor"
 
@@ -133,6 +134,17 @@ export default function MobileSidebar({ userData, profile, user, open, onClose }
         { label: "Dashboard Corp.", href: "/corporativo/dashboard", icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg> },
         { label: "Inspecciones", href: "/corporativo/inspecciones", icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3l7 4v6c0 5-3 8-7 9-4-1-7-4-7-9V7l7-4z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4" /></svg> },
         { label: "Bandeja Inspecciones", href: "/inspections/inbox", icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 19V5m0 14h16" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 17V9m4 8V7m4 10v-5" /></svg> },
+      ],
+    })
+  }
+
+  // Operaciones
+  if (canAccessOps) {
+    sections.push({
+      title: 'Operaciones',
+      links: [
+        { label: 'Operación Unificada', href: '/ops', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V6a2 2 0 012-2h4a2 2 0 012 2v1" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2v-8z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 13h18" /></svg> },
+        { label: 'Riesgo y Cumplimiento', href: '/ops?view=riesgo', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 19V5m0 14h16" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 17V9m4 8V7m4 10v-5" /></svg> },
       ],
     })
   }
