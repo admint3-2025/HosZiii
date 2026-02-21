@@ -429,7 +429,7 @@ export default function AppShellClient({
       {
         group: 'Administración',
         items: [
-          { id: 'admin_ops', label: 'ZIII-Ops', icon: 'Briefcase', href: '/ops', roles: ['admin'] },
+          { id: 'admin_ops', label: 'Operaciones', icon: 'Briefcase', href: '/ops', roles: ['admin'] },
           { id: 'admin_users', label: 'Usuarios', icon: 'Users', href: '/admin/users', roles: ['admin'] },
           { id: 'admin_locations', label: 'Ubicaciones', icon: 'Location', href: '/admin/locations', roles: ['admin'] },
           { id: 'admin_reports', label: 'Reportes', icon: 'Reports', href: '/reports', roles: ['admin'] },
