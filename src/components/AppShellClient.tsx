@@ -392,7 +392,8 @@ export default function AppShellClient({
           { id: 'corp_home', label: 'Dashboard', icon: 'Dashboard', href: '/corporativo/dashboard' },
           { id: 'corp_inspecciones', label: 'Inspecciones', icon: 'ShieldCheck', href: '/corporativo/inspecciones' },
           { id: 'corp_inbox', label: 'Bandeja Inspecciones', icon: 'BarChart', href: '/inspections/inbox' },
-          { id: 'corp_ops', label: 'Operaciones', icon: 'Briefcase', href: '/ops', roles: ['admin', 'supervisor'] },
+          { id: 'corp_ops', label: 'Ops Dashboard', icon: 'Briefcase', href: '/ops', roles: ['admin', 'supervisor'] },
+          { id: 'corp_ops_manage', label: 'Ops Gestión', icon: 'Wrench', href: '/ops/gestion', roles: ['admin', 'supervisor'] },
           { id: 'corp_academia', label: 'Admin Academia', icon: 'GraduationCap', href: '/corporativo/academia/admin' },
           { id: 'corp_politicas', label: 'Admin Políticas', icon: 'Book', href: '/corporativo/politicas/admin' },
         ],
@@ -402,7 +403,8 @@ export default function AppShellClient({
       {
         group: 'Operaciones',
         items: [
-          { id: 'ops_home', label: 'Operación Unificada', icon: 'Briefcase', href: '/ops', roles: ['admin', 'supervisor'] },
+          { id: 'ops_home', label: 'Dashboard', icon: 'Dashboard', href: '/ops', roles: ['admin', 'supervisor'] },
+          { id: 'ops_manage', label: 'Gestión', icon: 'Wrench', href: '/ops/gestion', roles: ['admin', 'supervisor'] },
           { id: 'ops_risk', label: 'Riesgo y Cumplimiento', icon: 'BarChart', href: '/ops?view=riesgo', roles: ['admin', 'supervisor'] },
           { id: 'ops_fin', label: 'Control Financiero', icon: 'Reports', href: '/ops?view=financiera', roles: ['admin', 'supervisor'] },
         ],

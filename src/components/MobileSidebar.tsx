@@ -143,7 +143,8 @@ export default function MobileSidebar({ userData, profile, user, open, onClose }
     sections.push({
       title: 'Operaciones',
       links: [
-        { label: 'Operación Unificada', href: '/ops', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V6a2 2 0 012-2h4a2 2 0 012 2v1" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2v-8z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 13h18" /></svg> },
+        { label: 'Dashboard', href: '/ops', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg> },
+        { label: 'Gestión', href: '/ops/gestion', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 2.5a6.5 6.5 0 01-9.2 8.3L7 15.6V19H4v-3.4l4.8-4.8A6.5 6.5 0 1119.5 3l-3 3 2.5 2.5 2-2z" /></svg> },
         { label: 'Riesgo y Cumplimiento', href: '/ops?view=riesgo', icon: <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 19V5m0 14h16" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 17V9m4 8V7m4 10v-5" /></svg> },
       ],
     })
