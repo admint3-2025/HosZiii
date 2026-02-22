@@ -28,10 +28,10 @@ const STATUS_LABELS: Record<string, string> = {
 }
 
 const STATUS_DOT: Record<string, string> = {
-  pendiente: 'bg-slate-400',
-  en_proceso: 'bg-blue-400',
-  completado: 'bg-emerald-400',
-  cancelado: 'bg-rose-400',
+  pendiente: 'bg-gray-400',
+  en_proceso: 'bg-blue-500',
+  completado: 'bg-emerald-500',
+  cancelado: 'bg-rose-500',
 }
 
 function buildHref(view: string, params: OpsSearchParams) {
@@ -55,12 +55,12 @@ function SemaphoreDot({ flag }: { flag: 'GREEN' | 'YELLOW' | 'RED' }) {
 }
 
 function StatusPill({ value }: { value: string }) {
-  const dot = STATUS_DOT[value] || 'bg-slate-500'
+  const dot = STATUS_DOT[value] || 'bg-gray-400'
   const label = STATUS_LABELS[value] || value
   return (
     <span className="inline-flex items-center gap-1.5">
       <span className={`h-2 w-2 rounded-full ${dot}`} />
-      <span className="text-[13px] text-slate-300">{label}</span>
+      <span className="text-[13px] text-gray-600">{label}</span>
     </span>
   )
 }
@@ -81,10 +81,10 @@ function formatShortDate(value: string) {
 
 // Reusable card wrapper
 function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <div className={`rounded-xl border border-white/[0.06] bg-gradient-to-b from-slate-900/80 to-slate-950/90 shadow-xl shadow-black/20 ${className}`}>{children}</div>
+  return <div className={`rounded-xl border border-gray-200 bg-white shadow-sm ${className}`}>{children}</div>
 }
 
-const inputCls = 'h-10 w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 text-sm text-slate-200 placeholder:text-slate-600 focus:border-indigo-500/50 focus:bg-white/[0.06] focus:outline-none focus:ring-1 focus:ring-indigo-500/30 transition-all'
+const inputCls = 'h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all'
 
 export default async function OpsPage({
   searchParams,
@@ -157,13 +157,13 @@ export default async function OpsPage({
       {/* ── Header ─────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white tracking-tight">Dashboard Operacional</h1>
-          <p className="text-sm text-slate-500 mt-0.5">Presupuestos · Agenda · Cumplimiento</p>
+          <h1 className="text-xl font-bold text-gray-900 tracking-tight">Dashboard Operacional</h1>
+          <p className="text-sm text-gray-500 mt-0.5">Presupuestos · Agenda · Cumplimiento</p>
         </div>
         <div className="flex items-center gap-3">
           <Link
             href="/ops/gestion"
-            className="inline-flex items-center gap-2 rounded-lg bg-indigo-500/15 border border-indigo-500/25 px-4 py-2.5 text-sm font-medium text-indigo-300 hover:bg-indigo-500/25 transition-all"
+            className="inline-flex items-center gap-2 rounded-lg bg-blue-50 border border-blue-200 px-4 py-2.5 text-sm font-medium text-blue-700 hover:bg-blue-100 transition-all shadow-sm"
           >
             <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
             Gestión
@@ -174,19 +174,19 @@ export default async function OpsPage({
       {/* ── KPI Cards ──────────────────────────────────────────────── */}
       <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
         {[
-          { label: 'Vencidos', value: totals.overdue, color: 'text-slate-100', dot: 'bg-slate-400', sub: 'overdue items' },
-          { label: 'Advertencia', value: totals.yellow, color: 'text-amber-300', dot: 'bg-amber-400 shadow-amber-400/50', sub: 'alerta amarilla' },
-          { label: 'Críticos', value: totals.red, color: 'text-rose-300', dot: 'bg-rose-400 shadow-rose-400/50', sub: 'alerta roja' },
-          { label: 'Impacto Total', value: formatMoney(totals.impact), color: 'text-white', dot: 'bg-indigo-400 shadow-indigo-400/50', sub: 'financiero' },
+          { label: 'Vencidos', value: totals.overdue, color: 'text-gray-900', dot: 'bg-gray-400', sub: 'overdue items' },
+          { label: 'Advertencia', value: totals.yellow, color: 'text-amber-600', dot: 'bg-amber-500', sub: 'alerta amarilla' },
+          { label: 'Críticos', value: totals.red, color: 'text-rose-600', dot: 'bg-rose-500', sub: 'alerta roja' },
+          { label: 'Impacto Total', value: formatMoney(totals.impact), color: 'text-gray-900', dot: 'bg-blue-500', sub: 'financiero' },
         ].map((kpi) => (
           <Card key={kpi.label}>
             <div className="px-4 py-3.5">
               <div className="flex items-center gap-2 mb-1.5">
-                <span className={`h-2.5 w-2.5 rounded-full shadow-sm ${kpi.dot}`} />
-                <span className="text-sm text-slate-400">{kpi.label}</span>
+                <span className={`h-2.5 w-2.5 rounded-full ${kpi.dot}`} />
+                <span className="text-sm text-gray-500">{kpi.label}</span>
               </div>
               <p className={`text-2xl font-bold ${kpi.color}`}>{kpi.value}</p>
-              <p className="text-xs text-slate-600 mt-0.5">{kpi.sub}</p>
+              <p className="text-xs text-gray-400 mt-0.5">{kpi.sub}</p>
             </div>
           </Card>
         ))}
@@ -194,12 +194,12 @@ export default async function OpsPage({
 
       {/* ── Error ──────────────────────────────────────────────────── */}
       {loadError && (
-        <div className="flex items-center gap-3 rounded-xl border border-rose-500/20 bg-rose-500/[0.06] px-5 py-3">
-          <span className="h-2.5 w-2.5 rounded-full bg-rose-400 shadow-sm shadow-rose-400/50" />
+        <div className="flex items-center gap-3 rounded-xl border border-rose-200 bg-rose-50 px-5 py-3">
+          <span className="h-2.5 w-2.5 rounded-full bg-rose-500" />
           <div className="flex-1">
-            <p className="text-sm font-semibold text-rose-300">No se pudo cargar Operaciones</p>
-            <p className="text-sm text-rose-200/80 mt-0.5">Verifica la migración del esquema ops en Supabase.</p>
-            <p className="break-all text-xs text-rose-200/60 mt-1">{loadError}</p>
+            <p className="text-sm font-semibold text-rose-700">No se pudo cargar Operaciones</p>
+            <p className="text-sm text-rose-600 mt-0.5">Verifica la migración del esquema ops en Supabase.</p>
+            <p className="break-all text-xs text-rose-500 mt-1">{loadError}</p>
           </div>
         </div>
       )}
@@ -236,7 +236,7 @@ export default async function OpsPage({
             <input name="to" type="date" defaultValue={params.to || ''} className={inputCls} title="Hasta" />
             <input name="as_of_date" type="date" defaultValue={params.as_of_date || ''} className={inputCls} title="Fecha de corte" />
 
-            <button type="submit" className="h-10 rounded-lg bg-indigo-500 px-4 text-sm font-semibold text-white hover:bg-indigo-400 shadow-lg shadow-indigo-500/20 transition-all">
+            <button type="submit" className="h-10 rounded-lg bg-blue-600 px-4 text-sm font-semibold text-white hover:bg-blue-700 shadow-sm transition-all">
               Aplicar filtros
             </button>
           </form>
@@ -244,7 +244,7 @@ export default async function OpsPage({
       </Card>
 
       {/* ── Tabs ───────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-1 rounded-xl border border-white/[0.06] bg-white/[0.02] p-1">
+      <div className="flex items-center gap-1 rounded-xl border border-gray-200 bg-gray-50 p-1">
         {VIEW_TABS.map((t) => {
           const active = t.key === view
           return (
@@ -253,8 +253,8 @@ export default async function OpsPage({
               href={buildHref(t.key, params)}
               className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 rounded-lg px-5 py-2.5 text-sm font-medium transition-all ${
                 active
-                  ? 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/25 shadow-sm shadow-indigo-500/10'
-                  : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04] border border-transparent'
+                  ? 'bg-white text-blue-700 border border-gray-200 shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700 hover:bg-white/60 border border-transparent'
               }`}
             >
               <span>{t.icon}</span>
@@ -267,40 +267,40 @@ export default async function OpsPage({
       {/* ═══════════════ VISTA OPERATIVA ═══════════════ */}
       {view === 'operativa' && (
         <Card>
-          <div className="border-b border-white/[0.06] px-5 py-3.5">
-            <h2 className="text-base font-semibold text-white">Calendario Operativo</h2>
-            <p className="text-sm text-slate-500 mt-0.5">{calendarData.length} registros · Semáforo por aging</p>
+          <div className="border-b border-gray-100 px-5 py-3.5">
+            <h2 className="text-base font-semibold text-gray-900">Calendario Operativo</h2>
+            <p className="text-sm text-gray-500 mt-0.5">{calendarData.length} registros · Semáforo por aging</p>
           </div>
           <div className="overflow-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-white/[0.06]">
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Semáforo</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Aging</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Vence</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Entidad</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Plan</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Departamento</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Estado</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">Estimado</th>
+                <tr className="border-b border-gray-100 bg-gray-50">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Semáforo</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Aging</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Vence</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Entidad</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Plan</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Departamento</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Estado</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">Estimado</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/[0.04]">
+              <tbody className="divide-y divide-gray-50">
                 {calendarData.map((row) => (
-                  <tr key={row.agenda_id} className="hover:bg-white/[0.02] transition-colors">
+                  <tr key={row.agenda_id} className="hover:bg-gray-50 transition-colors">
                     <td className="px-4 py-2.5"><SemaphoreDot flag={row.semaforo} /></td>
-                    <td className="px-4 py-2.5 text-sm font-mono text-slate-300">{row.aging_days}d</td>
-                    <td className="px-4 py-2.5 text-sm text-slate-300">{formatShortDate(row.due_date)}</td>
-                    <td className="px-4 py-2.5 text-sm text-slate-200 font-medium">{row.entidad_objetivo}</td>
-                    <td className="px-4 py-2.5 text-sm text-slate-300 max-w-[280px] truncate">{row.plan_nombre}</td>
-                    <td className="px-4 py-2.5 text-sm text-slate-400">{row.departamento_dueno}</td>
+                    <td className="px-4 py-2.5 text-sm font-mono text-gray-600">{row.aging_days}d</td>
+                    <td className="px-4 py-2.5 text-sm text-gray-600">{formatShortDate(row.due_date)}</td>
+                    <td className="px-4 py-2.5 text-sm text-gray-900 font-medium">{row.entidad_objetivo}</td>
+                    <td className="px-4 py-2.5 text-sm text-gray-600 max-w-[280px] truncate">{row.plan_nombre}</td>
+                    <td className="px-4 py-2.5 text-sm text-gray-500">{row.departamento_dueno}</td>
                     <td className="px-4 py-2.5"><StatusPill value={row.estado} /></td>
-                    <td className="px-4 py-2.5 text-sm text-right font-medium text-slate-200">{formatMoney(row.monto_estimado)}</td>
+                    <td className="px-4 py-2.5 text-sm text-right font-medium text-gray-900">{formatMoney(row.monto_estimado)}</td>
                   </tr>
                 ))}
                 {calendarData.length === 0 && (
                   <tr>
-                    <td colSpan={8} className="px-4 py-10 text-center text-sm text-slate-600">Sin registros operativos para los filtros seleccionados.</td>
+                    <td colSpan={8} className="px-4 py-10 text-center text-sm text-gray-400">Sin registros operativos para los filtros seleccionados.</td>
                   </tr>
                 )}
               </tbody>
@@ -312,40 +312,40 @@ export default async function OpsPage({
       {/* ═══════════════ RIESGO Y CUMPLIMIENTO ═══════════════ */}
       {view === 'riesgo' && (
         <Card>
-          <div className="border-b border-white/[0.06] px-5 py-3.5">
-            <h2 className="text-base font-semibold text-white">Matriz de Riesgo y Cumplimiento</h2>
-            <p className="text-sm text-slate-500 mt-0.5">{complianceData.filter((x) => x.aging_days > 0).length} ítems vencidos</p>
+          <div className="border-b border-gray-100 px-5 py-3.5">
+            <h2 className="text-base font-semibold text-gray-900">Matriz de Riesgo y Cumplimiento</h2>
+            <p className="text-sm text-gray-500 mt-0.5">{complianceData.filter((x) => x.aging_days > 0).length} ítems vencidos</p>
           </div>
           <div className="overflow-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-white/[0.06]">
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Alerta</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Aging</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Vence</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Departamento</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Entidad</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Plan</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">Impacto</th>
+                <tr className="border-b border-gray-100 bg-gray-50">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Alerta</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Aging</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Vence</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Departamento</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Entidad</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Plan</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">Impacto</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/[0.04]">
+              <tbody className="divide-y divide-gray-50">
                 {complianceData
                   .filter((x) => x.aging_days > 0)
                   .map((row) => (
-                    <tr key={row.agenda_id} className="hover:bg-white/[0.02] transition-colors">
+                    <tr key={row.agenda_id} className="hover:bg-gray-50 transition-colors">
                       <td className="px-4 py-2.5"><SemaphoreDot flag={row.alert_flag} /></td>
-                      <td className="px-4 py-2.5 text-sm font-mono text-slate-300">{row.aging_days}d</td>
-                      <td className="px-4 py-2.5 text-sm text-slate-300">{formatShortDate(row.due_date)}</td>
-                      <td className="px-4 py-2.5 text-sm text-slate-200 font-medium">{row.departamento}</td>
-                      <td className="px-4 py-2.5 text-sm text-slate-300">{row.entidad_objetivo}</td>
-                      <td className="px-4 py-2.5 text-sm text-slate-300 max-w-[280px] truncate">{row.plan_nombre}</td>
-                      <td className="px-4 py-2.5 text-sm text-right font-medium text-rose-300">{formatMoney(row.impacto_financiero)}</td>
+                      <td className="px-4 py-2.5 text-sm font-mono text-gray-600">{row.aging_days}d</td>
+                      <td className="px-4 py-2.5 text-sm text-gray-600">{formatShortDate(row.due_date)}</td>
+                      <td className="px-4 py-2.5 text-sm text-gray-900 font-medium">{row.departamento}</td>
+                      <td className="px-4 py-2.5 text-sm text-gray-600">{row.entidad_objetivo}</td>
+                      <td className="px-4 py-2.5 text-sm text-gray-600 max-w-[280px] truncate">{row.plan_nombre}</td>
+                      <td className="px-4 py-2.5 text-sm text-right font-medium text-rose-600">{formatMoney(row.impacto_financiero)}</td>
                     </tr>
                   ))}
                 {complianceData.filter((x) => x.aging_days > 0).length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-600">Sin ítems vencidos (Aging &gt; 0) en este momento.</td>
+                    <td colSpan={7} className="px-4 py-10 text-center text-sm text-gray-400">Sin ítems vencidos (Aging &gt; 0) en este momento.</td>
                   </tr>
                 )}
               </tbody>
@@ -357,33 +357,33 @@ export default async function OpsPage({
       {/* ═══════════════ CONTROL FINANCIERO ═══════════════ */}
       {view === 'financiera' && (
         <Card>
-          <div className="border-b border-white/[0.06] px-5 py-3.5">
-            <h2 className="text-base font-semibold text-white">Control Financiero</h2>
-            <p className="text-sm text-slate-500 mt-0.5">{financialData.length} planes · Planeado vs Real</p>
+          <div className="border-b border-gray-100 px-5 py-3.5">
+            <h2 className="text-base font-semibold text-gray-900">Control Financiero</h2>
+            <p className="text-sm text-gray-500 mt-0.5">{financialData.length} planes · Planeado vs Real</p>
           </div>
           <div className="overflow-auto">
             <table className="w-full">
               <thead>
-                <tr className="border-b border-white/[0.06]">
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Plan</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Departamento</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Centro Costo</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">Planeado</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">Real</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">Variación</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">Var %</th>
+                <tr className="border-b border-gray-100 bg-gray-50">
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Plan</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Departamento</th>
+                  <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Centro Costo</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">Planeado</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">Real</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">Variación</th>
+                  <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">Var %</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-white/[0.04]">
+              <tbody className="divide-y divide-gray-50">
                 {financialData.map((row) => {
-                  const varianceClass = Number(row.variacion_abs) > 0 ? 'text-rose-300' : 'text-emerald-300'
+                  const varianceClass = Number(row.variacion_abs) > 0 ? 'text-rose-600' : 'text-emerald-600'
                   return (
-                    <tr key={row.plan_id} className="hover:bg-white/[0.02] transition-colors">
-                      <td className="px-4 py-2.5 text-sm text-slate-200 font-medium max-w-[300px] truncate">{row.plan_nombre}</td>
-                      <td className="px-4 py-2.5 text-sm text-slate-300">{row.departamento_dueno}</td>
-                      <td className="px-4 py-2.5 text-sm text-slate-400">{row.centro_costo || '-'}</td>
-                      <td className="px-4 py-2.5 text-sm text-right text-slate-200">{formatMoney(row.monto_total_planeado, row.moneda)}</td>
-                      <td className="px-4 py-2.5 text-sm text-right text-slate-200">{formatMoney(row.monto_real_total, row.moneda)}</td>
+                    <tr key={row.plan_id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-2.5 text-sm text-gray-900 font-medium max-w-[300px] truncate">{row.plan_nombre}</td>
+                      <td className="px-4 py-2.5 text-sm text-gray-600">{row.departamento_dueno}</td>
+                      <td className="px-4 py-2.5 text-sm text-gray-500">{row.centro_costo || '-'}</td>
+                      <td className="px-4 py-2.5 text-sm text-right text-gray-900">{formatMoney(row.monto_total_planeado, row.moneda)}</td>
+                      <td className="px-4 py-2.5 text-sm text-right text-gray-900">{formatMoney(row.monto_real_total, row.moneda)}</td>
                       <td className={`px-4 py-2.5 text-sm text-right font-semibold ${varianceClass}`}>{formatMoney(row.variacion_abs, row.moneda)}</td>
                       <td className={`px-4 py-2.5 text-sm text-right font-semibold ${varianceClass}`}>{Number(row.variacion_pct || 0).toFixed(1)}%</td>
                     </tr>
@@ -391,7 +391,7 @@ export default async function OpsPage({
                 })}
                 {financialData.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-10 text-center text-sm text-slate-600">Sin datos financieros para los filtros seleccionados.</td>
+                    <td colSpan={7} className="px-4 py-10 text-center text-sm text-gray-400">Sin datos financieros para los filtros seleccionados.</td>
                   </tr>
                 )}
               </tbody>

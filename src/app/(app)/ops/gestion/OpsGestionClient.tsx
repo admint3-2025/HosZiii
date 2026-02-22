@@ -2,12 +2,15 @@
 
 import { useEffect, useState, useCallback } from 'react'
 import Link from 'next/link'
+import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 
 // ── Tipos ─────────────────────────────────────────────────────────────
 type Responsable = { id: string; codigo: string | null; nombre: string; tipo: string; departamento: string | null; email: string | null; activo: boolean }
 type Entidad = { id: string; codigo: string | null; nombre: string; tipo_entidad: string; categoria: string; departamento: string; centro_costo: string | null; responsable_proveedor_id: string | null; responsable: { nombre: string } | null }
 type Plan = { id: string; codigo_plan: string | null; nombre: string; descripcion: string | null; departamento_dueno: string; centro_costo: string | null; moneda: string; entidad_objetivo_id: string; frecuencia_tipo: string; frecuencia_intervalo: number; fecha_inicio: string; fecha_fin: string; monto_total_planeado: number; esfuerzo_total_planeado: number; estado: string; entidad: { nombre: string } | null; responsable: { nombre: string } | null }
 type AgendaItem = { id: string; ocurrencia_nro: number; due_date: string; monto_estimado: number; estado: string; prioridad: string }
+type Department = { id: string; name: string; code: string | null }
+type UserProfile = { role: string; departamento: string | null; allowed_departments: string[] | null; is_corporate: boolean; full_name: string | null }
 
 const TABS = [
   { key: 'planes' as const, label: 'Planes Maestros', icon: '📋' },
@@ -21,14 +24,20 @@ const FREQ_LABELS: Record<string, string> = {
   quarterly: 'Trimestral', yearly: 'Anual', custom_days: 'Personalizado',
 }
 
-const ESTADO_DOT: Record<string, string> = {
-  activo: 'bg-emerald-400 shadow-emerald-400/50',
-  pausado: 'bg-amber-400 shadow-amber-400/50',
-  cerrado: 'bg-slate-500 shadow-slate-500/40',
-  pendiente: 'bg-slate-400 shadow-slate-400/40',
-  en_proceso: 'bg-blue-400 shadow-blue-400/50',
-  completado: 'bg-emerald-400 shadow-emerald-400/50',
-  cancelado: 'bg-rose-400 shadow-rose-400/50',
+const ESTADO_COLORS: Record<string, { bg: string; text: string; dot: string }> = {
+  activo:     { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500' },
+  pausado:    { bg: 'bg-amber-50',   text: 'text-amber-700',   dot: 'bg-amber-500' },
+  cerrado:    { bg: 'bg-gray-100',   text: 'text-gray-600',    dot: 'bg-gray-400' },
+  pendiente:  { bg: 'bg-gray-50',    text: 'text-gray-600',    dot: 'bg-gray-400' },
+  en_proceso: { bg: 'bg-blue-50',    text: 'text-blue-700',    dot: 'bg-blue-500' },
+  completado: { bg: 'bg-emerald-50', text: 'text-emerald-700', dot: 'bg-emerald-500' },
+  cancelado:  { bg: 'bg-rose-50',    text: 'text-rose-700',    dot: 'bg-rose-500' },
+  interno:    { bg: 'bg-blue-50',    text: 'text-blue-700',    dot: 'bg-blue-500' },
+  externo:    { bg: 'bg-purple-50',  text: 'text-purple-700',  dot: 'bg-purple-500' },
+  baja:       { bg: 'bg-gray-50',    text: 'text-gray-600',    dot: 'bg-gray-400' },
+  media:      { bg: 'bg-amber-50',   text: 'text-amber-700',   dot: 'bg-amber-500' },
+  alta:       { bg: 'bg-orange-50',  text: 'text-orange-700',  dot: 'bg-orange-500' },
+  critica:    { bg: 'bg-rose-50',    text: 'text-rose-700',    dot: 'bg-rose-500' },
 }
 
 const ESTADO_LABEL: Record<string, string> = {
@@ -40,12 +49,12 @@ const ESTADO_LABEL: Record<string, string> = {
 }
 
 function StatusBadge({ value }: { value: string }) {
-  const dot = ESTADO_DOT[value] || 'bg-slate-500'
+  const c = ESTADO_COLORS[value] || { bg: 'bg-gray-100', text: 'text-gray-600', dot: 'bg-gray-400' }
   const label = ESTADO_LABEL[value] || value.replace('_', ' ')
   return (
-    <span className="inline-flex items-center gap-1.5">
-      <span className={`h-2.5 w-2.5 rounded-full shadow-sm ${dot}`} />
-      <span className="text-sm font-medium text-slate-300 capitalize">{label}</span>
+    <span className={`inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 ${c.bg}`}>
+      <span className={`h-2 w-2 rounded-full ${c.dot}`} />
+      <span className={`text-sm font-medium capitalize ${c.text}`}>{label}</span>
     </span>
   )
 }
@@ -60,17 +69,17 @@ function formatShortDate(value: string) {
   return d.toLocaleDateString('es-MX', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-// ── Componentes de UI reutilizables ───────────────────────────────────
+// ── Componentes de UI reutilizables (Light Theme) ─────────────────────
 function Card({ children, className = '' }: { children: React.ReactNode; className?: string }) {
-  return <div className={`rounded-xl border border-white/[0.06] bg-gradient-to-b from-slate-900/80 to-slate-950/90 shadow-xl shadow-black/20 backdrop-blur ${className}`}>{children}</div>
+  return <div className={`rounded-xl border border-gray-200 bg-white shadow-sm ${className}`}>{children}</div>
 }
 
 function CardHeader({ title, subtitle, action }: { title: string; subtitle?: string; action?: React.ReactNode }) {
   return (
-    <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-3.5">
+    <div className="flex items-center justify-between border-b border-gray-100 px-5 py-3.5">
       <div>
-        <h2 className="text-base font-semibold text-white">{title}</h2>
-        {subtitle && <p className="text-sm text-slate-500 mt-0.5">{subtitle}</p>}
+        <h2 className="text-base font-semibold text-gray-900">{title}</h2>
+        {subtitle && <p className="text-sm text-gray-500 mt-0.5">{subtitle}</p>}
       </div>
       {action}
     </div>
@@ -78,7 +87,7 @@ function CardHeader({ title, subtitle, action }: { title: string; subtitle?: str
 }
 
 function EmptyRow({ cols, text }: { cols: number; text: string }) {
-  return <tr><td colSpan={cols} className="px-4 py-8 text-center text-sm text-slate-600">{text}</td></tr>
+  return <tr><td colSpan={cols} className="px-4 py-8 text-center text-sm text-gray-400">{text}</td></tr>
 }
 
 // ── Componente principal ──────────────────────────────────────────────
@@ -98,8 +107,50 @@ export default function OpsGestionClient() {
   const [showNewEnt, setShowNewEnt] = useState(false)
   const [showNewPlan, setShowNewPlan] = useState(false)
 
+  // ── Departamentos corporativos y perfil de usuario ──────────────────
+  const [departments, setDepartments] = useState<Department[]>([])
+  const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
+
   const clearMessages = () => { setError(null); setSuccess(null) }
   const flash = (msg: string) => { setSuccess(msg); setTimeout(() => setSuccess(null), 4000) }
+
+  // ── Cargar perfil de usuario y departamentos al montar ──────────────
+  useEffect(() => {
+    const loadInit = async () => {
+      const supabase = createSupabaseBrowserClient()
+      const { data: { user } } = await supabase.auth.getUser()
+      if (user) {
+        const { data: prof } = await supabase
+          .from('profiles')
+          .select('role, departamento, allowed_departments, is_corporate, full_name')
+          .eq('id', user.id)
+          .single()
+        if (prof) setUserProfile(prof as UserProfile)
+      }
+      const { data: depts } = await supabase
+        .from('departments')
+        .select('id, name, code')
+        .eq('is_active', true)
+        .order('name')
+      if (depts) setDepartments(depts)
+    }
+    loadInit()
+  }, [])
+
+  // Departamentos filtrados: admin ve todos, supervisor solo los asignados
+  const visibleDepartments = (() => {
+    if (!userProfile) return departments
+    if (userProfile.role === 'admin') return departments
+    const allowed = userProfile.allowed_departments
+    if (allowed && allowed.length > 0) {
+      const set = new Set(allowed.map(d => d.toLowerCase().trim()))
+      return departments.filter(d => set.has(d.name.toLowerCase().trim()))
+    }
+    if (userProfile.departamento) {
+      return departments.filter(d => d.name.toLowerCase().trim() === userProfile.departamento!.toLowerCase().trim())
+    }
+    return departments
+  })()
 
   // ── Fetchers ────────────────────────────────────────────────────────
   const fetchResponsables = useCallback(async () => {
@@ -138,6 +189,14 @@ export default function OpsGestionClient() {
     }
     run()
   }, [tab, fetchResponsables, fetchEntidades, fetchPlanes])
+
+  // Planes filtrados por departamentos visibles del supervisor
+  const filteredPlanes = (() => {
+    if (!userProfile) return planes
+    if (userProfile.role === 'admin') return planes
+    const deptNames = new Set(visibleDepartments.map(d => d.name.toLowerCase().trim()))
+    return planes.filter(p => deptNames.has((p.departamento_dueno || '').toLowerCase().trim()))
+  })()
 
   // ── Handlers ────────────────────────────────────────────────────────
   async function handleCreateResponsable(e: React.FormEvent<HTMLFormElement>) {
@@ -233,16 +292,16 @@ export default function OpsGestionClient() {
     catch (err: any) { setError(String(err?.message ?? err)) } finally { setLoading(false) }
   }
 
-  // ── Shared styles ───────────────────────────────────────────────────
-  const inputCls = 'h-10 w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 text-sm text-slate-200 placeholder:text-slate-600 focus:border-indigo-500/50 focus:bg-white/[0.06] focus:outline-none focus:ring-1 focus:ring-indigo-500/30 transition-all'
-  const selectCls = `${inputCls} appearance-none`
+  // ── Shared styles (Light theme) ─────────────────────────────────────
+  const inputCls = 'h-10 w-full rounded-lg border border-gray-300 bg-white px-3 text-sm text-gray-900 placeholder:text-gray-400 focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-500/20 transition-all'
+  const selectCls = inputCls
 
   const selectedPlan = planes.find(p => p.id === selectedPlanId)
 
   // ── Stats ───────────────────────────────────────────────────────────
   const stats = {
-    planes: planes.length,
-    activos: planes.filter(p => p.estado === 'activo').length,
+    planes: filteredPlanes.length,
+    activos: filteredPlanes.filter(p => p.estado === 'activo').length,
     entidades: entidades.length,
     responsables: responsables.length,
   }
@@ -252,28 +311,32 @@ export default function OpsGestionClient() {
       {/* ── Header ─────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-xl font-bold text-white tracking-tight">Gestión Operacional</h1>
-          <p className="text-sm text-slate-500">Catálogos · Planes Maestros · Agenda</p>
+          <h1 className="text-xl font-bold text-gray-900 tracking-tight">Gestión Operacional</h1>
+          <p className="text-sm text-gray-500">
+            Catálogos · Planes Maestros · Agenda
+            {userProfile && userProfile.role !== 'admin' && userProfile.departamento && (
+              <span className="ml-2 text-blue-600 font-medium">· {userProfile.departamento}</span>
+            )}
+          </p>
         </div>
         <div className="flex items-center gap-3">
-          {/* Mini stats */}
           <div className="hidden md:flex items-center gap-2">
             {[
-              { n: stats.planes, l: 'Planes', color: 'text-indigo-400' },
-              { n: stats.activos, l: 'Activos', color: 'text-emerald-400' },
-              { n: stats.entidades, l: 'Entidades', color: 'text-amber-400' },
+              { n: stats.planes, l: 'Planes', color: 'text-blue-600' },
+              { n: stats.activos, l: 'Activos', color: 'text-emerald-600' },
+              { n: stats.entidades, l: 'Entidades', color: 'text-amber-600' },
             ].map(s => (
-              <div key={s.l} className="flex items-center gap-1.5 rounded-lg border border-white/[0.06] bg-white/[0.03] px-2.5 py-1.5">
+              <div key={s.l} className="flex items-center gap-1.5 rounded-lg border border-gray-200 bg-gray-50 px-2.5 py-1.5">
                 <span className={`text-base font-bold ${s.color}`}>{s.n}</span>
-                <span className="text-xs text-slate-500">{s.l}</span>
+                <span className="text-xs text-gray-500">{s.l}</span>
               </div>
             ))}
           </div>
           <Link
             href="/ops"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm font-medium text-slate-300 hover:bg-white/[0.08] hover:text-white transition-all"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all shadow-sm"
           >
-            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
             Dashboard
           </Link>
         </div>
@@ -281,37 +344,37 @@ export default function OpsGestionClient() {
 
       {/* ── Messages ───────────────────────────────────────────────── */}
       {error && (
-        <div className="flex items-center gap-3 rounded-lg border border-rose-500/20 bg-rose-500/[0.06] px-4 py-2.5 animate-in fade-in duration-200">
-          <span className="h-2 w-2 rounded-full bg-rose-400 shadow-sm shadow-rose-400/50" />
-          <p className="flex-1 text-sm text-rose-300">{error}</p>
-          <button onClick={clearMessages} className="text-xs text-rose-400/70 hover:text-rose-300">✕</button>
+        <div className="flex items-center gap-3 rounded-lg border border-rose-200 bg-rose-50 px-4 py-2.5">
+          <span className="h-2 w-2 rounded-full bg-rose-500" />
+          <p className="flex-1 text-sm text-rose-700">{error}</p>
+          <button onClick={clearMessages} className="text-xs text-rose-400 hover:text-rose-600">✕</button>
         </div>
       )}
       {success && (
-        <div className="flex items-center gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] px-4 py-2.5 animate-in fade-in duration-200">
-          <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50" />
-          <p className="flex-1 text-sm text-emerald-300">{success}</p>
-          <button onClick={clearMessages} className="text-xs text-emerald-400/70 hover:text-emerald-300">✕</button>
+        <div className="flex items-center gap-3 rounded-lg border border-emerald-200 bg-emerald-50 px-4 py-2.5">
+          <span className="h-2 w-2 rounded-full bg-emerald-500" />
+          <p className="flex-1 text-sm text-emerald-700">{success}</p>
+          <button onClick={clearMessages} className="text-xs text-emerald-400 hover:text-emerald-600">✕</button>
         </div>
       )}
 
       {/* ── Tabs ───────────────────────────────────────────────────── */}
-      <div className="flex items-center gap-1 rounded-xl border border-white/[0.06] bg-white/[0.02] p-1">
+      <div className="flex items-center gap-1 rounded-xl border border-gray-200 bg-gray-50 p-1">
         {TABS.map(t => (
           <button
             key={t.key}
             onClick={() => { setTab(t.key); clearMessages() }}
             className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all ${
               t.key === tab
-                ? 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/25 shadow-sm shadow-indigo-500/10'
-                : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04] border border-transparent'
+                ? 'bg-white text-blue-700 border border-gray-200 shadow-sm'
+                : 'text-gray-500 hover:text-gray-700 hover:bg-white/60 border border-transparent'
             }`}
           >
             <span className="text-base">{t.icon}</span>
             {t.label}
           </button>
         ))}
-        {loading && <span className="ml-auto mr-2 h-4 w-4 animate-spin rounded-full border-2 border-indigo-500/30 border-t-indigo-400" />}
+        {loading && <span className="ml-auto mr-2 h-4 w-4 animate-spin rounded-full border-2 border-blue-200 border-t-blue-600" />}
       </div>
 
       {/* ═══════════════ CATÁLOGOS ═══════════════ */}
@@ -323,14 +386,14 @@ export default function OpsGestionClient() {
               title="Responsables / Proveedores"
               subtitle={`${responsables.length} registrados`}
               action={
-                <button onClick={() => setShowNewResp(!showNewResp)} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${showNewResp ? 'bg-white/[0.06] text-slate-400' : 'bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25'}`}>
+                <button onClick={() => setShowNewResp(!showNewResp)} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${showNewResp ? 'bg-gray-100 text-gray-500' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'}`}>
                   {showNewResp ? '✕ Cancelar' : '+ Nuevo'}
                 </button>
               }
             />
             <div className="p-4 space-y-3">
               {showNewResp && (
-                <form onSubmit={handleCreateResponsable} className="rounded-lg border border-indigo-500/10 bg-indigo-500/[0.03] p-3 space-y-2">
+                <form onSubmit={handleCreateResponsable} className="rounded-lg border border-blue-100 bg-blue-50/50 p-3 space-y-2">
                   <div className="grid grid-cols-2 gap-2">
                     <input name="nombre" required placeholder="Nombre *" className={inputCls} />
                     <select name="tipo" required className={selectCls}>
@@ -339,11 +402,14 @@ export default function OpsGestionClient() {
                     </select>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
-                    <input name="departamento" placeholder="Departamento" className={inputCls} />
+                    <select name="departamento" className={selectCls}>
+                      <option value="">Sin departamento</option>
+                      {visibleDepartments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+                    </select>
                     <input name="email" type="email" placeholder="Email" className={inputCls} />
                   </div>
                   <div className="flex justify-end">
-                    <button type="submit" disabled={loading} className="rounded-lg bg-indigo-500 px-4 py-1.5 text-sm font-semibold text-white hover:bg-indigo-400 disabled:opacity-50 transition-colors">
+                    <button type="submit" disabled={loading} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm">
                       Crear Responsable
                     </button>
                   </div>
@@ -351,21 +417,21 @@ export default function OpsGestionClient() {
               )}
               <div className="space-y-1">
                 {responsables.map(r => (
-                  <div key={r.id} className="group flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-white/[0.03] transition-colors">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-indigo-500/10 text-indigo-400 text-xs font-bold flex-shrink-0">
+                  <div key={r.id} className="group flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-gray-50 transition-colors">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-blue-100 text-blue-700 text-sm font-bold flex-shrink-0">
                       {r.nombre.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-200 truncate">{r.nombre}</p>
-                      <p className="text-xs text-slate-500">{r.departamento || 'Sin depto.'} · {r.email || 'Sin email'}</p>
+                      <p className="text-sm font-medium text-gray-900 truncate">{r.nombre}</p>
+                      <p className="text-xs text-gray-500">{r.departamento || 'Sin depto.'} · {r.email || 'Sin email'}</p>
                     </div>
                     <StatusBadge value={r.tipo} />
-                    <button onClick={() => handleDeleteResponsable(r.id)} className="opacity-0 group-hover:opacity-100 rounded p-1 text-slate-600 hover:text-rose-400 hover:bg-rose-500/10 transition-all" title="Eliminar">
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    <button onClick={() => handleDeleteResponsable(r.id)} className="opacity-0 group-hover:opacity-100 rounded p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-all" title="Eliminar">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     </button>
                   </div>
                 ))}
-                {responsables.length === 0 && <p className="py-6 text-center text-sm text-slate-600">Sin responsables. Crea el primero.</p>}
+                {responsables.length === 0 && <p className="py-6 text-center text-sm text-gray-400">Sin responsables. Crea el primero.</p>}
               </div>
             </div>
           </Card>
@@ -376,21 +442,24 @@ export default function OpsGestionClient() {
               title="Entidades Objetivo"
               subtitle={`${entidades.length} registradas`}
               action={
-                <button onClick={() => setShowNewEnt(!showNewEnt)} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${showNewEnt ? 'bg-white/[0.06] text-slate-400' : 'bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25'}`}>
+                <button onClick={() => setShowNewEnt(!showNewEnt)} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${showNewEnt ? 'bg-gray-100 text-gray-500' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'}`}>
                   {showNewEnt ? '✕ Cancelar' : '+ Nueva'}
                 </button>
               }
             />
             <div className="p-4 space-y-3">
               {showNewEnt && (
-                <form onSubmit={handleCreateEntidad} className="rounded-lg border border-indigo-500/10 bg-indigo-500/[0.03] p-3 space-y-2">
+                <form onSubmit={handleCreateEntidad} className="rounded-lg border border-blue-100 bg-blue-50/50 p-3 space-y-2">
                   <div className="grid grid-cols-2 gap-2">
                     <input name="nombre" required placeholder="Nombre *" className={inputCls} />
                     <input name="tipo_entidad" required placeholder="Tipo (equipo, área…) *" className={inputCls} />
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <input name="categoria" required placeholder="Categoría *" className={inputCls} />
-                    <input name="departamento" required placeholder="Departamento *" className={inputCls} />
+                    <select name="departamento" required className={selectCls}>
+                      <option value="">Seleccionar departamento *</option>
+                      {visibleDepartments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+                    </select>
                   </div>
                   <div className="grid grid-cols-2 gap-2">
                     <input name="centro_costo" placeholder="Centro de costo" className={inputCls} />
@@ -400,7 +469,7 @@ export default function OpsGestionClient() {
                     </select>
                   </div>
                   <div className="flex justify-end">
-                    <button type="submit" disabled={loading} className="rounded-lg bg-indigo-500 px-4 py-1.5 text-sm font-semibold text-white hover:bg-indigo-400 disabled:opacity-50 transition-colors">
+                    <button type="submit" disabled={loading} className="rounded-lg bg-blue-600 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 transition-colors shadow-sm">
                       Crear Entidad
                     </button>
                   </div>
@@ -408,21 +477,21 @@ export default function OpsGestionClient() {
               )}
               <div className="space-y-1">
                 {entidades.map(e => (
-                  <div key={e.id} className="group flex items-center gap-3 rounded-lg px-3 py-2 hover:bg-white/[0.03] transition-colors">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-amber-500/10 text-amber-400 text-xs font-bold flex-shrink-0">
+                  <div key={e.id} className="group flex items-center gap-3 rounded-lg px-3 py-2.5 hover:bg-gray-50 transition-colors">
+                    <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-amber-100 text-amber-700 text-sm font-bold flex-shrink-0">
                       {e.nombre.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-slate-200 truncate">{e.nombre}</p>
-                      <p className="text-xs text-slate-500">{e.tipo_entidad} · {e.categoria} · {e.departamento}</p>
+                      <p className="text-sm font-medium text-gray-900 truncate">{e.nombre}</p>
+                      <p className="text-xs text-gray-500">{e.tipo_entidad} · {e.categoria} · {e.departamento}</p>
                     </div>
-                    {e.responsable && <span className="text-xs text-slate-500 hidden sm:inline">{e.responsable.nombre}</span>}
-                    <button onClick={() => handleDeleteEntidad(e.id)} className="opacity-0 group-hover:opacity-100 rounded p-1 text-slate-600 hover:text-rose-400 hover:bg-rose-500/10 transition-all" title="Eliminar">
-                      <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+                    {e.responsable && <span className="text-xs text-gray-500 hidden sm:inline">{e.responsable.nombre}</span>}
+                    <button onClick={() => handleDeleteEntidad(e.id)} className="opacity-0 group-hover:opacity-100 rounded p-1.5 text-gray-400 hover:text-rose-600 hover:bg-rose-50 transition-all" title="Eliminar">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     </button>
                   </div>
                 ))}
-                {entidades.length === 0 && <p className="py-6 text-center text-sm text-slate-600">Sin entidades. Crea la primera.</p>}
+                {entidades.length === 0 && <p className="py-6 text-center text-sm text-gray-400">Sin entidades. Crea la primera.</p>}
               </div>
             </div>
           </Card>
@@ -434,42 +503,48 @@ export default function OpsGestionClient() {
         <Card>
           <CardHeader
             title="Planes Maestros"
-            subtitle={`${planes.length} planes · ${stats.activos} activos`}
+            subtitle={`${filteredPlanes.length} planes · ${stats.activos} activos`}
             action={
-              <button onClick={() => setShowNewPlan(!showNewPlan)} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${showNewPlan ? 'bg-white/[0.06] text-slate-400' : 'bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25'}`}>
+              <button onClick={() => setShowNewPlan(!showNewPlan)} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${showNewPlan ? 'bg-gray-100 text-gray-500' : 'bg-blue-600 text-white hover:bg-blue-700 shadow-sm'}`}>
                 {showNewPlan ? '✕ Cancelar' : '+ Nuevo Plan'}
               </button>
             }
           />
 
           {showNewPlan && (
-            <div className="border-b border-white/[0.06] px-5 py-4">
-              <form onSubmit={handleCreatePlan} className="rounded-xl border border-indigo-500/10 bg-indigo-500/[0.03] p-4 space-y-3">
-                <p className="text-sm font-semibold text-indigo-300 uppercase tracking-wider">Nuevo Plan Maestro</p>
+            <div className="border-b border-gray-100 px-5 py-4">
+              <form onSubmit={handleCreatePlan} className="rounded-xl border border-blue-100 bg-blue-50/30 p-4 space-y-3">
+                <p className="text-sm font-semibold text-blue-700 uppercase tracking-wider">Nuevo Plan Maestro</p>
 
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                  <div><label className="block text-xs text-slate-500 mb-1">Nombre *</label><input name="nombre" required className={inputCls} placeholder="Ej: Mantenimiento aires acondicionados" /></div>
-                  <div><label className="block text-xs text-slate-500 mb-1">Departamento *</label><input name="departamento_dueno" required className={inputCls} placeholder="Ej: Mantenimiento" /></div>
-                  <div><label className="block text-xs text-slate-500 mb-1">Centro de costo</label><input name="centro_costo" className={inputCls} placeholder="Opcional" /></div>
+                  <div><label className="block text-xs font-medium text-gray-600 mb-1">Nombre *</label><input name="nombre" required className={inputCls} placeholder="Ej: Mantenimiento aires acondicionados" /></div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Departamento *</label>
+                    <select name="departamento_dueno" required className={selectCls}>
+                      <option value="">Seleccionar departamento…</option>
+                      {visibleDepartments.map(d => <option key={d.id} value={d.name}>{d.name}</option>)}
+                    </select>
+                  </div>
+                  <div><label className="block text-xs font-medium text-gray-600 mb-1">Centro de costo</label><input name="centro_costo" className={inputCls} placeholder="Opcional" /></div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                   <div>
-                    <label className="block text-xs text-slate-500 mb-1">Entidad Objetivo *</label>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Entidad Objetivo *</label>
                     <select name="entidad_objetivo_id" required className={selectCls}>
                       <option value="">Seleccionar…</option>
                       {entidades.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs text-slate-500 mb-1">Responsable</label>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Responsable</label>
                     <select name="responsable_proveedor_id" className={selectCls}>
                       <option value="">Sin asignar</option>
                       {responsables.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-xs text-slate-500 mb-1">Moneda</label>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Moneda</label>
                     <select name="moneda" className={selectCls}>
                       <option value="USD">USD</option><option value="MXN">MXN</option><option value="EUR">EUR</option>
                     </select>
@@ -477,25 +552,25 @@ export default function OpsGestionClient() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  <div><label className="block text-xs text-slate-500 mb-1">Inicio *</label><input name="fecha_inicio" type="date" required className={inputCls} /></div>
-                  <div><label className="block text-xs text-slate-500 mb-1">Fin *</label><input name="fecha_fin" type="date" required className={inputCls} /></div>
+                  <div><label className="block text-xs font-medium text-gray-600 mb-1">Inicio *</label><input name="fecha_inicio" type="date" required className={inputCls} /></div>
+                  <div><label className="block text-xs font-medium text-gray-600 mb-1">Fin *</label><input name="fecha_fin" type="date" required className={inputCls} /></div>
                   <div>
-                    <label className="block text-xs text-slate-500 mb-1">Frecuencia *</label>
+                    <label className="block text-xs font-medium text-gray-600 mb-1">Frecuencia *</label>
                     <select name="frecuencia_tipo" required className={selectCls} defaultValue="monthly">
                       <option value="daily">Diario</option><option value="weekly">Semanal</option><option value="monthly">Mensual</option><option value="quarterly">Trimestral</option><option value="yearly">Anual</option><option value="custom_days">Personalizado</option>
                     </select>
                   </div>
-                  <div><label className="block text-xs text-slate-500 mb-1">Intervalo</label><input name="frecuencia_intervalo" type="number" min="1" defaultValue="1" className={inputCls} /></div>
+                  <div><label className="block text-xs font-medium text-gray-600 mb-1">Intervalo</label><input name="frecuencia_intervalo" type="number" min="1" defaultValue="1" className={inputCls} /></div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                  <div><label className="block text-xs text-slate-500 mb-1">Monto planeado</label><input name="monto_total_planeado" type="number" step="0.01" min="0" defaultValue="0" className={inputCls} /></div>
-                  <div><label className="block text-xs text-slate-500 mb-1">Esfuerzo (hrs)</label><input name="esfuerzo_total_planeado" type="number" step="0.01" min="0" defaultValue="0" className={inputCls} /></div>
-                  <div><label className="block text-xs text-slate-500 mb-1">Descripción</label><input name="descripcion" className={inputCls} placeholder="Opcional" /></div>
+                  <div><label className="block text-xs font-medium text-gray-600 mb-1">Monto planeado</label><input name="monto_total_planeado" type="number" step="0.01" min="0" defaultValue="0" className={inputCls} /></div>
+                  <div><label className="block text-xs font-medium text-gray-600 mb-1">Esfuerzo (hrs)</label><input name="esfuerzo_total_planeado" type="number" step="0.01" min="0" defaultValue="0" className={inputCls} /></div>
+                  <div><label className="block text-xs font-medium text-gray-600 mb-1">Descripción</label><input name="descripcion" className={inputCls} placeholder="Opcional" /></div>
                 </div>
 
                 <div className="flex justify-end pt-1">
-                  <button type="submit" disabled={loading} className="rounded-lg bg-indigo-500 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-400 disabled:opacity-50 shadow-lg shadow-indigo-500/20 transition-all">
+                  <button type="submit" disabled={loading} className="rounded-lg bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white hover:bg-blue-700 disabled:opacity-50 shadow-sm transition-all">
                     Crear Plan
                   </button>
                 </div>
@@ -503,61 +578,59 @@ export default function OpsGestionClient() {
             </div>
           )}
 
-          <div className="divide-y divide-white/[0.04]">
-            {planes.map(p => (
-              <div key={p.id} className="group px-5 py-3 hover:bg-white/[0.02] transition-colors">
+          <div className="divide-y divide-gray-100">
+            {filteredPlanes.map(p => (
+              <div key={p.id} className="group px-5 py-3.5 hover:bg-gray-50 transition-colors">
                 <div className="flex items-start gap-4">
-                  {/* Icono + info principal */}
-                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-gradient-to-br from-indigo-500/15 to-purple-500/15 border border-indigo-500/10 flex-shrink-0 mt-0.5">
-                    <svg className="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
+                  <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-50 border border-blue-100 flex-shrink-0 mt-0.5">
+                    <svg className="w-5 h-5 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" /></svg>
                   </div>
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
-                      <h3 className="text-base font-semibold text-white truncate">{p.nombre}</h3>
+                      <h3 className="text-base font-semibold text-gray-900 truncate">{p.nombre}</h3>
                       <StatusBadge value={p.estado} />
                     </div>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 text-sm text-slate-500">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 text-sm text-gray-500">
                       <span>{p.departamento_dueno}</span>
                       <span>{p.entidad?.nombre || '-'}</span>
                       <span>{FREQ_LABELS[p.frecuencia_tipo] || p.frecuencia_tipo} ×{p.frecuencia_intervalo}</span>
                       <span>{formatShortDate(p.fecha_inicio)} → {formatShortDate(p.fecha_fin)}</span>
-                      <span className="font-medium text-slate-300">{formatMoney(p.monto_total_planeado, p.moneda)}</span>
+                      <span className="font-medium text-gray-900">{formatMoney(p.monto_total_planeado, p.moneda)}</span>
                     </div>
                   </div>
 
-                  {/* Acciones */}
                   <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <button onClick={() => handleSelectPlanAgenda(p.id)} className="rounded-lg border border-indigo-500/20 bg-indigo-500/10 px-2.5 py-1.5 text-xs font-medium text-indigo-300 hover:bg-indigo-500/20 transition-colors">
+                    <button onClick={() => handleSelectPlanAgenda(p.id)} className="rounded-lg border border-blue-200 bg-blue-50 px-3 py-1.5 text-xs font-medium text-blue-700 hover:bg-blue-100 transition-colors">
                       Agenda
                     </button>
                     {p.estado === 'activo' && (
-                      <button onClick={() => handleSeedPlan(p.id)} className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/20 transition-colors">
+                      <button onClick={() => handleSeedPlan(p.id)} className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-medium text-emerald-700 hover:bg-emerald-100 transition-colors">
                         Sembrar
                       </button>
                     )}
                     <div className="relative group/menu">
-                      <button className="rounded-lg border border-white/[0.06] bg-white/[0.03] p-1.5 text-slate-500 hover:text-white hover:bg-white/[0.08] transition-colors">
-                        <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z" /></svg>
+                      <button className="rounded-lg border border-gray-200 bg-white p-1.5 text-gray-400 hover:text-gray-700 hover:bg-gray-50 transition-colors">
+                        <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20"><path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z" /></svg>
                       </button>
-                      <div className="absolute right-0 top-full mt-1 w-36 rounded-lg border border-white/[0.08] bg-slate-900 shadow-xl shadow-black/40 opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all z-20 py-1">
-                        {p.estado === 'activo' && <button onClick={() => handlePlanEstado(p.id, 'pausado')} className="w-full text-left px-3 py-1.5 text-sm text-slate-300 hover:bg-white/[0.06]">⏸ Pausar</button>}
-                        {p.estado === 'pausado' && <button onClick={() => handlePlanEstado(p.id, 'activo')} className="w-full text-left px-3 py-1.5 text-sm text-slate-300 hover:bg-white/[0.06]">▶ Reactivar</button>}
-                        {(p.estado === 'activo' || p.estado === 'pausado') && <button onClick={() => handlePlanEstado(p.id, 'cerrado')} className="w-full text-left px-3 py-1.5 text-sm text-slate-300 hover:bg-white/[0.06]">🔒 Cerrar</button>}
-                        <button onClick={() => handleDeletePlan(p.id)} className="w-full text-left px-3 py-1.5 text-sm text-rose-400 hover:bg-rose-500/10">🗑 Eliminar</button>
+                      <div className="absolute right-0 top-full mt-1 w-40 rounded-lg border border-gray-200 bg-white shadow-lg opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all z-20 py-1">
+                        {p.estado === 'activo' && <button onClick={() => handlePlanEstado(p.id, 'pausado')} className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">⏸ Pausar</button>}
+                        {p.estado === 'pausado' && <button onClick={() => handlePlanEstado(p.id, 'activo')} className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">▶ Reactivar</button>}
+                        {(p.estado === 'activo' || p.estado === 'pausado') && <button onClick={() => handlePlanEstado(p.id, 'cerrado')} className="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">🔒 Cerrar</button>}
+                        <button onClick={() => handleDeletePlan(p.id)} className="w-full text-left px-3 py-2 text-sm text-rose-600 hover:bg-rose-50">🗑 Eliminar</button>
                       </div>
                     </div>
                   </div>
                 </div>
               </div>
             ))}
-            {planes.length === 0 && (
+            {filteredPlanes.length === 0 && (
               <div className="flex flex-col items-center justify-center py-16 text-center">
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-500/10 border border-indigo-500/10 mb-4">
-                  <svg className="w-7 h-7 text-indigo-400/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" /></svg>
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-blue-50 border border-blue-100 mb-4">
+                  <svg className="w-7 h-7 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" /></svg>
                 </div>
-                <p className="text-base font-medium text-slate-400">Sin planes maestros</p>
-                <p className="text-sm text-slate-600 mt-1">Crea el primero para comenzar a gestionar operaciones</p>
+                <p className="text-base font-medium text-gray-600">Sin planes maestros</p>
+                <p className="text-sm text-gray-400 mt-1">Crea el primero para comenzar a gestionar operaciones</p>
               </div>
             )}
           </div>
@@ -572,7 +645,7 @@ export default function OpsGestionClient() {
             subtitle={selectedPlan ? `${agenda.length} ocurrencias · ${agenda.filter(a => a.estado === 'completado').length} completadas` : undefined}
             action={
               selectedPlanId ? (
-                <button onClick={() => { setTab('planes'); setSelectedPlanId(null) }} className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-sm font-medium text-slate-400 hover:text-white hover:bg-white/[0.08] transition-all">
+                <button onClick={() => { setTab('planes'); setSelectedPlanId(null) }} className="inline-flex items-center gap-1.5 rounded-lg border border-gray-200 bg-white px-3 py-1.5 text-sm font-medium text-gray-600 hover:text-gray-900 hover:bg-gray-50 transition-all shadow-sm">
                   ← Planes
                 </button>
               ) : undefined
@@ -581,11 +654,11 @@ export default function OpsGestionClient() {
 
           {!selectedPlanId && (
             <div className="flex flex-col items-center justify-center py-16 text-center px-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/10 border border-amber-500/10 mb-4">
+              <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-50 border border-amber-100 mb-4">
                 <span className="text-2xl">📅</span>
               </div>
-              <p className="text-base font-medium text-slate-400">Selecciona un plan</p>
-              <p className="text-sm text-slate-600 mt-1">Ve a la pestaña <button onClick={() => setTab('planes')} className="text-indigo-400 underline decoration-indigo-400/30">Planes Maestros</button> y presiona &quot;Agenda&quot; en un plan</p>
+              <p className="text-base font-medium text-gray-600">Selecciona un plan</p>
+              <p className="text-sm text-gray-400 mt-1">Ve a la pestaña <button onClick={() => setTab('planes')} className="text-blue-600 underline decoration-blue-300">Planes Maestros</button> y presiona &quot;Agenda&quot; en un plan</p>
             </div>
           )}
 
@@ -593,28 +666,28 @@ export default function OpsGestionClient() {
             <div className="overflow-auto">
               <table className="w-full">
                 <thead>
-                  <tr className="border-b border-white/[0.06]">
-                    <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">#</th>
-                    <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Vence</th>
-                    <th className="px-4 py-2.5 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">Estimado</th>
-                    <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Prioridad</th>
-                    <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Estado</th>
-                    <th className="px-4 py-2.5 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">Acción</th>
+                  <tr className="border-b border-gray-100 bg-gray-50">
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">#</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Vence</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">Estimado</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Prioridad</th>
+                    <th className="px-4 py-3 text-left text-xs font-semibold uppercase tracking-wider text-gray-500">Estado</th>
+                    <th className="px-4 py-3 text-right text-xs font-semibold uppercase tracking-wider text-gray-500">Acción</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-white/[0.04]">
+                <tbody className="divide-y divide-gray-50">
                   {agenda.map(a => (
-                    <tr key={a.id} className="hover:bg-white/[0.02] transition-colors">
-                      <td className="px-4 py-2 text-sm font-mono text-slate-500">{a.ocurrencia_nro}</td>
-                      <td className="px-4 py-2 text-sm text-slate-300">{formatShortDate(a.due_date)}</td>
-                      <td className="px-4 py-2 text-sm text-right text-slate-300 font-medium">{formatMoney(a.monto_estimado)}</td>
-                      <td className="px-4 py-2"><StatusBadge value={a.prioridad} /></td>
-                      <td className="px-4 py-2"><StatusBadge value={a.estado} /></td>
-                      <td className="px-4 py-2 text-right">
+                    <tr key={a.id} className="hover:bg-gray-50 transition-colors">
+                      <td className="px-4 py-2.5 text-sm font-mono text-gray-500">{a.ocurrencia_nro}</td>
+                      <td className="px-4 py-2.5 text-sm text-gray-700">{formatShortDate(a.due_date)}</td>
+                      <td className="px-4 py-2.5 text-sm text-right text-gray-700 font-medium">{formatMoney(a.monto_estimado)}</td>
+                      <td className="px-4 py-2.5"><StatusBadge value={a.prioridad} /></td>
+                      <td className="px-4 py-2.5"><StatusBadge value={a.estado} /></td>
+                      <td className="px-4 py-2.5 text-right">
                         <select
                           value={a.estado}
                           onChange={(e) => handleAgendaEstado(a.id, e.target.value)}
-                          className="h-9 rounded-lg border border-white/[0.08] bg-white/[0.04] px-2 text-xs text-slate-300 focus:border-indigo-500/50 focus:outline-none cursor-pointer"
+                          className="h-9 rounded-lg border border-gray-300 bg-white px-2 text-sm text-gray-700 focus:border-blue-500 focus:outline-none cursor-pointer"
                         >
                           <option value="pendiente">Pendiente</option>
                           <option value="en_proceso">En proceso</option>
@@ -633,8 +706,8 @@ export default function OpsGestionClient() {
       )}
 
       {/* Guía */}
-      <div className="rounded-xl border border-white/[0.04] bg-white/[0.015] px-5 py-4">
-        <p className="text-sm font-semibold text-slate-400 mb-2">Flujo de trabajo</p>
+      <div className="rounded-xl border border-gray-200 bg-gray-50 px-5 py-4">
+        <p className="text-sm font-semibold text-gray-600 mb-2">Flujo de trabajo</p>
         <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
           {[
             { step: '1', title: 'Catálogos', desc: 'Responsables y entidades' },
@@ -644,12 +717,12 @@ export default function OpsGestionClient() {
             { step: '5', title: 'Dashboard', desc: 'Semáforos en tiempo real' },
           ].map((s, i) => (
             <div key={s.step} className="flex items-start gap-2.5">
-              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-500/15 text-xs font-bold text-indigo-400 flex-shrink-0 mt-0.5">{s.step}</span>
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-blue-100 text-xs font-bold text-blue-700 flex-shrink-0 mt-0.5">{s.step}</span>
               <div>
-                <p className="text-sm font-medium text-slate-300">{s.title}</p>
-                <p className="text-xs text-slate-600">{s.desc}</p>
+                <p className="text-sm font-medium text-gray-700">{s.title}</p>
+                <p className="text-xs text-gray-400">{s.desc}</p>
               </div>
-              {i < 4 && <span className="hidden sm:inline text-slate-700 ml-auto">→</span>}
+              {i < 4 && <span className="hidden sm:inline text-gray-300 ml-auto">→</span>}
             </div>
           ))}
         </div>
