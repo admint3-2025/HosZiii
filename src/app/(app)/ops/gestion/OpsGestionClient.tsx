@@ -44,8 +44,8 @@ function StatusBadge({ value }: { value: string }) {
   const label = ESTADO_LABEL[value] || value.replace('_', ' ')
   return (
     <span className="inline-flex items-center gap-1.5">
-      <span className={`h-2 w-2 rounded-full shadow-sm ${dot}`} />
-      <span className="text-[11px] font-medium text-slate-300 capitalize">{label}</span>
+      <span className={`h-2.5 w-2.5 rounded-full shadow-sm ${dot}`} />
+      <span className="text-sm font-medium text-slate-300 capitalize">{label}</span>
     </span>
   )
 }
@@ -69,8 +69,8 @@ function CardHeader({ title, subtitle, action }: { title: string; subtitle?: str
   return (
     <div className="flex items-center justify-between border-b border-white/[0.06] px-5 py-3.5">
       <div>
-        <h2 className="text-sm font-semibold text-white">{title}</h2>
-        {subtitle && <p className="text-[11px] text-slate-500 mt-0.5">{subtitle}</p>}
+        <h2 className="text-base font-semibold text-white">{title}</h2>
+        {subtitle && <p className="text-sm text-slate-500 mt-0.5">{subtitle}</p>}
       </div>
       {action}
     </div>
@@ -78,7 +78,7 @@ function CardHeader({ title, subtitle, action }: { title: string; subtitle?: str
 }
 
 function EmptyRow({ cols, text }: { cols: number; text: string }) {
-  return <tr><td colSpan={cols} className="px-4 py-8 text-center text-xs text-slate-600">{text}</td></tr>
+  return <tr><td colSpan={cols} className="px-4 py-8 text-center text-sm text-slate-600">{text}</td></tr>
 }
 
 // ── Componente principal ──────────────────────────────────────────────
@@ -234,7 +234,7 @@ export default function OpsGestionClient() {
   }
 
   // ── Shared styles ───────────────────────────────────────────────────
-  const inputCls = 'h-8 w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 text-xs text-slate-200 placeholder:text-slate-600 focus:border-indigo-500/50 focus:bg-white/[0.06] focus:outline-none focus:ring-1 focus:ring-indigo-500/30 transition-all'
+  const inputCls = 'h-10 w-full rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 text-sm text-slate-200 placeholder:text-slate-600 focus:border-indigo-500/50 focus:bg-white/[0.06] focus:outline-none focus:ring-1 focus:ring-indigo-500/30 transition-all'
   const selectCls = `${inputCls} appearance-none`
 
   const selectedPlan = planes.find(p => p.id === selectedPlanId)
@@ -252,8 +252,8 @@ export default function OpsGestionClient() {
       {/* ── Header ─────────────────────────────────────────────────── */}
       <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h1 className="text-lg font-bold text-white tracking-tight">Gestión Operacional</h1>
-          <p className="text-xs text-slate-500">Catálogos · Planes Maestros · Agenda</p>
+          <h1 className="text-xl font-bold text-white tracking-tight">Gestión Operacional</h1>
+          <p className="text-sm text-slate-500">Catálogos · Planes Maestros · Agenda</p>
         </div>
         <div className="flex items-center gap-3">
           {/* Mini stats */}
@@ -264,14 +264,14 @@ export default function OpsGestionClient() {
               { n: stats.entidades, l: 'Entidades', color: 'text-amber-400' },
             ].map(s => (
               <div key={s.l} className="flex items-center gap-1.5 rounded-lg border border-white/[0.06] bg-white/[0.03] px-2.5 py-1.5">
-                <span className={`text-sm font-bold ${s.color}`}>{s.n}</span>
-                <span className="text-[10px] text-slate-500">{s.l}</span>
+                <span className={`text-base font-bold ${s.color}`}>{s.n}</span>
+                <span className="text-xs text-slate-500">{s.l}</span>
               </div>
             ))}
           </div>
           <Link
             href="/ops"
-            className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs font-medium text-slate-300 hover:bg-white/[0.08] hover:text-white transition-all"
+            className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-sm font-medium text-slate-300 hover:bg-white/[0.08] hover:text-white transition-all"
           >
             <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" /></svg>
             Dashboard
@@ -283,15 +283,15 @@ export default function OpsGestionClient() {
       {error && (
         <div className="flex items-center gap-3 rounded-lg border border-rose-500/20 bg-rose-500/[0.06] px-4 py-2.5 animate-in fade-in duration-200">
           <span className="h-2 w-2 rounded-full bg-rose-400 shadow-sm shadow-rose-400/50" />
-          <p className="flex-1 text-xs text-rose-300">{error}</p>
-          <button onClick={clearMessages} className="text-[10px] text-rose-400/70 hover:text-rose-300">✕</button>
+          <p className="flex-1 text-sm text-rose-300">{error}</p>
+          <button onClick={clearMessages} className="text-xs text-rose-400/70 hover:text-rose-300">✕</button>
         </div>
       )}
       {success && (
         <div className="flex items-center gap-3 rounded-lg border border-emerald-500/20 bg-emerald-500/[0.06] px-4 py-2.5 animate-in fade-in duration-200">
           <span className="h-2 w-2 rounded-full bg-emerald-400 shadow-sm shadow-emerald-400/50" />
-          <p className="flex-1 text-xs text-emerald-300">{success}</p>
-          <button onClick={clearMessages} className="text-[10px] text-emerald-400/70 hover:text-emerald-300">✕</button>
+          <p className="flex-1 text-sm text-emerald-300">{success}</p>
+          <button onClick={clearMessages} className="text-xs text-emerald-400/70 hover:text-emerald-300">✕</button>
         </div>
       )}
 
@@ -301,13 +301,13 @@ export default function OpsGestionClient() {
           <button
             key={t.key}
             onClick={() => { setTab(t.key); clearMessages() }}
-            className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-xs font-medium transition-all ${
+            className={`flex-1 sm:flex-none inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2.5 text-sm font-medium transition-all ${
               t.key === tab
                 ? 'bg-indigo-500/15 text-indigo-300 border border-indigo-500/25 shadow-sm shadow-indigo-500/10'
                 : 'text-slate-500 hover:text-slate-300 hover:bg-white/[0.04] border border-transparent'
             }`}
           >
-            <span className="text-sm">{t.icon}</span>
+            <span className="text-base">{t.icon}</span>
             {t.label}
           </button>
         ))}
@@ -323,7 +323,7 @@ export default function OpsGestionClient() {
               title="Responsables / Proveedores"
               subtitle={`${responsables.length} registrados`}
               action={
-                <button onClick={() => setShowNewResp(!showNewResp)} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-medium transition-all ${showNewResp ? 'bg-white/[0.06] text-slate-400' : 'bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25'}`}>
+                <button onClick={() => setShowNewResp(!showNewResp)} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${showNewResp ? 'bg-white/[0.06] text-slate-400' : 'bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25'}`}>
                   {showNewResp ? '✕ Cancelar' : '+ Nuevo'}
                 </button>
               }
@@ -343,7 +343,7 @@ export default function OpsGestionClient() {
                     <input name="email" type="email" placeholder="Email" className={inputCls} />
                   </div>
                   <div className="flex justify-end">
-                    <button type="submit" disabled={loading} className="rounded-lg bg-indigo-500 px-4 py-1.5 text-[11px] font-semibold text-white hover:bg-indigo-400 disabled:opacity-50 transition-colors">
+                    <button type="submit" disabled={loading} className="rounded-lg bg-indigo-500 px-4 py-1.5 text-sm font-semibold text-white hover:bg-indigo-400 disabled:opacity-50 transition-colors">
                       Crear Responsable
                     </button>
                   </div>
@@ -356,8 +356,8 @@ export default function OpsGestionClient() {
                       {r.nombre.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-slate-200 truncate">{r.nombre}</p>
-                      <p className="text-[10px] text-slate-500">{r.departamento || 'Sin depto.'} · {r.email || 'Sin email'}</p>
+                      <p className="text-sm font-medium text-slate-200 truncate">{r.nombre}</p>
+                      <p className="text-xs text-slate-500">{r.departamento || 'Sin depto.'} · {r.email || 'Sin email'}</p>
                     </div>
                     <StatusBadge value={r.tipo} />
                     <button onClick={() => handleDeleteResponsable(r.id)} className="opacity-0 group-hover:opacity-100 rounded p-1 text-slate-600 hover:text-rose-400 hover:bg-rose-500/10 transition-all" title="Eliminar">
@@ -365,7 +365,7 @@ export default function OpsGestionClient() {
                     </button>
                   </div>
                 ))}
-                {responsables.length === 0 && <p className="py-6 text-center text-xs text-slate-600">Sin responsables. Crea el primero.</p>}
+                {responsables.length === 0 && <p className="py-6 text-center text-sm text-slate-600">Sin responsables. Crea el primero.</p>}
               </div>
             </div>
           </Card>
@@ -376,7 +376,7 @@ export default function OpsGestionClient() {
               title="Entidades Objetivo"
               subtitle={`${entidades.length} registradas`}
               action={
-                <button onClick={() => setShowNewEnt(!showNewEnt)} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-medium transition-all ${showNewEnt ? 'bg-white/[0.06] text-slate-400' : 'bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25'}`}>
+                <button onClick={() => setShowNewEnt(!showNewEnt)} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${showNewEnt ? 'bg-white/[0.06] text-slate-400' : 'bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25'}`}>
                   {showNewEnt ? '✕ Cancelar' : '+ Nueva'}
                 </button>
               }
@@ -400,7 +400,7 @@ export default function OpsGestionClient() {
                     </select>
                   </div>
                   <div className="flex justify-end">
-                    <button type="submit" disabled={loading} className="rounded-lg bg-indigo-500 px-4 py-1.5 text-[11px] font-semibold text-white hover:bg-indigo-400 disabled:opacity-50 transition-colors">
+                    <button type="submit" disabled={loading} className="rounded-lg bg-indigo-500 px-4 py-1.5 text-sm font-semibold text-white hover:bg-indigo-400 disabled:opacity-50 transition-colors">
                       Crear Entidad
                     </button>
                   </div>
@@ -413,16 +413,16 @@ export default function OpsGestionClient() {
                       {e.nombre.charAt(0).toUpperCase()}
                     </div>
                     <div className="flex-1 min-w-0">
-                      <p className="text-xs font-medium text-slate-200 truncate">{e.nombre}</p>
-                      <p className="text-[10px] text-slate-500">{e.tipo_entidad} · {e.categoria} · {e.departamento}</p>
+                      <p className="text-sm font-medium text-slate-200 truncate">{e.nombre}</p>
+                      <p className="text-xs text-slate-500">{e.tipo_entidad} · {e.categoria} · {e.departamento}</p>
                     </div>
-                    {e.responsable && <span className="text-[10px] text-slate-500 hidden sm:inline">{e.responsable.nombre}</span>}
+                    {e.responsable && <span className="text-xs text-slate-500 hidden sm:inline">{e.responsable.nombre}</span>}
                     <button onClick={() => handleDeleteEntidad(e.id)} className="opacity-0 group-hover:opacity-100 rounded p-1 text-slate-600 hover:text-rose-400 hover:bg-rose-500/10 transition-all" title="Eliminar">
                       <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
                     </button>
                   </div>
                 ))}
-                {entidades.length === 0 && <p className="py-6 text-center text-xs text-slate-600">Sin entidades. Crea la primera.</p>}
+                {entidades.length === 0 && <p className="py-6 text-center text-sm text-slate-600">Sin entidades. Crea la primera.</p>}
               </div>
             </div>
           </Card>
@@ -436,7 +436,7 @@ export default function OpsGestionClient() {
             title="Planes Maestros"
             subtitle={`${planes.length} planes · ${stats.activos} activos`}
             action={
-              <button onClick={() => setShowNewPlan(!showNewPlan)} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-[11px] font-medium transition-all ${showNewPlan ? 'bg-white/[0.06] text-slate-400' : 'bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25'}`}>
+              <button onClick={() => setShowNewPlan(!showNewPlan)} className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium transition-all ${showNewPlan ? 'bg-white/[0.06] text-slate-400' : 'bg-indigo-500/15 text-indigo-300 hover:bg-indigo-500/25'}`}>
                 {showNewPlan ? '✕ Cancelar' : '+ Nuevo Plan'}
               </button>
             }
@@ -445,31 +445,31 @@ export default function OpsGestionClient() {
           {showNewPlan && (
             <div className="border-b border-white/[0.06] px-5 py-4">
               <form onSubmit={handleCreatePlan} className="rounded-xl border border-indigo-500/10 bg-indigo-500/[0.03] p-4 space-y-3">
-                <p className="text-[11px] font-semibold text-indigo-300 uppercase tracking-wider">Nuevo Plan Maestro</p>
+                <p className="text-sm font-semibold text-indigo-300 uppercase tracking-wider">Nuevo Plan Maestro</p>
 
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                  <div><label className="block text-[10px] text-slate-500 mb-1">Nombre *</label><input name="nombre" required className={inputCls} placeholder="Ej: Mantenimiento aires acondicionados" /></div>
-                  <div><label className="block text-[10px] text-slate-500 mb-1">Departamento *</label><input name="departamento_dueno" required className={inputCls} placeholder="Ej: Mantenimiento" /></div>
-                  <div><label className="block text-[10px] text-slate-500 mb-1">Centro de costo</label><input name="centro_costo" className={inputCls} placeholder="Opcional" /></div>
+                  <div><label className="block text-xs text-slate-500 mb-1">Nombre *</label><input name="nombre" required className={inputCls} placeholder="Ej: Mantenimiento aires acondicionados" /></div>
+                  <div><label className="block text-xs text-slate-500 mb-1">Departamento *</label><input name="departamento_dueno" required className={inputCls} placeholder="Ej: Mantenimiento" /></div>
+                  <div><label className="block text-xs text-slate-500 mb-1">Centro de costo</label><input name="centro_costo" className={inputCls} placeholder="Opcional" /></div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
                   <div>
-                    <label className="block text-[10px] text-slate-500 mb-1">Entidad Objetivo *</label>
+                    <label className="block text-xs text-slate-500 mb-1">Entidad Objetivo *</label>
                     <select name="entidad_objetivo_id" required className={selectCls}>
                       <option value="">Seleccionar…</option>
                       {entidades.map(e => <option key={e.id} value={e.id}>{e.nombre}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] text-slate-500 mb-1">Responsable</label>
+                    <label className="block text-xs text-slate-500 mb-1">Responsable</label>
                     <select name="responsable_proveedor_id" className={selectCls}>
                       <option value="">Sin asignar</option>
                       {responsables.map(r => <option key={r.id} value={r.id}>{r.nombre}</option>)}
                     </select>
                   </div>
                   <div>
-                    <label className="block text-[10px] text-slate-500 mb-1">Moneda</label>
+                    <label className="block text-xs text-slate-500 mb-1">Moneda</label>
                     <select name="moneda" className={selectCls}>
                       <option value="USD">USD</option><option value="MXN">MXN</option><option value="EUR">EUR</option>
                     </select>
@@ -477,25 +477,25 @@ export default function OpsGestionClient() {
                 </div>
 
                 <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                  <div><label className="block text-[10px] text-slate-500 mb-1">Inicio *</label><input name="fecha_inicio" type="date" required className={inputCls} /></div>
-                  <div><label className="block text-[10px] text-slate-500 mb-1">Fin *</label><input name="fecha_fin" type="date" required className={inputCls} /></div>
+                  <div><label className="block text-xs text-slate-500 mb-1">Inicio *</label><input name="fecha_inicio" type="date" required className={inputCls} /></div>
+                  <div><label className="block text-xs text-slate-500 mb-1">Fin *</label><input name="fecha_fin" type="date" required className={inputCls} /></div>
                   <div>
-                    <label className="block text-[10px] text-slate-500 mb-1">Frecuencia *</label>
+                    <label className="block text-xs text-slate-500 mb-1">Frecuencia *</label>
                     <select name="frecuencia_tipo" required className={selectCls} defaultValue="monthly">
                       <option value="daily">Diario</option><option value="weekly">Semanal</option><option value="monthly">Mensual</option><option value="quarterly">Trimestral</option><option value="yearly">Anual</option><option value="custom_days">Personalizado</option>
                     </select>
                   </div>
-                  <div><label className="block text-[10px] text-slate-500 mb-1">Intervalo</label><input name="frecuencia_intervalo" type="number" min="1" defaultValue="1" className={inputCls} /></div>
+                  <div><label className="block text-xs text-slate-500 mb-1">Intervalo</label><input name="frecuencia_intervalo" type="number" min="1" defaultValue="1" className={inputCls} /></div>
                 </div>
 
                 <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
-                  <div><label className="block text-[10px] text-slate-500 mb-1">Monto planeado</label><input name="monto_total_planeado" type="number" step="0.01" min="0" defaultValue="0" className={inputCls} /></div>
-                  <div><label className="block text-[10px] text-slate-500 mb-1">Esfuerzo (hrs)</label><input name="esfuerzo_total_planeado" type="number" step="0.01" min="0" defaultValue="0" className={inputCls} /></div>
-                  <div><label className="block text-[10px] text-slate-500 mb-1">Descripción</label><input name="descripcion" className={inputCls} placeholder="Opcional" /></div>
+                  <div><label className="block text-xs text-slate-500 mb-1">Monto planeado</label><input name="monto_total_planeado" type="number" step="0.01" min="0" defaultValue="0" className={inputCls} /></div>
+                  <div><label className="block text-xs text-slate-500 mb-1">Esfuerzo (hrs)</label><input name="esfuerzo_total_planeado" type="number" step="0.01" min="0" defaultValue="0" className={inputCls} /></div>
+                  <div><label className="block text-xs text-slate-500 mb-1">Descripción</label><input name="descripcion" className={inputCls} placeholder="Opcional" /></div>
                 </div>
 
                 <div className="flex justify-end pt-1">
-                  <button type="submit" disabled={loading} className="rounded-lg bg-indigo-500 px-5 py-2 text-xs font-semibold text-white hover:bg-indigo-400 disabled:opacity-50 shadow-lg shadow-indigo-500/20 transition-all">
+                  <button type="submit" disabled={loading} className="rounded-lg bg-indigo-500 px-5 py-2 text-sm font-semibold text-white hover:bg-indigo-400 disabled:opacity-50 shadow-lg shadow-indigo-500/20 transition-all">
                     Crear Plan
                   </button>
                 </div>
@@ -514,10 +514,10 @@ export default function OpsGestionClient() {
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-0.5">
-                      <h3 className="text-sm font-semibold text-white truncate">{p.nombre}</h3>
+                      <h3 className="text-base font-semibold text-white truncate">{p.nombre}</h3>
                       <StatusBadge value={p.estado} />
                     </div>
-                    <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 text-[11px] text-slate-500">
+                    <div className="flex flex-wrap items-center gap-x-4 gap-y-0.5 text-sm text-slate-500">
                       <span>{p.departamento_dueno}</span>
                       <span>{p.entidad?.nombre || '-'}</span>
                       <span>{FREQ_LABELS[p.frecuencia_tipo] || p.frecuencia_tipo} ×{p.frecuencia_intervalo}</span>
@@ -528,11 +528,11 @@ export default function OpsGestionClient() {
 
                   {/* Acciones */}
                   <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <button onClick={() => handleSelectPlanAgenda(p.id)} className="rounded-lg border border-indigo-500/20 bg-indigo-500/10 px-2.5 py-1.5 text-[10px] font-medium text-indigo-300 hover:bg-indigo-500/20 transition-colors">
+                    <button onClick={() => handleSelectPlanAgenda(p.id)} className="rounded-lg border border-indigo-500/20 bg-indigo-500/10 px-2.5 py-1.5 text-xs font-medium text-indigo-300 hover:bg-indigo-500/20 transition-colors">
                       Agenda
                     </button>
                     {p.estado === 'activo' && (
-                      <button onClick={() => handleSeedPlan(p.id)} className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1.5 text-[10px] font-medium text-emerald-300 hover:bg-emerald-500/20 transition-colors">
+                      <button onClick={() => handleSeedPlan(p.id)} className="rounded-lg border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1.5 text-xs font-medium text-emerald-300 hover:bg-emerald-500/20 transition-colors">
                         Sembrar
                       </button>
                     )}
@@ -541,10 +541,10 @@ export default function OpsGestionClient() {
                         <svg className="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20"><path d="M6 10a2 2 0 11-4 0 2 2 0 014 0zM12 10a2 2 0 11-4 0 2 2 0 014 0zM16 12a2 2 0 100-4 2 2 0 000 4z" /></svg>
                       </button>
                       <div className="absolute right-0 top-full mt-1 w-36 rounded-lg border border-white/[0.08] bg-slate-900 shadow-xl shadow-black/40 opacity-0 invisible group-hover/menu:opacity-100 group-hover/menu:visible transition-all z-20 py-1">
-                        {p.estado === 'activo' && <button onClick={() => handlePlanEstado(p.id, 'pausado')} className="w-full text-left px-3 py-1.5 text-[11px] text-slate-300 hover:bg-white/[0.06]">⏸ Pausar</button>}
-                        {p.estado === 'pausado' && <button onClick={() => handlePlanEstado(p.id, 'activo')} className="w-full text-left px-3 py-1.5 text-[11px] text-slate-300 hover:bg-white/[0.06]">▶ Reactivar</button>}
-                        {(p.estado === 'activo' || p.estado === 'pausado') && <button onClick={() => handlePlanEstado(p.id, 'cerrado')} className="w-full text-left px-3 py-1.5 text-[11px] text-slate-300 hover:bg-white/[0.06]">🔒 Cerrar</button>}
-                        <button onClick={() => handleDeletePlan(p.id)} className="w-full text-left px-3 py-1.5 text-[11px] text-rose-400 hover:bg-rose-500/10">🗑 Eliminar</button>
+                        {p.estado === 'activo' && <button onClick={() => handlePlanEstado(p.id, 'pausado')} className="w-full text-left px-3 py-1.5 text-sm text-slate-300 hover:bg-white/[0.06]">⏸ Pausar</button>}
+                        {p.estado === 'pausado' && <button onClick={() => handlePlanEstado(p.id, 'activo')} className="w-full text-left px-3 py-1.5 text-sm text-slate-300 hover:bg-white/[0.06]">▶ Reactivar</button>}
+                        {(p.estado === 'activo' || p.estado === 'pausado') && <button onClick={() => handlePlanEstado(p.id, 'cerrado')} className="w-full text-left px-3 py-1.5 text-sm text-slate-300 hover:bg-white/[0.06]">🔒 Cerrar</button>}
+                        <button onClick={() => handleDeletePlan(p.id)} className="w-full text-left px-3 py-1.5 text-sm text-rose-400 hover:bg-rose-500/10">🗑 Eliminar</button>
                       </div>
                     </div>
                   </div>
@@ -556,8 +556,8 @@ export default function OpsGestionClient() {
                 <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-indigo-500/10 border border-indigo-500/10 mb-4">
                   <svg className="w-7 h-7 text-indigo-400/50" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 4v16m8-8H4" /></svg>
                 </div>
-                <p className="text-sm font-medium text-slate-400">Sin planes maestros</p>
-                <p className="text-xs text-slate-600 mt-1">Crea el primero para comenzar a gestionar operaciones</p>
+                <p className="text-base font-medium text-slate-400">Sin planes maestros</p>
+                <p className="text-sm text-slate-600 mt-1">Crea el primero para comenzar a gestionar operaciones</p>
               </div>
             )}
           </div>
@@ -572,7 +572,7 @@ export default function OpsGestionClient() {
             subtitle={selectedPlan ? `${agenda.length} ocurrencias · ${agenda.filter(a => a.estado === 'completado').length} completadas` : undefined}
             action={
               selectedPlanId ? (
-                <button onClick={() => { setTab('planes'); setSelectedPlanId(null) }} className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-[11px] font-medium text-slate-400 hover:text-white hover:bg-white/[0.08] transition-all">
+                <button onClick={() => { setTab('planes'); setSelectedPlanId(null) }} className="inline-flex items-center gap-1.5 rounded-lg border border-white/[0.08] bg-white/[0.04] px-3 py-1.5 text-sm font-medium text-slate-400 hover:text-white hover:bg-white/[0.08] transition-all">
                   ← Planes
                 </button>
               ) : undefined
@@ -584,8 +584,8 @@ export default function OpsGestionClient() {
               <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-amber-500/10 border border-amber-500/10 mb-4">
                 <span className="text-2xl">📅</span>
               </div>
-              <p className="text-sm font-medium text-slate-400">Selecciona un plan</p>
-              <p className="text-xs text-slate-600 mt-1">Ve a la pestaña <button onClick={() => setTab('planes')} className="text-indigo-400 underline decoration-indigo-400/30">Planes Maestros</button> y presiona &quot;Agenda&quot; en un plan</p>
+              <p className="text-base font-medium text-slate-400">Selecciona un plan</p>
+              <p className="text-sm text-slate-600 mt-1">Ve a la pestaña <button onClick={() => setTab('planes')} className="text-indigo-400 underline decoration-indigo-400/30">Planes Maestros</button> y presiona &quot;Agenda&quot; en un plan</p>
             </div>
           )}
 
@@ -594,27 +594,27 @@ export default function OpsGestionClient() {
               <table className="w-full">
                 <thead>
                   <tr className="border-b border-white/[0.06]">
-                    <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500">#</th>
-                    <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500">Vence</th>
-                    <th className="px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-500">Estimado</th>
-                    <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500">Prioridad</th>
-                    <th className="px-4 py-2.5 text-left text-[10px] font-semibold uppercase tracking-wider text-slate-500">Estado</th>
-                    <th className="px-4 py-2.5 text-right text-[10px] font-semibold uppercase tracking-wider text-slate-500">Acción</th>
+                    <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">#</th>
+                    <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Vence</th>
+                    <th className="px-4 py-2.5 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">Estimado</th>
+                    <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Prioridad</th>
+                    <th className="px-4 py-2.5 text-left text-xs font-semibold uppercase tracking-wider text-slate-500">Estado</th>
+                    <th className="px-4 py-2.5 text-right text-xs font-semibold uppercase tracking-wider text-slate-500">Acción</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-white/[0.04]">
                   {agenda.map(a => (
                     <tr key={a.id} className="hover:bg-white/[0.02] transition-colors">
-                      <td className="px-4 py-2 text-xs font-mono text-slate-500">{a.ocurrencia_nro}</td>
-                      <td className="px-4 py-2 text-xs text-slate-300">{formatShortDate(a.due_date)}</td>
-                      <td className="px-4 py-2 text-xs text-right text-slate-300 font-medium">{formatMoney(a.monto_estimado)}</td>
+                      <td className="px-4 py-2 text-sm font-mono text-slate-500">{a.ocurrencia_nro}</td>
+                      <td className="px-4 py-2 text-sm text-slate-300">{formatShortDate(a.due_date)}</td>
+                      <td className="px-4 py-2 text-sm text-right text-slate-300 font-medium">{formatMoney(a.monto_estimado)}</td>
                       <td className="px-4 py-2"><StatusBadge value={a.prioridad} /></td>
                       <td className="px-4 py-2"><StatusBadge value={a.estado} /></td>
                       <td className="px-4 py-2 text-right">
                         <select
                           value={a.estado}
                           onChange={(e) => handleAgendaEstado(a.id, e.target.value)}
-                          className="h-7 rounded-lg border border-white/[0.08] bg-white/[0.04] px-2 text-[10px] text-slate-300 focus:border-indigo-500/50 focus:outline-none cursor-pointer"
+                          className="h-9 rounded-lg border border-white/[0.08] bg-white/[0.04] px-2 text-xs text-slate-300 focus:border-indigo-500/50 focus:outline-none cursor-pointer"
                         >
                           <option value="pendiente">Pendiente</option>
                           <option value="en_proceso">En proceso</option>
@@ -634,7 +634,7 @@ export default function OpsGestionClient() {
 
       {/* Guía */}
       <div className="rounded-xl border border-white/[0.04] bg-white/[0.015] px-5 py-4">
-        <p className="text-[11px] font-semibold text-slate-400 mb-2">Flujo de trabajo</p>
+        <p className="text-sm font-semibold text-slate-400 mb-2">Flujo de trabajo</p>
         <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
           {[
             { step: '1', title: 'Catálogos', desc: 'Responsables y entidades' },
@@ -644,10 +644,10 @@ export default function OpsGestionClient() {
             { step: '5', title: 'Dashboard', desc: 'Semáforos en tiempo real' },
           ].map((s, i) => (
             <div key={s.step} className="flex items-start gap-2.5">
-              <span className="flex h-5 w-5 items-center justify-center rounded-full bg-indigo-500/15 text-[10px] font-bold text-indigo-400 flex-shrink-0 mt-0.5">{s.step}</span>
+              <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-500/15 text-xs font-bold text-indigo-400 flex-shrink-0 mt-0.5">{s.step}</span>
               <div>
-                <p className="text-[11px] font-medium text-slate-300">{s.title}</p>
-                <p className="text-[10px] text-slate-600">{s.desc}</p>
+                <p className="text-sm font-medium text-slate-300">{s.title}</p>
+                <p className="text-xs text-slate-600">{s.desc}</p>
               </div>
               {i < 4 && <span className="hidden sm:inline text-slate-700 ml-auto">→</span>}
             </div>
