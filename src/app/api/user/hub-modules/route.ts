@@ -1,9 +1,9 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient, getSafeServerUser } from '@/lib/supabase/server'
 
-type HubModuleId = 'it-helpdesk' | 'mantenimiento' | 'corporativo' | 'academia' | 'politicas' | 'ama-de-llaves' | 'administracion'
+type HubModuleId = 'it-helpdesk' | 'mantenimiento' | 'corporativo' | 'academia' | 'politicas' | 'ama-de-llaves' | 'administracion' | 'ops'
 type ModuleAccess = 'user' | 'supervisor'
-const ALL_MODULE_IDS: HubModuleId[] = ['it-helpdesk', 'mantenimiento', 'corporativo', 'academia', 'politicas', 'ama-de-llaves', 'administracion']
+const ALL_MODULE_IDS: HubModuleId[] = ['it-helpdesk', 'mantenimiento', 'corporativo', 'academia', 'politicas', 'ama-de-llaves', 'administracion', 'ops']
 
 export async function POST(request: NextRequest) {
   try {

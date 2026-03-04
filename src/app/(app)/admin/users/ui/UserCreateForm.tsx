@@ -17,7 +17,7 @@ const ROLES = [
 
 type Role = (typeof ROLES)[number]['value']
 
-type HubModuleId = 'it-helpdesk' | 'mantenimiento' | 'corporativo' | 'academia' | 'politicas' | 'ama-de-llaves' | 'administracion'
+type HubModuleId = 'it-helpdesk' | 'mantenimiento' | 'corporativo' | 'academia' | 'politicas' | 'ama-de-llaves' | 'administracion' | 'ops'
 type ModuleAccess = 'user' | 'supervisor'
 type HubModules = Record<HubModuleId, ModuleAccess | false>
 
@@ -29,6 +29,7 @@ const DEFAULT_HUB_MODULES: HubModules = {
   politicas: 'user',
   'ama-de-llaves': false,
   administracion: false,
+  ops: false,
 }
 
 type Location = {
@@ -477,6 +478,7 @@ export default function UserCreateForm() {
                   { id: 'politicas', label: 'POLÍTICAS' },
                   { id: 'ama-de-llaves', label: 'AMA DE LLAVES' },
                   { id: 'administracion', label: 'ADMINISTRACIÓN' },
+                  { id: 'ops', label: 'OPERACIONES' },
                 ] as Array<{ id: HubModuleId; label: string }>
               ).map((m) => (
                 <div key={m.id} className="flex items-center justify-between gap-3">

@@ -194,7 +194,6 @@ const modules: Module[] = [
     iconBg: 'bg-slate-100',
     textColor: 'text-slate-900',
     requiredRoles: ['admin', 'supervisor'],
-    checkPermission: (profile: any) => profile?.role === 'admin' || profile?.role === 'supervisor',
   },
   {
     id: 'administracion',
