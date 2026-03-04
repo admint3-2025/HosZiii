@@ -220,6 +220,7 @@ export default function UserList() {
         politicas: normalize(hm['politicas']),
         'ama-de-llaves': normalize(hm['ama-de-llaves']),
         administracion: normalize(hm['administracion']),
+        ops: normalize(hm['ops']),
       })
     } else {
       setEditHubModules(DEFAULT_HUB_MODULES)
