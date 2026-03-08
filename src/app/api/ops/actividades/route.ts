@@ -18,7 +18,7 @@ export async function POST(request: NextRequest) {
     if (!auth.canManage) return NextResponse.json({ ok: false, error: 'Sin permisos de gestión' }, { status: 403 })
 
     const body = await request.json()
-    const { tipo, titulo, descripcion, departamento, area, fecha, frecuencia, repite } = body
+    const { tipo, titulo, descripcion, departamento, centro_costo, area, fecha, frecuencia, repite } = body
 
     if (!titulo || !fecha || !departamento) {
       return NextResponse.json({ ok: false, error: 'titulo, fecha y departamento son requeridos' }, { status: 400 })
@@ -44,6 +44,7 @@ export async function POST(request: NextRequest) {
         tipo_entidad: tipo ?? 'actividad',
         categoria: tipo ?? 'actividad',
         departamento,
+        centro_costo: centro_costo || undefined,
       })
       entidadId = entidad.id
     }
@@ -55,6 +56,7 @@ export async function POST(request: NextRequest) {
       nombre: titulo,
       descripcion: descripcion || undefined,
       departamento_dueno: departamento,
+      centro_costo: centro_costo || undefined,
       moneda: 'MXN',
       entidad_objetivo_id: entidadId,
       fecha_inicio: fecha,

@@ -50,10 +50,17 @@ type CreateFormState = {
   titulo: string
   descripcion: string
   departamento: string
+  centro_costo: string
   area: string
   fecha: string
   frecuencia: string
   repite: boolean
+}
+
+type LocationOption = {
+  id: string
+  code: string
+  name: string
 }
 
 type PortfolioResponse = {
@@ -169,6 +176,8 @@ const PLAN_STATE_STYLES: Record<string, string> = {
   cerrado: 'bg-slate-100 text-slate-700 border-slate-200',
 }
 
+const INPUT_CLASS = 'w-full rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none transition focus:border-sky-500 focus:ring-2 focus:ring-sky-100'
+
 function normalize(value: string | null | undefined) {
   return (value ?? '').trim().toUpperCase()
 }
@@ -231,6 +240,57 @@ function getAccessibleDepartments(profile: UserPlanningProfile) {
 
   const filtered = DEPARTMENTS.filter((item) => allowed.has(item.key) || allowed.has(normalize(item.label)))
   return filtered.length > 0 ? filtered : [getDepartmentConfig(profile.departamento || 'MANTENIMIENTO')]
+}
+
+function buildDepartmentCatalog(profile: UserPlanningProfile, portfolio: PortfolioResponse) {
+  const known = new Map(DEPARTMENTS.map((department) => [department.key, department]))
+  const discovered = new Set<string>()
+
+  if (profile.departamento) discovered.add(normalize(profile.departamento))
+  for (const department of profile.allowed_departments ?? []) {
+    discovered.add(normalize(department))
+  }
+
+  for (const plan of portfolio.plans) discovered.add(normalize(plan.departamento_dueno))
+  for (const item of portfolio.calendar) discovered.add(normalize(item.departamento_dueno))
+  for (const item of portfolio.financial) discovered.add(normalize(item.departamento_dueno))
+  for (const item of portfolio.compliance) discovered.add(normalize(item.departamento))
+
+  const departments = Array.from(discovered)
+    .filter(Boolean)
+    .map((department) => known.get(department) ?? getDepartmentConfig(department))
+    .sort((left, right) => left.label.localeCompare(right.label, 'es-MX'))
+
+  if (profile.isAdmin || profile.isCorporate) {
+    return departments.length > 0 ? departments : DEPARTMENTS
+  }
+
+  const allowed = new Set(getAccessibleDepartments(profile).map((department) => department.key))
+  const filtered = departments.filter((department) => allowed.has(department.key))
+  return filtered.length > 0 ? filtered : getAccessibleDepartments(profile)
+}
+
+function locationMatches(centroCosto: string | null | undefined, location: LocationOption) {
+  const value = normalize(centroCosto)
+  if (!value) return false
+  return value === normalize(location.code) || value === normalize(location.name) || value === normalize(location.id)
+}
+
+function locationLabel(centroCosto: string | null | undefined, locations: LocationOption[]) {
+  if (!centroCosto) return 'Sin sede asignada'
+  const matched = locations.find((location) => locationMatches(centroCosto, location))
+  return matched ? `${matched.code} - ${matched.name}` : centroCosto
+}
+
+function matchesSelectedLocation(
+  centroCosto: string | null | undefined,
+  selectedLocationId: string,
+  locations: LocationOption[],
+) {
+  if (selectedLocationId === 'ALL') return true
+  const selected = locations.find((location) => location.id === selectedLocationId)
+  if (!selected) return false
+  return locationMatches(centroCosto, selected)
 }
 
 async function fetchJson<T>(url: string): Promise<T> {
@@ -350,14 +410,18 @@ function NewPlanModal({
   open,
   canManage,
   defaultDepartment,
+  defaultCentroCosto,
   departments,
+  locations,
   onClose,
   onCreated,
 }: {
   open: boolean
   canManage: boolean
   defaultDepartment: string
+  defaultCentroCosto: string
   departments: DepartmentDef[]
+  locations: LocationOption[]
   onClose: () => void
   onCreated: () => Promise<void>
 }) {
@@ -366,6 +430,7 @@ function NewPlanModal({
     titulo: '',
     descripcion: '',
     departamento: defaultDepartment,
+    centro_costo: defaultCentroCosto,
     area: '',
     fecha: `${new Date().getFullYear()}-01-15`,
     frecuencia: 'monthly',
@@ -375,8 +440,12 @@ function NewPlanModal({
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    setForm((prev) => ({ ...prev, departamento: defaultDepartment }))
-  }, [defaultDepartment])
+    setForm((prev) => ({
+      ...prev,
+      departamento: defaultDepartment,
+      centro_costo: defaultCentroCosto,
+    }))
+  }, [defaultDepartment, defaultCentroCosto])
 
   if (!open) return null
 
@@ -425,7 +494,7 @@ function NewPlanModal({
         <form onSubmit={submit} className="space-y-4 px-6 py-6">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <Field label="Tipo">
-              <select className="input-base" value={form.tipo} onChange={(e) => setForm((prev) => ({ ...prev, tipo: e.target.value }))}>
+              <select className={INPUT_CLASS} value={form.tipo} onChange={(e) => setForm((prev) => ({ ...prev, tipo: e.target.value }))}>
                 <option value="mantenimiento_preventivo">Mantenimiento preventivo</option>
                 <option value="inspeccion">Inspeccion</option>
                 <option value="inventario">Inventario</option>
@@ -434,27 +503,35 @@ function NewPlanModal({
               </select>
             </Field>
             <Field label="Departamento">
-              <select className="input-base" value={form.departamento} onChange={(e) => setForm((prev) => ({ ...prev, departamento: e.target.value }))}>
+              <select className={INPUT_CLASS} value={form.departamento} onChange={(e) => setForm((prev) => ({ ...prev, departamento: e.target.value }))}>
                 {departments.map((department) => (
                   <option key={department.key} value={department.key}>{department.label}</option>
                 ))}
               </select>
             </Field>
           </div>
+          <Field label="Sede / propiedad">
+            <select className={INPUT_CLASS} value={form.centro_costo} onChange={(e) => setForm((prev) => ({ ...prev, centro_costo: e.target.value }))}>
+              <option value="">Sin sede</option>
+              {locations.map((location) => (
+                <option key={location.id} value={location.code}>{location.code} - {location.name}</option>
+              ))}
+            </select>
+          </Field>
           <Field label="Titulo del plan">
-            <input className="input-base" value={form.titulo} onChange={(e) => setForm((prev) => ({ ...prev, titulo: e.target.value }))} placeholder="Ej. Programa anual de elevadores" required />
+            <input className={INPUT_CLASS} value={form.titulo} onChange={(e) => setForm((prev) => ({ ...prev, titulo: e.target.value }))} placeholder="Ej. Programa anual de elevadores" required />
           </Field>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <Field label="Activo / area objetivo">
-              <input className="input-base" value={form.area} onChange={(e) => setForm((prev) => ({ ...prev, area: e.target.value }))} placeholder="Ej. Elevadores principales" />
+              <input className={INPUT_CLASS} value={form.area} onChange={(e) => setForm((prev) => ({ ...prev, area: e.target.value }))} placeholder="Ej. Elevadores principales" />
             </Field>
             <Field label="Fecha de inicio">
-              <input type="date" className="input-base" value={form.fecha} onChange={(e) => setForm((prev) => ({ ...prev, fecha: e.target.value }))} required />
+              <input type="date" className={INPUT_CLASS} value={form.fecha} onChange={(e) => setForm((prev) => ({ ...prev, fecha: e.target.value }))} required />
             </Field>
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
             <Field label="Frecuencia">
-              <select className="input-base" value={form.frecuencia} onChange={(e) => setForm((prev) => ({ ...prev, frecuencia: e.target.value }))}>
+              <select className={INPUT_CLASS} value={form.frecuencia} onChange={(e) => setForm((prev) => ({ ...prev, frecuencia: e.target.value }))}>
                 <option value="monthly">Mensual</option>
                 <option value="quarterly">Trimestral</option>
                 <option value="yearly">Anual</option>
@@ -462,7 +539,7 @@ function NewPlanModal({
               </select>
             </Field>
             <Field label="Descripcion">
-              <input className="input-base" value={form.descripcion} onChange={(e) => setForm((prev) => ({ ...prev, descripcion: e.target.value }))} placeholder="Objetivo, alcance o alcance presupuestal" />
+              <input className={INPUT_CLASS} value={form.descripcion} onChange={(e) => setForm((prev) => ({ ...prev, descripcion: e.target.value }))} placeholder="Objetivo, alcance o alcance presupuestal" />
             </Field>
           </div>
           {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
@@ -486,13 +563,14 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 }
 
 export default function PlanningHubClient({ userProfile, initialYear }: Props) {
-  const accessibleDepartments = useMemo(() => getAccessibleDepartments(userProfile), [userProfile])
   const canSeeAll = userProfile.isAdmin || userProfile.isCorporate
   const canManage = userProfile.isAdmin || userProfile.role === 'supervisor'
-  const preferredDept = accessibleDepartments[0]?.key ?? 'MANTENIMIENTO'
 
   const [year, setYear] = useState(initialYear)
-  const [selectedDepartment, setSelectedDepartment] = useState<string>(canSeeAll ? 'ALL' : preferredDept)
+  const [locations, setLocations] = useState<LocationOption[]>([])
+  const [locationsLoading, setLocationsLoading] = useState(true)
+  const [selectedDepartment, setSelectedDepartment] = useState<string>('ALL')
+  const [selectedLocationId, setSelectedLocationId] = useState<string>('ALL')
   const [portfolio, setPortfolio] = useState<PortfolioResponse>({ plans: [], calendar: [], compliance: [], financial: [] })
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null)
   const [agenda, setAgenda] = useState<OpsAgendaItem[]>([])
@@ -502,20 +580,61 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
 
+  const accessibleDepartments = useMemo(() => buildDepartmentCatalog(userProfile, portfolio), [portfolio, userProfile])
+  const preferredDept = accessibleDepartments[0]?.key ?? 'MANTENIMIENTO'
   const visibleDepartmentKeys = useMemo(() => new Set(accessibleDepartments.map((item) => item.key)), [accessibleDepartments])
+
+  useEffect(() => {
+    async function loadLocations() {
+      try {
+        setLocationsLoading(true)
+        const json = await fetchJson<{ locations: LocationOption[] }>('/api/locations/options')
+        setLocations(json.locations ?? [])
+      } catch {
+        setLocations([])
+      } finally {
+        setLocationsLoading(false)
+      }
+    }
+
+    loadLocations()
+  }, [])
+
+  useEffect(() => {
+    if (canSeeAll) {
+      setSelectedDepartment((current) => current || 'ALL')
+      return
+    }
+
+    setSelectedDepartment((current) => {
+      if (current !== 'ALL' && accessibleDepartments.some((department) => department.key === current)) return current
+      return preferredDept
+    })
+  }, [accessibleDepartments, canSeeAll, preferredDept])
+
+  useEffect(() => {
+    if (canSeeAll) {
+      setSelectedLocationId((current) => current || 'ALL')
+      return
+    }
+
+    if (locationsLoading) return
+    setSelectedLocationId((current) => {
+      if (current !== 'ALL' && locations.some((location) => location.id === current)) return current
+      return locations[0]?.id ?? 'ALL'
+    })
+  }, [canSeeAll, locations, locationsLoading])
 
   async function loadPortfolio() {
     try {
       setError(null)
       setRefreshing(true)
       const bounds = monthBounds(year)
-      const departmentParam = selectedDepartment === 'ALL' ? '' : `&departamento=${encodeURIComponent(selectedDepartment)}`
-
       const [plansJson, calendarJson, complianceJson, financialJson] = await Promise.all([
         fetchJson<{ ok: true; data: PlanWithRelations[] }>('/api/ops/planes'),
-        fetchJson<{ ok: true; data: OpsCalendarItem[] }>(`/api/ops/calendar?from=${bounds.from}&to=${bounds.to}${departmentParam}&limit=800`),
-        fetchJson<{ ok: true; data: OpsComplianceItem[] }>(`/api/ops/compliance?as_of_date=${todayIso()}${departmentParam}`),
-        fetchJson<{ ok: true; data: OpsFinancialItem[] }>(`/api/ops/financial?${selectedDepartment === 'ALL' ? '' : `departamento=${encodeURIComponent(selectedDepartment)}`}`),
+        fetchJson<{ ok: true; data: OpsCalendarItem[] }>(`/api/ops/calendar?from=${bounds.from}&to=${bounds.to}&limit=1200`),
+        fetchJson<{ ok: true; data: OpsComplianceItem[] }>(`/api/ops/compliance?as_of_date=${todayIso()}`),
+        fetchJson<{ ok: true; data: OpsFinancialItem[] }>('/api/ops/financial'),
       ])
 
       const scopedPlans = plansJson.data.filter((item) => canSeeAll || visibleDepartmentKeys.has(normalize(item.departamento_dueno)))
@@ -534,11 +653,30 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
 
   useEffect(() => {
     loadPortfolio()
-  }, [selectedDepartment, year])
+  }, [year])
 
-  const filteredPlans = useMemo(() => {
-    return portfolio.plans.filter((plan) => selectedDepartment === 'ALL' || normalize(plan.departamento_dueno) === selectedDepartment)
-  }, [portfolio.plans, selectedDepartment])
+  const scopedPortfolio = useMemo(() => {
+    const basePlans = portfolio.plans.filter((plan) => canSeeAll || visibleDepartmentKeys.has(normalize(plan.departamento_dueno)))
+    const baseCalendar = portfolio.calendar.filter((item) => canSeeAll || visibleDepartmentKeys.has(normalize(item.departamento_dueno)))
+    const baseCompliance = portfolio.compliance.filter((item) => canSeeAll || visibleDepartmentKeys.has(normalize(item.departamento)))
+    const baseFinancial = portfolio.financial.filter((item) => canSeeAll || visibleDepartmentKeys.has(normalize(item.departamento_dueno)))
+
+    const byLocation = {
+      plans: basePlans.filter((item) => matchesSelectedLocation(item.centro_costo, selectedLocationId, locations)),
+      calendar: baseCalendar.filter((item) => matchesSelectedLocation(item.centro_costo, selectedLocationId, locations)),
+      compliance: baseCompliance.filter((item) => matchesSelectedLocation(item.centro_costo, selectedLocationId, locations)),
+      financial: baseFinancial.filter((item) => matchesSelectedLocation(item.centro_costo, selectedLocationId, locations)),
+    }
+
+    return {
+      plans: byLocation.plans.filter((plan) => selectedDepartment === 'ALL' || normalize(plan.departamento_dueno) === selectedDepartment),
+      calendar: byLocation.calendar.filter((item) => selectedDepartment === 'ALL' || normalize(item.departamento_dueno) === selectedDepartment),
+      compliance: byLocation.compliance.filter((item) => selectedDepartment === 'ALL' || normalize(item.departamento) === selectedDepartment),
+      financial: byLocation.financial.filter((item) => selectedDepartment === 'ALL' || normalize(item.departamento_dueno) === selectedDepartment),
+    }
+  }, [canSeeAll, locations, portfolio, selectedDepartment, selectedLocationId, visibleDepartmentKeys])
+
+  const filteredPlans = scopedPortfolio.plans
 
   useEffect(() => {
     if (filteredPlans.length === 0) {
@@ -580,20 +718,20 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
     }))
   }, [accessibleDepartments, selectedDepartment])
 
-  const totalPlanned = portfolio.financial.reduce((sum, item) => sum + Number(item.monto_total_planeado || 0), 0)
+  const totalPlanned = scopedPortfolio.financial.reduce((sum, item) => sum + Number(item.monto_total_planeado || 0), 0)
   const activePlans = filteredPlans.filter((plan) => plan.estado === 'activo').length
-  const totalEvents = portfolio.calendar.filter((item) => selectedDepartment === 'ALL' || normalize(item.departamento_dueno) === selectedDepartment).length
-  const totalCritical = portfolio.compliance.filter((item) => item.alert_flag === 'RED').length
+  const totalEvents = scopedPortfolio.calendar.length
+  const totalCritical = scopedPortfolio.compliance.filter((item) => item.alert_flag === 'RED').length
 
   const matrixRows = useMemo(() => {
     return filteredPlans.map((plan) => ({
       plan,
-      matrix: getMatrixForPlan(plan, portfolio.calendar),
-      annualBudget: portfolio.calendar
+      matrix: getMatrixForPlan(plan, scopedPortfolio.calendar),
+      annualBudget: scopedPortfolio.calendar
         .filter((item) => item.plan_maestro_id === plan.id)
         .reduce((sum, item) => sum + Number(item.monto_estimado || 0), 0),
     }))
-  }, [filteredPlans, portfolio.calendar])
+  }, [filteredPlans, scopedPortfolio.calendar])
 
   async function updateAgendaStatus(id: string, estado: OpsAgendaItem['estado']) {
     try {
@@ -675,8 +813,26 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
         <section className="mt-6 rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
           <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
             <div>
-              <h2 className="text-xl font-bold text-slate-900">Vista por departamento</h2>
-              <p className="mt-1 text-sm text-slate-500">Selecciona un departamento para centrar el tablero, la matriz y el panel operativo.</p>
+              <h2 className="text-xl font-bold text-slate-900">Vista corporativa por sede y departamento</h2>
+              <p className="mt-1 text-sm text-slate-500">Como admin puedes ver el consolidado global o bajar por propiedad y por area corporativa.</p>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {canSeeAll ? (
+                <button type="button" onClick={() => setSelectedLocationId('ALL')} className={`rounded-full px-4 py-2 text-sm font-semibold ${selectedLocationId === 'ALL' ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
+                  Todas las sedes
+                </button>
+              ) : null}
+              {locations.map((location) => (
+                <button key={location.id} type="button" onClick={() => setSelectedLocationId(location.id)} className={`rounded-full px-4 py-2 text-sm font-semibold ${selectedLocationId === location.id ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
+                  {location.code}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="mt-5 flex flex-wrap gap-2 border-t border-slate-200 pt-5">
+            <div className="mr-2 inline-flex items-center rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+              Departamentos
             </div>
             <div className="flex flex-wrap gap-2">
               {canSeeAll ? (
@@ -699,9 +855,9 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
                 department={department}
                 selected={selected}
                 onSelect={() => setSelectedDepartment(department.key)}
-                plans={portfolio.plans}
-                financial={portfolio.financial}
-                calendar={portfolio.calendar}
+                plans={scopedPortfolio.plans}
+                financial={scopedPortfolio.financial}
+                calendar={scopedPortfolio.calendar}
               />
             ))}
           </div>
@@ -734,6 +890,7 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
                   <thead className="bg-slate-50 text-slate-600">
                     <tr>
                       <th className="sticky left-0 z-10 min-w-[320px] border-b border-slate-200 bg-slate-50 px-5 py-4 font-semibold">Plan / entidad</th>
+                      <th className="min-w-[170px] border-b border-slate-200 px-4 py-4 font-semibold">Sede</th>
                       <th className="min-w-[150px] border-b border-slate-200 px-4 py-4 font-semibold">Departamento</th>
                       <th className="min-w-[120px] border-b border-slate-200 px-4 py-4 font-semibold text-center">Estado</th>
                       {MONTHS.map((month) => (
@@ -753,6 +910,9 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
                               <p className="truncate text-sm font-bold text-slate-900">{plan.nombre}</p>
                                 <p className="mt-1 truncate text-xs text-slate-500">{plan.entidad?.nombre ?? 'Sin entidad ligada'} | {plan.responsable?.nombre ?? 'Proveedor por definir'}</p>
                             </div>
+                          </td>
+                          <td className="px-4 py-4">
+                            <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700">{locationLabel(plan.centro_costo, locations)}</span>
                           </td>
                           <td className="px-4 py-4">
                             <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${department.soft} ${department.accent} ${department.border}`}>{department.shortLabel}</span>
@@ -803,6 +963,7 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
                     <p className="text-lg font-bold text-slate-900">{selectedPlan.nombre}</p>
                     <div className="mt-3 space-y-2 text-sm text-slate-600">
                       <p><span className="font-semibold text-slate-900">Departamento:</span> {selectedPlan.departamento_dueno}</p>
+                      <p><span className="font-semibold text-slate-900">Sede:</span> {locationLabel(selectedPlan.centro_costo, locations)}</p>
                       <p><span className="font-semibold text-slate-900">Entidad:</span> {selectedPlan.entidad?.nombre ?? 'Sin entidad'}</p>
                       <p><span className="font-semibold text-slate-900">Proveedor:</span> {selectedPlan.responsable?.nombre ?? 'Sin proveedor'}</p>
                       <p><span className="font-semibold text-slate-900">Inicio:</span> {formatDate(selectedPlan.fecha_inicio)}</p>
@@ -863,17 +1024,17 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
             <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
               <h3 className="text-sm font-bold uppercase tracking-[0.14em] text-slate-500">Riesgo y cumplimiento</h3>
               <div className="mt-4 space-y-3">
-                {portfolio.compliance.slice(0, 6).map((item) => (
+                {scopedPortfolio.compliance.slice(0, 6).map((item) => (
                   <div key={item.agenda_id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
                     <p className="text-sm font-semibold text-slate-900">{item.plan_nombre}</p>
-                    <p className="mt-1 text-xs text-slate-500">{item.departamento} | {formatDate(item.due_date)}</p>
+                    <p className="mt-1 text-xs text-slate-500">{locationLabel(item.centro_costo, locations)} | {item.departamento} | {formatDate(item.due_date)}</p>
                     <div className="mt-2 flex items-center justify-between">
                       <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${item.alert_flag === 'RED' ? 'bg-rose-100 text-rose-800 border-rose-200' : item.alert_flag === 'YELLOW' ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-emerald-100 text-emerald-800 border-emerald-200'}`}>{item.alert_flag}</span>
                       <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600"><ArrowUpRight className="h-3.5 w-3.5" />Impacto {formatCurrency(item.impacto_financiero)}</span>
                     </div>
                   </div>
                 ))}
-                {portfolio.compliance.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">Sin alertas activas para la vista actual.</div> : null}
+                {scopedPortfolio.compliance.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">Sin alertas activas para la vista actual.</div> : null}
               </div>
             </div>
           </aside>
@@ -884,7 +1045,9 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
         open={showCreateModal}
         canManage={canManage}
         defaultDepartment={selectedDepartment === 'ALL' ? preferredDept : selectedDepartment}
+        defaultCentroCosto={selectedLocationId === 'ALL' ? (locations[0]?.code ?? '') : (locations.find((location) => location.id === selectedLocationId)?.code ?? '')}
         departments={accessibleDepartments}
+        locations={locations}
         onClose={() => setShowCreateModal(false)}
         onCreated={loadPortfolio}
       />
