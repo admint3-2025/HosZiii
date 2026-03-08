@@ -157,7 +157,8 @@ export async function middleware(request: NextRequest) {
     pathname.startsWith('/admin') ||
     pathname.startsWith('/mantenimiento') ||
     pathname.startsWith('/beo') ||
-    pathname.startsWith('/corporativo')
+    pathname.startsWith('/corporativo') ||
+    pathname.startsWith('/planificacion')
   if (isAppRoute) {
     // Verificar solo la cookie de sesión
     if (!hasSessionCookie) {

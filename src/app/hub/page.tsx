@@ -192,6 +192,13 @@ const modules: Module[] = [
     iconBg: 'bg-sky-100',
     textColor: 'text-sky-900',
     requiredRoles: ['admin', 'supervisor'],
+    // Acepta tanto la clave nueva 'planificacion' como la clave legacy 'ops'
+    checkPermission: (profile: any) => {
+      const hm = profile?.hub_visible_modules as Record<string, string | boolean> | null
+      if (!hm) return false
+      const v = hm['planificacion'] ?? hm['ops']
+      return v === 'user' || v === 'supervisor' || v === true
+    },
   },
   {
     id: 'administracion',
