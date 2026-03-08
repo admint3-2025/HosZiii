@@ -12,6 +12,18 @@ type AgendaItem = { id: string; ocurrencia_nro: number; due_date: string; monto_
 type Department = { id: string; name: string; code: string | null }
 type UserProfile = { role: string; departamento: string | null; allowed_departments: string[] | null; is_corporate: boolean; full_name: string | null }
 
+const OPS_DEPARTMENTS: Department[] = [
+  { id: 'rrhh',         name: 'RECURSOS HUMANOS',    code: null },
+  { id: 'gsh',          name: 'GSH',                 code: null },
+  { id: 'cuartos',      name: 'DIV. CUARTOS',        code: null },
+  { id: 'mantenimiento',name: 'MANTENIMIENTO',       code: null },
+  { id: 'sistemas',     name: 'SISTEMAS',            code: null },
+  { id: 'alimentos',    name: 'ALIMENTOS Y BEBIDAS', code: null },
+  { id: 'llaves',       name: 'AMA DE LLAVES',       code: null },
+  { id: 'contabilidad', name: 'CONTABILIDAD',        code: null },
+  { id: 'marketing',    name: 'MARKETING',           code: null },
+]
+
 const TABS = [
   { key: 'planes' as const, label: 'Planes Maestros', icon: '📋' },
   { key: 'catálogos' as const, label: 'Catálogos', icon: '📁' },
@@ -108,7 +120,7 @@ export default function OpsGestionClient() {
   const [showNewPlan, setShowNewPlan] = useState(false)
 
   // ── Departamentos corporativos y perfil de usuario ──────────────────
-  const [departments, setDepartments] = useState<Department[]>([])
+  const [departments] = useState<Department[]>(OPS_DEPARTMENTS)
   const [userProfile, setUserProfile] = useState<UserProfile | null>(null)
 
   const clearMessages = () => { setError(null); setSuccess(null) }
@@ -127,12 +139,7 @@ export default function OpsGestionClient() {
           .single()
         if (prof) setUserProfile(prof as UserProfile)
       }
-      const { data: depts } = await supabase
-        .from('departments')
-        .select('id, name, code')
-        .eq('is_active', true)
-        .order('name')
-      if (depts) setDepartments(depts)
+      // departments list is static (OPS_DEPARTMENTS) — no DB query needed
     }
     loadInit()
   }, [])
