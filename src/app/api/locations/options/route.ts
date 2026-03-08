@@ -13,7 +13,7 @@ export async function GET() {
 
     const { data: profile } = await supabase
       .from("profiles")
-      .select("role, can_manage_assets")
+      .select("role, can_manage_assets, is_corporate, location_id")
       .eq("id", user.id)
       .single()
 
@@ -22,7 +22,7 @@ export async function GET() {
     }
 
     // Admin o usuario con permiso global de activos: traer todas las sedes
-    if (profile.role === "admin" || profile.can_manage_assets === true) {
+    if (profile.role === "admin" || profile.can_manage_assets === true || profile.is_corporate === true) {
       const admin = createSupabaseAdminClient()
       const { data, error } = await admin
         .from("locations")
@@ -44,8 +44,8 @@ export async function GET() {
     const locationIds = (userLocs || []).map((l) => l.location_id).filter(Boolean)
 
     // fallback al location_id del profile si no hay registros en user_locations
-    if (!locationIds.length && (profile as any).location_id) {
-      locationIds.push((profile as any).location_id)
+    if (!locationIds.length && profile.location_id) {
+      locationIds.push(profile.location_id)
     }
 
     if (!locationIds.length) {

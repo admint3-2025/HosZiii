@@ -21,7 +21,7 @@ export default async function PlanificacionPage() {
 
   const { data: profileRow } = await supabase
     .from('profiles')
-    .select('role, is_corporate, departamento, allowed_departments, full_name')
+    .select('role, is_corporate, department, allowed_departments, full_name')
     .eq('id', user.id)
     .single()
 
@@ -33,7 +33,7 @@ export default async function PlanificacionPage() {
     role,
     isAdmin,
     isCorporate,
-    departamento: profileRow?.departamento ?? null,
+    departamento: (profileRow as any)?.department ?? null,
     allowed_departments: (profileRow?.allowed_departments as string[] | null) ?? null,
     full_name: profileRow?.full_name ?? null,
   }

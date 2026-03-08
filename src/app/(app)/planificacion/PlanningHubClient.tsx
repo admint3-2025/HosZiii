@@ -63,6 +63,12 @@ type LocationOption = {
   name: string
 }
 
+type DepartmentOption = {
+  id: string
+  name: string
+  code: string | null
+}
+
 type PortfolioResponse = {
   plans: PlanWithRelations[]
   calendar: OpsCalendarItem[]
@@ -568,7 +574,9 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
 
   const [year, setYear] = useState(initialYear)
   const [locations, setLocations] = useState<LocationOption[]>([])
+  const [departmentOptions, setDepartmentOptions] = useState<DepartmentOption[]>([])
   const [locationsLoading, setLocationsLoading] = useState(true)
+  const [departmentsLoading, setDepartmentsLoading] = useState(true)
   const [selectedDepartment, setSelectedDepartment] = useState<string>('ALL')
   const [selectedLocationId, setSelectedLocationId] = useState<string>('ALL')
   const [portfolio, setPortfolio] = useState<PortfolioResponse>({ plans: [], calendar: [], compliance: [], financial: [] })
@@ -580,24 +588,45 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
 
-  const accessibleDepartments = useMemo(() => buildDepartmentCatalog(userProfile, portfolio), [portfolio, userProfile])
+  const accessibleDepartments = useMemo(() => {
+    const knownByName = new Map(DEPARTMENTS.map((department) => [department.key, department]))
+    const fromOptions = departmentOptions.map((department) => knownByName.get(normalize(department.name)) ?? getDepartmentConfig(department.name))
+    const merged = new Map<string, DepartmentDef>()
+
+    for (const department of fromOptions) {
+      merged.set(department.key, department)
+    }
+
+    for (const department of buildDepartmentCatalog(userProfile, portfolio)) {
+      merged.set(department.key, department)
+    }
+
+    return Array.from(merged.values()).sort((left, right) => left.label.localeCompare(right.label, 'es-MX'))
+  }, [departmentOptions, portfolio, userProfile])
   const preferredDept = accessibleDepartments[0]?.key ?? 'MANTENIMIENTO'
   const visibleDepartmentKeys = useMemo(() => new Set(accessibleDepartments.map((item) => item.key)), [accessibleDepartments])
 
   useEffect(() => {
-    async function loadLocations() {
+    async function loadReferenceData() {
       try {
         setLocationsLoading(true)
-        const json = await fetchJson<{ locations: LocationOption[] }>('/api/locations/options')
-        setLocations(json.locations ?? [])
+        setDepartmentsLoading(true)
+        const [locationsJson, departmentsJson] = await Promise.all([
+          fetchJson<{ locations: LocationOption[] }>('/api/locations/options'),
+          fetchJson<{ departments: DepartmentOption[] }>('/api/departments/options'),
+        ])
+        setLocations(locationsJson.locations ?? [])
+        setDepartmentOptions(departmentsJson.departments ?? [])
       } catch {
         setLocations([])
+        setDepartmentOptions([])
       } finally {
         setLocationsLoading(false)
+        setDepartmentsLoading(false)
       }
     }
 
-    loadLocations()
+    loadReferenceData()
   }, [])
 
   useEffect(() => {
@@ -827,6 +856,9 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
                   {location.code}
                 </button>
               ))}
+              {!locationsLoading && locations.length === 0 ? (
+                <span className="rounded-full bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700">Sin sedes disponibles</span>
+              ) : null}
             </div>
           </div>
 
@@ -845,6 +877,9 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
                   {department.shortLabel}
                 </button>
               ))}
+              {!departmentsLoading && accessibleDepartments.length === 0 ? (
+                <span className="rounded-full bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700">Sin departamentos disponibles</span>
+              ) : null}
             </div>
           </div>
 
