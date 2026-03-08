@@ -179,28 +179,6 @@ const modules: Module[] = [
     requiredRoles: ['admin', 'supervisor'],
   },
   {
-    id: 'planificacion',
-    name: 'PLANIFICACIÓN',
-    description: 'Mantenimientos, Inspecciones, Inventarios y Capacitación',
-    icon: (
-      <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
-      </svg>
-    ),
-    href: '/planificacion',
-    bgGradient: 'from-sky-500 via-blue-600 to-indigo-700',
-    iconBg: 'bg-sky-100',
-    textColor: 'text-sky-900',
-    requiredRoles: ['admin', 'supervisor'],
-    // Acepta tanto la clave nueva 'planificacion' como la clave legacy 'ops'
-    checkPermission: (profile: any) => {
-      const hm = profile?.hub_visible_modules as Record<string, string | boolean> | null
-      if (!hm) return false
-      const v = hm['planificacion'] ?? hm['ops']
-      return v === 'user' || v === 'supervisor' || v === true
-    },
-  },
-  {
     id: 'administracion',
     name: 'ADMINISTRACIÓN',
     description: 'Configuración del Sistema: Usuarios, Permisos, Auditoría',

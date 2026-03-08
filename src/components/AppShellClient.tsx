@@ -263,9 +263,7 @@ export default function AppShellClient({
   const moduleContext = useMemo(() => {
     if (pathname.startsWith('/admin')) return 'admin'
     if (pathname.startsWith('/politicas')) return 'politicas'
-    if (pathname.startsWith('/planificacion')) return 'planificacion'
     if (pathname.startsWith('/corporativo')) return 'corporativo'
-    if (pathname.startsWith('/ops')) return 'ops'
     if (pathname.startsWith('/inspections')) return 'corporativo' // Inspecciones RRHH
     if (pathname.startsWith('/academia')) return 'academia'
     // Reportes: mantener en `Administración` para que el sidebar no cambie
@@ -391,39 +389,15 @@ export default function AppShellClient({
         group: 'Corporativo',
         items: [
           { id: 'corp_home', label: 'Dashboard', icon: 'Dashboard', href: '/corporativo/dashboard' },
-          { id: 'corp_planeacion', label: 'Planificación', icon: 'Calendar', href: '/planificacion' },
           { id: 'corp_inspecciones', label: 'Inspecciones', icon: 'ShieldCheck', href: '/corporativo/inspecciones' },
           { id: 'corp_inbox', label: 'Bandeja Inspecciones', icon: 'BarChart', href: '/inspections/inbox' },
-          { id: 'corp_ops', label: 'Ops Dashboard', icon: 'Briefcase', href: '/ops', roles: ['admin', 'supervisor'] },
           { id: 'corp_academia', label: 'Admin Academia', icon: 'GraduationCap', href: '/corporativo/academia/admin' },
           { id: 'corp_politicas', label: 'Admin Políticas', icon: 'Book', href: '/corporativo/politicas/admin' },
         ],
       },
     ],
-    planificacion: [
-      {
-        group: 'Planificación',
-        items: [
-          { id: 'plan_hub', label: 'Centro de Planificación', icon: 'Calendar', href: '/planificacion' },
-          { id: 'plan_mnt', label: 'Mantenimiento Preventivo', icon: 'Wrench', href: '/planificacion?tab=mantenimiento' },
-          { id: 'plan_inspect', label: 'Inspecciones', icon: 'ShieldCheck', href: '/planificacion?tab=inspecciones' },
-          { id: 'plan_inv', label: 'Inventario', icon: 'Assets', href: '/planificacion?tab=inventario' },
-          { id: 'plan_cap', label: 'Capacitación', icon: 'GraduationCap', href: '/planificacion?tab=capacitacion' },
-          { id: 'plan_alerts', label: 'Alertas de Cumplimiento', icon: 'Bell', href: '/planificacion?tab=alertas' },
-        ],
-      },
-    ],
-    ops: [
-      {
-        group: 'Operaciones',
-        items: [
-          { id: 'ops_home', label: 'Dashboard', icon: 'Dashboard', href: '/ops', roles: ['admin', 'supervisor'] },
-          { id: 'ops_manage', label: 'Gestión', icon: 'Wrench', href: '/ops/gestion', roles: ['admin', 'supervisor'] },
-          { id: 'ops_risk', label: 'Riesgo y Cumplimiento', icon: 'BarChart', href: '/ops?view=riesgo', roles: ['admin', 'supervisor'] },
-          { id: 'ops_fin', label: 'Control Financiero', icon: 'Reports', href: '/ops?view=financiera', roles: ['admin', 'supervisor'] },
-        ],
-      },
-    ],
+    planificacion: [],
+    ops: [],
     academia: [
       {
         group: 'Academia',
@@ -445,10 +419,7 @@ export default function AppShellClient({
       {
         group: 'Administración',
         items: [
-          { id: 'admin_ops', label: 'Operaciones', icon: 'Briefcase', href: '/ops', roles: ['admin'] },
           { id: 'admin_users', label: 'Usuarios', icon: 'Users', href: '/admin/users', roles: ['admin'] },
-          { id: 'admin_plan', label: 'Planificación', icon: 'Calendar', href: '/planificacion', roles: ['admin'] },
-          { id: 'admin_ops', label: 'Operaciones (Ops)', icon: 'Briefcase', href: '/ops', roles: ['admin'] },
           { id: 'admin_locations', label: 'Ubicaciones', icon: 'Location', href: '/admin/locations', roles: ['admin'] },
           { id: 'admin_reports', label: 'Reportes', icon: 'Reports', href: '/reports', roles: ['admin'] },
           { id: 'admin_audit', label: 'Auditoría', icon: 'Audit', href: '/audit', roles: ['admin'] },
