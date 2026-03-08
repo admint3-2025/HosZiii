@@ -179,20 +179,18 @@ const modules: Module[] = [
     requiredRoles: ['admin', 'supervisor'],
   },
   {
-    id: 'ops',
-    name: 'OPERACIONES',
-    description: 'Presupuestos, Agendamiento y Cumplimiento',
+    id: 'planificacion',
+    name: 'PLANIFICACIÓN',
+    description: 'Mantenimientos, Inspecciones, Inventarios y Capacitación',
     icon: (
       <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V6a2 2 0 012-2h4a2 2 0 012 2v1" />
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 10a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2H5a2 2 0 01-2-2v-8z" />
-        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 13h18" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
       </svg>
     ),
-    href: '/ops',
-    bgGradient: 'from-slate-500 via-slate-600 to-indigo-700',
-    iconBg: 'bg-slate-100',
-    textColor: 'text-slate-900',
+    href: '/planificacion',
+    bgGradient: 'from-sky-500 via-blue-600 to-indigo-700',
+    iconBg: 'bg-sky-100',
+    textColor: 'text-sky-900',
     requiredRoles: ['admin', 'supervisor'],
   },
   {
