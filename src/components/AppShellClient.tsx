@@ -263,6 +263,7 @@ export default function AppShellClient({
   const moduleContext = useMemo(() => {
     if (pathname.startsWith('/admin')) return 'admin'
     if (pathname.startsWith('/politicas')) return 'politicas'
+    if (pathname.startsWith('/planificacion')) return 'planificacion'
     if (pathname.startsWith('/corporativo')) return 'corporativo'
     if (pathname.startsWith('/inspections')) return 'corporativo' // Inspecciones RRHH
     if (pathname.startsWith('/academia')) return 'academia'
@@ -301,8 +302,6 @@ export default function AppShellClient({
 
   const itAccess = moduleAccess('it-helpdesk')
   const mntAccess = moduleAccess('mantenimiento')
-  const hkAccess = moduleAccess('ama-de-llaves')
-  const corpAccess = moduleAccess('corporativo')
   
   // Atajos de compatibilidad con código existente
   const canManageIT = itAccess === 'supervisor'
@@ -389,6 +388,7 @@ export default function AppShellClient({
         group: 'Corporativo',
         items: [
           { id: 'corp_home', label: 'Dashboard', icon: 'Dashboard', href: '/corporativo/dashboard' },
+          { id: 'corp_planeacion', label: 'Planificacion Anual', icon: 'Calendar', href: '/planificacion' },
           { id: 'corp_inspecciones', label: 'Inspecciones', icon: 'ShieldCheck', href: '/corporativo/inspecciones' },
           { id: 'corp_inbox', label: 'Bandeja Inspecciones', icon: 'BarChart', href: '/inspections/inbox' },
           { id: 'corp_academia', label: 'Admin Academia', icon: 'GraduationCap', href: '/corporativo/academia/admin' },
@@ -396,7 +396,14 @@ export default function AppShellClient({
         ],
       },
     ],
-    planificacion: [],
+    planificacion: [
+      {
+        group: 'Planificacion',
+        items: [
+          { id: 'plan_home', label: 'Tablero Anual', icon: 'Calendar', href: '/planificacion' },
+        ],
+      },
+    ],
     ops: [],
     academia: [
       {
@@ -419,6 +426,7 @@ export default function AppShellClient({
       {
         group: 'Administración',
         items: [
+          { id: 'admin_plan', label: 'Planificacion', icon: 'Calendar', href: '/planificacion', roles: ['admin'] },
           { id: 'admin_users', label: 'Usuarios', icon: 'Users', href: '/admin/users', roles: ['admin'] },
           { id: 'admin_locations', label: 'Ubicaciones', icon: 'Location', href: '/admin/locations', roles: ['admin'] },
           { id: 'admin_reports', label: 'Reportes', icon: 'Reports', href: '/reports', roles: ['admin'] },
@@ -439,7 +447,7 @@ export default function AppShellClient({
     admin: [],
   }
 
-  const activeTopMenu = useMemo(() => {
+  const activeTopMenu = (() => {
     // Si está en módulo de mantenimiento, SOLO mostrar menú de mantenimiento
     if (moduleContext === 'mantenimiento') {
       return topMenuByModule['mantenimiento'] || []
@@ -459,11 +467,11 @@ export default function AppShellClient({
       return topMenuByModule['helpdesk'] || []
     }
     return []
-  }, [moduleContext, mntAccess, itAccess])
+  })()
 
-  const activeCollapsible = useMemo(() => {
+  const activeCollapsible = (() => {
     return moduleContext ? collapsibleByModule[moduleContext] || [] : []
-  }, [moduleContext])
+  })()
 
   // Filtrar items según roles y permisos
   const filterItems = useCallback(
@@ -529,7 +537,7 @@ export default function AppShellClient({
         if (!res.ok) return
         const data = await res.json()
         if (mounted && data?.ip && data.ip !== 'unknown') setClientIp(data.ip)
-      } catch (e) {
+      } catch {
         // ignore
       }
     })()

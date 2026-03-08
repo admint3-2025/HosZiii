@@ -1,4 +1,6 @@
 import { redirect } from 'next/navigation'
+import { createSupabaseServerClient, getSafeServerUser } from '@/lib/supabase/server'
+import PlanningHubClient from './PlanningHubClient'
 
 export const dynamic = 'force-dynamic'
 
@@ -12,6 +14,29 @@ export type UserPlanningProfile = {
 }
 
 export default async function PlanificacionPage() {
-  // Modulo desactivado temporalmente para reinicio funcional sin romper navegacion.
-  redirect('/hub')
+  const supabase = await createSupabaseServerClient()
+  const user = await getSafeServerUser()
+
+  if (!user) redirect('/login')
+
+  const { data: profileRow } = await supabase
+    .from('profiles')
+    .select('role, is_corporate, departamento, allowed_departments, full_name')
+    .eq('id', user.id)
+    .single()
+
+  const role = profileRow?.role ?? 'supervisor'
+  const isCorporate = Boolean(profileRow?.is_corporate)
+  const isAdmin = role === 'admin'
+
+  const userProfile: UserPlanningProfile = {
+    role,
+    isAdmin,
+    isCorporate,
+    departamento: profileRow?.departamento ?? null,
+    allowed_departments: (profileRow?.allowed_departments as string[] | null) ?? null,
+    full_name: profileRow?.full_name ?? null,
+  }
+
+  return <PlanningHubClient userProfile={userProfile} initialYear={new Date().getFullYear()} />
 }
