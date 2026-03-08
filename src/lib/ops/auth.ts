@@ -17,7 +17,7 @@ export async function requireOpsUser(supabase: SupabaseClient) {
     return { ok: false as const, status: 403, error: 'Profile not found or inaccessible' }
   }
 
-  const canManage = profile.role === 'admin' || (profile.role === 'supervisor' && profile.is_corporate)
+  const canManage = profile.role === 'admin' || profile.role === 'supervisor'
 
   return {
     ok: true as const,
