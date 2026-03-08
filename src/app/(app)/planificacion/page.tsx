@@ -1,5 +1,5 @@
 import { redirect } from 'next/navigation'
-import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { createSupabaseServerClient, getSafeServerUser } from '@/lib/supabase/server'
 import { getOperationalCalendar, getComplianceAging } from '@/lib/ops/service'
 import PlanningHubClient from './PlanningHubClient'
 
@@ -16,9 +16,7 @@ export type UserPlanningProfile = {
 
 export default async function PlanificacionPage() {
   const supabase = await createSupabaseServerClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+  const user = await getSafeServerUser()
   if (!user) redirect('/login')
 
   // ── Perfil del usuario ────────────────────────────────────────────────
@@ -28,16 +26,17 @@ export default async function PlanificacionPage() {
     .eq('id', user.id)
     .single()
 
-  if (!profileRow) redirect('/login')
-
-  const isAdmin = profileRow.role === 'admin'
+  // Evita rebotes /login -> /hub cuando el perfil falla por RLS/transitorio.
+  const role = profileRow?.role ?? 'supervisor'
+  const isCorporate = Boolean(profileRow?.is_corporate)
+  const isAdmin = role === 'admin'
   const userProfile: UserPlanningProfile = {
-    role: profileRow.role,
+    role,
     isAdmin,
-    isCorporate: Boolean(profileRow.is_corporate),
-    departamento: profileRow.departamento ?? null,
-    allowed_departments: (profileRow.allowed_departments as string[] | null) ?? null,
-    full_name: profileRow.full_name ?? null,
+    isCorporate,
+    departamento: profileRow?.departamento ?? null,
+    allowed_departments: (profileRow?.allowed_departments as string[] | null) ?? null,
+    full_name: profileRow?.full_name ?? null,
   }
 
   // ── Determinar filtro de departamento ─────────────────────────────────
@@ -45,11 +44,11 @@ export default async function PlanificacionPage() {
   // Supervisor de departamento → solo su departamento
   // Si tiene allowed_departments, el primero es el principal
   let deptFilter: string | null = null
-  if (!isAdmin && !profileRow.is_corporate) {
-    const allowed = profileRow.allowed_departments as string[] | null
+  if (!isAdmin && !isCorporate) {
+    const allowed = profileRow?.allowed_departments as string[] | null
     if (allowed && allowed.length > 0) {
       deptFilter = allowed[0]
-    } else if (profileRow.departamento) {
+    } else if (profileRow?.departamento) {
       deptFilter = profileRow.departamento
     }
   }

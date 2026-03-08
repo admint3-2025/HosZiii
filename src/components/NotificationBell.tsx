@@ -1,6 +1,6 @@
 'use client'
 
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createSupabaseBrowserClient, getSafeUser } from '@/lib/supabase/browser'
 import Link from 'next/link'
 
@@ -23,6 +23,8 @@ export default function NotificationBell() {
   const [userId, setUserId] = useState<string | null>(null)
   const [userRole, setUserRole] = useState<string | null>(null)
   const [isCorporate, setIsCorporate] = useState(false)
+  const userRoleRef = useRef<string | null>(null)
+  const isCorporateRef = useRef(false)
   const supabase = useMemo(() => createSupabaseBrowserClient(), [])
 
   const loadNotifications = useCallback(async () => {
@@ -83,6 +85,8 @@ export default function NotificationBell() {
         if (profile) {
           setUserRole(profile.role)
           setIsCorporate(Boolean((profile as any)?.is_corporate))
+          userRoleRef.current = profile.role
+          isCorporateRef.current = Boolean((profile as any)?.is_corporate)
         }
       }
     }
@@ -113,9 +117,9 @@ export default function NotificationBell() {
             const newNotif = payload.new as Notification
             
             // FILTRO DE SEGURIDAD: Ignorar notificaciones de inspección para usuarios NO corporativos
-            if (newNotif.type === 'inspection_critical' && 
-                userRole && userRole !== 'admin' && !isCorporate) {
-              console.log('[NotificationBell] Notificación de inspección ignorada para rol:', userRole)
+            const role = userRoleRef.current
+            if (newNotif.type === 'inspection_critical' &&
+                role && role !== 'admin' && !isCorporateRef.current) {
               return
             }
             
@@ -154,9 +158,10 @@ export default function NotificationBell() {
 
     return () => {
       console.log('[NotificationBell] Unsubscribing from channel')
-      supabase.removeChannel(channel)
+      channel.unsubscribe()
     }
-  }, [userId, userRole, loadNotifications, supabase])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [userId, supabase])
 
   // Solicitar permisos de notificaciones del navegador
   useEffect(() => {
