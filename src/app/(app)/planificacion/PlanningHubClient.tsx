@@ -11,6 +11,8 @@ import {
   ChartColumn,
   CheckCircle2,
   ClipboardList,
+  FileSpreadsheet,
+  FileText,
   FolderPlus,
   RefreshCw,
   Wrench,
@@ -1040,6 +1042,18 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
     }))
   }, [filteredPlans, scopedPortfolio.calendar])
 
+  const exportQuery = useMemo(() => {
+    const params = new URLSearchParams({
+      year: String(year),
+      department: selectedDepartment,
+      locationId: selectedLocationId,
+    })
+    return params.toString()
+  }, [selectedDepartment, selectedLocationId, year])
+
+  const exportPdfHref = `/api/planificacion/export/pdf?${exportQuery}`
+  const exportExcelHref = `/api/planificacion/export/excel?${exportQuery}`
+
   async function updateAgendaStatus(id: string, estado: OpsAgendaItem['estado']) {
     try {
       const response = await fetch('/api/ops/agenda', {
@@ -1099,33 +1113,41 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
   return (
     <div className="min-h-screen bg-slate-100">
       <div className="mx-auto max-w-[1600px] px-4 py-8 sm:px-6 lg:px-8">
-        <section className="rounded-[28px] border border-slate-200 bg-gradient-to-r from-slate-900 via-slate-800 to-sky-900 px-8 py-8 text-white shadow-sm">
-          <div className="flex flex-col gap-6 xl:flex-row xl:items-end xl:justify-between">
+        <section className="rounded-[28px] border border-slate-200 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-800 px-7 py-6 text-white shadow-sm">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
             <div className="max-w-3xl">
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs font-semibold uppercase tracking-[0.18em] text-sky-100">
-                <Building2 className="h-4 w-4" />
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-200">
+                <Building2 className="h-3.5 w-3.5" />
                 Planeacion anual corporativa
               </div>
-              <h1 className="mt-4 text-4xl font-black tracking-tight">Dashboard ejecutivo de cartera anual</h1>
-              <p className="mt-3 text-sm leading-6 text-slate-200">
+              <h1 className="mt-3 text-3xl font-extrabold tracking-[-0.03em] text-white xl:text-[2rem]">Dashboard ejecutivo de cartera anual</h1>
+              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
                 Portafolio real por departamentos, agenda operativa, presupuesto planeado y alertas de cumplimiento.
                 Esta vista usa datos de base y sirve como centro de control para corporativo y supervisores.
               </p>
             </div>
-            <div className="flex flex-wrap gap-3">
-              <select className="rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm font-semibold text-white outline-none" value={year} onChange={(e) => setYear(Number(e.target.value))}>
+            <div className="flex flex-wrap gap-2.5">
+              <select className="rounded-xl border border-white/10 bg-white/8 px-4 py-2.5 text-sm font-semibold text-white outline-none backdrop-blur-sm" value={year} onChange={(e) => setYear(Number(e.target.value))}>
                 {[initialYear - 1, initialYear, initialYear + 1, initialYear + 2].map((item) => (
                   <option key={item} value={item} className="text-slate-900">{item}</option>
                 ))}
               </select>
-              <button type="button" onClick={loadPortfolio} className="inline-flex items-center gap-2 rounded-2xl border border-white/10 bg-white/10 px-4 py-3 text-sm font-semibold text-white hover:bg-white/15">
+              <button type="button" onClick={loadPortfolio} className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/8 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur-sm hover:bg-white/15">
                 <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
                 Actualizar
               </button>
-              <button type="button" onClick={() => setShowCreateModal(true)} className="inline-flex items-center gap-2 rounded-2xl bg-white px-4 py-3 text-sm font-semibold text-slate-900 hover:bg-sky-50">
+              <button type="button" onClick={() => setShowCreateModal(true)} className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 hover:bg-slate-100">
                 <FolderPlus className="h-4 w-4" />
                 Nuevo plan
               </button>
+              <a href={exportPdfHref} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/8 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur-sm hover:bg-white/15">
+                <FileText className="h-4 w-4" />
+                Ver PDF horizontal
+              </a>
+              <a href={exportExcelHref} className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-900 hover:bg-emerald-100">
+                <FileSpreadsheet className="h-4 w-4" />
+                Exportar Excel
+              </a>
             </div>
           </div>
         </section>
