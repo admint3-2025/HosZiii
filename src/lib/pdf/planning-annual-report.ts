@@ -95,16 +95,24 @@ export function generatePlanningAnnualReportPdf(params: {
 
   currentY += 74
 
-  const planColumnWidth = 220
-  const locationColumnWidth = 110
-  const departmentColumnWidth = 64
-  const stateColumnWidth = 62
-  const annualTotalColumnWidth = 90
-  const fixedColumnsWidth = planColumnWidth + locationColumnWidth + departmentColumnWidth + stateColumnWidth + annualTotalColumnWidth
+  const planColumnWidth = 180
+  const providerColumnWidth = 130
+  const locationColumnWidth = 96
+  const departmentColumnWidth = 56
+  const stateColumnWidth = 56
+  const annualTotalColumnWidth = 84
+  const fixedColumnsWidth =
+    planColumnWidth +
+    providerColumnWidth +
+    locationColumnWidth +
+    departmentColumnWidth +
+    stateColumnWidth +
+    annualTotalColumnWidth
   const monthColumnWidth = Math.max(42, Math.floor((availableWidth - fixedColumnsWidth) / 12))
 
   const head = [[
     'Plan / entidad',
+    'Proveedor responsable',
     'Sede',
     'Depto',
     'Estado',
@@ -119,7 +127,8 @@ export function generatePlanningAnnualReportPdf(params: {
     })
 
     return [
-      `${row.plan.nombre}\n${row.plan.entidad?.nombre ?? 'Sin entidad'} | ${row.plan.responsable?.nombre ?? 'Sin proveedor'}`,
+      `${row.plan.nombre}\n${row.plan.entidad?.nombre ?? 'Sin entidad'}`,
+      row.plan.responsable?.nombre ?? 'Sin proveedor',
       row.locationLabel,
       row.department.shortLabel,
       row.plan.estado,
@@ -155,10 +164,10 @@ export function generatePlanningAnnualReportPdf(params: {
     tableWidth: availableWidth,
     columnStyles: {
       0: { cellWidth: planColumnWidth },
-      1: { cellWidth: locationColumnWidth },
-      2: { cellWidth: departmentColumnWidth, halign: 'center' },
-      3: { cellWidth: stateColumnWidth, halign: 'center' },
-      4: { cellWidth: monthColumnWidth, halign: 'center' },
+      1: { cellWidth: providerColumnWidth },
+      2: { cellWidth: locationColumnWidth },
+      3: { cellWidth: departmentColumnWidth, halign: 'center' },
+      4: { cellWidth: stateColumnWidth, halign: 'center' },
       5: { cellWidth: monthColumnWidth, halign: 'center' },
       6: { cellWidth: monthColumnWidth, halign: 'center' },
       7: { cellWidth: monthColumnWidth, halign: 'center' },
@@ -170,7 +179,8 @@ export function generatePlanningAnnualReportPdf(params: {
       13: { cellWidth: monthColumnWidth, halign: 'center' },
       14: { cellWidth: monthColumnWidth, halign: 'center' },
       15: { cellWidth: monthColumnWidth, halign: 'center' },
-      16: { cellWidth: annualTotalColumnWidth, halign: 'right' },
+      16: { cellWidth: monthColumnWidth, halign: 'center' },
+      17: { cellWidth: annualTotalColumnWidth, halign: 'right' },
     },
     margin: { left: marginLeft, right: marginRight, bottom: 32 },
     didDrawPage: (hookData) => {
