@@ -143,6 +143,11 @@ type MatrixCell = {
   status: OpsAgendaItem['estado'] | OpsCalendarItem['estado'] | 'mixed' | null
 }
 
+type MatrixEventDetail = Pick<
+  OpsCalendarItem,
+  'agenda_id' | 'due_date' | 'estado' | 'prioridad' | 'monto_estimado' | 'esfuerzo_estimado' | 'ocurrencia_nro' | 'entidad_objetivo'
+>
+
 const MONTHS = ['ENE', 'FEB', 'MZO', 'ABR', 'MAY', 'JUN', 'JUL', 'AGO', 'SEPT', 'OCT', 'NOV', 'DIC']
 
 const DEPARTMENTS: DepartmentDef[] = [
@@ -475,6 +480,33 @@ function getMatrixForPlan(plan: PlanWithRelations, calendar: OpsCalendarItem[]) 
   return map
 }
 
+function getEventDetailsForPlan(plan: PlanWithRelations, calendar: OpsCalendarItem[]) {
+  const map = new Map<number, MatrixEventDetail[]>()
+  const planRows = calendar.filter((item) => item.plan_maestro_id === plan.id)
+
+  for (const row of planRows) {
+    const month = new Date(row.due_date + 'T00:00:00').getMonth() + 1
+    const current = map.get(month) ?? []
+    current.push({
+      agenda_id: row.agenda_id,
+      due_date: row.due_date,
+      estado: row.estado,
+      prioridad: row.prioridad,
+      monto_estimado: row.monto_estimado,
+      esfuerzo_estimado: row.esfuerzo_estimado,
+      ocurrencia_nro: row.ocurrencia_nro,
+      entidad_objetivo: row.entidad_objetivo,
+    })
+    map.set(month, current)
+  }
+
+  for (const items of map.values()) {
+    items.sort((left, right) => left.due_date.localeCompare(right.due_date, 'es-MX'))
+  }
+
+  return map
+}
+
 function SummaryCard({
   title,
   value,
@@ -801,6 +833,110 @@ function Field({ label, help, children }: { label: string; help?: string; childr
   )
 }
 
+function ModalFrame({
+  title,
+  description,
+  onClose,
+  children,
+  maxWidthClass = 'max-w-4xl',
+}: {
+  title: string
+  description?: string
+  onClose: () => void
+  children: ReactNode
+  maxWidthClass?: string
+}) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
+      <div className={`w-full ${maxWidthClass} rounded-3xl border border-slate-200 bg-white shadow-2xl`}>
+        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
+          <div>
+            <h2 className="text-xl font-bold text-slate-900">{title}</h2>
+            {description ? <p className="mt-1 text-sm text-slate-500">{description}</p> : null}
+          </div>
+          <button type="button" onClick={onClose} className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+            <span className="sr-only">Cerrar</span>
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        {children}
+      </div>
+    </div>
+  )
+}
+
+function EventStatusTooltip({
+  events,
+  canManage,
+  open,
+  busyAgendaItemId,
+  onClose,
+  onOpenPlan,
+  onStatusChange,
+}: {
+  events: MatrixEventDetail[]
+  canManage: boolean
+  open: boolean
+  busyAgendaItemId: string | null
+  onClose: () => void
+  onOpenPlan: () => void
+  onStatusChange: (agendaId: string, estado: OpsAgendaItem['estado']) => void
+}) {
+  return (
+    <div className={`pointer-events-none absolute left-1/2 top-full z-30 mt-2 w-80 -translate-x-1/2 ${open ? 'block' : 'hidden group-hover:block group-focus-within:block'}`}>
+      <div className="pointer-events-auto rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-2xl">
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Eventos del mes</p>
+          <button type="button" onClick={onClose} className="rounded-full border border-slate-200 px-2 py-1 text-[10px] font-semibold text-slate-500 hover:bg-slate-50">
+            Cerrar
+          </button>
+        </div>
+        <div className="mt-3 max-h-72 space-y-2 overflow-y-auto pr-1">
+          {events.map((event) => (
+            <div key={event.agenda_id} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+              <div className="flex items-start justify-between gap-3">
+                <div>
+                  <p className="text-xs font-semibold text-slate-900">{formatDate(event.due_date)}</p>
+                  <p className="mt-1 text-[11px] text-slate-500">#{event.ocurrencia_nro} · {event.entidad_objetivo}</p>
+                </div>
+                <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold ${STATUS_STYLES[event.estado] ?? STATUS_STYLES.pendiente}`}>{event.estado}</span>
+              </div>
+              <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-600">
+                <span className="rounded-full bg-white px-2 py-1 font-medium text-slate-600">{formatCurrency(event.monto_estimado)}</span>
+                <span className="rounded-full bg-white px-2 py-1 font-medium text-slate-600">{event.esfuerzo_estimado} hrs</span>
+                <span className="rounded-full bg-white px-2 py-1 font-medium text-slate-600">{event.prioridad}</span>
+              </div>
+              {canManage ? (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {(['pendiente', 'en_proceso', 'completado', 'cancelado'] as const).map((estado) => (
+                    <button
+                      key={estado}
+                      type="button"
+                      onClick={(eventClick) => {
+                        eventClick.stopPropagation()
+                        onStatusChange(event.agenda_id, estado)
+                      }}
+                      disabled={busyAgendaItemId === event.agenda_id || event.estado === estado}
+                      className={`rounded-full border px-2 py-1 text-[10px] font-semibold transition ${event.estado === estado ? STATUS_STYLES[estado] : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'} disabled:opacity-60`}
+                    >
+                      {busyAgendaItemId === event.agenda_id && event.estado !== estado ? 'Guardando...' : estado}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          ))}
+        </div>
+        <div className="mt-3 flex justify-end border-t border-slate-100 pt-3">
+          <button type="button" onClick={onOpenPlan} className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-[11px] font-semibold text-sky-700 hover:bg-sky-100">
+            Abrir plan
+          </button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function CatalogManagerCard({
   canManage,
   departments,
@@ -810,6 +946,7 @@ function CatalogManagerCard({
   defaultDepartment,
   defaultLocationId,
   onCatalogsChanged,
+  compact = false,
 }: {
   canManage: boolean
   departments: DepartmentDef[]
@@ -819,6 +956,7 @@ function CatalogManagerCard({
   defaultDepartment: string
   defaultLocationId: string
   onCatalogsChanged: () => Promise<void>
+  compact?: boolean
 }) {
   const [tab, setTab] = useState<'responsables' | 'entidades'>('responsables')
   const [responsableForm, setResponsableForm] = useState<ResponsableFormState>(() => buildResponsableFormState(defaultDepartment))
@@ -958,7 +1096,7 @@ function CatalogManagerCard({
   }
 
   return (
-    <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+    <div className={`${compact ? '' : 'rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm'}`}>
       <div className="flex items-start justify-between gap-4">
         <div>
           <h3 className="text-sm font-bold uppercase tracking-[0.14em] text-slate-500">Catalogos de planificacion</h3>
@@ -1113,6 +1251,131 @@ function CatalogManagerCard({
       {error ? <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
       {!canManage ? <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">Tu perfil puede consultar catalogos, pero no crear ni editar registros.</div> : null}
     </div>
+  )
+}
+
+function PlanWorkspaceModal({
+  open,
+  plan,
+  agenda,
+  agendaLoading,
+  locations,
+  canManage,
+  canEdit,
+  seedBusyPlanId,
+  onClose,
+  onEdit,
+  onReseed,
+  onUpdatePlanState,
+  onUpdateAgendaStatus,
+}: {
+  open: boolean
+  plan: PlanWithRelations | null
+  agenda: OpsAgendaItem[]
+  agendaLoading: boolean
+  locations: LocationOption[]
+  canManage: boolean
+  canEdit: boolean
+  seedBusyPlanId: string | null
+  onClose: () => void
+  onEdit: () => void
+  onReseed: (planId: string) => void
+  onUpdatePlanState: (planId: string, estado: OpsPlan['estado']) => void
+  onUpdateAgendaStatus: (agendaId: string, estado: OpsAgendaItem['estado']) => void
+}) {
+  if (!open || !plan) return null
+
+  return (
+    <ModalFrame
+      title={plan.nombre}
+      description="Detalle operativo, agenda y acciones del plan seleccionado."
+      onClose={onClose}
+      maxWidthClass="max-w-5xl"
+    >
+      <div className="max-h-[84vh] overflow-y-auto px-6 py-6">
+        <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
+          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
+            <div className="flex items-start justify-between gap-3">
+              <p className="text-lg font-bold text-slate-900">{plan.nombre}</p>
+              <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${PLAN_STATE_STYLES[plan.estado] ?? PLAN_STATE_STYLES.activo}`}>{plan.estado}</span>
+            </div>
+            <div className="mt-4 space-y-2 text-sm text-slate-600">
+              <p><span className="font-semibold text-slate-900">Departamento:</span> {plan.departamento_dueno}</p>
+              <p><span className="font-semibold text-slate-900">Sede:</span> {locationLabel(plan.centro_costo, locations)}</p>
+              <p><span className="font-semibold text-slate-900">Entidad:</span> {plan.entidad?.nombre ?? 'Sin entidad'}</p>
+              <p><span className="font-semibold text-slate-900">Proveedor:</span> {plan.responsable?.nombre ?? 'Sin proveedor'}</p>
+              <p><span className="font-semibold text-slate-900">Inicio:</span> {formatDate(plan.fecha_inicio)}</p>
+              <p><span className="font-semibold text-slate-900">Frecuencia:</span> {plan.frecuencia_tipo}</p>
+              <p><span className="font-semibold text-slate-900">Presupuesto:</span> {formatCurrency(plan.monto_total_planeado)}</p>
+            </div>
+
+            <div className="mt-5 space-y-3">
+              {canEdit ? (
+                <button type="button" onClick={onEdit} className="w-full rounded-xl border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm font-semibold text-sky-700 hover:bg-sky-100">
+                  Editar plan
+                </button>
+              ) : null}
+              {canEdit ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (confirm('Se reemplazara la agenda actual con una nueva distribucion basada en las fechas, frecuencia y presupuesto vigentes.')) {
+                      onReseed(plan.id)
+                    }
+                  }}
+                  disabled={seedBusyPlanId === plan.id}
+                  className="w-full rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
+                >
+                  {seedBusyPlanId === plan.id ? 'Regenerando agenda...' : 'Regenerar agenda y montos'}
+                </button>
+              ) : null}
+              {canManage ? (
+                <div className="flex flex-wrap gap-2">
+                  {(['activo', 'pausado', 'cerrado'] as const).map((state) => (
+                    <button key={state} type="button" onClick={() => onUpdatePlanState(plan.id, state)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${plan.estado === state ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'}`}>
+                      {state}
+                    </button>
+                  ))}
+                </div>
+              ) : null}
+            </div>
+          </div>
+
+          <div>
+            <div className="flex items-center justify-between">
+              <h3 className="text-sm font-bold uppercase tracking-[0.14em] text-slate-500">Agenda del plan</h3>
+              {agendaLoading ? <span className="text-xs text-slate-400">Actualizando...</span> : null}
+            </div>
+            <div className="mt-3 space-y-3">
+              {agenda.length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-10 text-center text-sm text-slate-500">No hay agenda cargada para este plan.</div>
+              ) : (
+                agenda.slice(0, 18).map((item) => (
+                  <div key={item.id} className="rounded-2xl border border-slate-200 bg-white p-4">
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-bold text-slate-900">{formatDate(item.due_date)}</p>
+                        <p className="mt-1 text-xs text-slate-500">Ocurrencia {item.ocurrencia_nro} | {formatCurrency(item.monto_estimado)}</p>
+                      </div>
+                      <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${STATUS_STYLES[item.estado] ?? STATUS_STYLES.pendiente}`}>{item.estado}</span>
+                    </div>
+                    {canManage ? (
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {(['pendiente', 'en_proceso', 'completado', 'cancelado'] as const).map((state) => (
+                          <button key={state} type="button" onClick={() => onUpdateAgendaStatus(item.id, state)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${item.estado === state ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
+                            {state}
+                          </button>
+                        ))}
+                      </div>
+                    ) : null}
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        </div>
+      </div>
+    </ModalFrame>
   )
 }
 
@@ -1396,10 +1659,14 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
+  const [showCatalogModal, setShowCatalogModal] = useState(false)
+  const [showPlanWorkspaceModal, setShowPlanWorkspaceModal] = useState(false)
   const [editingPlan, setEditingPlan] = useState<PlanWithRelations | null>(null)
   const [entityOptions, setEntityOptions] = useState<OpsEntidad[]>([])
   const [responsibleOptions, setResponsibleOptions] = useState<OpsResponsable[]>([])
   const [seedBusyPlanId, setSeedBusyPlanId] = useState<string | null>(null)
+  const [busyAgendaItemId, setBusyAgendaItemId] = useState<string | null>(null)
+  const [activeMatrixTooltipKey, setActiveMatrixTooltipKey] = useState<string | null>(null)
 
   const accessibleDepartments = useMemo(() => {
     return buildDepartmentCatalog(userProfile, portfolio)
@@ -1506,8 +1773,9 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
       setSelectedPlanId(null)
       return
     }
-    if (!selectedPlanId || !filteredPlans.some((plan) => plan.id === selectedPlanId)) {
-      setSelectedPlanId(filteredPlans[0].id)
+    if (selectedPlanId && !filteredPlans.some((plan) => plan.id === selectedPlanId)) {
+      setSelectedPlanId(null)
+      setShowPlanWorkspaceModal(false)
     }
   }, [filteredPlans, selectedPlanId])
 
@@ -1532,6 +1800,25 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
     loadAgenda(selectedPlanId)
   }, [selectedPlanId])
 
+  useEffect(() => {
+    function handlePointerDown() {
+      setActiveMatrixTooltipKey(null)
+    }
+
+    function handleEscape(event: KeyboardEvent) {
+      if (event.key === 'Escape') {
+        setActiveMatrixTooltipKey(null)
+      }
+    }
+
+    document.addEventListener('pointerdown', handlePointerDown)
+    document.addEventListener('keydown', handleEscape)
+    return () => {
+      document.removeEventListener('pointerdown', handlePointerDown)
+      document.removeEventListener('keydown', handleEscape)
+    }
+  }, [])
+
   const selectedPlan = useMemo(() => filteredPlans.find((plan) => plan.id === selectedPlanId) ?? null, [filteredPlans, selectedPlanId])
   const canEditSelectedPlan = useMemo(() => {
     if (!selectedPlan) return false
@@ -1555,6 +1842,7 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
     return filteredPlans.map((plan) => ({
       plan,
       matrix: getMatrixForPlan(plan, scopedPortfolio.calendar),
+      eventDetails: getEventDetailsForPlan(plan, scopedPortfolio.calendar),
       annualBudget: scopedPortfolio.calendar
         .filter((item) => item.plan_maestro_id === plan.id)
         .reduce((sum, item) => sum + Number(item.monto_estimado || 0), 0),
@@ -1575,6 +1863,7 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
 
   async function updateAgendaStatus(id: string, estado: OpsAgendaItem['estado']) {
     try {
+      setBusyAgendaItemId(id)
       const response = await fetch('/api/ops/agenda', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
@@ -1586,9 +1875,13 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
       }
       if (selectedPlanId) {
         await Promise.all([loadAgenda(selectedPlanId), loadPortfolio()])
+      } else {
+        await loadPortfolio()
       }
     } catch (err: any) {
       setError(err?.message ?? 'No se pudo actualizar la agenda')
+    } finally {
+      setBusyAgendaItemId(null)
     }
   }
 
@@ -1632,6 +1925,18 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
     }
   }
 
+  async function openEditPlanModalForPlan(plan: PlanWithRelations) {
+    try {
+      setError(null)
+      setSelectedPlanId(plan.id)
+      setEditingPlan({ ...plan })
+      await loadPlanningCatalogs()
+      setShowEditModal(true)
+    } catch (err: any) {
+      setError(err?.message ?? 'No se pudieron cargar los catalogos para editar el plan')
+    }
+  }
+
   async function openCreatePlanModal() {
     try {
       setError(null)
@@ -1640,6 +1945,21 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
     } catch (err: any) {
       setError(err?.message ?? 'No se pudieron cargar los catalogos para crear el plan')
     }
+  }
+
+  async function openCatalogModal() {
+    try {
+      setError(null)
+      await loadPlanningCatalogs()
+      setShowCatalogModal(true)
+    } catch (err: any) {
+      setError(err?.message ?? 'No se pudieron cargar los catalogos de planificacion')
+    }
+  }
+
+  function openPlanWorkspace(planId: string) {
+    setSelectedPlanId(planId)
+    setShowPlanWorkspaceModal(true)
   }
 
   async function reseedPlanAgenda(planId: string) {
@@ -1701,6 +2021,10 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
                 <button type="button" onClick={loadPortfolio} className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur-sm hover:bg-white/10">
                   <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
                   Actualizar
+                </button>
+                <button type="button" onClick={openCatalogModal} className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur-sm hover:bg-white/10">
+                  <Building2 className="h-4 w-4" />
+                  Catalogos
                 </button>
                 <button type="button" onClick={openCreatePlanModal} className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 hover:bg-slate-100">
                   <FolderPlus className="h-4 w-4" />
@@ -1796,15 +2120,20 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
 
         {error ? <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-700">{error}</div> : null}
 
-        <section className="mt-6 grid grid-cols-1 gap-6 xl:grid-cols-[minmax(0,1fr)_380px]">
+        <section className="mt-6">
           <div className="rounded-[28px] border border-slate-200 bg-white shadow-sm">
             <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
               <div>
                 <h2 className="text-xl font-bold text-slate-900">Matriz anual de planes</h2>
                 <p className="mt-1 text-sm text-slate-500">Portafolio real de planes por mes, con lectura presupuestal y operativa.</p>
               </div>
-              <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-600">
-                {filteredPlans.length} planes
+              <div className="flex items-center gap-3">
+                <button type="button" onClick={openCatalogModal} className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                  Gestionar catalogos
+                </button>
+                <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-600">
+                  {filteredPlans.length} planes
+                </div>
               </div>
             </div>
 
@@ -1817,7 +2146,7 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
               </div>
             ) : (
               <div className="overflow-x-auto">
-                <table className="w-full min-w-[1480px] text-left text-sm">
+                <table className="w-full min-w-[1660px] text-left text-sm">
                   <thead className="bg-slate-50 text-slate-600">
                     <tr>
                       <th className="sticky left-0 z-10 min-w-[320px] border-b border-slate-200 bg-slate-50 px-5 py-4 font-semibold">Plan / entidad</th>
@@ -1828,15 +2157,16 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
                         <th key={month} className="min-w-[88px] border-b border-slate-200 px-2 py-4 text-center font-semibold">{month}</th>
                       ))}
                       <th className="min-w-[140px] border-b border-slate-200 bg-slate-100 px-5 py-4 text-right font-bold text-slate-900">Total anual</th>
+                      <th className="min-w-[220px] border-b border-slate-200 px-4 py-4 font-semibold text-center">Acciones</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-slate-100">
-                    {matrixRows.map(({ plan, matrix, annualBudget }) => {
+                    {matrixRows.map(({ plan, matrix, eventDetails, annualBudget }) => {
                       const department = getDepartmentConfig(plan.departamento_dueno)
-                      const selected = selectedPlanId === plan.id
+                      const canManagePlan = canManage && (userProfile.isAdmin || visibleDepartmentKeys.has(normalize(plan.departamento_dueno)))
                       return (
-                        <tr key={plan.id} className={`cursor-pointer ${selected ? 'bg-sky-50/70' : 'hover:bg-slate-50'}`} onClick={() => setSelectedPlanId(plan.id)}>
-                          <td className={`sticky left-0 z-10 border-r border-slate-100 px-5 py-4 ${selected ? 'bg-sky-50/70' : 'bg-white'}`}>
+                        <tr key={plan.id} className="hover:bg-slate-50" onClick={() => openPlanWorkspace(plan.id)}>
+                          <td className="sticky left-0 z-10 border-r border-slate-100 bg-white px-5 py-4">
                             <div className="min-w-0">
                               <p className="truncate text-sm font-bold text-slate-900">{plan.nombre}</p>
                                 <p className="mt-1 truncate text-xs text-slate-500">{plan.entidad?.nombre ?? 'Sin entidad ligada'} | {plan.responsable?.nombre ?? 'Proveedor por definir'}</p>
@@ -1853,12 +2183,48 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
                           </td>
                           {Array.from({ length: 12 }, (_, index) => index + 1).map((month) => {
                             const cell = matrix.get(month)
+                            const monthEvents = eventDetails.get(month) ?? []
+                            const tooltipKey = `${plan.id}:${month}`
+                            const isTooltipOpen = activeMatrixTooltipKey === tooltipKey
                             return (
                               <td key={month} className="px-2 py-4 text-center">
                                 {cell ? (
-                                  <div className={`rounded-xl border px-1.5 py-2 ${STATUS_STYLES[cell.status ?? 'pending'] ?? STATUS_STYLES.pendiente}`}>
-                                    <p className="text-[10px] font-bold">{cell.count} evt</p>
-                                    <p className="mt-1 text-[10px]">{formatCurrency(cell.budget)}</p>
+                                  <div
+                                    className="group relative"
+                                    onClick={(event) => event.stopPropagation()}
+                                    onPointerDown={(event) => event.stopPropagation()}
+                                  >
+                                    <button
+                                      type="button"
+                                      onClick={(event) => {
+                                        event.stopPropagation()
+                                        if (monthEvents.length > 0) {
+                                          setActiveMatrixTooltipKey((current) => current === tooltipKey ? null : tooltipKey)
+                                          return
+                                        }
+                                        openPlanWorkspace(plan.id)
+                                      }}
+                                      className={`w-full rounded-xl border px-1.5 py-2 text-center transition hover:scale-[1.02] ${STATUS_STYLES[cell.status ?? 'pending'] ?? STATUS_STYLES.pendiente}`}
+                                    >
+                                      <p className="text-[10px] font-bold">{cell.count} evt</p>
+                                      <p className="mt-1 text-[10px]">{formatCurrency(cell.budget)}</p>
+                                    </button>
+                                    {monthEvents.length > 0 ? (
+                                      <EventStatusTooltip
+                                        events={monthEvents}
+                                        canManage={canManagePlan}
+                                        open={isTooltipOpen}
+                                        busyAgendaItemId={busyAgendaItemId}
+                                        onClose={() => setActiveMatrixTooltipKey(null)}
+                                        onOpenPlan={() => {
+                                          setActiveMatrixTooltipKey(null)
+                                          openPlanWorkspace(plan.id)
+                                        }}
+                                        onStatusChange={(agendaId, estado) => {
+                                          void updateAgendaStatus(agendaId, estado)
+                                        }}
+                                      />
+                                    ) : null}
                                   </div>
                                 ) : (
                                   <div className="rounded-xl border border-dashed border-slate-200 px-1.5 py-2 text-[10px] text-slate-300">-</div>
@@ -1867,6 +2233,32 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
                             )
                           })}
                           <td className="bg-slate-50/80 px-5 py-4 text-right font-bold text-slate-900">{formatCurrency(annualBudget)}</td>
+                          <td className="px-4 py-4">
+                            <div className="flex flex-wrap justify-center gap-2" onClick={(event) => event.stopPropagation()}>
+                              <button type="button" onClick={() => openPlanWorkspace(plan.id)} className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                                Abrir
+                              </button>
+                              {canManagePlan ? (
+                                <button type="button" onClick={() => void openEditPlanModalForPlan(plan)} className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-100">
+                                  Editar
+                                </button>
+                              ) : null}
+                              {canManagePlan ? (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    if (confirm('Se reemplazara la agenda actual con una nueva distribucion basada en las fechas, frecuencia y presupuesto vigentes.')) {
+                                      void reseedPlanAgenda(plan.id)
+                                    }
+                                  }}
+                                  disabled={seedBusyPlanId === plan.id}
+                                  className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
+                                >
+                                  {seedBusyPlanId === plan.id ? 'Regenerando...' : 'Agenda'}
+                                </button>
+                              ) : null}
+                            </div>
+                          </td>
                         </tr>
                       )
                     })}
@@ -1875,131 +2267,10 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
               </div>
             )}
           </div>
+        </section>
 
-          <aside className="space-y-6">
-            <CatalogManagerCard
-              canManage={canManage}
-              departments={accessibleDepartments}
-              locations={locations}
-              responsables={responsibleOptions}
-              entidades={entityOptions}
-              defaultDepartment={selectedDepartment === 'ALL' ? preferredDept : selectedDepartment}
-              defaultLocationId={selectedLocationId === 'ALL' ? (locations[0]?.id ?? '') : selectedLocationId}
-              onCatalogsChanged={refreshPlanningCatalogs}
-            />
-
-            <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h2 className="text-xl font-bold text-slate-900">Panel operativo</h2>
-                  <p className="mt-1 text-sm text-slate-500">Detalle del plan seleccionado y su agenda real.</p>
-                </div>
-                {selectedPlan ? (
-                  <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${PLAN_STATE_STYLES[selectedPlan.estado] ?? PLAN_STATE_STYLES.activo}`}>{selectedPlan.estado}</span>
-                ) : null}
-              </div>
-
-              {selectedPlan ? (
-                <>
-                  <div className="mt-5 rounded-2xl border border-slate-200 bg-slate-50 p-4">
-                    <p className="text-lg font-bold text-slate-900">{selectedPlan.nombre}</p>
-                    <div className="mt-3 space-y-2 text-sm text-slate-600">
-                      <p><span className="font-semibold text-slate-900">Departamento:</span> {selectedPlan.departamento_dueno}</p>
-                      <p><span className="font-semibold text-slate-900">Sede:</span> {locationLabel(selectedPlan.centro_costo, locations)}</p>
-                      <p><span className="font-semibold text-slate-900">Entidad:</span> {selectedPlan.entidad?.nombre ?? 'Sin entidad'}</p>
-                      <p><span className="font-semibold text-slate-900">Proveedor:</span> {selectedPlan.responsable?.nombre ?? 'Sin proveedor'}</p>
-                      <p><span className="font-semibold text-slate-900">Inicio:</span> {formatDate(selectedPlan.fecha_inicio)}</p>
-                      <p><span className="font-semibold text-slate-900">Frecuencia:</span> {selectedPlan.frecuencia_tipo}</p>
-                      <p><span className="font-semibold text-slate-900">Presupuesto:</span> {formatCurrency(selectedPlan.monto_total_planeado)}</p>
-                    </div>
-                    {canManage ? (
-                      <div className="mt-4 flex flex-wrap gap-2">
-                        {canEditSelectedPlan ? (
-                          <button type="button" onClick={openEditPlanModal} className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-100">
-                            Editar plan
-                          </button>
-                        ) : null}
-                        {canEditSelectedPlan ? (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (confirm('Se reemplazara la agenda actual con una nueva distribucion basada en las fechas, frecuencia y presupuesto vigentes.')) {
-                                void reseedPlanAgenda(selectedPlan.id)
-                              }
-                            }}
-                            disabled={seedBusyPlanId === selectedPlan.id}
-                            className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
-                          >
-                            {seedBusyPlanId === selectedPlan.id ? 'Regenerando agenda...' : 'Regenerar agenda y montos'}
-                          </button>
-                        ) : null}
-                        {(['activo', 'pausado', 'cerrado'] as const).map((state) => (
-                          <button key={state} type="button" onClick={() => updatePlanState(selectedPlan.id, state)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${selectedPlan.estado === state ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'}`}>
-                            {state}
-                          </button>
-                        ))}
-                      </div>
-                    ) : null}
-                  </div>
-
-                  <div className="mt-6">
-                    <div className="flex items-center justify-between">
-                      <h3 className="text-sm font-bold uppercase tracking-[0.14em] text-slate-500">Agenda del plan</h3>
-                      {agendaLoading ? <span className="text-xs text-slate-400">Actualizando...</span> : null}
-                    </div>
-                    <div className="mt-3 space-y-3">
-                      {agenda.length === 0 ? (
-                        <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">No hay agenda cargada para este plan.</div>
-                      ) : (
-                        agenda.slice(0, 12).map((item) => (
-                          <div key={item.id} className="rounded-2xl border border-slate-200 bg-white p-4">
-                            <div className="flex items-start justify-between gap-3">
-                              <div>
-                                <p className="text-sm font-bold text-slate-900">{formatDate(item.due_date)}</p>
-                                <p className="mt-1 text-xs text-slate-500">Ocurrencia {item.ocurrencia_nro} | {formatCurrency(item.monto_estimado)}</p>
-                              </div>
-                              <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${STATUS_STYLES[item.estado] ?? STATUS_STYLES.pendiente}`}>{item.estado}</span>
-                            </div>
-                            {canManage ? (
-                              <div className="mt-3 flex flex-wrap gap-2">
-                                {(['pendiente', 'en_proceso', 'completado', 'cancelado'] as const).map((state) => (
-                                  <button key={state} type="button" onClick={() => updateAgendaStatus(item.id, state)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${item.estado === state ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
-                                    {state}
-                                  </button>
-                                ))}
-                              </div>
-                            ) : null}
-                          </div>
-                        ))
-                      )}
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <div className="mt-6 rounded-2xl border border-dashed border-slate-200 px-4 py-10 text-center text-sm text-slate-500">
-                  Selecciona un plan para ver detalle operativo, agenda y controles.
-                </div>
-              )}
-            </div>
-
-            <EditPlanModal
-              open={showEditModal}
-              plan={editingPlan}
-              departments={accessibleDepartments}
-              locations={locations}
-              entidades={entityOptions}
-              responsables={responsibleOptions}
-              canEdit={canEditSelectedPlan}
-              onClose={() => {
-                setShowEditModal(false)
-                setEditingPlan(null)
-              }}
-              onSaved={async () => {
-                await Promise.all([loadPortfolio(), selectedPlanId ? loadAgenda(selectedPlanId) : Promise.resolve()])
-              }}
-            />
-
-            <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+        <section className="mt-6">
+          <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
               <h3 className="text-sm font-bold uppercase tracking-[0.14em] text-slate-500">Riesgo y cumplimiento</h3>
               <div className="mt-4 space-y-3">
                 {scopedPortfolio.compliance.slice(0, 6).map((item) => (
@@ -2014,10 +2285,65 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
                 ))}
                 {scopedPortfolio.compliance.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">Sin alertas activas para la vista actual.</div> : null}
               </div>
-            </div>
-          </aside>
+          </div>
         </section>
       </div>
+
+      {showCatalogModal ? (
+        <ModalFrame
+          title="Catalogos de planificacion"
+          description="Gestiona proveedores y entidades sin ocupar espacio fijo dentro del tablero."
+          onClose={() => setShowCatalogModal(false)}
+          maxWidthClass="max-w-4xl"
+        >
+          <div className="max-h-[84vh] overflow-y-auto px-6 py-6">
+            <CatalogManagerCard
+              canManage={canManage}
+              departments={accessibleDepartments}
+              locations={locations}
+              responsables={responsibleOptions}
+              entidades={entityOptions}
+              defaultDepartment={selectedDepartment === 'ALL' ? preferredDept : selectedDepartment}
+              defaultLocationId={selectedLocationId === 'ALL' ? (locations[0]?.id ?? '') : selectedLocationId}
+              onCatalogsChanged={refreshPlanningCatalogs}
+              compact
+            />
+          </div>
+        </ModalFrame>
+      ) : null}
+
+      <PlanWorkspaceModal
+        open={showPlanWorkspaceModal}
+        plan={selectedPlan}
+        agenda={agenda}
+        agendaLoading={agendaLoading}
+        locations={locations}
+        canManage={canManage}
+        canEdit={canEditSelectedPlan}
+        seedBusyPlanId={seedBusyPlanId}
+        onClose={() => setShowPlanWorkspaceModal(false)}
+        onEdit={() => void openEditPlanModal()}
+        onReseed={(planId) => void reseedPlanAgenda(planId)}
+        onUpdatePlanState={(planId, estado) => void updatePlanState(planId, estado)}
+        onUpdateAgendaStatus={(agendaId, estado) => void updateAgendaStatus(agendaId, estado)}
+      />
+
+      <EditPlanModal
+        open={showEditModal}
+        plan={editingPlan}
+        departments={accessibleDepartments}
+        locations={locations}
+        entidades={entityOptions}
+        responsables={responsibleOptions}
+        canEdit={canEditSelectedPlan}
+        onClose={() => {
+          setShowEditModal(false)
+          setEditingPlan(null)
+        }}
+        onSaved={async () => {
+          await Promise.all([loadPortfolio(), selectedPlanId ? loadAgenda(selectedPlanId) : Promise.resolve()])
+        }}
+      />
 
       <NewPlanModal
         open={showCreateModal}
@@ -2032,6 +2358,7 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
         onClose={() => setShowCreateModal(false)}
         onCreated={async (planId) => {
           setSelectedPlanId(planId)
+          setShowPlanWorkspaceModal(true)
           await Promise.all([loadPortfolio(), loadAgenda(planId)])
         }}
       />
