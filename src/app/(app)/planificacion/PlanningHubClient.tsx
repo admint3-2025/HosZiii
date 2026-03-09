@@ -288,6 +288,16 @@ function buildDepartmentCatalog(profile: UserPlanningProfile, portfolio: Portfol
     .map((department) => known.get(department) ?? getDepartmentConfig(department))
     .sort((left, right) => left.label.localeCompare(right.label, 'es-MX'))
 
+  if (profile.isAdmin) {
+    const merged = new Map(DEPARTMENTS.map((department) => [department.key, department]))
+
+    for (const department of departments) {
+      merged.set(department.key, department)
+    }
+
+    return Array.from(merged.values()).sort((left, right) => left.label.localeCompare(right.label, 'es-MX'))
+  }
+
   const allowed = new Set(getAccessibleDepartments(profile).map((department) => department.key))
   const filtered = departments.filter((department) => allowed.has(department.key))
   return filtered.length > 0 ? filtered : getAccessibleDepartments(profile)
