@@ -1127,41 +1127,41 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
   return (
     <div className="min-h-screen bg-slate-100">
       <div className="mx-auto max-w-[1600px] px-4 py-8 sm:px-6 lg:px-8">
-        <section className="rounded-[28px] border border-slate-200 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-800 px-7 py-6 text-white shadow-sm">
-          <div className="flex flex-col gap-5 xl:flex-row xl:items-center xl:justify-between">
-            <div className="max-w-3xl">
+        <section className="rounded-[28px] border border-slate-200 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-800 px-6 py-5 text-white shadow-sm">
+          <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
+            <div className="max-w-2xl">
               <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-200">
                 <Building2 className="h-3.5 w-3.5" />
                 Planeacion anual corporativa
               </div>
-              <h1 className="mt-3 text-3xl font-extrabold tracking-[-0.03em] text-white xl:text-[2rem]">Dashboard ejecutivo de cartera anual</h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">
+              <h1 className="mt-3 text-[1.95rem] font-extrabold tracking-[-0.03em] text-white xl:text-[2.15rem]">Cartera anual y seguimiento operativo</h1>
+              <p className="mt-2 max-w-xl text-sm leading-6 text-slate-300">
                 Portafolio real por departamentos, agenda operativa, presupuesto planeado y alertas de cumplimiento.
-                Esta vista usa datos de base y sirve como centro de control para corporativo y supervisores.
+                Ajusta el ejercicio, valida la vista consolidada y exporta solo cuando el cierre anual ya este listo.
               </p>
             </div>
-            <div className="flex flex-wrap gap-2.5">
-              <select className="rounded-xl border border-white/10 bg-white/8 px-4 py-2.5 text-sm font-semibold text-white outline-none backdrop-blur-sm" value={year} onChange={(e) => setYear(Number(e.target.value))}>
-                {[initialYear - 1, initialYear, initialYear + 1, initialYear + 2].map((item) => (
-                  <option key={item} value={item} className="text-slate-900">{item}</option>
-                ))}
-              </select>
-              <button type="button" onClick={loadPortfolio} className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/8 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur-sm hover:bg-white/15">
-                <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
-                Actualizar
-              </button>
-              <button type="button" onClick={() => setShowCreateModal(true)} className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 hover:bg-slate-100">
-                <FolderPlus className="h-4 w-4" />
-                Nuevo plan
-              </button>
-              <a href={exportPdfHref} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/8 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur-sm hover:bg-white/15">
-                <FileText className="h-4 w-4" />
-                Ver PDF horizontal
-              </a>
-              <a href={exportExcelHref} className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-900 hover:bg-emerald-100">
-                <FileSpreadsheet className="h-4 w-4" />
-                Exportar Excel
-              </a>
+            <div className="flex flex-col gap-3 xl:min-w-[360px] xl:items-end">
+              <div className="grid gap-3 sm:grid-cols-[116px_1fr] sm:items-center xl:w-full">
+                <div>
+                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-300">Ejercicio</p>
+                  <p className="mt-1 text-xs text-slate-400">Ano de trabajo</p>
+                </div>
+                <select className="w-full rounded-xl border border-white/10 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-900 outline-none" value={year} onChange={(e) => setYear(Number(e.target.value))}>
+                  {[initialYear - 1, initialYear, initialYear + 1, initialYear + 2].map((item) => (
+                    <option key={item} value={item}>{item}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex flex-wrap gap-2.5 xl:justify-end">
+                <button type="button" onClick={loadPortfolio} className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur-sm hover:bg-white/10">
+                  <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
+                  Actualizar
+                </button>
+                <button type="button" onClick={() => setShowCreateModal(true)} className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 hover:bg-slate-100">
+                  <FolderPlus className="h-4 w-4" />
+                  Nuevo plan
+                </button>
+              </div>
             </div>
           </div>
         </section>
@@ -1214,6 +1214,23 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
               {accessibleDepartments.length === 0 ? (
                 <span className="rounded-full bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700">Sin departamentos disponibles</span>
               ) : null}
+            </div>
+          </div>
+
+          <div className="mt-5 grid gap-4 border-t border-slate-200 pt-5 lg:grid-cols-[1fr_auto] lg:items-center">
+            <div>
+              <h3 className="text-sm font-bold uppercase tracking-[0.18em] text-slate-700">Salida y cierre</h3>
+              <p className="mt-1 text-sm text-slate-500">Cuando termines de revisar la cartera anual, exporta exactamente la vista actual con sus filtros aplicados.</p>
+            </div>
+            <div className="flex flex-wrap gap-2.5">
+              <a href={exportPdfHref} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                <FileText className="h-4 w-4" />
+                PDF horizontal
+              </a>
+              <a href={exportExcelHref} className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-900 hover:bg-emerald-100">
+                <FileSpreadsheet className="h-4 w-4" />
+                Excel de la vista actual
+              </a>
             </div>
           </div>
 
