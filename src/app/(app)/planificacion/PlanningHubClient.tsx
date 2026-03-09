@@ -625,7 +625,7 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
     async function loadReferenceData() {
       try {
         setLocationsLoading(true)
-        const locationsJson = await fetchJson<{ locations: LocationOption[] }>('/api/locations/options')
+        const locationsJson = await fetchJson<{ locations: LocationOption[] }>('/api/planificacion/locations')
         setLocations(locationsJson.locations ?? [])
       } catch {
         setLocations([])
