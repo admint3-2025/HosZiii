@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import Link from 'next/link'
 import type { LucideIcon } from 'lucide-react'
 import {
   AlertTriangle,
@@ -629,6 +630,13 @@ function NewPlanModal({
           </button>
         </div>
         <form onSubmit={submit} className="space-y-4 px-6 py-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+            <p>Los proveedores y entidades se administran desde catalogos operativos y luego quedan disponibles aqui.</p>
+            <Link href="/ops/gestion" className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100">
+              Administrar catalogos
+            </Link>
+          </div>
+
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             <Field label="Codigo del plan" help="Clave interna para rastrear el plan en reportes y seguimiento.">
               <input className={INPUT_CLASS} value={form.codigo_plan} onChange={(e) => setForm((prev) => ({ ...prev, codigo_plan: e.target.value }))} placeholder="Ej. PLAN-MANT-2025-01" />
@@ -902,6 +910,13 @@ function EditPlanModal({
           </button>
         </div>
         <form onSubmit={handleSubmit} className="max-h-[80vh] space-y-4 overflow-y-auto px-6 py-6">
+          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
+            <p>Si falta un proveedor o una entidad, puedes registrarlo en catalogos operativos sin salir del flujo general.</p>
+            <Link href="/ops/gestion" className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100">
+              Abrir catalogos
+            </Link>
+          </div>
+
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             <Field label="Codigo del plan" help="Clave unica interna para identificar el plan en reportes y seguimiento.">
               <input className={INPUT_CLASS} value={form.codigo_plan} onChange={(e) => setForm((prev) => ({ ...prev, codigo_plan: e.target.value }))} />
@@ -1339,6 +1354,10 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
                 </select>
               </div>
               <div className="flex flex-wrap gap-2.5 xl:justify-end">
+                <Link href="/ops/gestion" className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur-sm hover:bg-white/10">
+                  <Building2 className="h-4 w-4" />
+                  Proveedores y entidades
+                </Link>
                 <button type="button" onClick={loadPortfolio} className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur-sm hover:bg-white/10">
                   <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
                   Actualizar
@@ -1628,6 +1647,26 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
                 await Promise.all([loadPortfolio(), selectedPlanId ? loadAgenda(selectedPlanId) : Promise.resolve()])
               }}
             />
+
+            <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="flex items-center justify-between gap-3">
+                <h3 className="text-sm font-bold uppercase tracking-[0.14em] text-slate-500">Catalogos operativos</h3>
+                <Link href="/ops/gestion" className="text-xs font-semibold text-sky-700 hover:text-sky-800">
+                  Abrir gestion completa
+                </Link>
+              </div>
+              <p className="mt-2 text-sm text-slate-500">Desde aqui puedes mantener el catalogo de proveedores y entidades que alimenta los planes anuales.</p>
+              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
+                <Link href="/ops/gestion" className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-700 hover:bg-slate-100">
+                  <span className="block font-semibold text-slate-900">Administrar proveedores</span>
+                  <span className="mt-1 block text-xs text-slate-500">Alta, baja y actualizacion del responsable o proveedor del plan.</span>
+                </Link>
+                <Link href="/ops/gestion" className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-700 hover:bg-slate-100">
+                  <span className="block font-semibold text-slate-900">Administrar entidades</span>
+                  <span className="mt-1 block text-xs text-slate-500">Equipos, areas o sistemas objetivo disponibles para nuevos planes.</span>
+                </Link>
+              </div>
+            </div>
 
             <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
               <h3 className="text-sm font-bold uppercase tracking-[0.14em] text-slate-500">Riesgo y cumplimiento</h3>
