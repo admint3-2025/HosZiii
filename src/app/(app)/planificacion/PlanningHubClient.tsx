@@ -43,6 +43,7 @@ type DepartmentDef = {
   accent: string
   soft: string
   border: string
+  aliases?: string[]
 }
 
 type CreateFormState = {
@@ -61,12 +62,6 @@ type LocationOption = {
   id: string
   code: string
   name: string
-}
-
-type DepartmentOption = {
-  id: string
-  name: string
-  code: string | null
 }
 
 type PortfolioResponse = {
@@ -93,6 +88,7 @@ const DEPARTMENTS: DepartmentDef[] = [
     accent: 'text-blue-700',
     soft: 'bg-blue-50',
     border: 'border-blue-200',
+    aliases: ['RRHH', 'RH'],
   },
   {
     key: 'GSH',
@@ -111,6 +107,7 @@ const DEPARTMENTS: DepartmentDef[] = [
     accent: 'text-indigo-700',
     soft: 'bg-indigo-50',
     border: 'border-indigo-200',
+    aliases: ['CUARTOS', 'DIV CUARTOS', 'DIVISION CUARTOS'],
   },
   {
     key: 'MANTENIMIENTO',
@@ -129,6 +126,7 @@ const DEPARTMENTS: DepartmentDef[] = [
     accent: 'text-cyan-700',
     soft: 'bg-cyan-50',
     border: 'border-cyan-200',
+    aliases: ['IT'],
   },
   {
     key: 'ALIMENTOS Y BEBIDAS',
@@ -138,6 +136,7 @@ const DEPARTMENTS: DepartmentDef[] = [
     accent: 'text-rose-700',
     soft: 'bg-rose-50',
     border: 'border-rose-200',
+    aliases: ['AYB', 'A&B', 'ALIMENTOS Y BEBIDAS (A&B)'],
   },
   {
     key: 'AMA DE LLAVES',
@@ -147,6 +146,7 @@ const DEPARTMENTS: DepartmentDef[] = [
     accent: 'text-fuchsia-700',
     soft: 'bg-fuchsia-50',
     border: 'border-fuchsia-200',
+    aliases: ['HOUSEKEEPING', 'AMA DE LLAVES (HOUSEKEEPING)'],
   },
   {
     key: 'CONTABILIDAD',
@@ -156,6 +156,7 @@ const DEPARTMENTS: DepartmentDef[] = [
     accent: 'text-teal-700',
     soft: 'bg-teal-50',
     border: 'border-teal-200',
+    aliases: ['CONTA'],
   },
   {
     key: 'MARKETING',
@@ -165,6 +166,7 @@ const DEPARTMENTS: DepartmentDef[] = [
     accent: 'text-pink-700',
     soft: 'bg-pink-50',
     border: 'border-pink-200',
+    aliases: ['MKT'],
   },
 ]
 
@@ -186,6 +188,16 @@ const INPUT_CLASS = 'w-full rounded-xl border border-slate-300 bg-white px-3 py-
 
 function normalize(value: string | null | undefined) {
   return (value ?? '').trim().toUpperCase()
+}
+
+function resolveDepartmentConfig(value: string | null | undefined) {
+  const normalized = normalize(value)
+  if (!normalized) return null
+
+  return DEPARTMENTS.find((item) => {
+    if (item.key === normalized || normalize(item.label) === normalized) return true
+    return item.aliases?.some((alias) => normalize(alias) === normalized) ?? false
+  }) ?? null
 }
 
 function formatCurrency(amount: number | null | undefined) {
@@ -224,7 +236,7 @@ function statusRank(status: string) {
 }
 
 function getDepartmentConfig(department: string) {
-  return DEPARTMENTS.find((item) => item.key === normalize(department)) ?? {
+  return resolveDepartmentConfig(department) ?? {
     key: normalize(department),
     label: department || 'Sin departamento',
     shortLabel: department || 'Sin depto',
@@ -236,15 +248,24 @@ function getDepartmentConfig(department: string) {
 }
 
 function getAccessibleDepartments(profile: UserPlanningProfile) {
-  if (profile.isAdmin || profile.isCorporate) return DEPARTMENTS
+  if (profile.isAdmin) return DEPARTMENTS
 
-  const allowed = new Set<string>()
-  if (profile.departamento) allowed.add(normalize(profile.departamento))
-  for (const dept of profile.allowed_departments ?? []) {
-    allowed.add(normalize(dept))
+  const allowed = new Map<string, DepartmentDef>()
+  if (profile.departamento) {
+    const department = getDepartmentConfig(profile.departamento)
+    allowed.set(department.key, department)
   }
 
-  const filtered = DEPARTMENTS.filter((item) => allowed.has(item.key) || allowed.has(normalize(item.label)))
+  for (const dept of profile.allowed_departments ?? []) {
+    const department = getDepartmentConfig(dept)
+    allowed.set(department.key, department)
+  }
+
+  if (profile.isCorporate && allowed.size === 0) {
+    return DEPARTMENTS
+  }
+
+  const filtered = Array.from(allowed.values()).sort((left, right) => left.label.localeCompare(right.label, 'es-MX'))
   return filtered.length > 0 ? filtered : [getDepartmentConfig(profile.departamento || 'MANTENIMIENTO')]
 }
 
@@ -266,10 +287,6 @@ function buildDepartmentCatalog(profile: UserPlanningProfile, portfolio: Portfol
     .filter(Boolean)
     .map((department) => known.get(department) ?? getDepartmentConfig(department))
     .sort((left, right) => left.label.localeCompare(right.label, 'es-MX'))
-
-  if (profile.isAdmin || profile.isCorporate) {
-    return departments.length > 0 ? departments : DEPARTMENTS
-  }
 
   const allowed = new Set(getAccessibleDepartments(profile).map((department) => department.key))
   const filtered = departments.filter((department) => allowed.has(department.key))
@@ -574,9 +591,7 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
 
   const [year, setYear] = useState(initialYear)
   const [locations, setLocations] = useState<LocationOption[]>([])
-  const [departmentOptions, setDepartmentOptions] = useState<DepartmentOption[]>([])
   const [locationsLoading, setLocationsLoading] = useState(true)
-  const [departmentsLoading, setDepartmentsLoading] = useState(true)
   const [selectedDepartment, setSelectedDepartment] = useState<string>('ALL')
   const [selectedLocationId, setSelectedLocationId] = useState<string>('ALL')
   const [portfolio, setPortfolio] = useState<PortfolioResponse>({ plans: [], calendar: [], compliance: [], financial: [] })
@@ -589,20 +604,8 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
   const [showCreateModal, setShowCreateModal] = useState(false)
 
   const accessibleDepartments = useMemo(() => {
-    const knownByName = new Map(DEPARTMENTS.map((department) => [department.key, department]))
-    const fromOptions = departmentOptions.map((department) => knownByName.get(normalize(department.name)) ?? getDepartmentConfig(department.name))
-    const merged = new Map<string, DepartmentDef>()
-
-    for (const department of fromOptions) {
-      merged.set(department.key, department)
-    }
-
-    for (const department of buildDepartmentCatalog(userProfile, portfolio)) {
-      merged.set(department.key, department)
-    }
-
-    return Array.from(merged.values()).sort((left, right) => left.label.localeCompare(right.label, 'es-MX'))
-  }, [departmentOptions, portfolio, userProfile])
+    return buildDepartmentCatalog(userProfile, portfolio)
+  }, [portfolio, userProfile])
   const preferredDept = accessibleDepartments[0]?.key ?? 'MANTENIMIENTO'
   const visibleDepartmentKeys = useMemo(() => new Set(accessibleDepartments.map((item) => item.key)), [accessibleDepartments])
 
@@ -610,19 +613,12 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
     async function loadReferenceData() {
       try {
         setLocationsLoading(true)
-        setDepartmentsLoading(true)
-        const [locationsJson, departmentsJson] = await Promise.all([
-          fetchJson<{ locations: LocationOption[] }>('/api/locations/options'),
-          fetchJson<{ departments: DepartmentOption[] }>('/api/departments/options'),
-        ])
+        const locationsJson = await fetchJson<{ locations: LocationOption[] }>('/api/locations/options')
         setLocations(locationsJson.locations ?? [])
-        setDepartmentOptions(departmentsJson.departments ?? [])
       } catch {
         setLocations([])
-        setDepartmentOptions([])
       } finally {
         setLocationsLoading(false)
-        setDepartmentsLoading(false)
       }
     }
 
@@ -877,7 +873,7 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
                   {department.shortLabel}
                 </button>
               ))}
-              {!departmentsLoading && accessibleDepartments.length === 0 ? (
+              {accessibleDepartments.length === 0 ? (
                 <span className="rounded-full bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700">Sin departamentos disponibles</span>
               ) : null}
             </div>
