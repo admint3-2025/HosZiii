@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import type { LucideIcon } from 'lucide-react'
 import {
   AlertTriangle,
@@ -89,6 +90,29 @@ function resolveCentroCostoFromLocationId(locationId: string | null | undefined,
   if (!locationId) return ''
   const matched = locations.find((location) => location.id === locationId)
   return matched?.code ?? ''
+}
+
+function ModalPortal({ children }: { children: ReactNode }) {
+  const [mounted, setMounted] = useState(false)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
+
+  useEffect(() => {
+    if (!mounted) return
+
+    const previousOverflow = document.body.style.overflow
+    document.body.style.overflow = 'hidden'
+
+    return () => {
+      document.body.style.overflow = previousOverflow
+    }
+  }, [mounted])
+
+  if (!mounted) return null
+
+  return createPortal(children, document.body)
 }
 
 type PortfolioResponse = {
@@ -688,19 +712,21 @@ function NewPlanModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-2xl rounded-3xl border border-slate-200 bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
-          <div>
-            <h2 className="text-xl font-bold text-slate-900">Nuevo plan anual</h2>
-            <p className="mt-1 text-sm text-slate-500">Registra el plan maestro completo y siembra su agenda inicial con presupuesto prorrateado.</p>
-          </div>
-          <button type="button" onClick={onClose} className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
-            <span className="sr-only">Cerrar</span>
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <form onSubmit={submit} className="space-y-4 px-6 py-6">
+    <ModalPortal>
+      <div className="fixed inset-0 z-[70] overflow-y-auto bg-slate-900/40 p-4 backdrop-blur-sm">
+        <div className="flex min-h-full items-start justify-center py-4 sm:items-center sm:py-8">
+          <div className="flex w-full max-w-2xl max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">Nuevo plan anual</h2>
+                <p className="mt-1 text-sm text-slate-500">Registra el plan maestro completo y siembra su agenda inicial con presupuesto prorrateado.</p>
+              </div>
+              <button type="button" onClick={onClose} className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                <span className="sr-only">Cerrar</span>
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={submit} className="flex-1 min-h-0 space-y-4 overflow-y-auto px-6 py-6">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             <Field label="Codigo del plan" help="Clave interna para rastrear el plan en reportes y seguimiento.">
               <input className={INPUT_CLASS} value={form.codigo_plan} onChange={(e) => setForm((prev) => ({ ...prev, codigo_plan: e.target.value }))} placeholder="Ej. PLAN-MANT-2025-01" />
@@ -798,13 +824,15 @@ function NewPlanModal({
             </div>
           ) : null}
           {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
-          <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={onClose} className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancelar</button>
-            <button type="submit" disabled={submitting || entidades.length === 0} className="rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-500 disabled:opacity-60">{submitting ? 'Creando...' : 'Crear y sembrar agenda'}</button>
+              <div className="flex justify-end gap-3 pt-2">
+                <button type="button" onClick={onClose} className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancelar</button>
+                <button type="submit" disabled={submitting || entidades.length === 0} className="rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-500 disabled:opacity-60">{submitting ? 'Creando...' : 'Crear y sembrar agenda'}</button>
+              </div>
+            </form>
           </div>
-        </form>
+        </div>
       </div>
-    </div>
+    </ModalPortal>
   )
 }
 
@@ -847,21 +875,25 @@ function ModalFrame({
   maxWidthClass?: string
 }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
-      <div className={`w-full ${maxWidthClass} rounded-3xl border border-slate-200 bg-white shadow-2xl`}>
-        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
-          <div>
-            <h2 className="text-xl font-bold text-slate-900">{title}</h2>
-            {description ? <p className="mt-1 text-sm text-slate-500">{description}</p> : null}
+    <ModalPortal>
+      <div className="fixed inset-0 z-[70] overflow-y-auto bg-slate-900/40 p-4 backdrop-blur-sm">
+        <div className="flex min-h-full items-start justify-center py-4 sm:items-center sm:py-8">
+          <div className={`flex w-full ${maxWidthClass} max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl`}>
+            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">{title}</h2>
+                {description ? <p className="mt-1 text-sm text-slate-500">{description}</p> : null}
+              </div>
+              <button type="button" onClick={onClose} className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                <span className="sr-only">Cerrar</span>
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            {children}
           </div>
-          <button type="button" onClick={onClose} className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
-            <span className="sr-only">Cerrar</span>
-            <X className="h-5 w-5" />
-          </button>
         </div>
-        {children}
       </div>
-    </div>
+    </ModalPortal>
   )
 }
 
@@ -1292,7 +1324,7 @@ function PlanWorkspaceModal({
       onClose={onClose}
       maxWidthClass="max-w-5xl"
     >
-      <div className="max-h-[84vh] overflow-y-auto px-6 py-6">
+      <div className="flex-1 min-h-0 overflow-y-auto px-6 py-6">
         <div className="grid gap-6 lg:grid-cols-[360px_minmax(0,1fr)]">
           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-5">
             <div className="flex items-start justify-between gap-3">
@@ -1507,19 +1539,21 @@ function EditPlanModal({
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
-      <div className="w-full max-w-4xl rounded-3xl border border-slate-200 bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
-          <div>
-            <h2 className="text-xl font-bold text-slate-900">Editar plan</h2>
-            <p className="mt-1 text-sm text-slate-500">Actualiza los campos operativos y financieros del plan seleccionado.</p>
-          </div>
-          <button type="button" onClick={onClose} className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
-            <span className="sr-only">Cerrar</span>
-            <X className="h-5 w-5" />
-          </button>
-        </div>
-        <form onSubmit={handleSubmit} className="max-h-[80vh] space-y-4 overflow-y-auto px-6 py-6">
+    <ModalPortal>
+      <div className="fixed inset-0 z-[70] overflow-y-auto bg-slate-900/40 p-4 backdrop-blur-sm">
+        <div className="flex min-h-full items-start justify-center py-4 sm:items-center sm:py-8">
+          <div className="flex w-full max-w-4xl max-h-[calc(100dvh-2rem)] flex-col overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-2xl">
+            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
+              <div>
+                <h2 className="text-xl font-bold text-slate-900">Editar plan</h2>
+                <p className="mt-1 text-sm text-slate-500">Actualiza los campos operativos y financieros del plan seleccionado.</p>
+              </div>
+              <button type="button" onClick={onClose} className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+                <span className="sr-only">Cerrar</span>
+                <X className="h-5 w-5" />
+              </button>
+            </div>
+            <form onSubmit={handleSubmit} className="flex-1 min-h-0 space-y-4 overflow-y-auto px-6 py-6">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             <Field label="Codigo del plan" help="Clave unica interna para identificar el plan en reportes y seguimiento.">
               <input className={INPUT_CLASS} value={form.codigo_plan} onChange={(e) => setForm((prev) => ({ ...prev, codigo_plan: e.target.value }))} />
@@ -1628,14 +1662,16 @@ function EditPlanModal({
             Si cambias frecuencia, fechas, presupuesto o esfuerzo, usa la opcion de regenerar agenda para recalcular las ocurrencias y sus montos prorrateados.
           </div>
 
-          <div className="flex justify-end gap-3 pt-2">
-            <button type="button" onClick={onClose} className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancelar</button>
-            <button type="button" onClick={() => void submit(true)} disabled={submitting} className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm font-semibold text-sky-700 hover:bg-sky-100 disabled:opacity-60">{submitting ? 'Procesando...' : 'Guardar y regenerar agenda'}</button>
-            <button type="submit" disabled={submitting} className="rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-500 disabled:opacity-60">{submitting ? 'Procesando...' : 'Guardar cambios'}</button>
+              <div className="flex justify-end gap-3 pt-2">
+                <button type="button" onClick={onClose} className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancelar</button>
+                <button type="button" onClick={() => void submit(true)} disabled={submitting} className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm font-semibold text-sky-700 hover:bg-sky-100 disabled:opacity-60">{submitting ? 'Procesando...' : 'Guardar y regenerar agenda'}</button>
+                <button type="submit" disabled={submitting} className="rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-500 disabled:opacity-60">{submitting ? 'Procesando...' : 'Guardar cambios'}</button>
+              </div>
+            </form>
           </div>
-        </form>
+        </div>
       </div>
-    </div>
+    </ModalPortal>
   )
 }
 
@@ -2296,7 +2332,7 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
           onClose={() => setShowCatalogModal(false)}
           maxWidthClass="max-w-4xl"
         >
-          <div className="max-h-[84vh] overflow-y-auto px-6 py-6">
+          <div className="flex-1 min-h-0 overflow-y-auto px-6 py-6">
             <CatalogManagerCard
               canManage={canManage}
               departments={accessibleDepartments}
