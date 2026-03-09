@@ -565,7 +565,7 @@ function NewPlanModal({
         </div>
         <form onSubmit={submit} className="space-y-4 px-6 py-6">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Field label="Tipo">
+            <Field label="Tipo" help="Define la naturaleza del plan que vas a programar.">
               <select className={INPUT_CLASS} value={form.tipo} onChange={(e) => setForm((prev) => ({ ...prev, tipo: e.target.value }))}>
                 <option value="mantenimiento_preventivo">Mantenimiento preventivo</option>
                 <option value="inspeccion">Inspeccion</option>
@@ -574,7 +574,7 @@ function NewPlanModal({
                 <option value="otro">Otro</option>
               </select>
             </Field>
-            <Field label="Departamento">
+            <Field label="Departamento" help="Area responsable del seguimiento y cumplimiento del plan.">
               <select className={INPUT_CLASS} value={form.departamento} onChange={(e) => setForm((prev) => ({ ...prev, departamento: e.target.value }))}>
                 {departments.map((department) => (
                   <option key={department.key} value={department.key}>{department.label}</option>
@@ -582,7 +582,7 @@ function NewPlanModal({
               </select>
             </Field>
           </div>
-          <Field label="Sede / propiedad">
+          <Field label="Sede / propiedad" help="Hotel o ubicacion donde aplica este plan.">
             <select className={INPUT_CLASS} value={form.centro_costo} onChange={(e) => setForm((prev) => ({ ...prev, centro_costo: e.target.value }))}>
               <option value="">Sin sede</option>
               {locations.map((location) => (
@@ -590,19 +590,19 @@ function NewPlanModal({
               ))}
             </select>
           </Field>
-          <Field label="Titulo del plan">
+          <Field label="Titulo del plan" help="Nombre corto y claro con el que identificaras el plan.">
             <input className={INPUT_CLASS} value={form.titulo} onChange={(e) => setForm((prev) => ({ ...prev, titulo: e.target.value }))} placeholder="Ej. Programa anual de elevadores" required />
           </Field>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Field label="Activo / area objetivo">
+            <Field label="Activo / area objetivo" help="Equipo, instalacion o area que recibira la accion planificada.">
               <input className={INPUT_CLASS} value={form.area} onChange={(e) => setForm((prev) => ({ ...prev, area: e.target.value }))} placeholder="Ej. Elevadores principales" />
             </Field>
-            <Field label="Fecha de inicio">
+            <Field label="Fecha de inicio" help="Primera fecha desde la que el plan empieza a contar.">
               <input type="date" className={INPUT_CLASS} value={form.fecha} onChange={(e) => setForm((prev) => ({ ...prev, fecha: e.target.value }))} required />
             </Field>
           </div>
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Field label="Frecuencia">
+            <Field label="Frecuencia" help="Cada cuanto debe repetirse la actividad del plan.">
               <select className={INPUT_CLASS} value={form.frecuencia} onChange={(e) => setForm((prev) => ({ ...prev, frecuencia: e.target.value }))}>
                 <option value="monthly">Mensual</option>
                 <option value="quarterly">Trimestral</option>
@@ -610,7 +610,7 @@ function NewPlanModal({
                 <option value="weekly">Semanal</option>
               </select>
             </Field>
-            <Field label="Descripcion">
+            <Field label="Descripcion" help="Objetivo, alcance o detalle operativo del plan.">
               <input className={INPUT_CLASS} value={form.descripcion} onChange={(e) => setForm((prev) => ({ ...prev, descripcion: e.target.value }))} placeholder="Objetivo, alcance o alcance presupuestal" />
             </Field>
           </div>
@@ -625,10 +625,11 @@ function NewPlanModal({
   )
 }
 
-function Field({ label, children }: { label: string; children: ReactNode }) {
+function Field({ label, help, children }: { label: string; help?: string; children: ReactNode }) {
   return (
     <label className="block">
       <span className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</span>
+      {help ? <span className="mb-2 block text-xs leading-5 text-slate-400">{help}</span> : null}
       {children}
     </label>
   )
@@ -760,13 +761,13 @@ function EditPlanModal({
         </div>
         <form onSubmit={submit} className="max-h-[80vh] space-y-4 overflow-y-auto px-6 py-6">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <Field label="Codigo del plan">
+            <Field label="Codigo del plan" help="Clave unica interna para identificar el plan en reportes y seguimiento.">
               <input className={INPUT_CLASS} value={form.codigo_plan} onChange={(e) => setForm((prev) => ({ ...prev, codigo_plan: e.target.value }))} />
             </Field>
-            <Field label="Nombre del plan">
+            <Field label="Nombre del plan" help="Nombre visible del plan dentro del tablero anual.">
               <input className={INPUT_CLASS} value={form.nombre} onChange={(e) => setForm((prev) => ({ ...prev, nombre: e.target.value }))} required />
             </Field>
-            <Field label="Estado">
+            <Field label="Estado" help="Situacion actual del plan: activo, pausado o cerrado.">
               <select className={INPUT_CLASS} value={form.estado} onChange={(e) => setForm((prev) => ({ ...prev, estado: e.target.value as OpsPlan['estado'] }))}>
                 <option value="activo">Activo</option>
                 <option value="pausado">Pausado</option>
@@ -775,19 +776,19 @@ function EditPlanModal({
             </Field>
           </div>
 
-          <Field label="Descripcion">
+          <Field label="Descripcion" help="Explica que se busca lograr y que cubre este plan.">
             <textarea className={`${INPUT_CLASS} min-h-[96px]`} value={form.descripcion} onChange={(e) => setForm((prev) => ({ ...prev, descripcion: e.target.value }))} />
           </Field>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
-            <Field label="Departamento">
+            <Field label="Departamento" help="Area responsable de operar y responder por el plan.">
               <select className={INPUT_CLASS} value={form.departamento_dueno} onChange={(e) => setForm((prev) => ({ ...prev, departamento_dueno: e.target.value }))}>
                 {departments.map((department) => (
                   <option key={department.key} value={department.key}>{department.label}</option>
                 ))}
               </select>
             </Field>
-            <Field label="Sede">
+            <Field label="Sede" help="Ubicacion o propiedad donde se ejecutara el plan.">
               <select className={INPUT_CLASS} value={form.centro_costo} onChange={(e) => setForm((prev) => ({ ...prev, centro_costo: e.target.value }))}>
                 <option value="">Sin sede asignada</option>
                 {locations.map((location) => (
@@ -795,13 +796,13 @@ function EditPlanModal({
                 ))}
               </select>
             </Field>
-            <Field label="Moneda">
+            <Field label="Moneda" help="Moneda base en la que se registrara el presupuesto.">
               <input className={INPUT_CLASS} value={form.moneda} onChange={(e) => setForm((prev) => ({ ...prev, moneda: e.target.value }))} />
             </Field>
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Field label="Entidad objetivo">
+            <Field label="Entidad objetivo" help="Area, sistema o activo especifico al que apunta el plan.">
               <select className={INPUT_CLASS} value={form.entidad_objetivo_id} onChange={(e) => setForm((prev) => ({ ...prev, entidad_objetivo_id: e.target.value }))}>
                 <option value="">Sin entidad</option>
                 {entidades.map((item) => (
@@ -809,7 +810,7 @@ function EditPlanModal({
                 ))}
               </select>
             </Field>
-            <Field label="Proveedor / responsable">
+            <Field label="Proveedor / responsable" help="Persona o proveedor encargado de atender o coordinar la actividad.">
               <select className={INPUT_CLASS} value={form.responsable_proveedor_id} onChange={(e) => setForm((prev) => ({ ...prev, responsable_proveedor_id: e.target.value }))}>
                 <option value="">Sin proveedor</option>
                 {responsables.map((item) => (
@@ -820,13 +821,13 @@ function EditPlanModal({
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-            <Field label="Inicio">
+            <Field label="Inicio" help="Fecha a partir de la cual el plan queda vigente.">
               <input type="date" className={INPUT_CLASS} value={form.fecha_inicio} onChange={(e) => setForm((prev) => ({ ...prev, fecha_inicio: e.target.value }))} required />
             </Field>
-            <Field label="Fin">
+            <Field label="Fin" help="Ultima fecha en la que el plan seguira programando eventos.">
               <input type="date" className={INPUT_CLASS} value={form.fecha_fin} onChange={(e) => setForm((prev) => ({ ...prev, fecha_fin: e.target.value }))} required />
             </Field>
-            <Field label="Frecuencia">
+            <Field label="Frecuencia" help="Regla principal con la que se repetira el plan.">
               <select className={INPUT_CLASS} value={form.frecuencia_tipo} onChange={(e) => setForm((prev) => ({ ...prev, frecuencia_tipo: e.target.value }))}>
                 <option value="weekly">Semanal</option>
                 <option value="monthly">Mensual</option>
@@ -835,28 +836,28 @@ function EditPlanModal({
                 <option value="custom_days">Personalizado</option>
               </select>
             </Field>
-            <Field label="Intervalo">
+            <Field label="Intervalo" help="Cada cuantas unidades de la frecuencia se repite. Ejemplo: cada 2 meses.">
               <input type="number" min="1" className={INPUT_CLASS} value={form.frecuencia_intervalo} onChange={(e) => setForm((prev) => ({ ...prev, frecuencia_intervalo: e.target.value }))} />
             </Field>
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-            <Field label="Dias personalizados">
+            <Field label="Dias personalizados" help="Usalo solo si la frecuencia es personalizada por numero de dias.">
               <input type="number" min="1" className={INPUT_CLASS} value={form.custom_interval_days} onChange={(e) => setForm((prev) => ({ ...prev, custom_interval_days: e.target.value }))} />
             </Field>
-            <Field label="Dia de semana">
+            <Field label="Dia de semana" help="Para frecuencia semanal: 1 a 7 segun el dia programado.">
               <input type="number" min="1" max="7" className={INPUT_CLASS} value={form.dia_semana} onChange={(e) => setForm((prev) => ({ ...prev, dia_semana: e.target.value }))} />
             </Field>
-            <Field label="Dia del mes">
+            <Field label="Dia del mes" help="Para frecuencia mensual: dia exacto del mes en que debe ocurrir.">
               <input type="number" min="1" max="31" className={INPUT_CLASS} value={form.dia_del_mes} onChange={(e) => setForm((prev) => ({ ...prev, dia_del_mes: e.target.value }))} />
             </Field>
           </div>
 
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Field label="Presupuesto planeado">
+            <Field label="Presupuesto planeado" help="Monto total estimado para ejecutar este plan durante su vigencia.">
               <input type="number" min="0" step="0.01" className={INPUT_CLASS} value={form.monto_total_planeado} onChange={(e) => setForm((prev) => ({ ...prev, monto_total_planeado: e.target.value }))} />
             </Field>
-            <Field label="Esfuerzo planeado">
+            <Field label="Esfuerzo planeado" help="Carga estimada de trabajo, horas o esfuerzo operativo del plan.">
               <input type="number" min="0" step="0.01" className={INPUT_CLASS} value={form.esfuerzo_total_planeado} onChange={(e) => setForm((prev) => ({ ...prev, esfuerzo_total_planeado: e.target.value }))} />
             </Field>
           </div>
