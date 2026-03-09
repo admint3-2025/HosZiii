@@ -68,6 +68,20 @@ type LocationOption = {
   name: string
 }
 
+function resolveLocationId(value: string | null | undefined, locations: LocationOption[]) {
+  const normalized = normalize(value)
+  if (!normalized) return ''
+
+  const matched = locations.find((location) => locationMatches(value, location))
+  return matched?.id ?? ''
+}
+
+function resolveCentroCostoFromLocationId(locationId: string | null | undefined, locations: LocationOption[]) {
+  if (!locationId) return ''
+  const matched = locations.find((location) => location.id === locationId)
+  return matched?.code ?? ''
+}
+
 type PortfolioResponse = {
   plans: PlanWithRelations[]
   calendar: OpsCalendarItem[]
@@ -671,7 +685,7 @@ function EditPlanModal({
       nombre: plan.nombre ?? '',
       descripcion: plan.descripcion ?? '',
       departamento_dueno: plan.departamento_dueno ?? '',
-      centro_costo: plan.centro_costo ?? '',
+      centro_costo: resolveLocationId(plan.centro_costo, locations),
       moneda: plan.moneda ?? 'MXN',
       entidad_objetivo_id: plan.entidad_objetivo_id ?? '',
       responsable_proveedor_id: plan.responsable_proveedor_id ?? '',
@@ -687,7 +701,7 @@ function EditPlanModal({
       estado: plan.estado ?? 'activo',
     })
     setError(null)
-  }, [plan])
+  }, [locations, plan])
 
   if (!open || !plan) return null
   const currentPlan = plan
@@ -711,7 +725,7 @@ function EditPlanModal({
           ...form,
           entidad_objetivo_id: form.entidad_objetivo_id || null,
           responsable_proveedor_id: form.responsable_proveedor_id || null,
-          centro_costo: form.centro_costo || null,
+          centro_costo: resolveCentroCostoFromLocationId(form.centro_costo, locations) || null,
           custom_interval_days: form.custom_interval_days || null,
           dia_semana: form.dia_semana || null,
           dia_del_mes: form.dia_del_mes || null,
@@ -777,7 +791,7 @@ function EditPlanModal({
               <select className={INPUT_CLASS} value={form.centro_costo} onChange={(e) => setForm((prev) => ({ ...prev, centro_costo: e.target.value }))}>
                 <option value="">Sin sede asignada</option>
                 {locations.map((location) => (
-                  <option key={location.id} value={location.code}>{location.code} - {location.name}</option>
+                  <option key={location.id} value={location.id}>{location.code} - {location.name}</option>
                 ))}
               </select>
             </Field>

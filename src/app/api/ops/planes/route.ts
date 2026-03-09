@@ -3,6 +3,21 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { canManageOpsDepartment, requireOpsUser } from '@/lib/ops/auth'
 import { createPlan, deletePlan, getPlanById, listPlanes, updatePlan, updatePlanEstado } from '@/lib/ops/service'
 
+function parseNumericInput(value: unknown, fallback = 0) {
+  if (value === undefined) return undefined
+  if (value === null || value === '') return fallback
+  if (typeof value === 'number') return Number.isFinite(value) ? value : fallback
+
+  if (typeof value === 'string') {
+    const normalized = value.replace(/\s+/g, '').replace(/,/g, '')
+    if (!normalized) return fallback
+    const parsed = Number(normalized)
+    return Number.isFinite(parsed) ? parsed : fallback
+  }
+
+  return fallback
+}
+
 export async function GET() {
   try {
     const supabase = await createSupabaseServerClient()
@@ -69,12 +84,12 @@ export async function PATCH(request: NextRequest) {
       ...(typeof body.fecha_inicio === 'string' ? { fecha_inicio: body.fecha_inicio } : {}),
       ...(typeof body.fecha_fin === 'string' ? { fecha_fin: body.fecha_fin } : {}),
       ...(typeof body.frecuencia_tipo === 'string' ? { frecuencia_tipo: body.frecuencia_tipo } : {}),
-      ...(body.frecuencia_intervalo !== undefined ? { frecuencia_intervalo: Number(body.frecuencia_intervalo || 1) } : {}),
-      ...(body.custom_interval_days !== undefined ? { custom_interval_days: body.custom_interval_days ? Number(body.custom_interval_days) : null } : {}),
-      ...(body.dia_semana !== undefined ? { dia_semana: body.dia_semana === '' || body.dia_semana === null ? null : Number(body.dia_semana) } : {}),
-      ...(body.dia_del_mes !== undefined ? { dia_del_mes: body.dia_del_mes === '' || body.dia_del_mes === null ? null : Number(body.dia_del_mes) } : {}),
-      ...(body.monto_total_planeado !== undefined ? { monto_total_planeado: Number(body.monto_total_planeado || 0) } : {}),
-      ...(body.esfuerzo_total_planeado !== undefined ? { esfuerzo_total_planeado: Number(body.esfuerzo_total_planeado || 0) } : {}),
+      ...(body.frecuencia_intervalo !== undefined ? { frecuencia_intervalo: parseNumericInput(body.frecuencia_intervalo, 1) } : {}),
+      ...(body.custom_interval_days !== undefined ? { custom_interval_days: body.custom_interval_days ? parseNumericInput(body.custom_interval_days, 0) : null } : {}),
+      ...(body.dia_semana !== undefined ? { dia_semana: body.dia_semana === '' || body.dia_semana === null ? null : parseNumericInput(body.dia_semana, 0) } : {}),
+      ...(body.dia_del_mes !== undefined ? { dia_del_mes: body.dia_del_mes === '' || body.dia_del_mes === null ? null : parseNumericInput(body.dia_del_mes, 0) } : {}),
+      ...(body.monto_total_planeado !== undefined ? { monto_total_planeado: parseNumericInput(body.monto_total_planeado, 0) } : {}),
+      ...(body.esfuerzo_total_planeado !== undefined ? { esfuerzo_total_planeado: parseNumericInput(body.esfuerzo_total_planeado, 0) } : {}),
       ...(typeof body.estado === 'string' ? { estado: body.estado } : {}),
     }
 
