@@ -1,7 +1,6 @@
 'use client'
 
 import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
-import Link from 'next/link'
 import type { LucideIcon } from 'lucide-react'
 import {
   AlertTriangle,
@@ -118,6 +117,24 @@ type EditPlanFormState = {
   monto_total_planeado: string
   esfuerzo_total_planeado: string
   estado: OpsPlan['estado']
+}
+
+type ResponsableFormState = {
+  id: string | null
+  nombre: string
+  tipo: 'interno' | 'externo'
+  departamento: string
+  email: string
+}
+
+type EntidadFormState = {
+  id: string | null
+  nombre: string
+  tipo_entidad: string
+  categoria: string
+  departamento: string
+  centro_costo: string
+  responsable_proveedor_id: string
 }
 
 type MatrixCell = {
@@ -303,6 +320,28 @@ function toNullableNumber(value: string) {
   if (!value.trim()) return null
   const parsed = Number(value)
   return Number.isFinite(parsed) ? parsed : null
+}
+
+function buildResponsableFormState(defaultDepartment: string): ResponsableFormState {
+  return {
+    id: null,
+    nombre: '',
+    tipo: 'externo',
+    departamento: defaultDepartment,
+    email: '',
+  }
+}
+
+function buildEntidadFormState(defaultDepartment: string, defaultLocationId: string, locations: LocationOption[]): EntidadFormState {
+  return {
+    id: null,
+    nombre: '',
+    tipo_entidad: 'activo',
+    categoria: '',
+    departamento: defaultDepartment,
+    centro_costo: resolveCentroCostoFromLocationId(defaultLocationId, locations),
+    responsable_proveedor_id: '',
+  }
 }
 
 function statusRank(status: string) {
@@ -630,13 +669,6 @@ function NewPlanModal({
           </button>
         </div>
         <form onSubmit={submit} className="space-y-4 px-6 py-6">
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-            <p>Los proveedores y entidades se administran desde catalogos operativos y luego quedan disponibles aqui.</p>
-            <Link href="/ops/gestion" className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100">
-              Administrar catalogos
-            </Link>
-          </div>
-
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             <Field label="Codigo del plan" help="Clave interna para rastrear el plan en reportes y seguimiento.">
               <input className={INPUT_CLASS} value={form.codigo_plan} onChange={(e) => setForm((prev) => ({ ...prev, codigo_plan: e.target.value }))} placeholder="Ej. PLAN-MANT-2025-01" />
@@ -766,6 +798,321 @@ function Field({ label, help, children }: { label: string; help?: string; childr
       </span>
       {children}
     </label>
+  )
+}
+
+function CatalogManagerCard({
+  canManage,
+  departments,
+  locations,
+  responsables,
+  entidades,
+  defaultDepartment,
+  defaultLocationId,
+  onCatalogsChanged,
+}: {
+  canManage: boolean
+  departments: DepartmentDef[]
+  locations: LocationOption[]
+  responsables: OpsResponsable[]
+  entidades: OpsEntidad[]
+  defaultDepartment: string
+  defaultLocationId: string
+  onCatalogsChanged: () => Promise<void>
+}) {
+  const [tab, setTab] = useState<'responsables' | 'entidades'>('responsables')
+  const [responsableForm, setResponsableForm] = useState<ResponsableFormState>(() => buildResponsableFormState(defaultDepartment))
+  const [entidadForm, setEntidadForm] = useState<EntidadFormState>(() => buildEntidadFormState(defaultDepartment, defaultLocationId, locations))
+  const [busy, setBusy] = useState(false)
+  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!responsableForm.id) {
+      setResponsableForm((current) => ({ ...current, departamento: defaultDepartment }))
+    }
+  }, [defaultDepartment, responsableForm.id])
+
+  useEffect(() => {
+    if (!entidadForm.id) {
+      setEntidadForm((current) => ({
+        ...current,
+        departamento: defaultDepartment,
+        centro_costo: resolveCentroCostoFromLocationId(defaultLocationId, locations),
+      }))
+    }
+  }, [defaultDepartment, defaultLocationId, entidadForm.id, locations])
+
+  async function submitResponsable(event: FormEvent) {
+    event.preventDefault()
+    if (!canManage) return
+
+    try {
+      setBusy(true)
+      setError(null)
+      const isEditing = Boolean(responsableForm.id)
+      const response = await fetch('/api/ops/responsables', {
+        method: isEditing ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...(isEditing ? { id: responsableForm.id } : {}),
+          nombre: responsableForm.nombre.trim(),
+          tipo: responsableForm.tipo,
+          departamento: responsableForm.departamento || null,
+          email: responsableForm.email.trim() || null,
+        }),
+      })
+      const json = await response.json()
+      if (!response.ok || !json.ok) {
+        throw new Error(json.error ?? 'No se pudo guardar el proveedor')
+      }
+
+      await onCatalogsChanged()
+      setResponsableForm(buildResponsableFormState(defaultDepartment))
+    } catch (err: any) {
+      setError(err?.message ?? 'No se pudo guardar el proveedor')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function submitEntidad(event: FormEvent) {
+    event.preventDefault()
+    if (!canManage) return
+
+    try {
+      setBusy(true)
+      setError(null)
+      const isEditing = Boolean(entidadForm.id)
+      const response = await fetch('/api/ops/entidades', {
+        method: isEditing ? 'PATCH' : 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          ...(isEditing ? { id: entidadForm.id } : {}),
+          nombre: entidadForm.nombre.trim(),
+          tipo_entidad: entidadForm.tipo_entidad.trim(),
+          categoria: entidadForm.categoria.trim(),
+          departamento: entidadForm.departamento,
+          centro_costo: entidadForm.centro_costo || null,
+          responsable_proveedor_id: entidadForm.responsable_proveedor_id || null,
+        }),
+      })
+      const json = await response.json()
+      if (!response.ok || !json.ok) {
+        throw new Error(json.error ?? 'No se pudo guardar la entidad')
+      }
+
+      await onCatalogsChanged()
+      setEntidadForm(buildEntidadFormState(defaultDepartment, defaultLocationId, locations))
+    } catch (err: any) {
+      setError(err?.message ?? 'No se pudo guardar la entidad')
+    } finally {
+      setBusy(false)
+    }
+  }
+
+  async function deleteResponsableById(id: string) {
+    if (!canManage || !confirm('Se eliminara este proveedor del catalogo.')) return
+
+    try {
+      setDeletingId(id)
+      setError(null)
+      const response = await fetch(`/api/ops/responsables?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
+      const json = await response.json()
+      if (!response.ok || !json.ok) {
+        throw new Error(json.error ?? 'No se pudo eliminar el proveedor')
+      }
+
+      await onCatalogsChanged()
+      if (responsableForm.id === id) {
+        setResponsableForm(buildResponsableFormState(defaultDepartment))
+      }
+    } catch (err: any) {
+      setError(err?.message ?? 'No se pudo eliminar el proveedor')
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  async function deleteEntidadById(id: string) {
+    if (!canManage || !confirm('Se eliminara esta entidad del catalogo.')) return
+
+    try {
+      setDeletingId(id)
+      setError(null)
+      const response = await fetch(`/api/ops/entidades?id=${encodeURIComponent(id)}`, { method: 'DELETE' })
+      const json = await response.json()
+      if (!response.ok || !json.ok) {
+        throw new Error(json.error ?? 'No se pudo eliminar la entidad')
+      }
+
+      await onCatalogsChanged()
+      if (entidadForm.id === id) {
+        setEntidadForm(buildEntidadFormState(defaultDepartment, defaultLocationId, locations))
+      }
+    } catch (err: any) {
+      setError(err?.message ?? 'No se pudo eliminar la entidad')
+    } finally {
+      setDeletingId(null)
+    }
+  }
+
+  return (
+    <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h3 className="text-sm font-bold uppercase tracking-[0.14em] text-slate-500">Catalogos de planificacion</h3>
+          <p className="mt-2 text-sm text-slate-500">Gestiona aqui mismo los proveedores y entidades que alimentan los planes anuales.</p>
+        </div>
+        <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold text-slate-600">
+          {responsables.length} prov. | {entidades.length} ent.
+        </div>
+      </div>
+
+      <div className="mt-4 flex gap-2">
+        <button type="button" onClick={() => setTab('responsables')} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${tab === 'responsables' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
+          Proveedores
+        </button>
+        <button type="button" onClick={() => setTab('entidades')} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${tab === 'entidades' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
+          Entidades
+        </button>
+      </div>
+
+      {tab === 'responsables' ? (
+        <>
+          <form onSubmit={submitResponsable} className="mt-4 space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-slate-900">{responsableForm.id ? 'Editar proveedor' : 'Nuevo proveedor'}</p>
+              {responsableForm.id ? <button type="button" onClick={() => setResponsableForm(buildResponsableFormState(defaultDepartment))} className="text-xs font-semibold text-slate-500 hover:text-slate-700">Cancelar edicion</button> : null}
+            </div>
+            <Field label="Nombre">
+              <input className={INPUT_CLASS} value={responsableForm.nombre} onChange={(e) => setResponsableForm((current) => ({ ...current, nombre: e.target.value }))} required />
+            </Field>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field label="Tipo">
+                <select className={INPUT_CLASS} value={responsableForm.tipo} onChange={(e) => setResponsableForm((current) => ({ ...current, tipo: e.target.value as ResponsableFormState['tipo'] }))}>
+                  <option value="externo">Externo</option>
+                  <option value="interno">Interno</option>
+                </select>
+              </Field>
+              <Field label="Departamento">
+                <select className={INPUT_CLASS} value={responsableForm.departamento} onChange={(e) => setResponsableForm((current) => ({ ...current, departamento: e.target.value }))}>
+                  <option value="">Sin departamento</option>
+                  {departments.map((department) => (
+                    <option key={department.key} value={department.key}>{department.label}</option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+            <Field label="Email">
+              <input type="email" className={INPUT_CLASS} value={responsableForm.email} onChange={(e) => setResponsableForm((current) => ({ ...current, email: e.target.value }))} />
+            </Field>
+            <button type="submit" disabled={busy || !canManage} className="w-full rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-500 disabled:opacity-60">
+              {busy ? 'Guardando...' : responsableForm.id ? 'Guardar proveedor' : 'Agregar proveedor'}
+            </button>
+          </form>
+
+          <div className="mt-4 space-y-3">
+            {responsables.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-500">Aun no hay proveedores cargados.</div> : null}
+            {responsables.map((item) => (
+              <div key={item.id} className="rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">{item.nombre}</p>
+                    <p className="mt-1 text-xs text-slate-500">{item.tipo} | {item.departamento ?? 'Sin departamento'}{item.email ? ` | ${item.email}` : ''}</p>
+                  </div>
+                  {canManage ? (
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => setResponsableForm({ id: item.id, nombre: item.nombre, tipo: item.tipo, departamento: item.departamento ?? '', email: item.email ?? '' })} className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                        Editar
+                      </button>
+                      <button type="button" onClick={() => void deleteResponsableById(item.id)} disabled={deletingId === item.id} className="rounded-full border border-rose-200 px-3 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-60">
+                        {deletingId === item.id ? 'Eliminando...' : 'Eliminar'}
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      ) : (
+        <>
+          <form onSubmit={submitEntidad} className="mt-4 space-y-3 rounded-2xl border border-slate-200 bg-slate-50 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-slate-900">{entidadForm.id ? 'Editar entidad' : 'Nueva entidad'}</p>
+              {entidadForm.id ? <button type="button" onClick={() => setEntidadForm(buildEntidadFormState(defaultDepartment, defaultLocationId, locations))} className="text-xs font-semibold text-slate-500 hover:text-slate-700">Cancelar edicion</button> : null}
+            </div>
+            <Field label="Nombre">
+              <input className={INPUT_CLASS} value={entidadForm.nombre} onChange={(e) => setEntidadForm((current) => ({ ...current, nombre: e.target.value }))} required />
+            </Field>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field label="Tipo">
+                <input className={INPUT_CLASS} value={entidadForm.tipo_entidad} onChange={(e) => setEntidadForm((current) => ({ ...current, tipo_entidad: e.target.value }))} required />
+              </Field>
+              <Field label="Categoria">
+                <input className={INPUT_CLASS} value={entidadForm.categoria} onChange={(e) => setEntidadForm((current) => ({ ...current, categoria: e.target.value }))} required />
+              </Field>
+            </div>
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+              <Field label="Departamento">
+                <select className={INPUT_CLASS} value={entidadForm.departamento} onChange={(e) => setEntidadForm((current) => ({ ...current, departamento: e.target.value }))}>
+                  {departments.map((department) => (
+                    <option key={department.key} value={department.key}>{department.label}</option>
+                  ))}
+                </select>
+              </Field>
+              <Field label="Sede">
+                <select className={INPUT_CLASS} value={entidadForm.centro_costo} onChange={(e) => setEntidadForm((current) => ({ ...current, centro_costo: e.target.value }))}>
+                  <option value="">Sin sede</option>
+                  {locations.map((location) => (
+                    <option key={location.id} value={location.code}>{location.code} - {location.name}</option>
+                  ))}
+                </select>
+              </Field>
+            </div>
+            <Field label="Proveedor ligado">
+              <select className={INPUT_CLASS} value={entidadForm.responsable_proveedor_id} onChange={(e) => setEntidadForm((current) => ({ ...current, responsable_proveedor_id: e.target.value }))}>
+                <option value="">Sin proveedor</option>
+                {responsables.map((item) => (
+                  <option key={item.id} value={item.id}>{item.nombre}</option>
+                ))}
+              </select>
+            </Field>
+            <button type="submit" disabled={busy || !canManage} className="w-full rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-500 disabled:opacity-60">
+              {busy ? 'Guardando...' : entidadForm.id ? 'Guardar entidad' : 'Agregar entidad'}
+            </button>
+          </form>
+
+          <div className="mt-4 space-y-3">
+            {entidades.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-6 text-center text-sm text-slate-500">Aun no hay entidades cargadas.</div> : null}
+            {entidades.map((item) => (
+              <div key={item.id} className="rounded-2xl border border-slate-200 bg-white p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-semibold text-slate-900">{item.nombre}</p>
+                    <p className="mt-1 text-xs text-slate-500">{item.tipo_entidad} | {item.categoria} | {item.departamento}</p>
+                  </div>
+                  {canManage ? (
+                    <div className="flex gap-2">
+                      <button type="button" onClick={() => setEntidadForm({ id: item.id, nombre: item.nombre, tipo_entidad: item.tipo_entidad, categoria: item.categoria, departamento: item.departamento, centro_costo: item.centro_costo ?? '', responsable_proveedor_id: item.responsable_proveedor_id ?? '' })} className="rounded-full border border-slate-200 px-3 py-1 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                        Editar
+                      </button>
+                      <button type="button" onClick={() => void deleteEntidadById(item.id)} disabled={deletingId === item.id} className="rounded-full border border-rose-200 px-3 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-50 disabled:opacity-60">
+                        {deletingId === item.id ? 'Eliminando...' : 'Eliminar'}
+                      </button>
+                    </div>
+                  ) : null}
+                </div>
+              </div>
+            ))}
+          </div>
+        </>
+      )}
+
+      {error ? <div className="mt-4 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
+      {!canManage ? <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">Tu perfil puede consultar catalogos, pero no crear ni editar registros.</div> : null}
+    </div>
   )
 }
 
@@ -910,13 +1257,6 @@ function EditPlanModal({
           </button>
         </div>
         <form onSubmit={handleSubmit} className="max-h-[80vh] space-y-4 overflow-y-auto px-6 py-6">
-          <div className="flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm text-slate-600">
-            <p>Si falta un proveedor o una entidad, puedes registrarlo en catalogos operativos sin salir del flujo general.</p>
-            <Link href="/ops/gestion" className="rounded-full border border-slate-300 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100">
-              Abrir catalogos
-            </Link>
-          </div>
-
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             <Field label="Codigo del plan" help="Clave unica interna para identificar el plan en reportes y seguimiento.">
               <input className={INPUT_CLASS} value={form.codigo_plan} onChange={(e) => setForm((prev) => ({ ...prev, codigo_plan: e.target.value }))} />
@@ -1325,6 +1665,10 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
     }
   }
 
+  async function refreshPlanningCatalogs() {
+    await Promise.all([loadPlanningCatalogs(), loadPortfolio()])
+  }
+
   return (
     <div className="min-h-screen bg-slate-100">
       <div className="mx-auto max-w-[1600px] px-4 py-8 sm:px-6 lg:px-8">
@@ -1354,10 +1698,6 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
                 </select>
               </div>
               <div className="flex flex-wrap gap-2.5 xl:justify-end">
-                <Link href="/ops/gestion" className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur-sm hover:bg-white/10">
-                  <Building2 className="h-4 w-4" />
-                  Proveedores y entidades
-                </Link>
                 <button type="button" onClick={loadPortfolio} className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur-sm hover:bg-white/10">
                   <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
                   Actualizar
@@ -1537,6 +1877,17 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
           </div>
 
           <aside className="space-y-6">
+            <CatalogManagerCard
+              canManage={canManage}
+              departments={accessibleDepartments}
+              locations={locations}
+              responsables={responsibleOptions}
+              entidades={entityOptions}
+              defaultDepartment={selectedDepartment === 'ALL' ? preferredDept : selectedDepartment}
+              defaultLocationId={selectedLocationId === 'ALL' ? (locations[0]?.id ?? '') : selectedLocationId}
+              onCatalogsChanged={refreshPlanningCatalogs}
+            />
+
             <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
               <div className="flex items-start justify-between gap-4">
                 <div>
@@ -1647,26 +1998,6 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
                 await Promise.all([loadPortfolio(), selectedPlanId ? loadAgenda(selectedPlanId) : Promise.resolve()])
               }}
             />
-
-            <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="flex items-center justify-between gap-3">
-                <h3 className="text-sm font-bold uppercase tracking-[0.14em] text-slate-500">Catalogos operativos</h3>
-                <Link href="/ops/gestion" className="text-xs font-semibold text-sky-700 hover:text-sky-800">
-                  Abrir gestion completa
-                </Link>
-              </div>
-              <p className="mt-2 text-sm text-slate-500">Desde aqui puedes mantener el catalogo de proveedores y entidades que alimenta los planes anuales.</p>
-              <div className="mt-4 grid grid-cols-1 gap-3 sm:grid-cols-2">
-                <Link href="/ops/gestion" className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-700 hover:bg-slate-100">
-                  <span className="block font-semibold text-slate-900">Administrar proveedores</span>
-                  <span className="mt-1 block text-xs text-slate-500">Alta, baja y actualizacion del responsable o proveedor del plan.</span>
-                </Link>
-                <Link href="/ops/gestion" className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4 text-sm text-slate-700 hover:bg-slate-100">
-                  <span className="block font-semibold text-slate-900">Administrar entidades</span>
-                  <span className="mt-1 block text-xs text-slate-500">Equipos, areas o sistemas objetivo disponibles para nuevos planes.</span>
-                </Link>
-              </div>
-            </div>
 
             <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
               <h3 className="text-sm font-bold uppercase tracking-[0.14em] text-slate-500">Riesgo y cumplimiento</h3>

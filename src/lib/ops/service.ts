@@ -230,6 +230,23 @@ export async function createResponsable(
   return data as OpsResponsable
 }
 
+export async function updateResponsable(
+  supabase: SupabaseClient,
+  id: string,
+  input: Partial<Pick<OpsResponsable, 'codigo' | 'nombre' | 'tipo' | 'departamento' | 'email' | 'telefono' | 'activo'>>,
+) {
+  const { data, error } = await supabase
+    .schema('ops')
+    .from('responsables_proveedores')
+    .update(input)
+    .eq('id', id)
+    .select()
+    .single()
+
+  if (error) throw error
+  return data as OpsResponsable
+}
+
 export async function deleteResponsable(supabase: SupabaseClient, id: string) {
   const { error } = await supabase.schema('ops').from('responsables_proveedores').delete().eq('id', id)
   if (error) throw error
@@ -267,6 +284,23 @@ export async function createEntidad(
     .insert(input)
     .select()
     .single()
+  if (error) throw error
+  return data as OpsEntidad
+}
+
+export async function updateEntidad(
+  supabase: SupabaseClient,
+  id: string,
+  input: Partial<Pick<OpsEntidad, 'codigo' | 'nombre' | 'tipo_entidad' | 'categoria' | 'departamento' | 'centro_costo' | 'responsable_proveedor_id' | 'activo'>>,
+) {
+  const { data, error } = await supabase
+    .schema('ops')
+    .from('entidades_objetivo')
+    .update(input)
+    .eq('id', id)
+    .select()
+    .single()
+
   if (error) throw error
   return data as OpsEntidad
 }
