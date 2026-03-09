@@ -35,6 +35,7 @@ export function generatePlanningAnnualReportPdf(params: {
   const pageHeight = doc.internal.pageSize.getHeight()
   const marginLeft = 28
   const marginRight = 28
+  const availableWidth = pageWidth - marginLeft - marginRight
   const logoWidth = logo?.width ?? 42
   const logoHeight = logo?.height ?? 42
   const hasLogo = Boolean(logo?.dataUrl)
@@ -94,6 +95,14 @@ export function generatePlanningAnnualReportPdf(params: {
 
   currentY += 74
 
+  const planColumnWidth = 220
+  const locationColumnWidth = 110
+  const departmentColumnWidth = 64
+  const stateColumnWidth = 62
+  const annualTotalColumnWidth = 90
+  const fixedColumnsWidth = planColumnWidth + locationColumnWidth + departmentColumnWidth + stateColumnWidth + annualTotalColumnWidth
+  const monthColumnWidth = Math.max(42, Math.floor((availableWidth - fixedColumnsWidth) / 12))
+
   const head = [[
     'Plan / entidad',
     'Sede',
@@ -125,8 +134,8 @@ export function generatePlanningAnnualReportPdf(params: {
     body,
     styles: {
       font: 'helvetica',
-      fontSize: 8,
-      cellPadding: 4,
+      fontSize: 7.5,
+      cellPadding: 3,
       overflow: 'linebreak',
       valign: 'middle',
       textColor: [15, 23, 42],
@@ -137,29 +146,31 @@ export function generatePlanningAnnualReportPdf(params: {
       fillColor: [30, 41, 59],
       textColor: [255, 255, 255],
       fontStyle: 'bold',
+      fontSize: 7,
       halign: 'center',
     },
     alternateRowStyles: {
       fillColor: [248, 250, 252],
     },
+    tableWidth: availableWidth,
     columnStyles: {
-      0: { cellWidth: 245 },
-      1: { cellWidth: 112 },
-      2: { cellWidth: 76, halign: 'center' },
-      3: { cellWidth: 68, halign: 'center' },
-      4: { cellWidth: 54, halign: 'center' },
-      5: { cellWidth: 54, halign: 'center' },
-      6: { cellWidth: 54, halign: 'center' },
-      7: { cellWidth: 54, halign: 'center' },
-      8: { cellWidth: 54, halign: 'center' },
-      9: { cellWidth: 54, halign: 'center' },
-      10: { cellWidth: 54, halign: 'center' },
-      11: { cellWidth: 54, halign: 'center' },
-      12: { cellWidth: 54, halign: 'center' },
-      13: { cellWidth: 54, halign: 'center' },
-      14: { cellWidth: 54, halign: 'center' },
-      15: { cellWidth: 54, halign: 'center' },
-      16: { cellWidth: 92, halign: 'right' },
+      0: { cellWidth: planColumnWidth },
+      1: { cellWidth: locationColumnWidth },
+      2: { cellWidth: departmentColumnWidth, halign: 'center' },
+      3: { cellWidth: stateColumnWidth, halign: 'center' },
+      4: { cellWidth: monthColumnWidth, halign: 'center' },
+      5: { cellWidth: monthColumnWidth, halign: 'center' },
+      6: { cellWidth: monthColumnWidth, halign: 'center' },
+      7: { cellWidth: monthColumnWidth, halign: 'center' },
+      8: { cellWidth: monthColumnWidth, halign: 'center' },
+      9: { cellWidth: monthColumnWidth, halign: 'center' },
+      10: { cellWidth: monthColumnWidth, halign: 'center' },
+      11: { cellWidth: monthColumnWidth, halign: 'center' },
+      12: { cellWidth: monthColumnWidth, halign: 'center' },
+      13: { cellWidth: monthColumnWidth, halign: 'center' },
+      14: { cellWidth: monthColumnWidth, halign: 'center' },
+      15: { cellWidth: monthColumnWidth, halign: 'center' },
+      16: { cellWidth: annualTotalColumnWidth, halign: 'right' },
     },
     margin: { left: marginLeft, right: marginRight, bottom: 32 },
     didDrawPage: (hookData) => {
