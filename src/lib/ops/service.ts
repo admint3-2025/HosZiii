@@ -327,6 +327,49 @@ export async function createPlan(
   return data as OpsPlan
 }
 
+export async function getPlanById(supabase: SupabaseClient, id: string) {
+  const { data, error } = await supabase
+    .schema('ops')
+    .from('planes_maestros')
+    .select('*')
+    .eq('id', id)
+    .single()
+
+  if (error) throw error
+  return data as OpsPlan
+}
+
+export async function updatePlan(
+  supabase: SupabaseClient,
+  id: string,
+  input: Partial<
+    Pick<
+      OpsPlan,
+      | 'codigo_plan'
+      | 'nombre'
+      | 'descripcion'
+      | 'departamento_dueno'
+      | 'centro_costo'
+      | 'moneda'
+      | 'entidad_objetivo_id'
+      | 'responsable_proveedor_id'
+      | 'fecha_inicio'
+      | 'fecha_fin'
+      | 'frecuencia_tipo'
+      | 'frecuencia_intervalo'
+      | 'custom_interval_days'
+      | 'dia_semana'
+      | 'dia_del_mes'
+      | 'monto_total_planeado'
+      | 'esfuerzo_total_planeado'
+      | 'estado'
+    >
+  >,
+) {
+  const { error } = await supabase.schema('ops').from('planes_maestros').update(input).eq('id', id)
+  if (error) throw error
+}
+
 export async function updatePlanEstado(supabase: SupabaseClient, id: string, estado: 'activo' | 'pausado' | 'cerrado') {
   const { error } = await supabase.schema('ops').from('planes_maestros').update({ estado }).eq('id', id)
   if (error) throw error

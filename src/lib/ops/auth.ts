@@ -9,7 +9,7 @@ export async function requireOpsUser(supabase: SupabaseClient) {
 
   const { data: profile, error } = await supabase
     .from('profiles')
-    .select('role, is_corporate')
+    .select('role, is_corporate, department, allowed_departments')
     .eq('id', user.id)
     .single()
 
@@ -25,4 +25,30 @@ export async function requireOpsUser(supabase: SupabaseClient) {
     profile,
     canManage,
   }
+}
+
+function normalizeDepartment(value: string | null | undefined) {
+  return (value ?? '').trim().toUpperCase()
+}
+
+export function canManageOpsDepartment(
+  profile: {
+    role: string
+    department?: string | null
+    allowed_departments?: string[] | null
+  },
+  department: string | null | undefined,
+) {
+  if (profile.role === 'admin') return true
+
+  const target = normalizeDepartment(department)
+  if (!target) return false
+
+  const allowed = new Set<string>()
+  if (profile.department) allowed.add(normalizeDepartment(profile.department))
+  for (const item of profile.allowed_departments ?? []) {
+    allowed.add(normalizeDepartment(item))
+  }
+
+  return allowed.has(target)
 }

@@ -17,11 +17,13 @@ import {
   X,
 } from 'lucide-react'
 import type {
+  OpsEntidad,
   OpsAgendaItem,
   OpsCalendarItem,
   OpsComplianceItem,
   OpsFinancialItem,
   OpsPlan,
+  OpsResponsable,
 } from '@/lib/ops/service'
 import type { UserPlanningProfile } from './page'
 
@@ -69,6 +71,27 @@ type PortfolioResponse = {
   calendar: OpsCalendarItem[]
   compliance: OpsComplianceItem[]
   financial: OpsFinancialItem[]
+}
+
+type EditPlanFormState = {
+  codigo_plan: string
+  nombre: string
+  descripcion: string
+  departamento_dueno: string
+  centro_costo: string
+  moneda: string
+  entidad_objetivo_id: string
+  responsable_proveedor_id: string
+  fecha_inicio: string
+  fecha_fin: string
+  frecuencia_tipo: string
+  frecuencia_intervalo: string
+  custom_interval_days: string
+  dia_semana: string
+  dia_del_mes: string
+  monto_total_planeado: string
+  esfuerzo_total_planeado: string
+  estado: OpsPlan['estado']
 }
 
 type MatrixCell = {
@@ -595,6 +618,245 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
   )
 }
 
+function EditPlanModal({
+  open,
+  plan,
+  departments,
+  locations,
+  entidades,
+  responsables,
+  canEdit,
+  onClose,
+  onSaved,
+}: {
+  open: boolean
+  plan: PlanWithRelations | null
+  departments: DepartmentDef[]
+  locations: LocationOption[]
+  entidades: OpsEntidad[]
+  responsables: OpsResponsable[]
+  canEdit: boolean
+  onClose: () => void
+  onSaved: () => Promise<void>
+}) {
+  const [form, setForm] = useState<EditPlanFormState>({
+    codigo_plan: '',
+    nombre: '',
+    descripcion: '',
+    departamento_dueno: '',
+    centro_costo: '',
+    moneda: 'MXN',
+    entidad_objetivo_id: '',
+    responsable_proveedor_id: '',
+    fecha_inicio: '',
+    fecha_fin: '',
+    frecuencia_tipo: 'monthly',
+    frecuencia_intervalo: '1',
+    custom_interval_days: '',
+    dia_semana: '',
+    dia_del_mes: '',
+    monto_total_planeado: '0',
+    esfuerzo_total_planeado: '0',
+    estado: 'activo',
+  })
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (!plan) return
+    setForm({
+      codigo_plan: plan.codigo_plan ?? '',
+      nombre: plan.nombre ?? '',
+      descripcion: plan.descripcion ?? '',
+      departamento_dueno: plan.departamento_dueno ?? '',
+      centro_costo: plan.centro_costo ?? '',
+      moneda: plan.moneda ?? 'MXN',
+      entidad_objetivo_id: plan.entidad_objetivo_id ?? '',
+      responsable_proveedor_id: plan.responsable_proveedor_id ?? '',
+      fecha_inicio: plan.fecha_inicio ?? '',
+      fecha_fin: plan.fecha_fin ?? '',
+      frecuencia_tipo: plan.frecuencia_tipo ?? 'monthly',
+      frecuencia_intervalo: String(plan.frecuencia_intervalo ?? 1),
+      custom_interval_days: plan.custom_interval_days ? String(plan.custom_interval_days) : '',
+      dia_semana: plan.dia_semana === null ? '' : String(plan.dia_semana),
+      dia_del_mes: plan.dia_del_mes === null ? '' : String(plan.dia_del_mes),
+      monto_total_planeado: String(plan.monto_total_planeado ?? 0),
+      esfuerzo_total_planeado: String(plan.esfuerzo_total_planeado ?? 0),
+      estado: plan.estado ?? 'activo',
+    })
+    setError(null)
+  }, [plan])
+
+  if (!open || !plan) return null
+  const currentPlan = plan
+
+  async function submit(event: FormEvent) {
+    event.preventDefault()
+    if (!canEdit) {
+      setError('No tienes permisos para editar este plan')
+      return
+    }
+
+    setSubmitting(true)
+    setError(null)
+
+    try {
+      const response = await fetch('/api/ops/planes', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          id: currentPlan.id,
+          ...form,
+          entidad_objetivo_id: form.entidad_objetivo_id || null,
+          responsable_proveedor_id: form.responsable_proveedor_id || null,
+          centro_costo: form.centro_costo || null,
+          custom_interval_days: form.custom_interval_days || null,
+          dia_semana: form.dia_semana || null,
+          dia_del_mes: form.dia_del_mes || null,
+        }),
+      })
+      const json = await response.json()
+      if (!response.ok || !json.ok) {
+        throw new Error(json.error ?? 'No se pudo actualizar el plan')
+      }
+
+      await onSaved()
+      onClose()
+    } catch (err: any) {
+      setError(err?.message ?? 'No se pudo actualizar el plan')
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm">
+      <div className="w-full max-w-4xl rounded-3xl border border-slate-200 bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
+          <div>
+            <h2 className="text-xl font-bold text-slate-900">Editar plan</h2>
+            <p className="mt-1 text-sm text-slate-500">Actualiza los campos operativos y financieros del plan seleccionado.</p>
+          </div>
+          <button type="button" onClick={onClose} className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
+            <span className="sr-only">Cerrar</span>
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <form onSubmit={submit} className="max-h-[80vh] space-y-4 overflow-y-auto px-6 py-6">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <Field label="Codigo del plan">
+              <input className={INPUT_CLASS} value={form.codigo_plan} onChange={(e) => setForm((prev) => ({ ...prev, codigo_plan: e.target.value }))} />
+            </Field>
+            <Field label="Nombre del plan">
+              <input className={INPUT_CLASS} value={form.nombre} onChange={(e) => setForm((prev) => ({ ...prev, nombre: e.target.value }))} required />
+            </Field>
+            <Field label="Estado">
+              <select className={INPUT_CLASS} value={form.estado} onChange={(e) => setForm((prev) => ({ ...prev, estado: e.target.value as OpsPlan['estado'] }))}>
+                <option value="activo">Activo</option>
+                <option value="pausado">Pausado</option>
+                <option value="cerrado">Cerrado</option>
+              </select>
+            </Field>
+          </div>
+
+          <Field label="Descripcion">
+            <textarea className={`${INPUT_CLASS} min-h-[96px]`} value={form.descripcion} onChange={(e) => setForm((prev) => ({ ...prev, descripcion: e.target.value }))} />
+          </Field>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <Field label="Departamento">
+              <select className={INPUT_CLASS} value={form.departamento_dueno} onChange={(e) => setForm((prev) => ({ ...prev, departamento_dueno: e.target.value }))}>
+                {departments.map((department) => (
+                  <option key={department.key} value={department.key}>{department.label}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Sede">
+              <select className={INPUT_CLASS} value={form.centro_costo} onChange={(e) => setForm((prev) => ({ ...prev, centro_costo: e.target.value }))}>
+                <option value="">Sin sede asignada</option>
+                {locations.map((location) => (
+                  <option key={location.id} value={location.code}>{location.code} - {location.name}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Moneda">
+              <input className={INPUT_CLASS} value={form.moneda} onChange={(e) => setForm((prev) => ({ ...prev, moneda: e.target.value }))} />
+            </Field>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <Field label="Entidad objetivo">
+              <select className={INPUT_CLASS} value={form.entidad_objetivo_id} onChange={(e) => setForm((prev) => ({ ...prev, entidad_objetivo_id: e.target.value }))}>
+                <option value="">Sin entidad</option>
+                {entidades.map((item) => (
+                  <option key={item.id} value={item.id}>{item.nombre}</option>
+                ))}
+              </select>
+            </Field>
+            <Field label="Proveedor / responsable">
+              <select className={INPUT_CLASS} value={form.responsable_proveedor_id} onChange={(e) => setForm((prev) => ({ ...prev, responsable_proveedor_id: e.target.value }))}>
+                <option value="">Sin proveedor</option>
+                {responsables.map((item) => (
+                  <option key={item.id} value={item.id}>{item.nombre}</option>
+                ))}
+              </select>
+            </Field>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <Field label="Inicio">
+              <input type="date" className={INPUT_CLASS} value={form.fecha_inicio} onChange={(e) => setForm((prev) => ({ ...prev, fecha_inicio: e.target.value }))} required />
+            </Field>
+            <Field label="Fin">
+              <input type="date" className={INPUT_CLASS} value={form.fecha_fin} onChange={(e) => setForm((prev) => ({ ...prev, fecha_fin: e.target.value }))} required />
+            </Field>
+            <Field label="Frecuencia">
+              <select className={INPUT_CLASS} value={form.frecuencia_tipo} onChange={(e) => setForm((prev) => ({ ...prev, frecuencia_tipo: e.target.value }))}>
+                <option value="weekly">Semanal</option>
+                <option value="monthly">Mensual</option>
+                <option value="quarterly">Trimestral</option>
+                <option value="yearly">Anual</option>
+                <option value="custom_days">Personalizado</option>
+              </select>
+            </Field>
+            <Field label="Intervalo">
+              <input type="number" min="1" className={INPUT_CLASS} value={form.frecuencia_intervalo} onChange={(e) => setForm((prev) => ({ ...prev, frecuencia_intervalo: e.target.value }))} />
+            </Field>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <Field label="Dias personalizados">
+              <input type="number" min="1" className={INPUT_CLASS} value={form.custom_interval_days} onChange={(e) => setForm((prev) => ({ ...prev, custom_interval_days: e.target.value }))} />
+            </Field>
+            <Field label="Dia de semana">
+              <input type="number" min="1" max="7" className={INPUT_CLASS} value={form.dia_semana} onChange={(e) => setForm((prev) => ({ ...prev, dia_semana: e.target.value }))} />
+            </Field>
+            <Field label="Dia del mes">
+              <input type="number" min="1" max="31" className={INPUT_CLASS} value={form.dia_del_mes} onChange={(e) => setForm((prev) => ({ ...prev, dia_del_mes: e.target.value }))} />
+            </Field>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <Field label="Presupuesto planeado">
+              <input type="number" min="0" step="0.01" className={INPUT_CLASS} value={form.monto_total_planeado} onChange={(e) => setForm((prev) => ({ ...prev, monto_total_planeado: e.target.value }))} />
+            </Field>
+            <Field label="Esfuerzo planeado">
+              <input type="number" min="0" step="0.01" className={INPUT_CLASS} value={form.esfuerzo_total_planeado} onChange={(e) => setForm((prev) => ({ ...prev, esfuerzo_total_planeado: e.target.value }))} />
+            </Field>
+          </div>
+
+          {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
+
+          <div className="flex justify-end gap-3 pt-2">
+            <button type="button" onClick={onClose} className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancelar</button>
+            <button type="submit" disabled={submitting} className="rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-500 disabled:opacity-60">{submitting ? 'Guardando...' : 'Guardar cambios'}</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  )
+}
+
 export default function PlanningHubClient({ userProfile, initialYear }: Props) {
   const canSeeAll = userProfile.isAdmin
   const canSelectAllAssignedLocations = userProfile.isAdmin || userProfile.isCorporate
@@ -614,6 +876,9 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
   const [agendaLoading, setAgendaLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
+  const [showEditModal, setShowEditModal] = useState(false)
+  const [entityOptions, setEntityOptions] = useState<OpsEntidad[]>([])
+  const [responsibleOptions, setResponsibleOptions] = useState<OpsResponsable[]>([])
 
   const accessibleDepartments = useMemo(() => {
     return buildDepartmentCatalog(userProfile, portfolio)
@@ -747,6 +1012,11 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
   }, [selectedPlanId])
 
   const selectedPlan = useMemo(() => filteredPlans.find((plan) => plan.id === selectedPlanId) ?? null, [filteredPlans, selectedPlanId])
+  const canEditSelectedPlan = useMemo(() => {
+    if (!selectedPlan) return false
+    if (userProfile.isAdmin) return true
+    return visibleDepartmentKeys.has(normalize(selectedPlan.departamento_dueno))
+  }, [selectedPlan, userProfile.isAdmin, visibleDepartmentKeys])
 
   const departmentCards = useMemo(() => {
     return accessibleDepartments.map((department) => ({
@@ -803,6 +1073,26 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
       await loadPortfolio()
     } catch (err: any) {
       setError(err?.message ?? 'No se pudo actualizar el plan')
+    }
+  }
+
+  async function loadEditCatalogs() {
+    const [entitiesJson, responsiblesJson] = await Promise.all([
+      fetchJson<{ ok: true; data: OpsEntidad[] }>('/api/ops/entidades'),
+      fetchJson<{ ok: true; data: OpsResponsable[] }>('/api/ops/responsables'),
+    ])
+
+    setEntityOptions(entitiesJson.data ?? [])
+    setResponsibleOptions(responsiblesJson.data ?? [])
+  }
+
+  async function openEditPlanModal() {
+    try {
+      setError(null)
+      await loadEditCatalogs()
+      setShowEditModal(true)
+    } catch (err: any) {
+      setError(err?.message ?? 'No se pudieron cargar los catalogos para editar el plan')
     }
   }
 
@@ -1015,6 +1305,11 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
                     </div>
                     {canManage ? (
                       <div className="mt-4 flex flex-wrap gap-2">
+                        {canEditSelectedPlan ? (
+                          <button type="button" onClick={openEditPlanModal} className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-100">
+                            Editar plan
+                          </button>
+                        ) : null}
                         {(['activo', 'pausado', 'cerrado'] as const).map((state) => (
                           <button key={state} type="button" onClick={() => updatePlanState(selectedPlan.id, state)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${selectedPlan.estado === state ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'}`}>
                             {state}
@@ -1063,6 +1358,18 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
                 </div>
               )}
             </div>
+
+            <EditPlanModal
+              open={showEditModal}
+              plan={selectedPlan}
+              departments={accessibleDepartments}
+              locations={locations}
+              entidades={entityOptions}
+              responsables={responsibleOptions}
+              canEdit={canEditSelectedPlan}
+              onClose={() => setShowEditModal(false)}
+              onSaved={loadPortfolio}
+            />
 
             <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
               <h3 className="text-sm font-bold uppercase tracking-[0.14em] text-slate-500">Riesgo y cumplimiento</h3>
