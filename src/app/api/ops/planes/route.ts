@@ -39,7 +39,43 @@ export async function POST(request: NextRequest) {
     if (!auth.canManage) return NextResponse.json({ ok: false, error: 'Sin permisos de gestión' }, { status: 403 })
 
     const body = await request.json()
-    const data = await createPlan(supabase, body)
+    const payload = {
+      ...(typeof body.codigo_plan === 'string' ? { codigo_plan: body.codigo_plan.trim() || undefined } : {}),
+      nombre: typeof body.nombre === 'string' ? body.nombre.trim() : '',
+      ...(body.descripcion !== undefined ? { descripcion: typeof body.descripcion === 'string' ? body.descripcion.trim() || undefined : undefined } : {}),
+      departamento_dueno: typeof body.departamento_dueno === 'string' ? body.departamento_dueno.trim() : '',
+      ...(body.centro_costo !== undefined ? { centro_costo: typeof body.centro_costo === 'string' ? body.centro_costo.trim() || undefined : undefined } : {}),
+      moneda: typeof body.moneda === 'string' ? body.moneda.trim() || 'MXN' : 'MXN',
+      entidad_objetivo_id: typeof body.entidad_objetivo_id === 'string' ? body.entidad_objetivo_id : '',
+      ...(body.responsable_proveedor_id !== undefined ? { responsable_proveedor_id: body.responsable_proveedor_id || undefined } : {}),
+      fecha_inicio: typeof body.fecha_inicio === 'string' ? body.fecha_inicio : '',
+      fecha_fin: typeof body.fecha_fin === 'string' ? body.fecha_fin : '',
+      frecuencia_tipo: typeof body.frecuencia_tipo === 'string' ? body.frecuencia_tipo : 'monthly',
+      frecuencia_intervalo: parseNumericInput(body.frecuencia_intervalo, 1) ?? 1,
+      ...(body.custom_interval_days !== undefined ? { custom_interval_days: body.custom_interval_days ? parseNumericInput(body.custom_interval_days, 0) : undefined } : {}),
+      ...(body.dia_semana !== undefined ? { dia_semana: body.dia_semana === '' || body.dia_semana === null ? undefined : parseNumericInput(body.dia_semana, 0) } : {}),
+      ...(body.dia_del_mes !== undefined ? { dia_del_mes: body.dia_del_mes === '' || body.dia_del_mes === null ? undefined : parseNumericInput(body.dia_del_mes, 0) } : {}),
+      monto_total_planeado: parseNumericInput(body.monto_total_planeado, 0) ?? 0,
+      esfuerzo_total_planeado: parseNumericInput(body.esfuerzo_total_planeado, 0) ?? 0,
+    }
+
+    if (!payload.nombre) {
+      return NextResponse.json({ ok: false, error: 'nombre requerido' }, { status: 400 })
+    }
+
+    if (!payload.departamento_dueno) {
+      return NextResponse.json({ ok: false, error: 'departamento_dueno requerido' }, { status: 400 })
+    }
+
+    if (!payload.entidad_objetivo_id) {
+      return NextResponse.json({ ok: false, error: 'entidad_objetivo_id requerido' }, { status: 400 })
+    }
+
+    if (!payload.fecha_inicio || !payload.fecha_fin) {
+      return NextResponse.json({ ok: false, error: 'fecha_inicio y fecha_fin son requeridas' }, { status: 400 })
+    }
+
+    const data = await createPlan(supabase, payload)
     return NextResponse.json({ ok: true, data }, { status: 201 })
   } catch (error: any) {
     return NextResponse.json({ ok: false, error: String(error?.message ?? error) }, { status: 500 })

@@ -10,6 +10,7 @@ import {
   CalendarDays,
   ChartColumn,
   CheckCircle2,
+  CircleHelp,
   ClipboardList,
   FileSpreadsheet,
   FileText,
@@ -51,15 +52,23 @@ type DepartmentDef = {
 }
 
 type CreateFormState = {
-  tipo: string
-  titulo: string
+  codigo_plan: string
+  nombre: string
   descripcion: string
-  departamento: string
+  departamento_dueno: string
   centro_costo: string
-  area: string
-  fecha: string
-  frecuencia: string
-  repite: boolean
+  moneda: string
+  entidad_objetivo_id: string
+  responsable_proveedor_id: string
+  fecha_inicio: string
+  fecha_fin: string
+  frecuencia_tipo: string
+  frecuencia_intervalo: string
+  custom_interval_days: string
+  dia_semana: string
+  dia_del_mes: string
+  monto_total_planeado: string
+  esfuerzo_total_planeado: string
 }
 
 type LocationOption = {
@@ -265,6 +274,34 @@ function todayIso() {
   const now = new Date()
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+}
+
+function buildCreateFormState(defaultDepartment: string, defaultLocationId: string, year: number): CreateFormState {
+  return {
+    codigo_plan: '',
+    nombre: '',
+    descripcion: '',
+    departamento_dueno: defaultDepartment,
+    centro_costo: defaultLocationId,
+    moneda: 'MXN',
+    entidad_objetivo_id: '',
+    responsable_proveedor_id: '',
+    fecha_inicio: `${year}-01-15`,
+    fecha_fin: `${year}-12-31`,
+    frecuencia_tipo: 'monthly',
+    frecuencia_intervalo: '1',
+    custom_interval_days: '',
+    dia_semana: '',
+    dia_del_mes: '15',
+    monto_total_planeado: '0',
+    esfuerzo_total_planeado: '0',
+  }
+}
+
+function toNullableNumber(value: string) {
+  if (!value.trim()) return null
+  const parsed = Number(value)
+  return Number.isFinite(parsed) ? parsed : null
 }
 
 function statusRank(status: string) {
@@ -482,42 +519,36 @@ function NewPlanModal({
   open,
   canManage,
   defaultDepartment,
-  defaultCentroCosto,
+  defaultLocationId,
+  year,
   departments,
   locations,
+  entidades,
+  responsables,
   onClose,
   onCreated,
 }: {
   open: boolean
   canManage: boolean
   defaultDepartment: string
-  defaultCentroCosto: string
+  defaultLocationId: string
+  year: number
   departments: DepartmentDef[]
   locations: LocationOption[]
+  entidades: OpsEntidad[]
+  responsables: OpsResponsable[]
   onClose: () => void
-  onCreated: () => Promise<void>
+  onCreated: (planId: string) => Promise<void>
 }) {
-  const [form, setForm] = useState<CreateFormState>({
-    tipo: 'mantenimiento_preventivo',
-    titulo: '',
-    descripcion: '',
-    departamento: defaultDepartment,
-    centro_costo: defaultCentroCosto,
-    area: '',
-    fecha: `${new Date().getFullYear()}-01-15`,
-    frecuencia: 'monthly',
-    repite: true,
-  })
+  const [form, setForm] = useState<CreateFormState>(() => buildCreateFormState(defaultDepartment, defaultLocationId, year))
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    setForm((prev) => ({
-      ...prev,
-      departamento: defaultDepartment,
-      centro_costo: defaultCentroCosto,
-    }))
-  }, [defaultDepartment, defaultCentroCosto])
+    if (!open) return
+    setForm(buildCreateFormState(defaultDepartment, defaultLocationId, year))
+    setError(null)
+  }, [defaultDepartment, defaultLocationId, open, year])
 
   if (!open) return null
 
@@ -532,19 +563,53 @@ function NewPlanModal({
     setError(null)
 
     try {
-      const response = await fetch('/api/ops/actividades', {
+      const response = await fetch('/api/ops/planes', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(form),
+        body: JSON.stringify({
+          codigo_plan: form.codigo_plan.trim() || undefined,
+          nombre: form.nombre.trim(),
+          descripcion: form.descripcion.trim() || undefined,
+          departamento_dueno: form.departamento_dueno,
+          centro_costo: resolveCentroCostoFromLocationId(form.centro_costo, locations) || undefined,
+          moneda: form.moneda.trim() || 'MXN',
+          entidad_objetivo_id: form.entidad_objetivo_id,
+          responsable_proveedor_id: form.responsable_proveedor_id || undefined,
+          fecha_inicio: form.fecha_inicio,
+          fecha_fin: form.fecha_fin,
+          frecuencia_tipo: form.frecuencia_tipo,
+          frecuencia_intervalo: Number(form.frecuencia_intervalo || '1'),
+          custom_interval_days: toNullableNumber(form.custom_interval_days) ?? undefined,
+          dia_semana: toNullableNumber(form.dia_semana) ?? undefined,
+          dia_del_mes: toNullableNumber(form.dia_del_mes) ?? undefined,
+          monto_total_planeado: Number(form.monto_total_planeado || '0'),
+          esfuerzo_total_planeado: Number(form.esfuerzo_total_planeado || '0'),
+        }),
       })
       const json = await response.json()
       if (!response.ok || !json.ok) {
-        throw new Error(json.error ?? 'No se pudo crear la actividad')
+        throw new Error(json.error ?? 'No se pudo crear el plan')
       }
-      await onCreated()
+
+      const createdPlanId = json.data?.id
+      if (!createdPlanId) {
+        throw new Error('El plan se creo, pero no se recibio el identificador para sembrar la agenda')
+      }
+
+      const seedResponse = await fetch(`/api/ops/plans/${createdPlanId}/seed`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ replaceExisting: false }),
+      })
+      const seedJson = await seedResponse.json()
+      if (!seedResponse.ok || !seedJson.ok) {
+        throw new Error(seedJson.error ?? 'El plan se creo, pero no se pudo generar su agenda inicial')
+      }
+
+      await onCreated(createdPlanId)
       onClose()
     } catch (err: any) {
-      setError(err?.message ?? 'No se pudo crear la actividad')
+      setError(err?.message ?? 'No se pudo crear el plan')
     } finally {
       setSubmitting(false)
     }
@@ -556,7 +621,7 @@ function NewPlanModal({
         <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
           <div>
             <h2 className="text-xl font-bold text-slate-900">Nuevo plan anual</h2>
-            <p className="mt-1 text-sm text-slate-500">Crea el plan y genera su agenda inicial en base de datos</p>
+            <p className="mt-1 text-sm text-slate-500">Registra el plan maestro completo y siembra su agenda inicial con presupuesto prorrateado.</p>
           </div>
           <button type="button" onClick={onClose} className="rounded-xl p-2 text-slate-400 hover:bg-slate-100 hover:text-slate-700">
             <span className="sr-only">Cerrar</span>
@@ -564,18 +629,15 @@ function NewPlanModal({
           </button>
         </div>
         <form onSubmit={submit} className="space-y-4 px-6 py-6">
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Field label="Tipo" help="Define la naturaleza del plan que vas a programar.">
-              <select className={INPUT_CLASS} value={form.tipo} onChange={(e) => setForm((prev) => ({ ...prev, tipo: e.target.value }))}>
-                <option value="mantenimiento_preventivo">Mantenimiento preventivo</option>
-                <option value="inspeccion">Inspeccion</option>
-                <option value="inventario">Inventario</option>
-                <option value="capacitacion">Capacitacion</option>
-                <option value="otro">Otro</option>
-              </select>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
+            <Field label="Codigo del plan" help="Clave interna para rastrear el plan en reportes y seguimiento.">
+              <input className={INPUT_CLASS} value={form.codigo_plan} onChange={(e) => setForm((prev) => ({ ...prev, codigo_plan: e.target.value }))} placeholder="Ej. PLAN-MANT-2025-01" />
+            </Field>
+            <Field label="Nombre del plan" help="Nombre visible del plan dentro del tablero anual.">
+              <input className={INPUT_CLASS} value={form.nombre} onChange={(e) => setForm((prev) => ({ ...prev, nombre: e.target.value }))} placeholder="Ej. Programa anual de elevadores" required />
             </Field>
             <Field label="Departamento" help="Area responsable del seguimiento y cumplimiento del plan.">
-              <select className={INPUT_CLASS} value={form.departamento} onChange={(e) => setForm((prev) => ({ ...prev, departamento: e.target.value }))}>
+              <select className={INPUT_CLASS} value={form.departamento_dueno} onChange={(e) => setForm((prev) => ({ ...prev, departamento_dueno: e.target.value }))}>
                 {departments.map((department) => (
                   <option key={department.key} value={department.key}>{department.label}</option>
                 ))}
@@ -586,38 +648,87 @@ function NewPlanModal({
             <select className={INPUT_CLASS} value={form.centro_costo} onChange={(e) => setForm((prev) => ({ ...prev, centro_costo: e.target.value }))}>
               <option value="">Sin sede</option>
               {locations.map((location) => (
-                <option key={location.id} value={location.code}>{location.code} - {location.name}</option>
+                <option key={location.id} value={location.id}>{location.code} - {location.name}</option>
               ))}
             </select>
           </Field>
-          <Field label="Titulo del plan" help="Nombre corto y claro con el que identificaras el plan.">
-            <input className={INPUT_CLASS} value={form.titulo} onChange={(e) => setForm((prev) => ({ ...prev, titulo: e.target.value }))} placeholder="Ej. Programa anual de elevadores" required />
+          <Field label="Descripcion" help="Objetivo, alcance o detalle operativo del plan.">
+            <textarea className={`${INPUT_CLASS} min-h-[96px]`} value={form.descripcion} onChange={(e) => setForm((prev) => ({ ...prev, descripcion: e.target.value }))} placeholder="Objetivo, alcance y consideraciones del plan" />
           </Field>
+
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
-            <Field label="Activo / area objetivo" help="Equipo, instalacion o area que recibira la accion planificada.">
-              <input className={INPUT_CLASS} value={form.area} onChange={(e) => setForm((prev) => ({ ...prev, area: e.target.value }))} placeholder="Ej. Elevadores principales" />
+            <Field label="Entidad objetivo" help="Activo, sistema o area exacta sobre la que trabaja este plan.">
+              <select className={INPUT_CLASS} value={form.entidad_objetivo_id} onChange={(e) => setForm((prev) => ({ ...prev, entidad_objetivo_id: e.target.value }))} required>
+                <option value="">Selecciona una entidad</option>
+                {entidades.map((item) => (
+                  <option key={item.id} value={item.id}>{item.nombre}</option>
+                ))}
+              </select>
             </Field>
-            <Field label="Fecha de inicio" help="Primera fecha desde la que el plan empieza a contar.">
-              <input type="date" className={INPUT_CLASS} value={form.fecha} onChange={(e) => setForm((prev) => ({ ...prev, fecha: e.target.value }))} required />
+            <Field label="Proveedor / responsable" help="Persona o proveedor que ejecuta o coordina el cumplimiento del plan.">
+              <select className={INPUT_CLASS} value={form.responsable_proveedor_id} onChange={(e) => setForm((prev) => ({ ...prev, responsable_proveedor_id: e.target.value }))}>
+                <option value="">Sin proveedor asignado</option>
+                {responsables.map((item) => (
+                  <option key={item.id} value={item.id}>{item.nombre}</option>
+                ))}
+              </select>
             </Field>
           </div>
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <Field label="Inicio" help="Primera fecha desde la que el plan empieza a contar.">
+              <input type="date" className={INPUT_CLASS} value={form.fecha_inicio} onChange={(e) => setForm((prev) => ({ ...prev, fecha_inicio: e.target.value }))} required />
+            </Field>
+            <Field label="Fin" help="Ultima fecha hasta la que se programaran ocurrencias.">
+              <input type="date" className={INPUT_CLASS} value={form.fecha_fin} onChange={(e) => setForm((prev) => ({ ...prev, fecha_fin: e.target.value }))} required />
+            </Field>
             <Field label="Frecuencia" help="Cada cuanto debe repetirse la actividad del plan.">
-              <select className={INPUT_CLASS} value={form.frecuencia} onChange={(e) => setForm((prev) => ({ ...prev, frecuencia: e.target.value }))}>
+              <select className={INPUT_CLASS} value={form.frecuencia_tipo} onChange={(e) => setForm((prev) => ({ ...prev, frecuencia_tipo: e.target.value }))}>
+                <option value="weekly">Semanal</option>
                 <option value="monthly">Mensual</option>
                 <option value="quarterly">Trimestral</option>
                 <option value="yearly">Anual</option>
-                <option value="weekly">Semanal</option>
+                <option value="custom_days">Personalizado</option>
               </select>
             </Field>
-            <Field label="Descripcion" help="Objetivo, alcance o detalle operativo del plan.">
-              <input className={INPUT_CLASS} value={form.descripcion} onChange={(e) => setForm((prev) => ({ ...prev, descripcion: e.target.value }))} placeholder="Objetivo, alcance o alcance presupuestal" />
+            <Field label="Intervalo" help="Cada cuantas unidades de la frecuencia se repetira el plan.">
+              <input type="number" min="1" className={INPUT_CLASS} value={form.frecuencia_intervalo} onChange={(e) => setForm((prev) => ({ ...prev, frecuencia_intervalo: e.target.value }))} />
             </Field>
           </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <Field label="Dias personalizados" help="Usalo solo cuando la frecuencia sea personalizada por dias.">
+              <input type="number" min="1" className={INPUT_CLASS} value={form.custom_interval_days} onChange={(e) => setForm((prev) => ({ ...prev, custom_interval_days: e.target.value }))} />
+            </Field>
+            <Field label="Dia de semana" help="Para frecuencia semanal: 1 a 7 segun el dia programado.">
+              <input type="number" min="1" max="7" className={INPUT_CLASS} value={form.dia_semana} onChange={(e) => setForm((prev) => ({ ...prev, dia_semana: e.target.value }))} />
+            </Field>
+            <Field label="Dia del mes" help="Para frecuencias mensuales o trimestrales: dia exacto del mes a programar.">
+              <input type="number" min="1" max="31" className={INPUT_CLASS} value={form.dia_del_mes} onChange={(e) => setForm((prev) => ({ ...prev, dia_del_mes: e.target.value }))} />
+            </Field>
+          </div>
+
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+            <Field label="Moneda" help="Moneda base usada para el presupuesto planeado.">
+              <input className={INPUT_CLASS} value={form.moneda} onChange={(e) => setForm((prev) => ({ ...prev, moneda: e.target.value }))} />
+            </Field>
+            <Field label="Presupuesto planeado" help="Monto total que se prorrateara en la agenda al sembrar el plan.">
+              <input type="number" min="0" step="0.01" className={INPUT_CLASS} value={form.monto_total_planeado} onChange={(e) => setForm((prev) => ({ ...prev, monto_total_planeado: e.target.value }))} />
+            </Field>
+            <Field label="Esfuerzo planeado" help="Carga total estimada del plan en horas, jornadas o esfuerzo operativo.">
+              <input type="number" min="0" step="0.01" className={INPUT_CLASS} value={form.esfuerzo_total_planeado} onChange={(e) => setForm((prev) => ({ ...prev, esfuerzo_total_planeado: e.target.value }))} />
+            </Field>
+          </div>
+
+          {entidades.length === 0 ? (
+            <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+              Necesitas al menos una entidad objetivo registrada para crear planes completos en planificacion.
+            </div>
+          ) : null}
           {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancelar</button>
-            <button type="submit" disabled={submitting} className="rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-500 disabled:opacity-60">{submitting ? 'Guardando...' : 'Crear plan'}</button>
+            <button type="submit" disabled={submitting || entidades.length === 0} className="rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-500 disabled:opacity-60">{submitting ? 'Creando...' : 'Crear y sembrar agenda'}</button>
           </div>
         </form>
       </div>
@@ -628,8 +739,23 @@ function NewPlanModal({
 function Field({ label, help, children }: { label: string; help?: string; children: ReactNode }) {
   return (
     <label className="block">
-      <span className="mb-1.5 block text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">{label}</span>
-      {help ? <span className="mb-2 block text-xs leading-5 text-slate-400">{help}</span> : null}
+      <span className="mb-1.5 flex items-center gap-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
+        <span>{label}</span>
+        {help ? (
+          <span className="group relative inline-flex items-center">
+            <span
+              tabIndex={0}
+              aria-label={`Ayuda sobre ${label}`}
+              className="inline-flex h-4 w-4 cursor-help items-center justify-center rounded-full text-slate-400 outline-none transition hover:text-sky-600 focus-visible:text-sky-600"
+            >
+              <CircleHelp className="h-3.5 w-3.5" />
+            </span>
+            <span className="pointer-events-none absolute left-1/2 top-full z-20 mt-2 hidden w-56 -translate-x-1/2 rounded-xl border border-slate-200 bg-slate-900 px-3 py-2 text-[11px] font-medium normal-case tracking-normal text-slate-100 shadow-xl group-hover:block group-focus-within:block">
+              {help}
+            </span>
+          </span>
+        ) : null}
+      </span>
       {children}
     </label>
   )
@@ -679,36 +805,7 @@ function EditPlanModal({
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  useEffect(() => {
-    if (!open || !plan) return
-    setForm({
-      codigo_plan: plan.codigo_plan ?? '',
-      nombre: plan.nombre ?? '',
-      descripcion: plan.descripcion ?? '',
-      departamento_dueno: plan.departamento_dueno ?? '',
-      centro_costo: resolveLocationId(plan.centro_costo, locations),
-      moneda: plan.moneda ?? 'MXN',
-      entidad_objetivo_id: plan.entidad_objetivo_id ?? '',
-      responsable_proveedor_id: plan.responsable_proveedor_id ?? '',
-      fecha_inicio: plan.fecha_inicio ?? '',
-      fecha_fin: plan.fecha_fin ?? '',
-      frecuencia_tipo: plan.frecuencia_tipo ?? 'monthly',
-      frecuencia_intervalo: String(plan.frecuencia_intervalo ?? 1),
-      custom_interval_days: plan.custom_interval_days ? String(plan.custom_interval_days) : '',
-      dia_semana: plan.dia_semana === null ? '' : String(plan.dia_semana),
-      dia_del_mes: plan.dia_del_mes === null ? '' : String(plan.dia_del_mes),
-      monto_total_planeado: String(plan.monto_total_planeado ?? 0),
-      esfuerzo_total_planeado: String(plan.esfuerzo_total_planeado ?? 0),
-      estado: plan.estado ?? 'activo',
-    })
-    setError(null)
-  }, [open, plan?.id])
-
-  if (!open || !plan) return null
-  const currentPlan = plan
-
-  async function submit(event: FormEvent) {
-    event.preventDefault()
+  async function submit(reseedAgenda: boolean) {
     if (!canEdit) {
       setError('No tienes permisos para editar este plan')
       return
@@ -737,6 +834,18 @@ function EditPlanModal({
         throw new Error(json.error ?? 'No se pudo actualizar el plan')
       }
 
+      if (reseedAgenda) {
+        const seedResponse = await fetch(`/api/ops/plans/${currentPlan.id}/seed`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ replaceExisting: true }),
+        })
+        const seedJson = await seedResponse.json()
+        if (!seedResponse.ok || !seedJson.ok) {
+          throw new Error(seedJson.error ?? 'El plan se guardo, pero no se pudo regenerar la agenda')
+        }
+      }
+
       await onSaved()
       onClose()
     } catch (err: any) {
@@ -744,6 +853,39 @@ function EditPlanModal({
     } finally {
       setSubmitting(false)
     }
+  }
+
+  useEffect(() => {
+    if (!open || !plan) return
+    setForm({
+      codigo_plan: plan.codigo_plan ?? '',
+      nombre: plan.nombre ?? '',
+      descripcion: plan.descripcion ?? '',
+      departamento_dueno: plan.departamento_dueno ?? '',
+      centro_costo: resolveLocationId(plan.centro_costo, locations),
+      moneda: plan.moneda ?? 'MXN',
+      entidad_objetivo_id: plan.entidad_objetivo_id ?? '',
+      responsable_proveedor_id: plan.responsable_proveedor_id ?? '',
+      fecha_inicio: plan.fecha_inicio ?? '',
+      fecha_fin: plan.fecha_fin ?? '',
+      frecuencia_tipo: plan.frecuencia_tipo ?? 'monthly',
+      frecuencia_intervalo: String(plan.frecuencia_intervalo ?? 1),
+      custom_interval_days: plan.custom_interval_days ? String(plan.custom_interval_days) : '',
+      dia_semana: plan.dia_semana === null ? '' : String(plan.dia_semana),
+      dia_del_mes: plan.dia_del_mes === null ? '' : String(plan.dia_del_mes),
+      monto_total_planeado: String(plan.monto_total_planeado ?? 0),
+      esfuerzo_total_planeado: String(plan.esfuerzo_total_planeado ?? 0),
+      estado: plan.estado ?? 'activo',
+    })
+    setError(null)
+  }, [open, plan?.id])
+
+  if (!open || !plan) return null
+  const currentPlan = plan
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault()
+    await submit(false)
   }
 
   return (
@@ -759,7 +901,7 @@ function EditPlanModal({
             <X className="h-5 w-5" />
           </button>
         </div>
-        <form onSubmit={submit} className="max-h-[80vh] space-y-4 overflow-y-auto px-6 py-6">
+        <form onSubmit={handleSubmit} className="max-h-[80vh] space-y-4 overflow-y-auto px-6 py-6">
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-3">
             <Field label="Codigo del plan" help="Clave unica interna para identificar el plan en reportes y seguimiento.">
               <input className={INPUT_CLASS} value={form.codigo_plan} onChange={(e) => setForm((prev) => ({ ...prev, codigo_plan: e.target.value }))} />
@@ -864,9 +1006,14 @@ function EditPlanModal({
 
           {error ? <div className="rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-sm text-rose-700">{error}</div> : null}
 
+          <div className="rounded-2xl border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-800">
+            Si cambias frecuencia, fechas, presupuesto o esfuerzo, usa la opcion de regenerar agenda para recalcular las ocurrencias y sus montos prorrateados.
+          </div>
+
           <div className="flex justify-end gap-3 pt-2">
             <button type="button" onClick={onClose} className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">Cancelar</button>
-            <button type="submit" disabled={submitting} className="rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-500 disabled:opacity-60">{submitting ? 'Guardando...' : 'Guardar cambios'}</button>
+            <button type="button" onClick={() => void submit(true)} disabled={submitting} className="rounded-xl border border-sky-200 bg-sky-50 px-4 py-2.5 text-sm font-semibold text-sky-700 hover:bg-sky-100 disabled:opacity-60">{submitting ? 'Procesando...' : 'Guardar y regenerar agenda'}</button>
+            <button type="submit" disabled={submitting} className="rounded-xl bg-sky-600 px-4 py-2.5 text-sm font-semibold text-white hover:bg-sky-500 disabled:opacity-60">{submitting ? 'Procesando...' : 'Guardar cambios'}</button>
           </div>
         </form>
       </div>
@@ -897,6 +1044,7 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
   const [editingPlan, setEditingPlan] = useState<PlanWithRelations | null>(null)
   const [entityOptions, setEntityOptions] = useState<OpsEntidad[]>([])
   const [responsibleOptions, setResponsibleOptions] = useState<OpsResponsable[]>([])
+  const [seedBusyPlanId, setSeedBusyPlanId] = useState<string | null>(null)
 
   const accessibleDepartments = useMemo(() => {
     return buildDepartmentCatalog(userProfile, portfolio)
@@ -1106,7 +1254,7 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
     }
   }
 
-  async function loadEditCatalogs() {
+  async function loadPlanningCatalogs() {
     const [entitiesJson, responsiblesJson] = await Promise.all([
       fetchJson<{ ok: true; data: OpsEntidad[] }>('/api/ops/entidades'),
       fetchJson<{ ok: true; data: OpsResponsable[] }>('/api/ops/responsables'),
@@ -1122,10 +1270,43 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
     try {
       setError(null)
       setEditingPlan({ ...selectedPlan })
-      await loadEditCatalogs()
+      await loadPlanningCatalogs()
       setShowEditModal(true)
     } catch (err: any) {
       setError(err?.message ?? 'No se pudieron cargar los catalogos para editar el plan')
+    }
+  }
+
+  async function openCreatePlanModal() {
+    try {
+      setError(null)
+      await loadPlanningCatalogs()
+      setShowCreateModal(true)
+    } catch (err: any) {
+      setError(err?.message ?? 'No se pudieron cargar los catalogos para crear el plan')
+    }
+  }
+
+  async function reseedPlanAgenda(planId: string) {
+    try {
+      setSeedBusyPlanId(planId)
+      setError(null)
+
+      const response = await fetch(`/api/ops/plans/${planId}/seed`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ replaceExisting: true }),
+      })
+      const json = await response.json()
+      if (!response.ok || !json.ok) {
+        throw new Error(json.error ?? 'No se pudo regenerar la agenda del plan')
+      }
+
+      await Promise.all([loadPortfolio(), loadAgenda(planId)])
+    } catch (err: any) {
+      setError(err?.message ?? 'No se pudo regenerar la agenda del plan')
+    } finally {
+      setSeedBusyPlanId(null)
     }
   }
 
@@ -1162,7 +1343,7 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
                   <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
                   Actualizar
                 </button>
-                <button type="button" onClick={() => setShowCreateModal(true)} className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 hover:bg-slate-100">
+                <button type="button" onClick={openCreatePlanModal} className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 hover:bg-slate-100">
                   <FolderPlus className="h-4 w-4" />
                   Nuevo plan
                 </button>
@@ -1368,6 +1549,20 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
                             Editar plan
                           </button>
                         ) : null}
+                        {canEditSelectedPlan ? (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (confirm('Se reemplazara la agenda actual con una nueva distribucion basada en las fechas, frecuencia y presupuesto vigentes.')) {
+                                void reseedPlanAgenda(selectedPlan.id)
+                              }
+                            }}
+                            disabled={seedBusyPlanId === selectedPlan.id}
+                            className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
+                          >
+                            {seedBusyPlanId === selectedPlan.id ? 'Regenerando agenda...' : 'Regenerar agenda y montos'}
+                          </button>
+                        ) : null}
                         {(['activo', 'pausado', 'cerrado'] as const).map((state) => (
                           <button key={state} type="button" onClick={() => updatePlanState(selectedPlan.id, state)} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${selectedPlan.estado === state ? 'bg-slate-900 text-white' : 'bg-white text-slate-700 border border-slate-200 hover:bg-slate-50'}`}>
                             {state}
@@ -1429,7 +1624,9 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
                 setShowEditModal(false)
                 setEditingPlan(null)
               }}
-              onSaved={loadPortfolio}
+              onSaved={async () => {
+                await Promise.all([loadPortfolio(), selectedPlanId ? loadAgenda(selectedPlanId) : Promise.resolve()])
+              }}
             />
 
             <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
@@ -1456,11 +1653,17 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
         open={showCreateModal}
         canManage={canManage}
         defaultDepartment={selectedDepartment === 'ALL' ? preferredDept : selectedDepartment}
-        defaultCentroCosto={selectedLocationId === 'ALL' ? (locations[0]?.code ?? '') : (locations.find((location) => location.id === selectedLocationId)?.code ?? '')}
+        defaultLocationId={selectedLocationId === 'ALL' ? (locations[0]?.id ?? '') : selectedLocationId}
+        year={year}
         departments={accessibleDepartments}
         locations={locations}
+        entidades={entityOptions}
+        responsables={responsibleOptions}
         onClose={() => setShowCreateModal(false)}
-        onCreated={loadPortfolio}
+        onCreated={async (planId) => {
+          setSelectedPlanId(planId)
+          await Promise.all([loadPortfolio(), loadAgenda(planId)])
+        }}
       />
     </div>
   )
