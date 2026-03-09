@@ -2,7 +2,7 @@
 
 import { useState } from 'react'
 
-type HubModuleId = 'it-helpdesk' | 'mantenimiento' | 'corporativo' | 'academia' | 'politicas' | 'ama-de-llaves' | 'administracion' | 'ops'
+type HubModuleId = 'it-helpdesk' | 'mantenimiento' | 'corporativo' | 'academia' | 'politicas' | 'ama-de-llaves' | 'administracion' | 'planificacion'
 type ModuleAccess = 'user' | 'supervisor'
 
 interface HubModuleSelectorProps {
@@ -53,9 +53,9 @@ const modulesList: Array<{ id: HubModuleId; label: string; description: string; 
     icon: '🏨'
   },
   { 
-    id: 'ops', 
-    label: 'OPERACIONES', 
-    description: 'Presupuestos, Agendamiento y Cumplimiento',
+    id: 'planificacion', 
+    label: 'PLANIFICACIÓN', 
+    description: 'Planeación anual, presupuesto, agenda y cumplimiento',
     icon: '💼'
   },
 ]

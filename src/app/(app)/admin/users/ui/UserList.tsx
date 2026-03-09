@@ -15,7 +15,7 @@ type Role =
   | 'auditor'
   | 'admin'
 
-type HubModuleId = 'it-helpdesk' | 'mantenimiento' | 'corporativo' | 'academia' | 'politicas' | 'ama-de-llaves' | 'administracion' | 'ops'
+type HubModuleId = 'it-helpdesk' | 'mantenimiento' | 'corporativo' | 'academia' | 'politicas' | 'ama-de-llaves' | 'administracion' | 'planificacion'
 type ModuleAccess = 'user' | 'supervisor'
 type HubModules = Record<HubModuleId, ModuleAccess | false>
 
@@ -27,7 +27,7 @@ const DEFAULT_HUB_MODULES: HubModules = {
   politicas: 'user',
   'ama-de-llaves': false,
   administracion: false,
-  ops: false,
+  planificacion: false,
 }
 
 type Location = {
@@ -220,7 +220,7 @@ export default function UserList() {
         politicas: normalize(hm['politicas']),
         'ama-de-llaves': normalize(hm['ama-de-llaves']),
         administracion: normalize(hm['administracion']),
-        ops: normalize(hm['ops']),
+        planificacion: normalize(hm['planificacion'] ?? hm['ops']),
       })
     } else {
       setEditHubModules(DEFAULT_HUB_MODULES)
@@ -928,7 +928,7 @@ export default function UserList() {
                   { id: 'politicas', label: 'POLÍTICAS' },
                   { id: 'ama-de-llaves', label: 'AMA DE LLAVES' },
                   { id: 'administracion', label: 'ADMINISTRACIÓN' },
-                  { id: 'ops', label: 'OPERACIONES' },
+                  { id: 'planificacion', label: 'PLANIFICACIÓN' },
                 ] as Array<{ id: HubModuleId; label: string }>
               ).map((m) => (
                 <div key={m.id} className="flex items-center justify-between gap-3">
