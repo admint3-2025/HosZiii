@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server'
 import { createSupabaseServerClient, getSafeServerUser } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 
+function normalizeDepartmentValue(value: unknown) {
+  return typeof value === 'string' ? value.trim().toUpperCase() : ''
+}
+
 export async function GET() {
   try {
     const supabase = await createSupabaseServerClient()
@@ -35,23 +39,27 @@ export async function GET() {
     const departments = data ?? []
 
     if (profile.role === 'admin' || profile.is_corporate === true) {
-      return NextResponse.json({ departments })
+      return NextResponse.json({ ok: true, departments })
     }
 
     const allowed = new Set<string>()
-    const currentDepartment = typeof (profile as any)?.department === 'string' ? (profile as any).department.trim() : ''
+    const currentDepartment = normalizeDepartmentValue((profile as any)?.department)
     if (currentDepartment) {
-      allowed.add(currentDepartment.toUpperCase())
+      allowed.add(currentDepartment)
     }
 
     for (const item of ((profile as any)?.allowed_departments as string[] | null) ?? []) {
-      if (typeof item === 'string' && item.trim()) {
-        allowed.add(item.trim().toUpperCase())
-      }
+      const normalized = normalizeDepartmentValue(item)
+      if (normalized) allowed.add(normalized)
     }
 
-    const filtered = departments.filter((department) => allowed.has(String(department.name ?? '').trim().toUpperCase()))
-    return NextResponse.json({ departments: filtered })
+    const filtered = departments.filter((department) => {
+      const name = normalizeDepartmentValue(department.name)
+      const code = normalizeDepartmentValue(department.code)
+      return allowed.has(name) || (code ? allowed.has(code) : false)
+    })
+
+    return NextResponse.json({ ok: true, departments: filtered })
   } catch (err: any) {
     console.error('[departments/options]', err)
     return NextResponse.json({ error: err?.message || 'Error interno' }, { status: 500 })

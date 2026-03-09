@@ -30,7 +30,7 @@ export async function GET() {
         .order("code", { ascending: true })
 
       if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-      return NextResponse.json({ locations: data || [] })
+      return NextResponse.json({ ok: true, locations: data || [] })
     }
 
     // Supervisores/agentes: limitar a sedes asignadas (sin depender solo de RLS)
@@ -49,7 +49,7 @@ export async function GET() {
     }
 
     if (!locationIds.length) {
-      return NextResponse.json({ locations: [] })
+      return NextResponse.json({ ok: true, locations: [] })
     }
 
     const { data, error } = await supabase
@@ -59,7 +59,7 @@ export async function GET() {
       .order("code", { ascending: true })
 
     if (error) return NextResponse.json({ error: error.message }, { status: 500 })
-    return NextResponse.json({ locations: data || [] })
+    return NextResponse.json({ ok: true, locations: data || [] })
   } catch (err: any) {
     console.error("[locations/options]", err)
     return NextResponse.json({ error: err?.message || "Error interno" }, { status: 500 })
