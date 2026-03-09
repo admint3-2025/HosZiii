@@ -679,7 +679,7 @@ function EditPlanModal({
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!plan) return
+    if (!open || !plan) return
     setForm({
       codigo_plan: plan.codigo_plan ?? '',
       nombre: plan.nombre ?? '',
@@ -701,7 +701,7 @@ function EditPlanModal({
       estado: plan.estado ?? 'activo',
     })
     setError(null)
-  }, [locations, plan])
+  }, [open, plan?.id])
 
   if (!open || !plan) return null
   const currentPlan = plan
@@ -893,6 +893,7 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
   const [error, setError] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
+  const [editingPlan, setEditingPlan] = useState<PlanWithRelations | null>(null)
   const [entityOptions, setEntityOptions] = useState<OpsEntidad[]>([])
   const [responsibleOptions, setResponsibleOptions] = useState<OpsResponsable[]>([])
 
@@ -1115,8 +1116,11 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
   }
 
   async function openEditPlanModal() {
+    if (!selectedPlan) return
+
     try {
       setError(null)
+      setEditingPlan({ ...selectedPlan })
       await loadEditCatalogs()
       setShowEditModal(true)
     } catch (err: any) {
@@ -1414,13 +1418,16 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
 
             <EditPlanModal
               open={showEditModal}
-              plan={selectedPlan}
+              plan={editingPlan}
               departments={accessibleDepartments}
               locations={locations}
               entidades={entityOptions}
               responsables={responsibleOptions}
               canEdit={canEditSelectedPlan}
-              onClose={() => setShowEditModal(false)}
+              onClose={() => {
+                setShowEditModal(false)
+                setEditingPlan(null)
+              }}
               onSaved={loadPortfolio}
             />
 
