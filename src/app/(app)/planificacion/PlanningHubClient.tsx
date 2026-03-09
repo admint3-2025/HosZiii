@@ -596,7 +596,9 @@ function Field({ label, children }: { label: string; children: ReactNode }) {
 }
 
 export default function PlanningHubClient({ userProfile, initialYear }: Props) {
-  const canSeeAll = userProfile.isAdmin || userProfile.isCorporate
+  const canSeeAll = userProfile.isAdmin
+  const canSelectAllAssignedLocations = userProfile.isAdmin || userProfile.isCorporate
+  const canSelectAllAccessibleDepartments = userProfile.isAdmin || userProfile.isCorporate
   const canManage = userProfile.isAdmin || userProfile.role === 'supervisor'
 
   const [year, setYear] = useState(initialYear)
@@ -636,7 +638,7 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
   }, [])
 
   useEffect(() => {
-    if (canSeeAll) {
+    if (canSelectAllAccessibleDepartments) {
       setSelectedDepartment((current) => current || 'ALL')
       return
     }
@@ -645,10 +647,10 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
       if (current !== 'ALL' && accessibleDepartments.some((department) => department.key === current)) return current
       return preferredDept
     })
-  }, [accessibleDepartments, canSeeAll, preferredDept])
+  }, [accessibleDepartments, canSelectAllAccessibleDepartments, preferredDept])
 
   useEffect(() => {
-    if (canSeeAll) {
+    if (canSelectAllAssignedLocations) {
       setSelectedLocationId((current) => current || 'ALL')
       return
     }
@@ -658,7 +660,7 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
       if (current !== 'ALL' && locations.some((location) => location.id === current)) return current
       return locations[0]?.id ?? 'ALL'
     })
-  }, [canSeeAll, locations, locationsLoading])
+  }, [canSelectAllAssignedLocations, locations, locationsLoading])
 
   async function loadPortfolio() {
     try {
@@ -688,7 +690,7 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
 
   useEffect(() => {
     loadPortfolio()
-  }, [year])
+  }, [canSeeAll, visibleDepartmentKeys, year])
 
   const scopedPortfolio = useMemo(() => {
     const basePlans = portfolio.plans.filter((plan) => canSeeAll || visibleDepartmentKeys.has(normalize(plan.departamento_dueno)))
@@ -852,9 +854,9 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
               <p className="mt-1 text-sm text-slate-500">Como admin puedes ver el consolidado global o bajar por propiedad y por area corporativa.</p>
             </div>
             <div className="flex flex-wrap gap-2">
-              {canSeeAll ? (
+              {canSelectAllAssignedLocations ? (
                 <button type="button" onClick={() => setSelectedLocationId('ALL')} className={`rounded-full px-4 py-2 text-sm font-semibold ${selectedLocationId === 'ALL' ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
-                  Todas las sedes
+                  {userProfile.isAdmin ? 'Todas las sedes' : 'Mis sedes'}
                 </button>
               ) : null}
               {locations.map((location) => (
@@ -873,7 +875,7 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
               Departamentos
             </div>
             <div className="flex flex-wrap gap-2">
-              {canSeeAll ? (
+              {canSelectAllAccessibleDepartments ? (
                 <button type="button" onClick={() => setSelectedDepartment('ALL')} className={`rounded-full px-4 py-2 text-sm font-semibold ${selectedDepartment === 'ALL' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
                   Todos
                 </button>

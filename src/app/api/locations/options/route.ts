@@ -21,8 +21,9 @@ export async function GET() {
       return NextResponse.json({ error: "Perfil no encontrado" }, { status: 403 })
     }
 
-    // Admin o usuario con permiso global de activos: traer todas las sedes
-    if (profile.role === "admin" || profile.can_manage_assets === true || profile.is_corporate === true) {
+    // Solo admin o usuarios con permiso global de activos ven todas las sedes.
+    // Un supervisor corporativo debe limitarse a sus sedes asignadas.
+    if (profile.role === "admin" || profile.can_manage_assets === true) {
       const admin = createSupabaseAdminClient()
       const { data, error } = await admin
         .from("locations")
