@@ -160,14 +160,17 @@ O contacta al equipo de IT.
 
         // Buscar ticket por código — extraer sequence del código YYYYMMDD-XXXX
         const seqMatch = ticketCodeArg.match(/-(\d+)$/)
-        const sequence = seqMatch ? seqMatch[1].replace(/^0+/, '') || '0' : ticketCodeArg
+        const sequence = seqMatch ? parseInt(seqMatch[1], 10) : parseInt(ticketCodeArg, 10)
+
+        if (!sequence || isNaN(sequence)) {
+          await sendTelegramMessage(chatId, '❌ Formato inválido. Usa: /triage 20260320-0001')
+          return NextResponse.json({ ok: true })
+        }
 
         const { data: ticket } = await adminClient
           .from('tickets')
           .select('id, ticket_number, title, description, status, priority, category_id, created_at, locations(name, code)')
-          .or(`ticket_number.eq.${sequence},ticket_number.ilike.${ticketCodeArg}`)
-          .order('created_at', { ascending: false })
-          .limit(1)
+          .eq('ticket_number', sequence)
           .maybeSingle()
 
         if (!ticket) {
@@ -214,7 +217,7 @@ No entiendo ese comando: ${text}
 Usa:
 /start - Empezar
 /help - Ayuda
-/triage <codigo> - Análisis IA de un ticket
+/triage &lt;codigo&gt; - Análisis IA de un ticket
     `.trim()
 
     await sendTelegramMessage(chatId, defaultMessage)
