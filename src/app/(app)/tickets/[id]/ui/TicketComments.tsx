@@ -186,7 +186,7 @@ export default function TicketComments({
               file_size: file.size,
               file_type: file.type,
               storage_path: storagePath,
-              uploaded_by: authorId,
+              uploaded_by: commentData.author_id,
             })
 
           if (attachErr) {
