@@ -198,9 +198,10 @@ O contacta al equipo de IT.
         }
 
         const confidenceEmoji = { high: '🟢', medium: '🟡', low: '🔴' }[triage.confidence]
+        const confidenceLabel = { high: 'alta', medium: 'media', low: 'baja' }[triage.confidence]
         const escalateNote = triage.shouldEscalate ? '\n\n⚠️ <b>Se recomienda escalar este ticket.</b>' : ''
 
-        const triageMsg = `🤖 <b>Triage IA — ${ticketCode}</b>\n<i>${ticket.title}</i>\n\n${confidenceEmoji} Confianza: <b>${triage.confidence}</b>\n\n<b>Sugerencia:</b>\n${triage.suggestedReply}${escalateNote}`
+        const triageMsg = `🤖 <b>Triage IA — ${ticketCode}</b>\n<i>${ticket.title}</i>\n\n${confidenceEmoji} Confianza: <b>${confidenceLabel}</b>\n\n<b>Sugerencia:</b>\n${triage.suggestedReply}${escalateNote}`
         await sendTelegramMessage(chatId, triageMsg)
       } catch (err) {
         console.error('[Telegram /triage] Error:', err)

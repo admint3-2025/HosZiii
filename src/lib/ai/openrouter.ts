@@ -4,12 +4,12 @@
  *
  * Variables de entorno requeridas:
  *   OPENROUTER_API_KEY   — sk-or-v1-...
- *   OPENROUTER_MODEL     — e.g. "google/gemini-1.5-flash" (opcional, default abajo)
+ *   OPENROUTER_MODEL     — e.g. "google/gemini-flash-1.5" (opcional, default abajo)
  *   AI_TRIAGE_ENABLED    — "true" para activar
  */
 
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
-const DEFAULT_MODEL = 'google/gemini-1.5-flash'
+const DEFAULT_MODEL = 'google/gemini-flash-1.5'
 const TIMEOUT_MS = 15_000
 
 export type TriageResult = {
@@ -57,17 +57,24 @@ export async function getTicketTriage(
           .join('\n\n')
       : ''
 
-  const systemPrompt = `Eres un agente de helpdesk experto para ZIII, una empresa de hospitalidad/hotelería. 
-Tu tarea es analizar tickets de soporte técnico y generar una sugerencia de respuesta concisa y útil en español.
-El tono debe ser profesional pero amigable.
-Responde SOLO con JSON válido en el siguiente formato:
+  const systemPrompt = `Eres un agente de helpdesk de nivel 2 para ZIII, empresa de hospitalidad/hotelería en México.
+Tu tarea es analizar tickets de soporte y generar una sugerencia de respuesta CONCRETA y ACCIONABLE en español.
+
+REGLAS:
+- NO saludes ni agradezcas el contacto. Ve directo al diagnóstico y los pasos.
+- Proporciona pasos de resolución numerados y específicos cuando sea posible.
+- Si necesitas más información, indica exactamente QUÉ datos faltan y POR QUÉ los necesitas.
+- Considera el contexto hotelero: impacto en huéspedes, urgencia operativa, disponibilidad de técnicos en sitio.
+- Máximo 4 pasos de resolución. Sé directo y técnico.
+
+Responde SOLO con JSON válido:
 {
-  "suggestedReply": "texto de la sugerencia de respuesta al usuario",
+  "suggestedReply": "respuesta concreta con pasos de acción",
   "confidence": "high|medium|low",
   "shouldEscalate": true|false
 }
-- confidence: high si puedes resolver con certeza, medium si necesitas más info, low si es complejo
-- shouldEscalate: true si el ticket requiere atención urgente o especializada`
+- confidence: high = solución clara con pasos definidos, medium = necesita más contexto o diagnóstico en sitio, low = problema complejo o sin información suficiente
+- shouldEscalate: true si requiere especialista, proveedor externo, o afecta operación crítica del hotel`
 
   const userContent = `TICKET: ${ticket.ticketCode}
 TÍTULO: ${ticket.title}
