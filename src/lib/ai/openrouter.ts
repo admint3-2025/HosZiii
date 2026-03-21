@@ -4,12 +4,12 @@
  *
  * Variables de entorno requeridas:
  *   OPENROUTER_API_KEY   — sk-or-v1-...
- *   OPENROUTER_MODEL     — e.g. "google/gemini-flash-1.5" (opcional, default abajo)
+ *   OPENROUTER_MODEL     — e.g. "google/gemini-1.5-flash" (opcional, default abajo)
  *   AI_TRIAGE_ENABLED    — "true" para activar
  */
 
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
-const DEFAULT_MODEL = 'google/gemini-flash-1.5'
+const DEFAULT_MODEL = 'google/gemini-1.5-flash'
 const TIMEOUT_MS = 15_000
 
 export type TriageResult = {
