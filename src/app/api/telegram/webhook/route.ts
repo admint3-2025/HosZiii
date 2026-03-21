@@ -201,7 +201,18 @@ O contacta al equipo de IT.
         const confidenceLabel = { high: 'alta', medium: 'media', low: 'baja' }[triage.confidence]
         const escalateNote = triage.shouldEscalate ? '\n\n⚠️ <b>Se recomienda escalar este ticket.</b>' : ''
 
-        const triageMsg = `🤖 <b>Triage IA — ${ticketCode}</b>\n<i>${ticket.title}</i>\n\n${confidenceEmoji} Confianza: <b>${confidenceLabel}</b>\n\n<b>Sugerencia:</b>\n${triage.suggestedReply}${escalateNote}`
+        const statusLabels: Record<string, string> = {
+          OPEN: '🟠 Abierto',
+          IN_PROGRESS: '🔵 En progreso',
+          RESOLVED: '🟣 Resuelto',
+          CLOSED: '✅ Cerrado',
+          PENDING: '⏸️ Pendiente',
+          ESCALATED: '🔺 Escalado',
+        }
+        const statusLabel = statusLabels[ticket.status] ?? ticket.status
+        const locationLine = (locCode || locName) ? `\n📍 <b>Sede:</b> ${locCode ? `${locCode} - ${locName}` : locName}` : ''
+
+        const triageMsg = `🤖 <b>Triage IA — ${ticketCode}</b>\n<i>${ticket.title}</i>\n\n📋 <b>Estado:</b> ${statusLabel}${locationLine}\n\n${confidenceEmoji} Confianza: <b>${confidenceLabel}</b>\n\n<b>Sugerencia:</b>\n${triage.suggestedReply}${escalateNote}`
         await sendTelegramMessage(chatId, triageMsg)
       } catch (err) {
         console.error('[Telegram /triage] Error:', err)
