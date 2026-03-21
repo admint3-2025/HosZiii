@@ -149,6 +149,15 @@ export default async function MaintenanceTicketDetailPage({
     ? formatTicketCode({ ticket_number: ticket.ticket_number, created_at: ticket.created_at })
     : 'Ticket de Mantenimiento'
 
+  // Roles técnicos que pueden ver comentarios internos
+  const userRole = profile?.role || 'user'
+  const canSeeInternalComments = ['maintenance_tech', 'maintenance_supervisor', 'supervisor', 'admin', 'corporate_admin', 'agent', 'agent_l1', 'agent_l2'].includes(userRole)
+
+  // Filtrar comentarios internos antes de enviar al cliente
+  const filteredComments = commentsWithAuthors.filter(c =>
+    c.visibility === 'public' || canSeeInternalComments
+  )
+
   return (
     <main className="min-h-screen bg-gradient-to-br from-gray-50 via-amber-50 to-orange-50 p-6 space-y-4">
       <MaintenanceBanner
@@ -173,9 +182,9 @@ export default async function MaintenanceTicketDetailPage({
 
       <MaintenanceTicketDetail
         ticket={ticketWithRelations}
-        comments={commentsWithAuthors}
+        comments={filteredComments}
         currentUserId={user?.id || null}
-        userRole={profile?.role || 'user'}
+        userRole={userRole}
         userAssetCategory={profile?.asset_category || null}
         asset={ticketAsset}
         requester={usersMap.get(ticket.requester_id)}

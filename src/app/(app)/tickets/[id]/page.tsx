@@ -167,6 +167,14 @@ export default async function TicketDetailPage({
     ticketRoom = room
   }
 
+  // Roles técnicos que pueden ver comentarios internos
+  const canSeeInternalComments = ['admin', 'corporate_admin', 'supervisor', 'agent', 'agent_l1', 'agent_l2', 'tech_l1', 'tech_l2'].includes(userRole)
+
+  // Filtrar comentarios según visibilidad — los internos nunca llegan al navegador del solicitante
+  const filteredComments = (comments ?? []).filter(c =>
+    c.visibility === 'public' || canSeeInternalComments
+  )
+
   return (
     <main className="p-6 space-y-4">
       <TicketDetail
@@ -181,7 +189,7 @@ export default async function TicketDetailPage({
           hk_room: ticketRoom,
         }}
         asset={ticketAsset}
-        comments={(comments ?? []).map(c => ({
+        comments={filteredComments.map(c => ({
           ...c,
           author: usersMap.get(c.author_id),
         }))}
