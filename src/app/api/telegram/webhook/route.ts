@@ -104,7 +104,7 @@ Este bot te enviará notificaciones en tiempo real sobre:
 /start - Comenzar
 /help - Este mensaje
 /unlink - Desvincularte
-/triage <codigo> - Análisis IA del ticket
+/info <codigo> - Análisis IA del ticket
 
 ¿Preguntas? Contacta al equipo de IT.
       `.trim()
@@ -127,18 +127,18 @@ O contacta al equipo de IT.
       return NextResponse.json({ ok: true })
     }
 
-    // Comando: /triage <codigo_ticket>
-    if (text.startsWith('/triage')) {
+    // Comando: /info <codigo_ticket>
+    if (text.startsWith('/info')) {
       const parts = text.split(/\s+/)
       const ticketCodeArg = parts[1]?.trim().toUpperCase()
 
       if (!ticketCodeArg) {
-        await sendTelegramMessage(chatId, '❌ Uso: /triage <codigo>\nEjemplo: /triage 20260321-0001')
+        await sendTelegramMessage(chatId, '❌ Uso: /info <codigo>\nEjemplo: /info 20260321-0001')
         return NextResponse.json({ ok: true })
       }
 
       if (!isAIEnabled()) {
-        await sendTelegramMessage(chatId, '⚠️ El módulo de triage AI no está habilitado en este momento.')
+        await sendTelegramMessage(chatId, '⚠️ El módulo de análisis IA no está habilitado en este momento.')
         return NextResponse.json({ ok: true })
       }
 
@@ -163,7 +163,7 @@ O contacta al equipo de IT.
         const sequence = seqMatch ? parseInt(seqMatch[1], 10) : parseInt(ticketCodeArg, 10)
 
         if (!sequence || isNaN(sequence)) {
-          await sendTelegramMessage(chatId, '❌ Formato inválido. Usa: /triage 20260320-0001')
+          await sendTelegramMessage(chatId, '❌ Formato inválido. Usa: /info 20260320-0001')
           return NextResponse.json({ ok: true })
         }
 
@@ -212,11 +212,11 @@ O contacta al equipo de IT.
         const statusLabel = statusLabels[ticket.status] ?? ticket.status
         const locationLine = (locCode || locName) ? `\n📍 <b>Sede:</b> ${locCode ? `${locCode} - ${locName}` : locName}` : ''
 
-        const triageMsg = `🤖 <b>Triage IA — ${ticketCode}</b>\n<i>${ticket.title}</i>\n\n📋 <b>Estado:</b> ${statusLabel}${locationLine}\n\n${confidenceEmoji} Confianza: <b>${confidenceLabel}</b>\n\n<b>Sugerencia:</b>\n${triage.suggestedReply}${escalateNote}`
+        const triageMsg = `🤖 <b>Análisis IA — ${ticketCode}</b>\n<i>${ticket.title}</i>\n\n📋 <b>Estado:</b> ${statusLabel}${locationLine}\n\n${confidenceEmoji} Confianza: <b>${confidenceLabel}</b>\n\n<b>Sugerencia:</b>\n${triage.suggestedReply}${escalateNote}`
         await sendTelegramMessage(chatId, triageMsg)
       } catch (err) {
-        console.error('[Telegram /triage] Error:', err)
-        await sendTelegramMessage(chatId, '❌ Error al procesar el triage. Intenta más tarde.')
+        console.error('[Telegram /info] Error:', err)
+        await sendTelegramMessage(chatId, '❌ Error al procesar el análisis. Intenta más tarde.')
       }
 
       return NextResponse.json({ ok: true })
@@ -229,7 +229,7 @@ No entiendo ese comando: ${text}
 Usa:
 /start - Empezar
 /help - Ayuda
-/triage &lt;codigo&gt; - Análisis IA de un ticket
+/info &lt;codigo&gt; - Análisis IA de un ticket
     `.trim()
 
     await sendTelegramMessage(chatId, defaultMessage)
