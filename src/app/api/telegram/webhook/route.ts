@@ -149,7 +149,8 @@ O contacta al equipo de IT.
         const { data: chatLink } = await adminClient
           .from('user_telegram_chat_ids')
           .select('user_id')
-          .eq('chat_id', String(chatId))
+          .eq('telegram_chat_id', String(chatId))
+          .eq('is_active', true)
           .maybeSingle()
 
         if (!chatLink) {
