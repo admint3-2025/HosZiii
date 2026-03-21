@@ -28,6 +28,7 @@ export type TicketContext = {
   location?: string
   kbArticles?: { title: string; content: string }[]
   userRole?: string
+  conversationHistory?: { role: 'user' | 'assistant'; content: string }[]
 }
 
 /**
@@ -60,6 +61,11 @@ export async function getTicketTriage(
 
   const isTechRole = ticket.userRole && ['admin', 'corporate_admin', 'supervisor', 'agent', 'tech_l1', 'tech_l2'].includes(ticket.userRole)
 
+  const hasHistory = (ticket.conversationHistory ?? []).length > 0
+  const antiRepetitionRule = hasHistory
+    ? '\n- CRÍTICO: Ya existe un historial de conversación. NO repitas sugerencias que ya diste. Responde al último mensaje del usuario teniendo en cuenta lo que ya se intentó o dijo antes.'
+    : ''
+
   const systemPrompt = isTechRole
     ? `Eres un agente de helpdesk de nivel 2 para ZIII, empresa de hospitalidad/hotelería en México.
 Tu tarea es analizar tickets de soporte y generar una sugerencia de respuesta TÉCNICA, CONCRETA y ACCIONABLE en español.
@@ -69,7 +75,7 @@ REGLAS:
 - Proporciona pasos de resolución numerados y específicos: comandos, rutas, configuraciones, herramientas.
 - Si necesitas más información, indica exactamente QUÉ datos técnicos faltan y POR QUÉ.
 - Considera el contexto hotelero: impacto en huéspedes, urgencia operativa, disponibilidad de técnicos en sitio.
-- Máximo 4 pasos. Sé directo y técnico.
+- Máximo 4 pasos. Sé directo y técnico.${antiRepetitionRule}
 
 Responde SOLO con JSON válido:
 {
@@ -94,6 +100,7 @@ REGLAS:
 - NO menciones términos como IP, driver, firmware, cache, DNS salvo que sea absolutamente necesario y lo expliques en palabras simples.
 - Si no hay pasos seguros que el usuario pueda hacer solo, ve directo al cierre con técnico.
 - Máximo 3 pasos de auto-atención. Si el problema es claramente hardware o de infraestructura, no inventes pasos inútiles.
+- Si el usuario pide algo que requiere una decisión humana (como prestar un equipo, autorizar un gasto, etc.), reconoce su solicitud e indícale que un técnico la gestionará.${antiRepetitionRule}
 
 Responde SOLO con JSON válido:
 {
@@ -104,13 +111,40 @@ Responde SOLO con JSON válido:
 - confidence: high = hay pasos claros que el usuario puede intentar, medium = podría resolverse con guía pero necesita verificación técnica, low = requiere técnico presencial sí o sí
 - shouldEscalate: true si el problema afecta operación del hotel, múltiples usuarios, o requiere intervención física`
 
-  const userContent = `TICKET: ${ticket.ticketCode}
+  const ticketContextContent = `TICKET: ${ticket.ticketCode}
 TÍTULO: ${ticket.title}
 DESCRIPCIÓN: ${ticket.description}
 CATEGORÍA: ${ticket.category || 'No especificada'}
 PRIORIDAD: ${ticket.priority || 'No especificada'}
 ESTADO: ${ticket.status}
-SEDE: ${ticket.location || 'No especificada'}${kbContext}${userQuestion ? `\n\nPREGUNTA DEL TÉCNICO: ${userQuestion}` : ''}`
+SEDE: ${ticket.location || 'No especificada'}${kbContext}`
+
+  // Construir el historial de conversación como mensajes de chat para evitar repetición
+  const history = ticket.conversationHistory ?? []
+  const currentComment = userQuestion
+    ? (isTechRole ? `PREGUNTA DEL TÉCNICO: ${userQuestion}` : userQuestion)
+    : ''
+
+  const chatMessages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
+    { role: 'system', content: systemPrompt },
+  ]
+
+  if (history.length === 0) {
+    // Primera respuesta: combinar contexto del ticket con el comentario actual en un solo mensaje
+    const combined = currentComment
+      ? `${ticketContextContent}\n\nCOMENTARIO DEL USUARIO: ${currentComment}`
+      : ticketContextContent
+    chatMessages.push({ role: 'user', content: combined })
+  } else {
+    // Hay historial: primero el contexto, luego los turnos anteriores, luego el nuevo mensaje
+    chatMessages.push({ role: 'user', content: ticketContextContent })
+    for (const m of history) {
+      chatMessages.push({ role: m.role, content: m.content })
+    }
+    if (currentComment) {
+      chatMessages.push({ role: 'user', content: currentComment })
+    }
+  }
 
   try {
     const controller = new AbortController()
@@ -126,11 +160,8 @@ SEDE: ${ticket.location || 'No especificada'}${kbContext}${userQuestion ? `\n\nP
       },
       body: JSON.stringify({
         model,
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userContent },
-        ],
-        temperature: 0.3,
+        messages: chatMessages,
+        temperature: 0.4,
         max_tokens: 500,
         response_format: { type: 'json_object' },
       }),
