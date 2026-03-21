@@ -1221,3 +1221,130 @@ export async function sendTicketByEmail(input: SendTicketEmailInput) {
     return { error: 'Error enviando el correo: ' + error.message }
   }
 }
+
+/**
+ * Agrega un comentario a un ticket IT con notificaciones push + Telegram.
+ * Reemplaza la inserción directa desde el cliente, centralizando la lógica.
+ */
+export async function addITTicketComment(data: {
+  ticketId: string
+  body: string
+  visibility: 'public' | 'internal'
+}) {
+  const supabase = await createSupabaseServerClient()
+
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return { error: 'No autenticado' }
+
+  // Obtener datos del ticket para notificaciones
+  const { data: ticket, error: ticketError } = await supabase
+    .from('tickets')
+    .select('ticket_number, title, requester_id, assigned_agent_id, description, status, created_at, locations(name, code)')
+    .eq('id', data.ticketId)
+    .single()
+
+  if (ticketError || !ticket) return { error: 'Ticket no encontrado' }
+
+  // Crear el comentario
+  const { data: comment, error: commentError } = await supabase
+    .from('ticket_comments')
+    .insert({
+      ticket_id: data.ticketId,
+      body: data.body,
+      visibility: data.visibility,
+      author_id: user.id,
+    })
+    .select()
+    .single()
+
+  if (commentError) return { error: commentError.message }
+
+  // Enviar notificaciones (no bloquear si falla)
+  try {
+    const adminClient = createSupabaseAdminClient()
+
+    // Obtener nombre del autor
+    const { data: authorProfile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', user.id)
+      .single()
+    const authorName = authorProfile?.full_name || 'Usuario'
+
+    // Destinatarios: solicitante + agente asignado (excluir autor)
+    const recipientIds = new Set<string>()
+    if (ticket.requester_id && ticket.requester_id !== user.id) recipientIds.add(ticket.requester_id)
+    if (ticket.assigned_agent_id && ticket.assigned_agent_id !== user.id) recipientIds.add(ticket.assigned_agent_id)
+
+    if (recipientIds.size > 0) {
+      const ticketCode = formatTicketCode({
+        ticket_number: ticket.ticket_number,
+        created_at: (ticket as any).created_at ?? null,
+      })
+
+      const notifications = Array.from(recipientIds).map(userId => ({
+        user_id: userId,
+        type: 'TICKET_COMMENT_ADDED' as const,
+        title: `Nuevo comentario en #${ticketCode}`,
+        message: `${authorName} comentó: "${data.body.substring(0, 100)}${data.body.length > 100 ? '...' : ''}"`,
+        ticket_id: data.ticketId,
+        ticket_number: ticket.ticket_number,
+        actor_id: user.id,
+        is_read: false,
+      }))
+
+      await supabase.from('notifications').insert(notifications)
+
+      // Telegram
+      const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+      const ticketUrl = `${baseUrl}/tickets/${data.ticketId}`
+      const preview = data.body.replace(/\s+/g, ' ').trim().slice(0, 140)
+      const vis = data.visibility === 'internal' ? ' (interno)' : ''
+      const t = TELEGRAM_TEMPLATES.ticket_comment({
+        ticketNumber: ticketCode,
+        title: ticket.title,
+        authorName,
+        commentPreview: `${preview}${data.body.length > 140 ? '…' : ''}${vis}`,
+        detailUrl: ticketUrl,
+        moduleLabel: 'Helpdesk IT',
+      })
+      await Promise.allSettled(
+        Array.from(recipientIds).map(userId => sendTelegramNotification(userId, t))
+      )
+    }
+
+    // Triage AI: si está habilitado y es comentario interno, generar sugerencia
+    if (data.visibility === 'internal' && process.env.AI_TRIAGE_ENABLED === 'true') {
+      try {
+        const { getTicketTriage } = await import('@/lib/ai/openrouter')
+        const locName = (ticket.locations as any)?.name || ''
+        const locCode = (ticket.locations as any)?.code || ''
+        const triage = await getTicketTriage({
+          ticketCode: formatTicketCode({ ticket_number: ticket.ticket_number, created_at: (ticket as any).created_at ?? null }),
+          title: ticket.title,
+          description: ticket.description || '',
+          status: ticket.status,
+          location: locCode ? `${locCode} - ${locName}` : locName,
+        }, data.body)
+
+        if (triage) {
+          const escalateNote = triage.shouldEscalate ? '\n\n⚠️ **Recomendación:** Considera escalar este ticket.' : ''
+          const confidenceLabel = { high: 'alta', medium: 'media', low: 'baja' }[triage.confidence]
+          await supabase.from('ticket_comments').insert({
+            ticket_id: data.ticketId,
+            body: `🤖 **Sugerencia IA** (confianza ${confidenceLabel}):\n\n${triage.suggestedReply}${escalateNote}`,
+            visibility: 'internal',
+            author_id: user.id,
+          })
+        }
+      } catch (aiErr) {
+        console.error('[addITTicketComment] Error en triage AI:', aiErr)
+      }
+    }
+  } catch (notifErr) {
+    console.error('[addITTicketComment] Error en notificaciones:', notifErr)
+  }
+
+  revalidatePath(`/tickets/${data.ticketId}`)
+  return { success: true, comment }
+}

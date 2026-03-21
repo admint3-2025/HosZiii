@@ -2,10 +2,11 @@
 
 import { useState, useCallback, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
-import { createSupabaseBrowserClient, getSafeUser } from '@/lib/supabase/browser'
+import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 import { getSignedUrl } from '@/lib/storage/attachments'
 import { uploadViaProxy } from '@/lib/storage/upload-proxy'
 import { getAvatarInitial } from '@/lib/ui/avatar'
+import { addITTicketComment } from '../actions'
 
 function AttachmentLink({
   attachment,
@@ -146,31 +147,16 @@ export default function TicketComments({
     setError(null)
     setBusy(true)
 
-    const user = await getSafeUser(supabase)
-    const authorId = user?.id
-    if (!authorId) {
+    // Crear el comentario via server action (maneja notificaciones + triage IA)
+    const result = await addITTicketComment({ ticketId, body, visibility })
+
+    if (result.error) {
       setBusy(false)
-      setError('Sesión inválida. Vuelve a iniciar sesión.')
+      setError(result.error)
       return
     }
 
-    // Crear el comentario primero
-    const { data: commentData, error: commentErr } = await supabase
-      .from('ticket_comments')
-      .insert({
-        ticket_id: ticketId,
-        author_id: authorId,
-        body,
-        visibility,
-      })
-      .select()
-      .single()
-
-    if (commentErr) {
-      setBusy(false)
-      setError(commentErr.message)
-      return
-    }
+    const commentData = result.comment
 
     // Subir archivos adjuntos si los hay
     if (attachments.length > 0 && commentData) {

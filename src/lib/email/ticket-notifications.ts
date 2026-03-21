@@ -1248,3 +1248,70 @@ export async function notifyLocationStaff(data: TicketNotificationData) {
     // No lanzar error para no bloquear otras operaciones
   }
 }
+
+type ITCommentNotificationData = {
+  ticketId: string
+  ticketNumber: string
+  title: string
+  commentBody: string
+  commentVisibility: 'public' | 'internal'
+  authorId: string
+  requesterId: string
+  assignedAgentId?: string | null
+}
+
+/**
+ * Notifica comentarios en tickets IT (push + Telegram).
+ * Notifica a solicitante y agente asignado (excluyendo al autor).
+ */
+export async function notifyITTicketComment(data: ITCommentNotificationData) {
+  try {
+    const supabase = createSupabaseAdminClient()
+    const telegramCtx = await getITTicketTelegramContext(supabase, data.ticketId, data.ticketNumber)
+    const baseUrl = process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000'
+    const ticketUrl = `${baseUrl}/tickets/${data.ticketId}`
+
+    const { data: authorProfile } = await supabase
+      .from('profiles')
+      .select('full_name')
+      .eq('id', data.authorId)
+      .single()
+    const authorName = authorProfile?.full_name || 'Usuario'
+
+    const recipientIds = new Set<string>()
+    if (data.requesterId && data.requesterId !== data.authorId) recipientIds.add(data.requesterId)
+    if (data.assignedAgentId && data.assignedAgentId !== data.authorId) recipientIds.add(data.assignedAgentId)
+
+    if (recipientIds.size === 0) return
+
+    const preview = data.commentBody.replace(/\s+/g, ' ').trim().slice(0, 140)
+    const vis = data.commentVisibility === 'internal' ? ' (interno)' : ''
+
+    const notifications = Array.from(recipientIds).map(userId => ({
+      user_id: userId,
+      type: 'TICKET_COMMENT_ADDED' as const,
+      title: `[IT] Nuevo comentario en ${telegramCtx.ticketCode}`,
+      message: `${authorName} comentó: "${preview}${data.commentBody.length > 140 ? '…' : ''}${vis}"`,
+      ticket_id: data.ticketId,
+      ticket_number: telegramCtx.ticketCode,
+      actor_id: data.authorId,
+      is_read: false,
+    }))
+
+    await supabase.from('notifications').insert(notifications)
+
+    const t = TELEGRAM_TEMPLATES.ticket_comment({
+      ticketNumber: telegramCtx.ticketCode,
+      title: data.title,
+      authorName,
+      commentPreview: `${preview}${data.commentBody.length > 140 ? '…' : ''}${vis}`,
+      detailUrl: ticketUrl,
+      moduleLabel: 'Helpdesk IT',
+    })
+    await Promise.allSettled(
+      Array.from(recipientIds).map(userId => sendTelegramNotification(userId, t))
+    )
+  } catch (error) {
+    console.error('[notifyITTicketComment] Error:', error)
+  }
+}

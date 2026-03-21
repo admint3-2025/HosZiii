@@ -12,6 +12,9 @@
 
 import { NextRequest, NextResponse } from 'next/server'
 import { sendTelegramMessage } from '@/lib/telegram/client'
+import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { formatTicketCode } from '@/lib/tickets/code'
+import { getTicketTriage, isAIEnabled } from '@/lib/ai/openrouter'
 
 // Tipos de las actualizaciones de Telegram
 interface TelegramUpdate {
@@ -101,6 +104,7 @@ Este bot te enviará notificaciones en tiempo real sobre:
 /start - Comenzar
 /help - Este mensaje
 /unlink - Desvincularte
+/triage <codigo> - Análisis IA del ticket
 
 ¿Preguntas? Contacta al equipo de IT.
       `.trim()
@@ -123,6 +127,85 @@ O contacta al equipo de IT.
       return NextResponse.json({ ok: true })
     }
 
+    // Comando: /triage <codigo_ticket>
+    if (text.startsWith('/triage')) {
+      const parts = text.split(/\s+/)
+      const ticketCodeArg = parts[1]?.trim().toUpperCase()
+
+      if (!ticketCodeArg) {
+        await sendTelegramMessage(chatId, '❌ Uso: /triage <codigo>\nEjemplo: /triage 20260321-0001')
+        return NextResponse.json({ ok: true })
+      }
+
+      if (!isAIEnabled()) {
+        await sendTelegramMessage(chatId, '⚠️ El módulo de triage AI no está habilitado en este momento.')
+        return NextResponse.json({ ok: true })
+      }
+
+      try {
+        const adminClient = createSupabaseAdminClient()
+
+        // Resolver usuario por chat_id
+        const { data: chatLink } = await adminClient
+          .from('user_telegram_chat_ids')
+          .select('user_id')
+          .eq('chat_id', String(chatId))
+          .maybeSingle()
+
+        if (!chatLink) {
+          await sendTelegramMessage(chatId, '❌ Tu cuenta no está vinculada. Ve a la app web y vincula tu Telegram primero.')
+          return NextResponse.json({ ok: true })
+        }
+
+        // Buscar ticket por código — extraer sequence del código YYYYMMDD-XXXX
+        const seqMatch = ticketCodeArg.match(/-(\d+)$/)
+        const sequence = seqMatch ? seqMatch[1].replace(/^0+/, '') || '0' : ticketCodeArg
+
+        const { data: ticket } = await adminClient
+          .from('tickets')
+          .select('id, ticket_number, title, description, status, priority, category_id, created_at, locations(name, code)')
+          .or(`ticket_number.eq.${sequence},ticket_number.ilike.${ticketCodeArg}`)
+          .order('created_at', { ascending: false })
+          .limit(1)
+          .maybeSingle()
+
+        if (!ticket) {
+          await sendTelegramMessage(chatId, `❌ Ticket <code>${ticketCodeArg}</code> no encontrado.`)
+          return NextResponse.json({ ok: true })
+        }
+
+        await sendTelegramMessage(chatId, `⏳ Analizando ticket <code>${ticketCodeArg}</code>...`)
+
+        const locName = (ticket.locations as any)?.name || ''
+        const locCode = (ticket.locations as any)?.code || ''
+        const ticketCode = formatTicketCode({ ticket_number: ticket.ticket_number, created_at: ticket.created_at ?? null })
+
+        const triage = await getTicketTriage({
+          ticketCode,
+          title: ticket.title,
+          description: ticket.description || 'Sin descripción',
+          status: ticket.status,
+          location: locCode ? `${locCode} - ${locName}` : locName,
+        })
+
+        if (!triage) {
+          await sendTelegramMessage(chatId, '⚠️ No se pudo generar el análisis. Intenta más tarde.')
+          return NextResponse.json({ ok: true })
+        }
+
+        const confidenceEmoji = { high: '🟢', medium: '🟡', low: '🔴' }[triage.confidence]
+        const escalateNote = triage.shouldEscalate ? '\n\n⚠️ <b>Se recomienda escalar este ticket.</b>' : ''
+
+        const triageMsg = `🤖 <b>Triage IA — ${ticketCode}</b>\n<i>${ticket.title}</i>\n\n${confidenceEmoji} Confianza: <b>${triage.confidence}</b>\n\n<b>Sugerencia:</b>\n${triage.suggestedReply}${escalateNote}`
+        await sendTelegramMessage(chatId, triageMsg)
+      } catch (err) {
+        console.error('[Telegram /triage] Error:', err)
+        await sendTelegramMessage(chatId, '❌ Error al procesar el triage. Intenta más tarde.')
+      }
+
+      return NextResponse.json({ ok: true })
+    }
+
     // Si llega aquí, es un comando no reconocido
     const defaultMessage = `
 No entiendo ese comando: ${text}
@@ -130,6 +213,7 @@ No entiendo ese comando: ${text}
 Usa:
 /start - Empezar
 /help - Ayuda
+/triage <codigo> - Análisis IA de un ticket
     `.trim()
 
     await sendTelegramMessage(chatId, defaultMessage)
