@@ -1230,6 +1230,8 @@ export async function addITTicketComment(data: {
   ticketId: string
   body: string
   visibility: 'public' | 'internal'
+  requestAI?: boolean
+  userRole?: string
 }) {
   const supabase = await createSupabaseServerClient()
 
@@ -1313,27 +1315,37 @@ export async function addITTicketComment(data: {
       )
     }
 
-    // Triage AI: si está habilitado y es comentario interno, generar sugerencia
-    if (data.visibility === 'internal' && process.env.AI_TRIAGE_ENABLED === 'true') {
+    // Triage AI:
+    // • Si quien comenta es el solicitante → primer respondiente automático (público, lenguaje simple)
+    // • Si el técnico pide Apoyo IA explícitamente → sugerencia técnica (interna)
+    const isCommentByRequester = user.id === ticket.requester_id
+    const shouldRunAI = process.env.AI_TRIAGE_ENABLED === 'true' && (isCommentByRequester || data.requestAI === true)
+
+    if (shouldRunAI) {
       try {
         const { getTicketTriage } = await import('@/lib/ai/openrouter')
         const locName = (ticket.locations as any)?.name || ''
         const locCode = (ticket.locations as any)?.code || ''
+        const effectiveRole = isCommentByRequester ? 'requester' : (data.userRole || 'agent')
         const triage = await getTicketTriage({
           ticketCode: formatTicketCode({ ticket_number: ticket.ticket_number, created_at: (ticket as any).created_at ?? null }),
           title: ticket.title,
           description: ticket.description || '',
           status: ticket.status,
           location: locCode ? `${locCode} - ${locName}` : locName,
+          userRole: effectiveRole,
         }, data.body)
 
         if (triage) {
           const escalateNote = triage.shouldEscalate ? '\n\n⚠️ **Recomendación:** Considera escalar este ticket.' : ''
           const confidenceLabel = { high: 'alta', medium: 'media', low: 'baja' }[triage.confidence]
+          // Sol: público (se lo ve el usuario) • Téc: interno (solo equipo IT)
+          const aiVisibility = isCommentByRequester ? 'public' : 'internal'
+          const aiLabel = isCommentByRequester ? '🤖 **Asistente ZIII**' : '🤖 **Apoyo IA**'
           await supabase.from('ticket_comments').insert({
             ticket_id: data.ticketId,
-            body: `🤖 **Sugerencia IA** (confianza ${confidenceLabel}):\n\n${triage.suggestedReply}${escalateNote}`,
-            visibility: 'internal',
+            body: `${aiLabel} (confianza ${confidenceLabel}):\n\n${triage.suggestedReply}${escalateNote}`,
+            visibility: aiVisibility,
             author_id: user.id,
           })
         }

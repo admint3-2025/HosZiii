@@ -69,7 +69,7 @@ export default function TicketComments({
   const router = useRouter()
   const supabase = createSupabaseBrowserClient()
   const [body, setBody] = useState('')
-  const [visibility, setVisibility] = useState<'public' | 'internal'>('public')
+  const [mode, setMode] = useState<'followup' | 'note' | 'ai'>('followup')
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [reopening, setReopening] = useState(false)
@@ -147,8 +147,12 @@ export default function TicketComments({
     setError(null)
     setBusy(true)
 
+    // Derivar visibility y requestAI del modo seleccionado
+    const visibility = (!isRequester && mode !== 'followup') ? 'internal' : 'public'
+    const requestAI = !isRequester && mode === 'ai'
+
     // Crear el comentario via server action (maneja notificaciones + triage IA)
-    const result = await addITTicketComment({ ticketId, body, visibility })
+    const result = await addITTicketComment({ ticketId, body, visibility, requestAI, userRole })
 
     if (result.error) {
       setBusy(false)
@@ -203,6 +207,7 @@ export default function TicketComments({
     // Limpiar estado y refrescar
     setBusy(false)
     setBody('')
+    setMode('followup')
     setAttachments([])
     previewUrls.forEach(url => URL.revokeObjectURL(url))
     setPreviewUrls([])
@@ -392,23 +397,80 @@ export default function TicketComments({
           </div>
         ) : canComment ? (
           <form onSubmit={addComment} className="space-y-4 pt-4 border-t border-gray-200">
-          <div className="flex items-center gap-3">
-            <label className="text-xs font-semibold text-gray-700 uppercase tracking-wider">Visibilidad</label>
-            <select
-              className="select w-auto text-sm"
-              value={visibility}
-              onChange={(e) => setVisibility(e.target.value as any)}
-            >
-              <option value="public">📢 Público</option>
-              <option value="internal">🔒 Interno</option>
-            </select>
-          </div>
+
+          {/* Selector de modo — solo para el equipo técnico */}
+          {!isRequester && (
+            <div>
+              <p className="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">¿Qué tipo de comentario es?</p>
+              <div className="grid grid-cols-3 gap-2">
+                <button
+                  type="button"
+                  onClick={() => setMode('followup')}
+                  className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all text-center ${
+                    mode === 'followup'
+                      ? 'border-blue-500 bg-blue-50'
+                      : 'border-gray-200 bg-white hover:border-gray-300'
+                  }`}
+                >
+                  <svg className={`w-5 h-5 ${mode === 'followup' ? 'text-blue-600' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                  </svg>
+                  <span className={`text-xs font-semibold ${mode === 'followup' ? 'text-blue-700' : 'text-gray-600'}`}>Seguimiento</span>
+                  <span className="text-xs text-gray-400 leading-tight">Visible al solicitante</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setMode('note')}
+                  className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all text-center ${
+                    mode === 'note'
+                      ? 'border-amber-500 bg-amber-50'
+                      : 'border-gray-200 bg-white hover:border-gray-300'
+                  }`}
+                >
+                  <svg className={`w-5 h-5 ${mode === 'note' ? 'text-amber-600' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  <span className={`text-xs font-semibold ${mode === 'note' ? 'text-amber-700' : 'text-gray-600'}`}>Nota interna</span>
+                  <span className="text-xs text-gray-400 leading-tight">Solo el equipo técnico</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => setMode('ai')}
+                  className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all text-center ${
+                    mode === 'ai'
+                      ? 'border-purple-500 bg-purple-50'
+                      : 'border-gray-200 bg-white hover:border-gray-300'
+                  }`}
+                >
+                  <svg className={`w-5 h-5 ${mode === 'ai' ? 'text-purple-600' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                  </svg>
+                  <span className={`text-xs font-semibold ${mode === 'ai' ? 'text-purple-700' : 'text-gray-600'}`}>Apoyo IA</span>
+                  <span className="text-xs text-gray-400 leading-tight">Pide apoyo al asistente</span>
+                </button>
+              </div>
+
+              {mode === 'ai' && (
+                <p className="mt-2 text-xs text-purple-600 bg-purple-50 border border-purple-200 rounded-lg px-3 py-2">
+                  🤖 La IA analizará el problema y generará una sugerencia técnica. Tu comentario quedará como nota interna.
+                </p>
+              )}
+            </div>
+          )}
           <textarea
             className="textarea min-h-32 text-sm"
             value={body}
             onChange={(e) => setBody(e.target.value)}
             required
-            placeholder="Escribe un comentario para dar seguimiento..."
+            placeholder={
+              mode === 'note'
+                ? 'Escribe una nota interna para el equipo técnico...'
+                : mode === 'ai'
+                ? 'Describe lo que estás viendo — el Asistente IA generará una sugerencia técnica...'
+                : 'Escribe una actualización visible para el solicitante...'
+            }
           />
           
           {/* Selector de imágenes */}
