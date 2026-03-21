@@ -169,13 +169,24 @@ O contacta al equipo de IT.
 
         const { data: ticket } = await adminClient
           .from('tickets')
-          .select('id, ticket_number, title, description, status, priority, category_id, created_at, locations(name, code)')
+          .select('id, ticket_number, title, description, status, priority, category_id, created_at, resolution, closed_at, closed_by, locations(name, code)')
           .eq('ticket_number', sequence)
           .maybeSingle()
 
         if (!ticket) {
           await sendTelegramMessage(chatId, `❌ Ticket <code>${ticketCodeArg}</code> no encontrado.`)
           return NextResponse.json({ ok: true })
+        }
+
+        // Si el ticket está cerrado, buscar nombre de quien lo cerró
+        let closedByName: string | null = null
+        if (ticket.status === 'CLOSED' && ticket.closed_by) {
+          const { data: closedByProfile } = await adminClient
+            .from('profiles')
+            .select('full_name')
+            .eq('id', ticket.closed_by)
+            .maybeSingle()
+          closedByName = closedByProfile?.full_name || null
         }
 
         await sendTelegramMessage(chatId, `⏳ Analizando ticket <code>${ticketCodeArg}</code>...`)
@@ -212,7 +223,16 @@ O contacta al equipo de IT.
         const statusLabel = statusLabels[ticket.status] ?? ticket.status
         const locationLine = (locCode || locName) ? `\n📍 <b>Sede:</b> ${locCode ? `${locCode} - ${locName}` : locName}` : ''
 
-        const triageMsg = `🤖 <b>Análisis IA — ${ticketCode}</b>\n<i>${ticket.title}</i>\n\n📋 <b>Estado:</b> ${statusLabel}${locationLine}\n\n${confidenceEmoji} Confianza: <b>${confidenceLabel}</b>\n\n<b>Sugerencia:</b>\n${triage.suggestedReply}${escalateNote}`
+        // Bloque de resolución para tickets cerrados
+        let resolutionBlock = ''
+        if (ticket.status === 'CLOSED' && (ticket as any).resolution) {
+          const resText = ((ticket as any).resolution as string).replace(/\*\*/g, '').replace(/\*\s*/g, '').trim()
+          const preview = resText.slice(0, 500) + (resText.length > 500 ? '…' : '')
+          resolutionBlock = `\n\n🔒 <b>Resolución:</b>\n${preview}`
+          if (closedByName) resolutionBlock += `\n<i>Cerrado por: ${closedByName}</i>`
+        }
+
+        const triageMsg = `🤖 <b>Análisis IA — ${ticketCode}</b>\n<i>${ticket.title}</i>\n\n📋 <b>Estado:</b> ${statusLabel}${locationLine}${resolutionBlock}\n\n${confidenceEmoji} Confianza: <b>${confidenceLabel}</b>\n\n<b>Sugerencia:</b>\n${triage.suggestedReply}${escalateNote}`
         await sendTelegramMessage(chatId, triageMsg)
       } catch (err) {
         console.error('[Telegram /info] Error:', err)
