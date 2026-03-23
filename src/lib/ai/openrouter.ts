@@ -207,8 +207,8 @@ SEDE: ${ticket.location || 'No especificada'}${timelineInfo}${kbContext}`
       body: JSON.stringify({
         model,
         messages: chatMessages,
-        temperature: 0.3,  // más determinista = más preciso y consistente
-        max_tokens: 700,   // ampliado para respuestas más completas
+        temperature: 0.3,
+        max_tokens: 1200,  // suficiente para JSON completo incluso con respuestas largas
         response_format: { type: 'json_object' },
       }),
       signal: controller.signal,
@@ -222,11 +222,35 @@ SEDE: ${ticket.location || 'No especificada'}${timelineInfo}${kbContext}`
     }
 
     const data = await res.json()
-    const raw = data.choices?.[0]?.message?.content
+    const raw: string | undefined = data.choices?.[0]?.message?.content
     if (!raw) return null
 
-    const parsed = JSON.parse(raw) as TriageResult
-    return parsed
+    // Verificar si el JSON fue truncado por límite de tokens
+    const finishReason = data.choices?.[0]?.finish_reason
+    if (finishReason === 'length') {
+      console.warn('[OpenRouter] Respuesta truncada por max_tokens. Intentando recuperar JSON parcial...')
+      // Intentar cerrar el JSON truncado extrayendo los campos presentes
+      const replyMatch = raw.match(/"suggestedReply"\s*:\s*"((?:[^"\\]|\\.)*)/)
+      const confidenceMatch = raw.match(/"confidence"\s*:\s*"(high|medium|low)"/)
+      const escalateMatch = raw.match(/"shouldEscalate"\s*:\s*(true|false)/)
+      if (replyMatch) {
+        return {
+          suggestedReply: replyMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"'),
+          confidence: (confidenceMatch?.[1] as TriageResult['confidence']) ?? 'low',
+          shouldEscalate: escalateMatch?.[1] === 'true' ?? false,
+        }
+      }
+      console.error('[OpenRouter] No se pudo recuperar respuesta truncada. Raw:', raw.slice(0, 200))
+      return null
+    }
+
+    try {
+      const parsed = JSON.parse(raw) as TriageResult
+      return parsed
+    } catch (parseErr) {
+      console.error('[OpenRouter] Error al parsear JSON. finish_reason:', finishReason, '| Raw:', raw.slice(0, 300))
+      return null
+    }
   } catch (err) {
     console.error('[OpenRouter] Error en triage:', err)
     return null
