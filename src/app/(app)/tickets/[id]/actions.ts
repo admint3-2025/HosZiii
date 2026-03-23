@@ -1328,10 +1328,10 @@ export async function addITTicketComment(data: {
         const locCode = (ticket.locations as any)?.code || ''
         const effectiveRole = isCommentByRequester ? 'requester' : (data.userRole || 'agent')
 
-        // Obtener historial de comentarios recientes para evitar respuestas repetitivas
+        // Obtener historial de comentarios recientes (con timestamps para verificación temporal)
         const { data: recentComments } = await supabase
           .from('ticket_comments')
-          .select('body, author_id')
+          .select('body, author_id, created_at')
           .eq('ticket_id', data.ticketId)
           .neq('id', comment.id)
           .not('body', 'like', '🔒 **Ticket cerrado**%')
@@ -1343,6 +1343,7 @@ export async function addITTicketComment(data: {
           .map(c => ({
             role: (c.body!.startsWith('🤖') ? 'assistant' : 'user') as 'user' | 'assistant',
             content: c.body!,
+            timestamp: c.created_at ?? undefined,
           }))
 
         const triage = await getTicketTriage({
@@ -1353,6 +1354,8 @@ export async function addITTicketComment(data: {
           location: locCode ? `${locCode} - ${locName}` : locName,
           userRole: effectiveRole,
           conversationHistory,
+          ticketCreatedAt: (ticket as any).created_at ?? undefined,
+          currentCommentAt: (comment as any).created_at ?? undefined,
         }, data.body)
 
         if (triage) {

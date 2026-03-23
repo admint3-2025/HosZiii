@@ -28,7 +28,26 @@ export type TicketContext = {
   location?: string
   kbArticles?: { title: string; content: string }[]
   userRole?: string
-  conversationHistory?: { role: 'user' | 'assistant'; content: string }[]
+  conversationHistory?: { role: 'user' | 'assistant'; content: string; timestamp?: string }[]
+  ticketCreatedAt?: string   // ISO string — fecha de creación del ticket
+  currentCommentAt?: string  // ISO string — fecha del comentario actual
+}
+
+function formatDateES(iso: string): string {
+  try {
+    const d = new Date(iso)
+    const months = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic']
+    const day = d.getUTCDate()
+    const month = months[d.getUTCMonth()]
+    const year = d.getUTCFullYear()
+    const hh = String(d.getUTCHours()).padStart(2, '0')
+    const mm = String(d.getUTCMinutes()).padStart(2, '0')
+    return `${day} ${month} ${year}, ${hh}:${mm} UTC`
+  } catch { return iso }
+}
+
+function minutesBetween(from: string, to: string): number {
+  return Math.max(0, Math.round((new Date(to).getTime() - new Date(from).getTime()) / 60_000))
 }
 
 /**
@@ -62,8 +81,27 @@ export async function getTicketTriage(
   const isTechRole = ticket.userRole && ['admin', 'corporate_admin', 'supervisor', 'agent', 'tech_l1', 'tech_l2'].includes(ticket.userRole)
 
   const hasHistory = (ticket.conversationHistory ?? []).length > 0
+
+  // Bloque de tiempo real para que el modelo pueda verificar afirmaciones temporales
+  let timelineInfo = ''
+  if (ticket.ticketCreatedAt && ticket.currentCommentAt) {
+    const elapsedMinutes = minutesBetween(ticket.ticketCreatedAt, ticket.currentCommentAt)
+    const elapsedText = elapsedMinutes < 60
+      ? `${elapsedMinutes} minuto(s)`
+      : elapsedMinutes < 1440
+        ? `${Math.floor(elapsedMinutes / 60)} hora(s) y ${elapsedMinutes % 60} minuto(s)`
+        : `${Math.floor(elapsedMinutes / 1440)} día(s) y ${Math.floor((elapsedMinutes % 1440) / 60)} hora(s)`
+    timelineInfo = `\nCREACIÓN DEL TICKET: ${formatDateES(ticket.ticketCreatedAt)}\nCOMENTARIO ACTUAL: ${formatDateES(ticket.currentCommentAt)}\nTIEMPO REAL TRANSCURRIDO DESDE CREACIÓN: ${elapsedText} (${elapsedMinutes} min)`
+  } else if (ticket.ticketCreatedAt) {
+    timelineInfo = `\nCREACIÓN DEL TICKET: ${formatDateES(ticket.ticketCreatedAt)}`
+  }
+
   const antiRepetitionRule = hasHistory
     ? '\n- CRÍTICO: Ya existe un historial de conversación. NO repitas sugerencias que ya diste. Responde al último mensaje del usuario teniendo en cuenta lo que ya se intentó o dijo antes.'
+    : ''
+
+  const timeVerificationRule = timelineInfo
+    ? `\n- VERIFICACIÓN TEMPORAL: Tienes acceso a las marcas de tiempo reales de cada mensaje. Si el usuario afirma que "lleva X horas/días esperando", "ya pasaron 24 horas" u otras afirmaciones sobre tiempo transcurrido, CRÚCELAS contra los timestamps reales. Si la afirmación es incorrecta o exagerada, corrígela con empatía pero con precisión: indícale cuánto tiempo ha transcurrido REALMENTE según el sistema.`
     : ''
 
   const systemPrompt = isTechRole
@@ -75,7 +113,7 @@ REGLAS:
 - Proporciona pasos de resolución numerados y específicos: comandos, rutas, configuraciones, herramientas.
 - Si necesitas más información, indica exactamente QUÉ datos técnicos faltan y POR QUÉ.
 - Considera el contexto hotelero: impacto en huéspedes, urgencia operativa, disponibilidad de técnicos en sitio.
-- Máximo 4 pasos. Sé directo y técnico.${antiRepetitionRule}
+- Máximo 4 pasos. Sé directo y técnico.${antiRepetitionRule}${timeVerificationRule}
 
 Responde SOLO con JSON válido:
 {
@@ -100,7 +138,7 @@ REGLAS:
 - NO menciones términos como IP, driver, firmware, cache, DNS salvo que sea absolutamente necesario y lo expliques en palabras simples.
 - Si no hay pasos seguros que el usuario pueda hacer solo, ve directo al cierre con técnico.
 - Máximo 3 pasos de auto-atención. Si el problema es claramente hardware o de infraestructura, no inventes pasos inútiles.
-- Si el usuario pide algo que requiere una decisión humana (como prestar un equipo, autorizar un gasto, etc.), reconoce su solicitud e indícale que un técnico la gestionará.${antiRepetitionRule}
+- Si el usuario pide algo que requiere una decisión humana (como prestar un equipo, autorizar un gasto, etc.), reconoce su solicitud e indícale que un técnico la gestionará.${antiRepetitionRule}${timeVerificationRule}
 
 Responde SOLO con JSON válido:
 {
@@ -117,7 +155,7 @@ DESCRIPCIÓN: ${ticket.description}
 CATEGORÍA: ${ticket.category || 'No especificada'}
 PRIORIDAD: ${ticket.priority || 'No especificada'}
 ESTADO: ${ticket.status}
-SEDE: ${ticket.location || 'No especificada'}${kbContext}`
+SEDE: ${ticket.location || 'No especificada'}${timelineInfo}${kbContext}`
 
   // Construir el historial de conversación como mensajes de chat para evitar repetición
   const history = ticket.conversationHistory ?? []
@@ -139,7 +177,8 @@ SEDE: ${ticket.location || 'No especificada'}${kbContext}`
     // Hay historial: primero el contexto, luego los turnos anteriores, luego el nuevo mensaje
     chatMessages.push({ role: 'user', content: ticketContextContent })
     for (const m of history) {
-      chatMessages.push({ role: m.role, content: m.content })
+      const timestampPrefix = m.timestamp ? `[${formatDateES(m.timestamp)}]\n` : ''
+      chatMessages.push({ role: m.role, content: `${timestampPrefix}${m.content}` })
     }
     if (currentComment) {
       chatMessages.push({ role: 'user', content: currentComment })
