@@ -4,13 +4,20 @@
  *
  * Variables de entorno requeridas:
  *   OPENROUTER_API_KEY   — sk-or-v1-...
- *   OPENROUTER_MODEL     — e.g. "google/gemini-flash-1.5" (opcional, default abajo)
+ *   OPENROUTER_MODEL     — modelo a usar (ver opciones abajo)
  *   AI_TRIAGE_ENABLED    — "true" para activar
+ *
+ * Modelos recomendados (configurar en OPENROUTER_MODEL):
+ *   google/gemini-2.0-flash-001          — Recomendado: rápido, análisis preciso, bajo costo
+ *   google/gemini-2.5-pro-preview-03-25  — Máxima calidad analítica (más lento y costoso)
+ *   anthropic/claude-3.5-haiku-20241022  — Muy preciso siguiendo instrucciones complejas
+ *   anthropic/claude-3.7-sonnet          — Máxima calidad Anthropic
+ *   openai/gpt-4o-mini                   — Opción OpenAI balanceada
  */
 
 const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
-const DEFAULT_MODEL = 'google/gemini-flash-1.5'
-const TIMEOUT_MS = 15_000
+const DEFAULT_MODEL = 'google/gemini-2.0-flash-001'
+const TIMEOUT_MS = 20_000 // ampliado para modelos más analíticos
 
 export type TriageResult = {
   suggestedReply: string
@@ -200,8 +207,8 @@ SEDE: ${ticket.location || 'No especificada'}${timelineInfo}${kbContext}`
       body: JSON.stringify({
         model,
         messages: chatMessages,
-        temperature: 0.4,
-        max_tokens: 500,
+        temperature: 0.3,  // más determinista = más preciso y consistente
+        max_tokens: 700,   // ampliado para respuestas más completas
         response_format: { type: 'json_object' },
       }),
       signal: controller.signal,
