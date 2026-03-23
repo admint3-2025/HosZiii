@@ -11,42 +11,27 @@ export async function addMaintenanceTicketComment(data: {
   ticketId: string
   body: string
   visibility: 'public' | 'internal'
+  requestAI?: boolean
+  userRole?: string
 }) {
   console.log('=== [addMaintenanceTicketComment] INICIO ===')
-  console.log('[addMaintenanceTicketComment] Datos:', data)
   
   try {
     const supabase = await createSupabaseServerClient()
     
     const { data: { user } } = await supabase.auth.getUser()
-    if (!user) {
-      console.log('[addMaintenanceTicketComment] ✗ Usuario no autenticado')
-      return { error: 'No autenticado' }
-    }
+    if (!user) return { error: 'No autenticado' }
     
-    console.log('[addMaintenanceTicketComment] Usuario:', user.id)
-    
-    // Obtener ticket number, requester, assigned_agent
-    console.log('[addMaintenanceTicketComment] Obteniendo datos del ticket...')
+    // Obtener ticket con datos necesarios para notificaciones y AI
     const { data: ticket, error: ticketError } = await supabase
       .from('tickets_maintenance')
-      .select('ticket_number, title, requester_id, assigned_to')
+      .select('ticket_number, title, requester_id, assigned_to, description, status, created_at, locations(name, code)')
       .eq('id', data.ticketId)
       .single()
     
-    if (ticketError || !ticket) {
-      console.log('[addMaintenanceTicketComment] ✗ Ticket no encontrado:', ticketError)
-      return { error: 'Ticket no encontrado' }
-    }
-    
-    console.log('[addMaintenanceTicketComment] Ticket encontrado:', {
-      ticket_number: ticket.ticket_number,
-      requester_id: ticket.requester_id,
-      assigned_to: ticket.assigned_to
-    })
+    if (ticketError || !ticket) return { error: 'Ticket no encontrado' }
     
     // Crear el comentario
-    console.log('[addMaintenanceTicketComment] Creando comentario en BD...')
     const { data: comment, error: commentError } = await supabase
       .from('maintenance_ticket_comments')
       .insert({
@@ -58,16 +43,10 @@ export async function addMaintenanceTicketComment(data: {
       .select()
       .single()
     
-    if (commentError) {
-      console.log('[addMaintenanceTicketComment] ✗ Error creando comentario:', commentError)
-      return { error: commentError.message }
-    }
-    
-    console.log('[addMaintenanceTicketComment] ✓ Comentario creado:', comment.id)
-    
-    // Enviar notificaciones (SOLO PUSH, NO EMAIL) - no bloquear si falla
+    if (commentError) return { error: commentError.message }
+
+    // Notificaciones y triage AI en background (no bloquear)
     try {
-      console.log('[addMaintenanceTicketComment] Enviando notificaciones...')
       await notifyMaintenanceTicketComment({
         ticketId: data.ticketId,
         ticketNumber: String(ticket.ticket_number),
@@ -76,16 +55,73 @@ export async function addMaintenanceTicketComment(data: {
         commentVisibility: data.visibility,
         authorId: user.id,
         requesterId: ticket.requester_id,
-        assignedAgentId: ticket.assigned_to || undefined,
+        assignedAgentId: (ticket.assigned_to as string | null) || undefined,
       })
-      console.log('[addMaintenanceTicketComment] ✓ Notificaciones enviadas')
     } catch (notifError) {
-      console.error('[addMaintenanceTicketComment] ✗ Error enviando notificaciones:', notifError)
-      // No retornar error, el comentario ya se creó exitosamente
+      console.error('[addMaintenanceTicketComment] Error en notificaciones:', notifError)
+    }
+
+    // Triage AI:
+    // • Si quien comenta es el solicitante → primer respondiente automático (público, lenguaje simple)
+    // • Si el técnico pide Apoyo IA explícitamente → sugerencia técnica (interna)
+    const isCommentByRequester = user.id === ticket.requester_id
+    const shouldRunAI = process.env.AI_TRIAGE_ENABLED === 'true' && (isCommentByRequester || data.requestAI === true)
+
+    if (shouldRunAI) {
+      try {
+        const { getTicketTriage } = await import('@/lib/ai/openrouter')
+        const locName = (ticket.locations as any)?.name || ''
+        const locCode = (ticket.locations as any)?.code || ''
+        const effectiveRole = isCommentByRequester ? 'requester' : (data.userRole || 'maintenance_tech')
+
+        // Obtener historial de comentarios recientes (con timestamps para verificación temporal)
+        const { data: recentComments } = await supabase
+          .from('maintenance_ticket_comments')
+          .select('body, author_id, created_at')
+          .eq('ticket_id', data.ticketId)
+          .neq('id', comment.id)
+          .not('body', 'like', '🔒 **Ticket cerrado**%')
+          .order('created_at', { ascending: true })
+          .limit(10)
+
+        const conversationHistory = (recentComments || [])
+          .filter(c => c.body)
+          .map(c => ({
+            role: (c.body!.startsWith('🤖') ? 'assistant' : 'user') as 'user' | 'assistant',
+            content: c.body!,
+            timestamp: c.created_at ?? undefined,
+          }))
+
+        const triage = await getTicketTriage({
+          ticketCode: `MNT-${String(ticket.ticket_number).padStart(5, '0')}`,
+          title: ticket.title,
+          description: (ticket.description as string | null) || '',
+          status: ticket.status as string,
+          location: locCode ? `${locCode} - ${locName}` : locName,
+          userRole: effectiveRole,
+          conversationHistory,
+          ticketCreatedAt: (ticket.created_at as string | null) ?? undefined,
+          currentCommentAt: (comment as any).created_at ?? undefined,
+        }, data.body)
+
+        if (triage) {
+          const escalateNote = triage.shouldEscalate ? '\n\n⚠️ **Recomendación:** Considera escalar este ticket.' : ''
+          const confidenceLabel = { high: 'alta', medium: 'media', low: 'baja' }[triage.confidence]
+          const aiVisibility = isCommentByRequester ? 'public' : 'internal'
+          const aiLabel = isCommentByRequester ? '🤖 **Asistente ZIII**' : '🤖 **Apoyo IA**'
+          await supabase.from('maintenance_ticket_comments').insert({
+            ticket_id: data.ticketId,
+            body: `${aiLabel} (confianza ${confidenceLabel}):\n\n${triage.suggestedReply}${escalateNote}`,
+            visibility: aiVisibility,
+            author_id: user.id,
+          })
+        }
+      } catch (aiErr) {
+        console.error('[addMaintenanceTicketComment] Error en triage AI:', aiErr)
+      }
     }
     
     revalidatePath(`/mantenimiento/tickets/${data.ticketId}`)
-    
     return { success: true, comment }
   } catch (err: any) {
     console.error('[addMaintenanceTicketComment] Error:', err)

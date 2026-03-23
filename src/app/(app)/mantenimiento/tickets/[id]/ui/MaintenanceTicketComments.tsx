@@ -48,7 +48,7 @@ export default function MaintenanceTicketComments({
   const fileInputRef = useRef<HTMLInputElement>(null)
   const [comments, setComments] = useState<Comment[]>(initialComments)
   const [newComment, setNewComment] = useState('')
-  const [visibility, setVisibility] = useState<'public' | 'internal'>('public')
+  const [mode, setMode] = useState<'followup' | 'note' | 'ai'>('followup')
   const [pendingFiles, setPendingFiles] = useState<File[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -59,8 +59,12 @@ export default function MaintenanceTicketComments({
   const canAddComment = !isClosed
   const canSeeInternal = ['maintenance_tech', 'maintenance_supervisor', 'supervisor', 'admin', 'agent_l1', 'agent_l2'].includes(userRole)
 
+  // Derivar visibilidad y flag de IA desde el modo
+  const visibility: 'public' | 'internal' = (!isRequester && mode !== 'followup') ? 'internal' : 'public'
+  const requestAI = !isRequester && mode === 'ai'
+
   // Filtrar comentarios según visibilidad
-  const visibleComments = comments.filter(c => 
+  const visibleComments = comments.filter(c =>
     c.visibility === 'public' || canSeeInternal
   )
 
@@ -107,6 +111,8 @@ export default function MaintenanceTicketComments({
         ticketId,
         body: newComment.trim() || (pendingFiles.length > 0 ? `[Adjuntos: ${pendingFiles.length} archivo(s)]` : ''),
         visibility,
+        requestAI,
+        userRole,
       })
       
       console.log('[MaintenanceTicketComments] Resultado del action:', result)
@@ -203,34 +209,55 @@ export default function MaintenanceTicketComments({
               <p className="text-sm text-gray-500">No hay comentarios aún</p>
             </div>
           ) : (
-            visibleComments.map((comment) => (
-              <div 
-                key={comment.id} 
-                className={`p-4 rounded-xl border ${
-                  comment.visibility === 'internal' 
-                    ? 'bg-amber-50 border-amber-200' 
-                    : 'bg-gray-50 border-gray-200'
-                }`}
-              >
+            visibleComments.map((comment) => {
+              const isAI = comment.body?.startsWith('🤖 **Asistente ZIII**') || comment.body?.startsWith('🤖 **Apoyo IA**')
+              const isApoyoIA = comment.body?.startsWith('🤖 **Apoyo IA**')
+              const aiName = isApoyoIA ? 'Apoyo IA — ZIII' : 'Asistente ZIII'
+              return (
+                <div
+                  key={comment.id}
+                  className={`p-4 rounded-xl border ${
+                    isAI
+                      ? 'bg-gradient-to-br from-purple-50 to-indigo-50 border-purple-200'
+                      : comment.visibility === 'internal'
+                        ? 'bg-amber-50 border-amber-200'
+                        : 'bg-gray-50 border-gray-200'
+                  }`}
+                >
                 <div className="flex items-start gap-3">
-                  <div className="flex-shrink-0 w-8 h-8 bg-gradient-to-br from-orange-500 to-orange-600 rounded-full flex items-center justify-center">
-                    <span className="text-white text-xs font-bold">
-                      {getAvatarInitial({
-                        fullName: comment.author?.full_name,
-                        email: comment.author?.email,
-                      })}
-                    </span>
+                  <div className={`flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center ${
+                    isAI
+                      ? 'bg-gradient-to-br from-purple-600 to-indigo-600'
+                      : 'bg-gradient-to-br from-orange-500 to-orange-600'
+                  }`}>
+                    {isAI ? (
+                      <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z" />
+                      </svg>
+                    ) : (
+                      <span className="text-white text-xs font-bold">
+                        {getAvatarInitial({
+                          fullName: comment.author?.full_name,
+                          email: comment.author?.email,
+                        })}
+                      </span>
+                    )}
                   </div>
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
-                      <span className="text-sm font-semibold text-gray-900">
-                        {comment.author?.full_name || comment.author?.email || 'Usuario'}
+                      <span className={`text-sm font-semibold ${ isAI ? 'text-purple-900' : 'text-gray-900'}`}>
+                        {isAI ? aiName : (comment.author?.full_name || comment.author?.email || 'Usuario')}
                       </span>
-                      {comment.visibility === 'internal' && (
+                      {isAI ? (
+                        <span className="px-2 py-0.5 text-xs font-medium bg-purple-200 text-purple-800 rounded flex items-center gap-1">
+                          <svg className="w-3 h-3" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M11.3 1.046A1 1 0 0112 2v5h4a1 1 0 01.82 1.573l-7 10A1 1 0 018 18v-5H4a1 1 0 01-.82-1.573l7-10a1 1 0 011.12-.38z" clipRule="evenodd" /></svg>
+                          Asistente IA
+                        </span>
+                      ) : comment.visibility === 'internal' ? (
                         <span className="px-2 py-0.5 text-xs font-medium bg-amber-200 text-amber-800 rounded">
                           Interno
                         </span>
-                      )}
+                      ) : null}
                       <span className="text-xs text-gray-500">
                         {new Date(comment.created_at).toLocaleString('es-MX', {
                           timeZone: 'America/Mexico_City',
@@ -241,7 +268,7 @@ export default function MaintenanceTicketComments({
                         })}
                       </span>
                     </div>
-                    <p className="text-sm text-gray-700 whitespace-pre-wrap">{comment.body}</p>
+                    <p className={`text-sm whitespace-pre-wrap ${ isAI ? 'text-purple-900' : 'text-gray-700'}`}>{comment.body}</p>
                     
                     {/* Adjuntos del comentario */}
                     {comment.attachments && comment.attachments.length > 0 && (
@@ -269,7 +296,8 @@ export default function MaintenanceTicketComments({
                   </div>
                 </div>
               </div>
-            ))
+              )
+            })
           )}
         </div>
 
@@ -281,12 +309,74 @@ export default function MaintenanceTicketComments({
                 {error}
               </div>
             )}
+
+            {/* Selector de modo (solo técnicos) */}
+            {canSeeInternal && (
+              <div className="mb-3 grid grid-cols-3 gap-1.5 p-1 bg-gray-100 rounded-lg">
+                <button
+                  type="button"
+                  onClick={() => setMode('followup')}
+                  className={`flex flex-col items-center gap-0.5 py-1.5 px-2 rounded-md text-xs font-medium transition ${
+                    mode === 'followup'
+                      ? 'bg-white text-blue-700 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                  disabled={busy}
+                >
+                  <span>💬 Seguimiento</span>
+                  <span className="text-[10px] font-normal opacity-70">Visible al solicitante</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode('note')}
+                  className={`flex flex-col items-center gap-0.5 py-1.5 px-2 rounded-md text-xs font-medium transition ${
+                    mode === 'note'
+                      ? 'bg-white text-amber-700 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                  disabled={busy}
+                >
+                  <span>🔒 Nota interna</span>
+                  <span className="text-[10px] font-normal opacity-70">Solo el equipo técnico</span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setMode('ai')}
+                  className={`flex flex-col items-center gap-0.5 py-1.5 px-2 rounded-md text-xs font-medium transition ${
+                    mode === 'ai'
+                      ? 'bg-white text-purple-700 shadow-sm'
+                      : 'text-gray-500 hover:text-gray-700'
+                  }`}
+                  disabled={busy}
+                >
+                  <span>🤖 Apoyo IA</span>
+                  <span className="text-[10px] font-normal opacity-70">Pide apoyo al asistente</span>
+                </button>
+              </div>
+            )}
+
+            {mode === 'ai' && canSeeInternal && (
+              <div className="mb-3 p-3 bg-purple-50 border border-purple-200 rounded-lg flex items-start gap-2">
+                <svg className="w-4 h-4 text-purple-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <p className="text-xs text-purple-700">
+                  El asistente IA analizará el ticket y generará una sugerencia técnica de mantenimiento visible solo para el equipo.
+                </p>
+              </div>
+            )}
             
             <div className="space-y-3">
               <textarea
                 value={newComment}
                 onChange={(e) => setNewComment(e.target.value)}
-                placeholder="Escribe un comentario o adjunta evidencia del seguimiento..."
+                placeholder={
+                  mode === 'ai'
+                    ? 'Describe el problema técnico o pregunta al asistente...'
+                    : mode === 'note'
+                      ? 'Nota interna para el equipo de mantenimiento...'
+                      : 'Escribe un comentario o adjunta evidencia del seguimiento...'
+                }
                 rows={3}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 resize-none"
                 disabled={busy}
@@ -330,39 +420,21 @@ export default function MaintenanceTicketComments({
               )}
               
               <div className="flex items-center justify-between gap-3">
-                <div className="flex items-center gap-3">
-                  {/* Botón adjuntar */}
-                  <label className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 cursor-pointer transition">
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
-                    </svg>
-                    Adjuntar
-                    <input
-                      ref={fileInputRef}
-                      type="file"
-                      multiple
-                      accept="image/*,image/heic,image/heif,.pdf,.doc,.docx,.xls,.xlsx,.txt"
-                      onChange={handleFileSelect}
-                      className="sr-only"
-                      disabled={busy}
-                    />
-                  </label>
-
-                  {canSeeInternal && (
-                    <div className="flex items-center gap-2">
-                      <label className="text-xs font-medium text-gray-600">Visibilidad:</label>
-                      <select
-                        value={visibility}
-                        onChange={(e) => setVisibility(e.target.value as 'public' | 'internal')}
-                        className="text-xs border border-gray-300 rounded-md px-2 py-1 focus:ring-2 focus:ring-orange-500"
-                        disabled={busy}
-                      >
-                        <option value="public">Público</option>
-                        <option value="internal">Interno</option>
-                      </select>
-                    </div>
-                  )}
-                </div>
+                <label className="inline-flex items-center gap-1.5 px-3 py-1.5 border border-gray-300 rounded-lg text-sm text-gray-700 hover:bg-gray-50 cursor-pointer transition">
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
+                  </svg>
+                  Adjuntar
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    multiple
+                    accept="image/*,image/heic,image/heif,.pdf,.doc,.docx,.xls,.xlsx,.txt"
+                    onChange={handleFileSelect}
+                    className="sr-only"
+                    disabled={busy}
+                  />
+                </label>
                 
                 <button
                   type="submit"
