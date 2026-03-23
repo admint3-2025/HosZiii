@@ -8,7 +8,6 @@
 
 const MAX_DIMENSION = 1920
 const JPEG_QUALITY = 0.75
-const MAX_OUTPUT_SIZE = 2 * 1024 * 1024 // 2MB target max
 
 /**
  * Comprime una imagen File/Blob usando Canvas.
@@ -38,7 +37,7 @@ export async function compressImage(file: File | Blob): Promise<Blob> {
     return file
   }
 
-  return new Promise<Blob>((resolve, reject) => {
+  return new Promise<Blob>((resolve) => {
     const img = new Image()
     const url = URL.createObjectURL(file)
 

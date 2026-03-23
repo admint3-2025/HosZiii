@@ -237,7 +237,7 @@ SEDE: ${ticket.location || 'No especificada'}${timelineInfo}${kbContext}`
         return {
           suggestedReply: replyMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"'),
           confidence: (confidenceMatch?.[1] as TriageResult['confidence']) ?? 'low',
-          shouldEscalate: escalateMatch?.[1] === 'true' ?? false,
+          shouldEscalate: escalateMatch?.[1] === 'true',
         }
       }
       console.error('[OpenRouter] No se pudo recuperar respuesta truncada. Raw:', raw.slice(0, 200))

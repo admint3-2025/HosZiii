@@ -92,18 +92,6 @@ export async function middleware(request: NextRequest) {
 
   // Para rutas protegidas, validar la sesión en middleware para permitir
   // refresh y persistir cookies aquí (Server Components no siempre pueden).
-  const isProtectedPath =
-    pathname === '/' ||
-    pathname.startsWith('/hub') ||
-    pathname.startsWith('/dashboard') ||
-    pathname.startsWith('/tickets') ||
-    pathname.startsWith('/reports') ||
-    pathname.startsWith('/audit') ||
-    pathname.startsWith('/admin') ||
-    pathname.startsWith('/mantenimiento') ||
-    pathname.startsWith('/beo') ||
-    pathname.startsWith('/corporativo')
-
   // IMPORTANT: do not call Supabase auth methods here.
   // Parse the session from cookies to avoid refresh-token rotation races.
   const cookieList = request.cookies.getAll().map((c) => ({ name: c.name, value: c.value }))
