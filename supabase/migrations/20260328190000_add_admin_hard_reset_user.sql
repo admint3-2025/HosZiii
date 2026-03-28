@@ -16,6 +16,10 @@ declare
   v_descriptor text;
   v_admin_count integer;
   v_comment record;
+  v_target_profile jsonb := '{}'::jsonb;
+  v_target_auth jsonb := '{}'::jsonb;
+  v_cleanup_summary jsonb := '{}'::jsonb;
+  v_rows integer := 0;
 begin
   if p_actor_id is null or p_target_id is null then
     raise exception 'actor y target son obligatorios';
@@ -39,8 +43,20 @@ begin
   from public.profiles
   where role = 'admin';
 
-  select p.role, p.full_name, u.email
-  into v_target_role, v_target_name, v_target_email
+  select p.role,
+         p.full_name,
+         u.email,
+         coalesce(to_jsonb(p), '{}'::jsonb),
+         jsonb_build_object(
+           'id', u.id,
+           'email', u.email,
+           'created_at', u.created_at,
+           'last_sign_in_at', u.last_sign_in_at,
+           'banned_until', u.banned_until,
+           'user_metadata', u.raw_user_meta_data,
+           'app_metadata', u.raw_app_meta_data
+         )
+  into v_target_role, v_target_name, v_target_email, v_target_profile, v_target_auth
   from auth.users u
   left join public.profiles p on p.id = u.id
   where u.id = p_target_id;
@@ -81,6 +97,8 @@ begin
     update public.ticket_comments
     set author_id = p_actor_id
     where author_id = p_target_id;
+    get diagnostics v_rows = row_count;
+    v_cleanup_summary := v_cleanup_summary || jsonb_build_object('ticket_comments_reassigned', v_rows);
   end if;
 
   if exists (
@@ -104,10 +122,14 @@ begin
     update public.maintenance_ticket_comments
     set author_id = p_actor_id
     where author_id = p_target_id;
+    get diagnostics v_rows = row_count;
+    v_cleanup_summary := v_cleanup_summary || jsonb_build_object('maintenance_comments_reassigned', v_rows);
   end if;
 
   if to_regclass('public.login_audits') is not null then
     delete from public.login_audits where user_id = p_target_id;
+    get diagnostics v_rows = row_count;
+    v_cleanup_summary := v_cleanup_summary || jsonb_build_object('login_audits_deleted', v_rows);
   end if;
 
   if to_regclass('public.policy_acknowledgments') is not null then
@@ -150,11 +172,15 @@ begin
 
   if to_regclass('public.user_locations') is not null then
     delete from public.user_locations where user_id = p_target_id;
+    get diagnostics v_rows = row_count;
+    v_cleanup_summary := v_cleanup_summary || jsonb_build_object('user_locations_deleted', v_rows);
     update public.user_locations set created_by = p_actor_id where created_by = p_target_id;
   end if;
 
   if to_regclass('public.notifications') is not null then
     delete from public.notifications where user_id = p_target_id;
+    get diagnostics v_rows = row_count;
+    v_cleanup_summary := v_cleanup_summary || jsonb_build_object('notifications_deleted', v_rows);
     update public.notifications set actor_id = p_actor_id where actor_id = p_target_id;
   end if;
 
@@ -168,7 +194,11 @@ begin
 
   if to_regclass('public.tickets') is not null then
     update public.tickets set requester_id = p_actor_id where requester_id = p_target_id;
+    get diagnostics v_rows = row_count;
+    v_cleanup_summary := v_cleanup_summary || jsonb_build_object('tickets_requester_reassigned', v_rows);
     update public.tickets set assigned_agent_id = null where assigned_agent_id = p_target_id;
+    get diagnostics v_rows = row_count;
+    v_cleanup_summary := v_cleanup_summary || jsonb_build_object('tickets_assigned_cleared', v_rows);
     update public.tickets set closed_by = p_actor_id where closed_by = p_target_id;
     update public.tickets set deleted_by = p_actor_id where deleted_by = p_target_id;
   end if;
@@ -190,12 +220,16 @@ begin
 
   if to_regclass('public.tickets_it') is not null then
     update public.tickets_it set requester_id = p_actor_id where requester_id = p_target_id;
+    get diagnostics v_rows = row_count;
+    v_cleanup_summary := v_cleanup_summary || jsonb_build_object('tickets_it_requester_reassigned', v_rows);
     update public.tickets_it set assigned_agent_id = null where assigned_agent_id = p_target_id;
     update public.tickets_it set created_by = p_actor_id where created_by = p_target_id;
   end if;
 
   if to_regclass('public.tickets_maintenance') is not null then
     update public.tickets_maintenance set requester_id = p_actor_id where requester_id = p_target_id;
+    get diagnostics v_rows = row_count;
+    v_cleanup_summary := v_cleanup_summary || jsonb_build_object('tickets_maintenance_requester_reassigned', v_rows);
     update public.tickets_maintenance set assigned_agent_id = null where assigned_agent_id = p_target_id;
     update public.tickets_maintenance set created_by = p_actor_id where created_by = p_target_id;
   end if;
@@ -339,9 +373,13 @@ begin
   if to_regclass('public.profiles') is not null then
     update public.profiles set supervisor_id = null where supervisor_id = p_target_id;
     delete from public.profiles where id = p_target_id;
+    get diagnostics v_rows = row_count;
+    v_cleanup_summary := v_cleanup_summary || jsonb_build_object('profiles_deleted', v_rows);
   end if;
 
   delete from auth.users where id = p_target_id;
+  get diagnostics v_rows = row_count;
+  v_cleanup_summary := v_cleanup_summary || jsonb_build_object('auth_users_deleted', v_rows);
 
   if to_regclass('public.audit_log') is not null then
     insert into public.audit_log (
@@ -359,8 +397,14 @@ begin
         'hard_delete', true,
         'target_email', v_target_email,
         'target_label', v_target_label,
+        'target_role', v_target_role,
         'replacement_admin_id', p_actor_id,
-        'comment_descriptor', v_descriptor
+        'comment_descriptor', v_descriptor,
+        'target_snapshot', jsonb_build_object(
+          'profile', v_target_profile,
+          'auth', v_target_auth
+        ),
+        'cleanup_summary', v_cleanup_summary
       )
     );
   end if;

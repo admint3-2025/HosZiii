@@ -41,6 +41,43 @@ function formatChanges(metadata: any, entityType: string): string {
   return parts.join(' | ')
 }
 
+function formatUserHardDelete(metadata: any): string {
+  if (!metadata?.hard_delete) return ''
+
+  const details: string[] = []
+  const targetLabel = metadata.target_label || metadata.target_snapshot?.profile?.full_name || metadata.target_snapshot?.auth?.email
+  const targetEmail = metadata.target_email || metadata.target_snapshot?.auth?.email
+  const targetRole = metadata.target_role || metadata.target_snapshot?.profile?.role
+  const replacementAdminId = metadata.replacement_admin_id
+  const summary = metadata.cleanup_summary || {}
+
+  if (targetLabel) details.push(`Hard reset: ${targetLabel}`)
+  if (targetEmail && targetEmail !== targetLabel) details.push(`Email: ${targetEmail}`)
+  if (targetRole) details.push(`Rol previo: ${targetRole}`)
+  if (replacementAdminId) details.push(`Reasignado por admin`) 
+
+  const counters = [
+    ['tickets_requester_reassigned', 'tickets'],
+    ['ticket_comments_reassigned', 'comentarios IT'],
+    ['maintenance_comments_reassigned', 'comentarios mantto'],
+    ['login_audits_deleted', 'sesiones'],
+    ['notifications_deleted', 'notificaciones'],
+    ['user_locations_deleted', 'sedes'],
+  ] as const
+
+  const counterText = counters
+    .map(([key, label]) => {
+      const value = summary[key]
+      return typeof value === 'number' && value > 0 ? `${label}: ${value}` : null
+    })
+    .filter(Boolean)
+    .join(' | ')
+
+  if (counterText) details.push(counterText)
+
+  return details.join(' | ')
+}
+
 function getResourceLink(entityType: string, entityId: string): string | null {
   switch (entityType) {
     case 'asset':
@@ -125,6 +162,8 @@ export default function AuditTable({ audit, userMap }: AuditTableProps) {
             additionalInfo = `${metadata.asset_tag} - ${metadata.asset_type} (${metadata.brand || 'Sin marca'} ${metadata.model || ''})`
           } else if (a.action === 'DELETE' && a.entity_type === 'asset') {
             additionalInfo = `${metadata.asset_tag} - ${metadata.asset_type} (${metadata.previous_status})`
+          } else if (a.action === 'DELETE' && a.entity_type === 'user' && metadata?.hard_delete) {
+            additionalInfo = formatUserHardDelete(metadata)
           } else if (a.entity_type === 'user' && metadata?.email) {
             additionalInfo = `Usuario: ${metadata.email}`
           }

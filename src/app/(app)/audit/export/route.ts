@@ -83,6 +83,20 @@ export async function GET() {
       if (metadata.updates?.role) details.push(`Rol: ${metadata.updates.role}`)
       if (metadata.email) details.push(`Email: ${metadata.email}`)
       if (metadata.updates?.active !== undefined) details.push(`Estado: ${metadata.updates.active ? 'Activo' : 'Desactivado'}`)
+      if (metadata.hard_delete) {
+        if (metadata.target_label) details.push(`Hard reset: ${metadata.target_label}`)
+        if (metadata.target_email) details.push(`Email eliminado: ${metadata.target_email}`)
+        if (metadata.target_role) details.push(`Rol previo: ${metadata.target_role}`)
+        if (metadata.cleanup_summary?.tickets_requester_reassigned) {
+          details.push(`Tickets reasignados: ${metadata.cleanup_summary.tickets_requester_reassigned}`)
+        }
+        if (metadata.cleanup_summary?.ticket_comments_reassigned) {
+          details.push(`Comentarios IT reasignados: ${metadata.cleanup_summary.ticket_comments_reassigned}`)
+        }
+        if (metadata.cleanup_summary?.maintenance_comments_reassigned) {
+          details.push(`Comentarios mantto reasignados: ${metadata.cleanup_summary.maintenance_comments_reassigned}`)
+        }
+      }
     }
     
     // Para activos
