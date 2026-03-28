@@ -302,7 +302,14 @@ begin
   end if;
 
   if to_regclass('public.inspections_rrhh_deletion_log') is not null then
-    update public.inspections_rrhh_deletion_log set deleted_by_user_id = p_actor_id where deleted_by_user_id = p_target_id;
+    if exists (
+      select 1
+      from information_schema.columns
+      where table_schema = 'public' and table_name = 'inspections_rrhh_deletion_log' and column_name = 'deleted_by_user_id'
+    ) then
+      execute 'update public.inspections_rrhh_deletion_log set deleted_by_user_id = $1 where deleted_by_user_id = $2'
+      using p_actor_id, p_target_id;
+    end if;
   end if;
 
   if to_regclass('public.inspections_gsh') is not null then
