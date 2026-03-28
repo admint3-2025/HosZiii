@@ -23,41 +23,61 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
-    // Primero obtener todos los IDs
-    const { data: allRecords, error: fetchError } = await admin
+    // Contar registros actuales
+    const { count, error: countError } = await admin
       .from('login_audits')
-      .select('id')
+      .select('id', { count: 'exact', head: true })
 
-    if (fetchError) {
+    if (countError) {
       return NextResponse.json(
-        { error: 'Error obteniendo registros: ' + fetchError.message },
+        { error: 'Error obteniendo registros: ' + countError.message },
         { status: 500 }
       )
     }
 
-    // Si no hay registros, retorna éxito
-    if (!allRecords || allRecords.length === 0) {
+    if (!count || count === 0) {
       return NextResponse.json({ success: true, message: 'Historial ya estaba vacío', deleted: 0 })
     }
 
-    // Obtener todos los IDs y borrar en lotes
-    const ids = allRecords.map((r: any) => r.id)
-    const { error: deleteError } = await admin
-      .from('login_audits')
-      .delete()
-      .in('id', ids)
+    // Eliminar en lotes para evitar "URI too long"
+    const BATCH_SIZE = 500
+    let totalDeleted = 0
 
-    if (deleteError) {
-      return NextResponse.json(
-        { error: 'Error eliminando historial: ' + deleteError.message },
-        { status: 500 }
-      )
+    while (true) {
+      const { data: batch, error: fetchError } = await admin
+        .from('login_audits')
+        .select('id')
+        .limit(BATCH_SIZE)
+
+      if (fetchError) {
+        return NextResponse.json(
+          { error: 'Error obteniendo lote: ' + fetchError.message },
+          { status: 500 }
+        )
+      }
+
+      if (!batch || batch.length === 0) break
+
+      const ids = batch.map((r: any) => r.id)
+      const { error: deleteError } = await admin
+        .from('login_audits')
+        .delete()
+        .in('id', ids)
+
+      if (deleteError) {
+        return NextResponse.json(
+          { error: 'Error eliminando historial: ' + deleteError.message },
+          { status: 500 }
+        )
+      }
+
+      totalDeleted += ids.length
     }
 
     return NextResponse.json({ 
       success: true, 
       message: 'Historial de sesiones eliminado correctamente',
-      deleted: ids.length
+      deleted: totalDeleted
     })
   } catch (error: any) {
     return NextResponse.json(
