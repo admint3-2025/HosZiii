@@ -23,7 +23,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
-    // Contar registros actuales
+    // Contar registros antes de eliminar
     const { count, error: countError } = await admin
       .from('login_audits')
       .select('id', { count: 'exact', head: true })
@@ -39,45 +39,23 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ success: true, message: 'Historial ya estaba vacío', deleted: 0 })
     }
 
-    // Eliminar en lotes para evitar "URI too long"
-    const BATCH_SIZE = 500
-    let totalDeleted = 0
+    // Eliminar todos los registros con un filtro ligero (no pone IDs en el URL)
+    const { error: deleteError } = await admin
+      .from('login_audits')
+      .delete()
+      .not('id', 'is', null)
 
-    while (true) {
-      const { data: batch, error: fetchError } = await admin
-        .from('login_audits')
-        .select('id')
-        .limit(BATCH_SIZE)
-
-      if (fetchError) {
-        return NextResponse.json(
-          { error: 'Error obteniendo lote: ' + fetchError.message },
-          { status: 500 }
-        )
-      }
-
-      if (!batch || batch.length === 0) break
-
-      const ids = batch.map((r: any) => r.id)
-      const { error: deleteError } = await admin
-        .from('login_audits')
-        .delete()
-        .in('id', ids)
-
-      if (deleteError) {
-        return NextResponse.json(
-          { error: 'Error eliminando historial: ' + deleteError.message },
-          { status: 500 }
-        )
-      }
-
-      totalDeleted += ids.length
+    if (deleteError) {
+      return NextResponse.json(
+        { error: 'Error eliminando historial: ' + deleteError.message },
+        { status: 500 }
+      )
     }
 
     return NextResponse.json({ 
       success: true, 
       message: 'Historial de sesiones eliminado correctamente',
-      deleted: totalDeleted
+      deleted: count
     })
   } catch (error: any) {
     return NextResponse.json(
