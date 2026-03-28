@@ -179,7 +179,8 @@ begin
       select 1 from information_schema.columns
       where table_schema = 'public' and table_name = 'ticket_attachments' and column_name = 'deleted_by'
     ) then
-      update public.ticket_attachments set deleted_by = p_actor_id where deleted_by = p_target_id;
+      execute 'update public.ticket_attachments set deleted_by = $1 where deleted_by = $2'
+      using p_actor_id, p_target_id;
     end if;
   end if;
 
@@ -279,13 +280,15 @@ begin
       select 1 from information_schema.columns
       where table_schema = 'public' and table_name = 'knowledge_base_articles' and column_name = 'approved_by'
     ) then
-      update public.knowledge_base_articles set approved_by = p_actor_id where approved_by = p_target_id;
+      execute 'update public.knowledge_base_articles set approved_by = $1 where approved_by = $2'
+      using p_actor_id, p_target_id;
     end if;
     if exists (
       select 1 from information_schema.columns
       where table_schema = 'public' and table_name = 'knowledge_base_articles' and column_name = 'deleted_by'
     ) then
-      update public.knowledge_base_articles set deleted_by = p_actor_id where deleted_by = p_target_id;
+      execute 'update public.knowledge_base_articles set deleted_by = $1 where deleted_by = $2'
+      using p_actor_id, p_target_id;
     end if;
   end if;
 
@@ -307,19 +310,22 @@ begin
       select 1 from information_schema.columns
       where table_schema = 'public' and table_name = 'inspections_gsh' and column_name = 'inspector_user_id'
     ) then
-      update public.inspections_gsh set inspector_user_id = p_actor_id where inspector_user_id = p_target_id;
+      execute 'update public.inspections_gsh set inspector_user_id = $1 where inspector_user_id = $2'
+      using p_actor_id, p_target_id;
     end if;
     if exists (
       select 1 from information_schema.columns
       where table_schema = 'public' and table_name = 'inspections_gsh' and column_name = 'approved_by_user_id'
     ) then
-      update public.inspections_gsh set approved_by_user_id = p_actor_id where approved_by_user_id = p_target_id;
+      execute 'update public.inspections_gsh set approved_by_user_id = $1 where approved_by_user_id = $2'
+      using p_actor_id, p_target_id;
     end if;
     if exists (
       select 1 from information_schema.columns
       where table_schema = 'public' and table_name = 'inspections_gsh' and column_name = 'deleted_by_user_id'
     ) then
-      update public.inspections_gsh set deleted_by_user_id = p_actor_id where deleted_by_user_id = p_target_id;
+      execute 'update public.inspections_gsh set deleted_by_user_id = $1 where deleted_by_user_id = $2'
+      using p_actor_id, p_target_id;
     end if;
   end if;
 
