@@ -50,6 +50,95 @@ function isValidRole(role: unknown): role is Role {
   )
 }
 
+type AdminClient = ReturnType<typeof createSupabaseAdminClient>
+
+function getErrorMessage(error: unknown): string {
+  if (typeof error === 'string') return error
+  if (error && typeof error === 'object' && 'message' in error) {
+    return String((error as { message?: unknown }).message ?? 'Unknown error')
+  }
+  return 'Unknown error'
+}
+
+function isMissingDbObjectError(error: unknown): boolean {
+  const message = getErrorMessage(error).toLowerCase()
+  return (
+    message.includes('does not exist') ||
+    message.includes('schema cache') ||
+    message.includes('could not find')
+  )
+}
+
+async function safeUpdate(
+  admin: AdminClient,
+  tableName: string,
+  matchColumn: string,
+  matchValue: string,
+  values: Record<string, unknown>,
+) {
+  try {
+    const { error } = await (admin as any).from(tableName).update(values).eq(matchColumn, matchValue)
+    if (error && !isMissingDbObjectError(error)) {
+      throw new Error(`${tableName}.${matchColumn}: ${getErrorMessage(error)}`)
+    }
+  } catch (error) {
+    if (!isMissingDbObjectError(error)) throw error
+  }
+}
+
+async function safeDelete(
+  admin: AdminClient,
+  tableName: string,
+  matchColumn: string,
+  matchValue: string,
+) {
+  try {
+    const { error } = await (admin as any).from(tableName).delete().eq(matchColumn, matchValue)
+    if (error && !isMissingDbObjectError(error)) {
+      throw new Error(`${tableName}.${matchColumn}: ${getErrorMessage(error)}`)
+    }
+  } catch (error) {
+    if (!isMissingDbObjectError(error)) throw error
+  }
+}
+
+async function annotateCommentBodies(
+  admin: AdminClient,
+  tableName: string,
+  authorColumn: string,
+  authorId: string,
+  descriptor: string,
+) {
+  try {
+    const { data, error } = await (admin as any)
+      .from(tableName)
+      .select('id,body')
+      .eq(authorColumn, authorId)
+
+    if (error) {
+      if (isMissingDbObjectError(error)) return
+      throw new Error(`${tableName}.${authorColumn}: ${getErrorMessage(error)}`)
+    }
+
+    for (const row of data ?? []) {
+      const body = typeof row.body === 'string' ? row.body : ''
+      if (body.startsWith(`[${descriptor}]`)) continue
+
+      const nextBody = body.trim().length > 0 ? `[${descriptor}]\n\n${body}` : `[${descriptor}]`
+      const { error: updateError } = await (admin as any)
+        .from(tableName)
+        .update({ body: nextBody })
+        .eq('id', row.id)
+
+      if (updateError && !isMissingDbObjectError(updateError)) {
+        throw new Error(`${tableName}.body: ${getErrorMessage(updateError)}`)
+      }
+    }
+  } catch (error) {
+    if (!isMissingDbObjectError(error)) throw error
+  }
+}
+
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -238,6 +327,10 @@ export async function DELETE(
 
   if (!user) return new Response('Unauthorized', { status: 401 })
 
+  if (id === user.id) {
+    return new Response('No puedes hacer hard reset de tu propio usuario desde el panel.', { status: 400 })
+  }
+
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
   const isAdminLike = profile?.role === 'admin'
   if (!isAdminLike) return new Response('Forbidden', { status: 403 })
@@ -245,7 +338,8 @@ export async function DELETE(
   const admin = createSupabaseAdminClient()
 
   // Verificar que el usuario a eliminar existe
-  const { data: targetUser, error: getUserError } = await admin.auth.admin.getUserById(id)
+  const { data: targetUserData, error: getUserError } = await admin.auth.admin.getUserById(id)
+  const targetUser = targetUserData?.user
   if (getUserError || !targetUser) {
     return new Response('Usuario no encontrado', { status: 404 })
   }
@@ -263,7 +357,7 @@ export async function DELETE(
   const adminCount = (adminProfiles ?? []).length
   const { data: targetProfile } = await admin
     .from('profiles')
-    .select('role')
+    .select('role, full_name')
     .eq('id', id)
     .single()
 
@@ -273,16 +367,105 @@ export async function DELETE(
     return new Response('No se puede eliminar el único usuario administrador del sistema', { status: 400 })
   }
 
-  // Primero desactivamos el usuario en profiles
-  await admin.from('profiles').update({ active: false }).eq('id', id)
+  const targetFullName =
+    targetProfile?.role && typeof (targetProfile as any)?.full_name === 'string'
+      ? String((targetProfile as any).full_name).trim()
+      : ''
+  const targetLabel =
+    targetFullName ||
+    String(targetUser.user_metadata?.full_name ?? '').trim() ||
+    targetUser.email ||
+    `usuario-${id.slice(0, 8)}`
+  const deletionDescriptor = `Usuario eliminado: ${targetLabel}${targetUser.email ? ` <${targetUser.email}>` : ''}`
 
-  // Soft delete keeps records around in Auth for traceability
-  const { error } = await admin.auth.admin.deleteUser(id, true)
-  if (error) {
-    return new Response(
-      `Error al eliminar usuario: ${error.message}. Intenta primero desactivar el usuario.`, 
-      { status: 400 }
-    )
+  try {
+    await annotateCommentBodies(admin, 'ticket_comments', 'author_id', id, deletionDescriptor)
+    await annotateCommentBodies(admin, 'maintenance_ticket_comments', 'author_id', id, deletionDescriptor)
+
+    await safeDelete(admin, 'login_audits', 'user_id', id)
+    await safeDelete(admin, 'policy_acknowledgments', 'user_id', id)
+    await safeDelete(admin, 'user_telegram_chat_ids', 'user_id', id)
+    await safeDelete(admin, 'knowledge_base_usage', 'used_by', id)
+    await safeDelete(admin, 'academy_quiz_attempts', 'user_id', id)
+    await safeDelete(admin, 'academy_progress', 'user_id', id)
+    await safeDelete(admin, 'academy_enrollments', 'user_id', id)
+    await safeDelete(admin, 'academy_bookmarks', 'user_id', id)
+    await safeDelete(admin, 'academy_certificates', 'user_id', id)
+    await safeDelete(admin, 'hk_staff', 'profile_id', id)
+    await safeDelete(admin, 'user_locations', 'user_id', id)
+    await safeDelete(admin, 'notifications', 'user_id', id)
+
+    await safeUpdate(admin, 'notifications', 'actor_id', id, { actor_id: user.id })
+    await safeUpdate(admin, 'user_locations', 'created_by', id, { created_by: user.id })
+    await safeUpdate(admin, 'academy_enrollments', 'enrolled_by', id, { enrolled_by: user.id })
+    await safeUpdate(admin, 'academy_certificates', 'issued_by_id', id, { issued_by_id: user.id })
+    await safeUpdate(admin, 'academy_courses', 'created_by', id, { created_by: user.id })
+    await safeUpdate(admin, 'hk_rooms', 'assigned_to', id, { assigned_to: null })
+    await safeUpdate(admin, 'hk_room_status_log', 'changed_by', id, { changed_by: user.id })
+
+    await safeUpdate(admin, 'tickets', 'requester_id', id, { requester_id: user.id })
+    await safeUpdate(admin, 'tickets', 'assigned_agent_id', id, { assigned_agent_id: null })
+    await safeUpdate(admin, 'tickets', 'closed_by', id, { closed_by: user.id })
+    await safeUpdate(admin, 'tickets', 'deleted_by', id, { deleted_by: user.id })
+    await safeUpdate(admin, 'ticket_comments', 'author_id', id, { author_id: user.id })
+    await safeUpdate(admin, 'ticket_attachments', 'uploaded_by', id, { uploaded_by: user.id })
+    await safeUpdate(admin, 'ticket_attachments', 'deleted_by', id, { deleted_by: user.id })
+    await safeUpdate(admin, 'ticket_status_history', 'actor_id', id, { actor_id: user.id })
+
+    await safeUpdate(admin, 'tickets_it', 'requester_id', id, { requester_id: user.id })
+    await safeUpdate(admin, 'tickets_it', 'assigned_agent_id', id, { assigned_agent_id: null })
+    await safeUpdate(admin, 'tickets_it', 'created_by', id, { created_by: user.id })
+    await safeUpdate(admin, 'tickets_maintenance', 'requester_id', id, { requester_id: user.id })
+    await safeUpdate(admin, 'tickets_maintenance', 'assigned_agent_id', id, { assigned_agent_id: null })
+    await safeUpdate(admin, 'tickets_maintenance', 'created_by', id, { created_by: user.id })
+    await safeUpdate(admin, 'maintenance_ticket_comments', 'author_id', id, { author_id: user.id })
+    await safeUpdate(admin, 'ticket_comments_it', 'created_by', id, { created_by: user.id })
+    await safeUpdate(admin, 'ticket_comments_maintenance', 'created_by', id, { created_by: user.id })
+    await safeUpdate(admin, 'ticket_attachments_it', 'uploaded_by', id, { uploaded_by: user.id })
+    await safeUpdate(admin, 'ticket_attachments_maintenance', 'uploaded_by', id, { uploaded_by: user.id })
+
+    await safeUpdate(admin, 'audit_log', 'actor_id', id, { actor_id: user.id })
+    await safeUpdate(admin, 'asset_changes', 'changed_by', id, { changed_by: user.id })
+    await safeUpdate(admin, 'asset_assignment_changes', 'changed_by', id, { changed_by: user.id })
+    await safeUpdate(admin, 'asset_assignment_changes', 'from_user_id', id, { from_user_id: user.id })
+    await safeUpdate(admin, 'asset_assignment_changes', 'to_user_id', id, { to_user_id: user.id })
+    await safeUpdate(admin, 'assets_it', 'assigned_to_user_id', id, { assigned_to_user_id: null })
+    await safeUpdate(admin, 'assets_it', 'created_by', id, { created_by: user.id })
+    await safeUpdate(admin, 'assets_maintenance', 'assigned_to_user_id', id, { assigned_to_user_id: null })
+    await safeUpdate(admin, 'assets_maintenance', 'created_by', id, { created_by: user.id })
+    await safeUpdate(admin, 'asset_disposal_requests', 'requested_by', id, { requested_by: user.id })
+    await safeUpdate(admin, 'asset_disposal_requests', 'reviewed_by', id, { reviewed_by: user.id })
+    await safeUpdate(admin, 'asset_processors', 'created_by', id, { created_by: user.id })
+    await safeUpdate(admin, 'asset_operating_systems', 'created_by', id, { created_by: user.id })
+    await safeUpdate(admin, 'asset_custom_types', 'created_by', id, { created_by: user.id })
+    await safeUpdate(admin, 'departments', 'created_by', id, { created_by: user.id })
+    await safeUpdate(admin, 'brands', 'created_by', id, { created_by: user.id })
+    await safeUpdate(admin, 'job_positions', 'created_by', id, { created_by: user.id })
+    await safeUpdate(admin, 'policies', 'created_by', id, { created_by: user.id })
+    await safeUpdate(admin, 'policies', 'updated_by', id, { updated_by: user.id })
+    await safeUpdate(admin, 'knowledge_base_articles', 'created_by', id, { created_by: user.id })
+    await safeUpdate(admin, 'knowledge_base_articles', 'approved_by', id, { approved_by: user.id })
+    await safeUpdate(admin, 'knowledge_base_articles', 'deleted_by', id, { deleted_by: user.id })
+    await safeUpdate(admin, 'knowledge_base_suggestions', 'reviewed_by', id, { reviewed_by: user.id })
+    await safeUpdate(admin, 'inspections_rrhh', 'inspector_user_id', id, { inspector_user_id: user.id })
+    await safeUpdate(admin, 'inspections_rrhh', 'approved_by_user_id', id, { approved_by_user_id: user.id })
+    await safeUpdate(admin, 'inspections_rrhh_deletion_log', 'deleted_by_user_id', id, { deleted_by_user_id: user.id })
+    await safeUpdate(admin, 'inspections_gsh', 'inspector_user_id', id, { inspector_user_id: user.id })
+    await safeUpdate(admin, 'inspections_gsh', 'approved_by_user_id', id, { approved_by_user_id: user.id })
+    await safeUpdate(admin, 'inspections_gsh', 'deleted_by_user_id', id, { deleted_by_user_id: user.id })
+    await safeUpdate(admin, 'profiles', 'supervisor_id', id, { supervisor_id: null })
+
+    const { error: deleteProfileError } = await admin.from('profiles').delete().eq('id', id)
+    if (deleteProfileError && !isMissingDbObjectError(deleteProfileError)) {
+      throw new Error(`profiles.id: ${getErrorMessage(deleteProfileError)}`)
+    }
+
+    const { error: deleteAuthError } = await admin.auth.admin.deleteUser(id)
+    if (deleteAuthError) {
+      throw new Error(deleteAuthError.message)
+    }
+  } catch (error) {
+    return new Response(`Error al hacer hard reset del usuario: ${getErrorMessage(error)}`, { status: 400 })
   }
 
   await admin.from('audit_log').insert({
@@ -291,10 +474,13 @@ export async function DELETE(
     action: 'DELETE',
     actor_id: user.id,
     metadata: {
-      soft_delete: true,
-      target_email: targetUser.user.email,
+      hard_delete: true,
+      target_email: targetUser.email,
+      target_label: targetLabel,
+      replacement_admin_id: user.id,
+      comment_descriptor: deletionDescriptor,
     },
   })
 
-  return new Response('OK')
+  return new Response('Hard reset completado')
 }

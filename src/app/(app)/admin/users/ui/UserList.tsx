@@ -353,7 +353,8 @@ export default function UserList() {
   }
 
   async function deleteUser(u: UserRow) {
-    if (!confirm(`¿Eliminar usuario ${u.email ?? u.id}? (Soft delete en Auth)`)) return
+    if (!confirm(`¿Hard reset de ${u.email ?? u.id}? Esto elimina el acceso de Supabase Auth de forma permanente.`)) return
+    if (!confirm('Se reasignarán o limpiarán referencias históricas para conservar trazabilidad mínima. Esta acción es irreversible.')) return
 
     setError(null)
     setBusy(true)
@@ -873,7 +874,7 @@ export default function UserList() {
                                   deleteUser(u)
                                 }}
                               >
-                                Eliminar usuario
+                                Hard reset usuario
                               </button>
                             </div>
                             <div className="flex gap-2">
