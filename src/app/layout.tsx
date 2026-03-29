@@ -1,6 +1,7 @@
 import './globals.css'
 import type { Metadata } from 'next'
 import { Orbitron } from 'next/font/google'
+import { WebViewBridge } from '@/components/WebViewBridge'
 
 const orbitron = Orbitron({
   subsets: ['latin'],
@@ -27,6 +28,7 @@ export default function RootLayout({
   return (
     <html lang="es">
       <body className={`min-h-screen bg-gray-50 text-gray-900 ${orbitron.variable}`}>
+        <WebViewBridge />
         {children}
       </body>
     </html>
