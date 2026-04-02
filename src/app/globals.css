@@ -130,6 +130,11 @@ body {
   .safe-bottom {
     padding-bottom: max(1rem, env(safe-area-inset-bottom, 0px));
   }
+
+  /* Soporte para barra de estado Android en WebView nativo */
+  .webview-safe-top {
+    padding-top: env(safe-area-inset-top, 0px);
+  }
 }
 
 @layer utilities {

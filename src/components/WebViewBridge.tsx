@@ -2,11 +2,12 @@
 
 /**
  * WebViewBridge — Solo se activa cuando la web corre dentro de la app móvil.
- * 
+ *
  * Flujo:
  *  1. Detecta presencia de window.ReactNativeWebView
  *  2. Escucha evento 'expoPushTokenReady' inyectado por la app nativa
  *  3. Cuando hay sesión activa en Supabase, registra el push token
+ *  4. Re-intenta el registro al cambio de estado de autenticación (sign-in)
  */
 
 import { useEffect } from 'react'
@@ -42,7 +43,7 @@ export function WebViewBridge() {
       registerToken(existingToken)
     }
 
-    // Escuchar token futuro
+    // Escuchar token futuro (inyectado por App.tsx cuando resuelve el permiso)
     const handleToken = (e: Event) => {
       const token = (e as CustomEvent<{ token: string }>).detail?.token
         ?? (window as any).__expoPushToken
@@ -51,15 +52,25 @@ export function WebViewBridge() {
 
     window.addEventListener('expoPushTokenReady', handleToken)
 
+    // Re-registrar si el usuario inicia sesión DESPUÉS de que llegó el token
+    // (cubre el caso: app carga → usuario teclea contraseña → sesión se crea)
+    const { data: authListener } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'SIGNED_IN') {
+        const token = (window as any).__expoPushToken
+        if (token) registerToken(token)
+      }
+    })
+
     // Pedir el token a la app nativa (por si ya cargó antes que nosotros)
     try {
       ;(window as any).ReactNativeWebView.postMessage(
         JSON.stringify({ type: 'requestPushToken' })
       )
-    } catch { /* ignorar */ }
+    } catch (_e) { /* ignorar */ }
 
     return () => {
       window.removeEventListener('expoPushTokenReady', handleToken)
+      authListener.subscription.unsubscribe()
     }
   }, [])
 
