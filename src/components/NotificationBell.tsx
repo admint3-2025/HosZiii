@@ -156,9 +156,22 @@ export default function NotificationBell() {
         console.log('[NotificationBell] Subscription status:', status)
       })
 
+    // Recarga cuando la app nativa detecta una notificación (WebView en background
+    // puede cerrar WebSocket — esto garantiza actualización inmediata al volver)
+    const handleNative = () => loadNotifications()
+    window.addEventListener('nativeNotificationReceived', handleNative)
+
+    // Recarga cuando la pestaña/WebView vuelve a primer plano
+    const handleVisibility = () => {
+      if (document.visibilityState === 'visible') loadNotifications()
+    }
+    document.addEventListener('visibilitychange', handleVisibility)
+
     return () => {
       console.log('[NotificationBell] Unsubscribing from channel')
       channel.unsubscribe()
+      window.removeEventListener('nativeNotificationReceived', handleNative)
+      document.removeEventListener('visibilitychange', handleVisibility)
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [userId, supabase])
