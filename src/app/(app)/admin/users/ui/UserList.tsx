@@ -15,7 +15,7 @@ type Role =
   | 'auditor'
   | 'admin'
 
-type HubModuleId = 'it-helpdesk' | 'mantenimiento' | 'corporativo' | 'academia' | 'politicas' | 'ama-de-llaves' | 'administracion' | 'planificacion'
+type HubModuleId = 'it-helpdesk' | 'mantenimiento' | 'corporativo' | 'inspecciones' | 'academia' | 'politicas' | 'ama-de-llaves' | 'administracion' | 'planificacion'
 type ModuleAccess = 'user' | 'supervisor'
 type HubModules = Record<HubModuleId, ModuleAccess | false>
 
@@ -23,6 +23,7 @@ const DEFAULT_HUB_MODULES: HubModules = {
   'it-helpdesk': 'user',
   mantenimiento: 'user',
   corporativo: false,
+  inspecciones: false,
   academia: 'user',
   politicas: 'user',
   'ama-de-llaves': false,
@@ -925,6 +926,7 @@ export default function UserList() {
                   { id: 'it-helpdesk', label: 'IT - HELPDESK' },
                   { id: 'mantenimiento', label: 'MANTENIMIENTO' },
                   { id: 'corporativo', label: 'CORPORATIVO' },
+                  { id: 'inspecciones', label: 'INSPECCIONES' },
                   { id: 'academia', label: 'ACADEMIA' },
                   { id: 'politicas', label: 'POLÍTICAS' },
                   { id: 'ama-de-llaves', label: 'AMA DE LLAVES' },

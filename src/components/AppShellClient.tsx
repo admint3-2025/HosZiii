@@ -265,8 +265,9 @@ export default function AppShellClient({
     if (pathname.startsWith('/admin')) return 'admin'
     if (pathname.startsWith('/politicas')) return 'politicas'
     if (pathname.startsWith('/planificacion')) return 'planificacion'
+    if (pathname.startsWith('/corporativo/inspecciones')) return 'inspecciones'
     if (pathname.startsWith('/corporativo')) return 'corporativo'
-    if (pathname.startsWith('/inspections')) return 'corporativo' // Inspecciones RRHH
+    if (pathname.startsWith('/inspections')) return 'inspecciones'
     if (pathname.startsWith('/academia')) return 'academia'
     // Reportes: mantener en `Administración` para que el sidebar no cambie
     // al entrar a reportes específicos (IT/Mantenimiento). El centro
@@ -302,6 +303,7 @@ export default function AppShellClient({
 
   const itAccess = moduleAccess('it-helpdesk')
   const mntAccess = moduleAccess('mantenimiento')
+  const inspAccess = moduleAccess('inspecciones')
   
   // Atajos de compatibilidad con código existente
   const canManageIT = itAccess === 'supervisor'
@@ -389,10 +391,21 @@ export default function AppShellClient({
         items: [
           { id: 'corp_home', label: 'Dashboard', icon: 'Dashboard', href: '/corporativo/dashboard' },
           { id: 'corp_planeacion', label: 'Planificacion Anual', icon: 'Calendar', href: '/planificacion' },
-          { id: 'corp_inspecciones', label: 'Inspecciones', icon: 'ShieldCheck', href: '/corporativo/inspecciones' },
-          { id: 'corp_inbox', label: 'Bandeja Inspecciones', icon: 'BarChart', href: '/inspections/inbox' },
           { id: 'corp_academia', label: 'Admin Academia', icon: 'GraduationCap', href: '/corporativo/academia/admin' },
           { id: 'corp_politicas', label: 'Admin Políticas', icon: 'Book', href: '/corporativo/politicas/admin' },
+        ],
+      },
+    ],
+    inspecciones: [
+      {
+        group: 'Inspecciones',
+        items: [
+          ...(inspAccess
+            ? ([{ id: 'insp_home', label: 'Inspecciones', icon: 'ShieldCheck', href: '/corporativo/inspecciones' }] as MenuSection['items'])
+            : []),
+          ...(inspAccess === 'supervisor'
+            ? ([{ id: 'insp_inbox', label: 'Bandeja Inspecciones', icon: 'BarChart', href: '/inspections/inbox' }] as MenuSection['items'])
+            : []),
         ],
       },
     ],
@@ -440,6 +453,7 @@ export default function AppShellClient({
     'ama-de-llaves': [],
     helpdesk: [],
     corporativo: [],
+    inspecciones: [],
     ops: [],
     planificacion: [],
     politicas: [],

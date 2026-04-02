@@ -117,6 +117,22 @@ const modules: Module[] = [
     requiredRoles: ['admin', 'supervisor', 'agent_l1', 'agent_l2', 'requester'],
   },
   {
+    id: 'inspecciones',
+    name: 'INSPECCIONES',
+    description: 'Auditorías de Calidad por Departamento y Sede',
+    icon: (
+      <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3l7 4v6c0 5-3 8-7 9-4-1-7-4-7-9V7l7-4z" />
+        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4" />
+      </svg>
+    ),
+    href: '/corporativo/inspecciones',
+    bgGradient: 'from-orange-500 via-amber-500 to-yellow-500',
+    iconBg: 'bg-orange-100',
+    textColor: 'text-orange-900',
+    requiredRoles: ['admin', 'supervisor'],
+  },
+  {
     id: 'corporativo',
     name: 'CORPORATIVO',
     description: 'Inspecciones, Políticas, Procedimientos',
