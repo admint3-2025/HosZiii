@@ -9,6 +9,7 @@ export default function SignOutButton() {
 
   async function signOut() {
     try {
+      try { sessionStorage.setItem('__manualSignOut', '1') } catch (_e) {}
       const { error } = await supabase.auth.signOut()
       if (error) {
         if (error.code === 'refresh_token_already_used' || error.message?.includes('refresh token') || error.message?.includes('Already Used')) {

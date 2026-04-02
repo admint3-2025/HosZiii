@@ -124,7 +124,7 @@ export async function middleware(request: NextRequest) {
     }
 
     if (!!session && sessionHasUserId && sessionExpired) {
-      return NextResponse.redirect(new URL('/login?recover=1', request.url))
+      return NextResponse.redirect(new URL('/login?recover=1&reason=inactivity', request.url))
     }
 
     if (!sessionIsValid) {
@@ -156,7 +156,7 @@ export async function middleware(request: NextRequest) {
     }
 
     if (!!session && sessionHasUserId && sessionExpired) {
-      return NextResponse.redirect(new URL('/login?recover=1', request.url))
+      return NextResponse.redirect(new URL('/login?recover=1&reason=inactivity', request.url))
     }
 
     if (!sessionIsValid) {

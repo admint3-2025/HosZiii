@@ -153,8 +153,18 @@ export default function LoginForm() {
     setSent(true)
   }
 
+  const showInactivityBanner = searchParams.get('reason') === 'inactivity'
+
   return (
     <form onSubmit={mode === 'login' ? onSubmit : onForgot} className="space-y-5">
+      {showInactivityBanner && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 flex items-start gap-2">
+          <svg className="w-5 h-5 text-amber-500 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>Tu sesión se cerró por inactividad. Por favor inicia sesión nuevamente.</span>
+        </div>
+      )}
       <div>
         <label className="block text-sm font-medium text-slate-700 mb-2">Correo</label>
         <input
