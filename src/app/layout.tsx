@@ -1,4 +1,4 @@
-import './globals.css'
+﻿import './globals.css'
 import type { Metadata } from 'next'
 import { Orbitron } from 'next/font/google'
 import { WebViewBridge } from '@/components/WebViewBridge'
@@ -13,9 +13,9 @@ export const metadata: Metadata = {
   title: 'ZIII HoS',
   description: 'HoS: Operación y Mesa de Ayuda con trazabilidad ITIL.',
   icons: {
-    icon: 'https://systemach-sas.com/logo_ziii/ZIII%20logo.png',
-    shortcut: 'https://systemach-sas.com/logo_ziii/ZIII%20logo.png',
-    apple: 'https://systemach-sas.com/logo_ziii/ZIII%20logo.png',
+    icon: 'https://ziii.com.mx/logos/1ZIIIlogo.png',
+    shortcut: 'https://ziii.com.mx/logos/1ZIIIlogo.png',
+    apple: 'https://ziii.com.mx/logos/1ZIIIlogo.png',
   },
   other: {
     'viewport': 'width=device-width, initial-scale=1, viewport-fit=cover',

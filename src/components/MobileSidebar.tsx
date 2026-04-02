@@ -1,4 +1,4 @@
-"use client"
+﻿"use client"
 
 import Link from "next/link"
 import Image from "next/image"
@@ -196,7 +196,7 @@ export default function MobileSidebar({ userData, profile, user, open, onClose }
           <div className="flex items-center gap-3">
             <div className="bg-white rounded-xl shadow-lg p-1 flex-shrink-0">
               <Image
-                src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png"
+                src="https://ziii.com.mx/logos/1ZIIIlogo.png"
                 alt="ZIII Logo"
                 width={32}
                 height={32}

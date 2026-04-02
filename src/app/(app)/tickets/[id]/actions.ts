@@ -1,4 +1,4 @@
-'use server'
+﻿'use server'
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
@@ -505,7 +505,7 @@ export async function escalateTicket(ticketId: string, currentLevel: number, ass
             <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background:#f9fafb; padding:40px 20px;">
               
               <div style="max-width:600px; margin:0 auto 24px auto; text-align:center;">
-                <img src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png" alt="ZIII Helpdesk" width="180" height="120" style="display:block; margin:0 auto;" />
+                <img src="https://ziii.com.mx/logos/1ZIIIlogo.png" alt="ZIII Helpdesk" width="180" height="120" style="display:block; margin:0 auto;" />
               </div>
 
               <div style="max-width:600px; margin:0 auto; background:#ffffff; border-radius:16px; box-shadow:0 4px 6px rgba(0,0,0,0.07); overflow:hidden;">
@@ -910,7 +910,7 @@ export async function requestEscalation(ticketId: string, reason: string) {
           <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background:#f9fafb; padding:40px 20px;">
             
             <div style="max-width:600px; margin:0 auto 24px auto; text-align:center;">
-              <img src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png" alt="ZIII Helpdesk" width="180" height="120" style="display:block; margin:0 auto;" />
+              <img src="https://ziii.com.mx/logos/1ZIIIlogo.png" alt="ZIII Helpdesk" width="180" height="120" style="display:block; margin:0 auto;" />
             </div>
 
             <div style="max-width:600px; margin:0 auto; background:#ffffff; border-radius:16px; box-shadow:0 4px 6px rgba(0,0,0,0.07); overflow:hidden;">

@@ -1,4 +1,4 @@
-import { redirect } from 'next/navigation'
+﻿import { redirect } from 'next/navigation'
 import { headers } from 'next/headers'
 import Link from 'next/link'
 import type { ReactNode } from 'react'
@@ -334,7 +334,7 @@ export default async function HubPage() {
             <div className="flex items-center gap-6 min-w-0">
               <div className="flex items-center gap-3 flex-shrink-0">
                 <img
-                  src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png"
+                  src="https://ziii.com.mx/logos/1ZIIIlogo.png"
                   alt="ZIII HoS"
                   className="h-10 w-10 object-contain rounded-xl bg-white shadow-lg shadow-slate-900/40"
                 />

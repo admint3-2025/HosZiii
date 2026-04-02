@@ -1,4 +1,4 @@
-import { Suspense } from 'react'
+﻿import { Suspense } from 'react'
 import LoginForm from './ui/LoginForm'
 
 export default async function LoginPage() {
@@ -21,7 +21,7 @@ export default async function LoginPage() {
         <div className="relative z-10">
           <div className="flex items-center gap-4">
             <img
-              src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png"
+              src="https://ziii.com.mx/logos/1ZIIIlogo.png"
               alt="ZIII HoS"
               className="h-14 w-14 object-contain"
             />
@@ -109,7 +109,7 @@ export default async function LoginPage() {
       <section className="flex-1 flex items-center justify-center p-6 lg:p-12 bg-slate-50">
         <div className="w-full max-w-md">
           <div className="flex flex-col items-center">
-            <img src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png" alt="ZIII HoS" className="h-16 w-16 object-contain" />
+            <img src="https://ziii.com.mx/logos/1ZIIIlogo.png" alt="ZIII HoS" className="h-16 w-16 object-contain" />
             <h2 className="mt-6 text-xl font-bold text-slate-900">Bienvenido a ZIII HoS</h2>
             <p className="mt-1 text-sm text-slate-500">Plataforma integral para gestión hotelera corporativa</p>
           </div>

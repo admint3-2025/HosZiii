@@ -1,4 +1,4 @@
-import jsPDF from 'jspdf'
+﻿import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import { generateQRCode, getAssetQRContent } from '@/lib/qr/generator'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
@@ -81,7 +81,7 @@ async function buildPDF(data: DisposalData, folio: string, verificationCode: str
         reader.readAsDataURL(logoBlob)
       })
     } catch {
-      const logoResponse = await fetch('https://systemach-sas.com/logo_ziii/ZIII%20logo.png')
+      const logoResponse = await fetch('https://ziii.com.mx/logos/1ZIIIlogo.png')
       const logoBlob = await logoResponse.blob()
       logoBase64 = await new Promise<string>((resolve) => {
         const reader = new FileReader()

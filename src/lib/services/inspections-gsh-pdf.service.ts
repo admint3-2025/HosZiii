@@ -1,4 +1,4 @@
-import jsPDF from 'jspdf'
+﻿import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import type { InspectionGSH } from './inspections-gsh.service'
 
@@ -22,7 +22,7 @@ export class InspectionGSHPDFGenerator {
   private readonly evidenceImageCache = new Map<string, { dataUrl: string; format: 'PNG' | 'JPEG' | 'WEBP' }>()
 
   // Logo corporativo
-  private static readonly LOGO_URL = 'https://systemach-sas.com/logo_ziii/ZIII%20logo.png'
+  private static readonly LOGO_URL = 'https://ziii.com.mx/logos/1ZIIIlogo.png'
   private static readonly BRAND_LOGO_URL = 'https://systemach-sas.com/logo_ziii/alzendhlogo.png'
 
   constructor(options?: { systemLogoUrl?: string | null; brandLogoUrl?: string | null; brandLogoKey?: string | null }) {

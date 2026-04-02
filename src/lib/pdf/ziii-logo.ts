@@ -1,4 +1,4 @@
-import fs from 'node:fs/promises'
+﻿import fs from 'node:fs/promises'
 import path from 'node:path'
 
 export type PdfLogo = {
@@ -36,7 +36,7 @@ export async function loadZiiiLogoDataUrl(): Promise<PdfLogo | null> {
   }
 
   // Fallback to the same URL used in the UI
-  const url = 'https://systemach-sas.com/logo_ziii/ZIII%20logo.png'
+  const url = 'https://ziii.com.mx/logos/1ZIIIlogo.png'
   try {
     const res = await fetch(url)
     if (!res.ok) return null
