@@ -1,7 +1,64 @@
 ﻿import { Suspense } from 'react'
+import { headers } from 'next/headers'
 import LoginForm from './ui/LoginForm'
 
 export default async function LoginPage() {
+  const headersList = await headers()
+  const ua = headersList.get('user-agent') ?? ''
+  const isMobile = ua.includes('ZIIIHoSApp')
+
+  if (isMobile) {
+    return (
+      <main className="min-h-screen flex flex-col items-center justify-center p-6 relative overflow-hidden bg-[#0B1628]">
+        {/* Blobs decorativos */}
+        <div className="absolute -top-32 left-1/2 -translate-x-1/2 w-[480px] h-[480px] bg-cyan-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -bottom-24 -left-24 w-72 h-72 bg-emerald-500/8 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute bottom-0 right-0 w-64 h-64 bg-blue-600/8 rounded-full blur-3xl pointer-events-none" />
+
+        {/* Patrón de puntos sutil */}
+        <div
+          className="absolute inset-0 opacity-[0.03] pointer-events-none"
+          style={{
+            backgroundImage: `radial-gradient(circle at 1px 1px, rgb(255 255 255) 1px, transparent 0)`,
+            backgroundSize: '28px 28px',
+          }}
+        />
+
+        {/* Logo y título */}
+        <div className="relative z-10 flex flex-col items-center mb-8">
+          <div className="p-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm mb-4">
+            <img
+              src="https://ziii.com.mx/logos/1ZIIIlogo.png"
+              alt="ZIII HoS"
+              className="h-16 w-16 object-contain"
+            />
+          </div>
+          <h1 className="text-2xl font-bold text-white tracking-tight">ZIII HoS</h1>
+          <p className="mt-1 text-sm text-slate-400">Plataforma hotelera corporativa</p>
+          <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-300 border border-emerald-500/25">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
+            HOSPITALITY SUITE
+          </span>
+        </div>
+
+        {/* Formulario */}
+        <div className="relative z-10 w-full max-w-sm">
+          <Suspense fallback={<div className="text-sm text-slate-400 text-center">Cargando…</div>}>
+            <LoginForm isMobile />
+          </Suspense>
+        </div>
+
+        {/* Footer */}
+        <div className="relative z-10 mt-8 text-center">
+          <div className="flex items-center justify-center gap-1.5 text-xs text-slate-500">
+            <span className="h-1.5 w-1.5 rounded-full bg-emerald-500" />
+            <span>Sistema corporativo seguro y multitenancia</span>
+          </div>
+        </div>
+      </main>
+    )
+  }
+
   return (
     <main className="min-h-screen flex bg-slate-950">
       {/* Panel izquierdo - Mensaje */}

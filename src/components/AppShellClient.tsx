@@ -261,6 +261,7 @@ export default function AppShellClient({
 
   // Determinar el módulo actual según la ruta
   const moduleContext = useMemo(() => {
+    if (pathname.startsWith('/admin/knowledge-base')) return 'helpdesk'
     if (pathname.startsWith('/admin')) return 'admin'
     if (pathname.startsWith('/politicas')) return 'politicas'
     if (pathname.startsWith('/planificacion')) return 'planificacion'
