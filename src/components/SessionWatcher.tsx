@@ -5,7 +5,9 @@
  * y muestra un overlay con el mensaje "Sesión cerrada por inactividad"
  * antes de redirigir al login.
  *
- * Se monta en AppShellClient (páginas autenticadas).
+ * Se monta en el root layout (cubre todas las páginas autenticadas).
+ * Usa un timer basado en session.expires_at porque autoRefreshToken está
+ * desactivado y onAuthStateChange no dispara SIGNED_OUT por expiración natural.
  * El cierre manual (SignOutButton) establece el flag __manualSignOut en
  * sessionStorage para que el watcher no muestre el modal.
  */
@@ -27,25 +29,48 @@ export default function SessionWatcher() {
     // No instalar en rutas públicas
     if (pathname === '/login' || pathname.startsWith('/auth')) return
 
+    let expiryTimeout: ReturnType<typeof setTimeout> | null = null
+
+    const triggerExpiry = () => {
+      setCountdown(COUNTDOWN_SECONDS)
+      setShowModal(true)
+    }
+
+    // Timer basado en session.expires_at — funciona aunque autoRefreshToken=false
+    supabase.current.auth.getSession().then(({ data: { session } }) => {
+      if (!session?.expires_at) return
+
+      const now = Math.floor(Date.now() / 1000)
+      const secsRemaining = session.expires_at - now
+
+      if (secsRemaining <= 0) {
+        // Ya expiró mientras se cargaba la página
+        triggerExpiry()
+        return
+      }
+
+      expiryTimeout = setTimeout(triggerExpiry, secsRemaining * 1000)
+    })
+
+    // Fallback: cubre signOut() explícito en otra pestaña o error de auth
     const { data: { subscription } } = supabase.current.auth.onAuthStateChange(
       (event) => {
         if (event === 'SIGNED_OUT') {
-          // Si fue un cierre manual, ignorar
           try {
             if (sessionStorage.getItem('__manualSignOut') === '1') {
               sessionStorage.removeItem('__manualSignOut')
               return
             }
           } catch { /* sessionStorage no disponible */ }
-
-          // Cierre involuntario → mostrar modal
-          setCountdown(COUNTDOWN_SECONDS)
-          setShowModal(true)
+          triggerExpiry()
         }
       }
     )
 
-    return () => subscription.unsubscribe()
+    return () => {
+      subscription.unsubscribe()
+      if (expiryTimeout) clearTimeout(expiryTimeout)
+    }
   }, [pathname])
 
   // Cuenta regresiva y redirección automática

@@ -2,6 +2,7 @@
 import type { Metadata } from 'next'
 import { Orbitron } from 'next/font/google'
 import { WebViewBridge } from '@/components/WebViewBridge'
+import SessionWatcher from '@/components/SessionWatcher'
 
 const orbitron = Orbitron({
   subsets: ['latin'],
@@ -29,6 +30,7 @@ export default function RootLayout({
     <html lang="es">
       <body className={`min-h-screen bg-gray-50 text-gray-900 ${orbitron.variable}`}>
         <WebViewBridge />
+        <SessionWatcher />
         {children}
       </body>
     </html>

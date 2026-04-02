@@ -8,7 +8,6 @@ import SignOutButton from './SignOutButton'
 import NotificationBell from './NotificationBell'
 import { getAvatarInitial } from '@/lib/ui/avatar'
 import MobileSidebar from './MobileSidebar'
-import SessionWatcher from './SessionWatcher'
 
 // Iconos Lucide-style como SVG
 const Icons = {
@@ -943,8 +942,6 @@ export default function AppShellClient({
           </div>
         </main>
       </div>
-
-      <SessionWatcher />
 
       {/* Mobile navigation - Drawer lateral */}
       {!hideSidebar && (
