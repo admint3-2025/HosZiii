@@ -1,25 +1,25 @@
 'use client'
 
 /**
- * SessionWatcher — Detecta cuando la sesión expira de forma involuntaria
- * y muestra un overlay con el mensaje "Sesión cerrada por inactividad"
- * antes de redirigir al login.
+ * SessionWatcher — Detecta cuando la sesión se cierra de forma involuntaria
+ * (refresh token caducado, sesión revocada, cierre desde otra pestaña) y
+ * muestra un overlay con el mensaje "Sesión cerrada por inactividad".
  *
- * Se monta en el root layout (cubre todas las páginas autenticadas).
- * Usa un timer basado en session.expires_at porque autoRefreshToken está
- * desactivado y onAuthStateChange no dispara SIGNED_OUT por expiración natural.
+ * Con autoRefreshToken:true en browser.ts, el JWT se renueva automáticamente
+ * antes de expirar (cada ~50 min), por lo que SIGNED_OUT solo se dispara cuando
+ * el refresh token genuinamente expiró o fue revocado.
+ *
  * El cierre manual (SignOutButton) establece el flag __manualSignOut en
  * sessionStorage para que el watcher no muestre el modal.
  */
 
 import { useEffect, useRef, useState } from 'react'
-import { useRouter, usePathname } from 'next/navigation'
+import { usePathname } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 
 const COUNTDOWN_SECONDS = 6
 
 export default function SessionWatcher() {
-  const router = useRouter()
   const pathname = usePathname()
   const [showModal, setShowModal] = useState(false)
   const [countdown, setCountdown] = useState(COUNTDOWN_SECONDS)
@@ -29,30 +29,6 @@ export default function SessionWatcher() {
     // No instalar en rutas públicas
     if (pathname === '/login' || pathname.startsWith('/auth')) return
 
-    let expiryTimeout: ReturnType<typeof setTimeout> | null = null
-
-    const triggerExpiry = () => {
-      setCountdown(COUNTDOWN_SECONDS)
-      setShowModal(true)
-    }
-
-    // Timer basado en session.expires_at — funciona aunque autoRefreshToken=false
-    supabase.current.auth.getSession().then(({ data: { session } }) => {
-      if (!session?.expires_at) return
-
-      const now = Math.floor(Date.now() / 1000)
-      const secsRemaining = session.expires_at - now
-
-      if (secsRemaining <= 0) {
-        // Ya expiró mientras se cargaba la página
-        triggerExpiry()
-        return
-      }
-
-      expiryTimeout = setTimeout(triggerExpiry, secsRemaining * 1000)
-    })
-
-    // Fallback: cubre signOut() explícito en otra pestaña o error de auth
     const { data: { subscription } } = supabase.current.auth.onAuthStateChange(
       (event) => {
         if (event === 'SIGNED_OUT') {
@@ -62,15 +38,14 @@ export default function SessionWatcher() {
               return
             }
           } catch { /* sessionStorage no disponible */ }
-          triggerExpiry()
+          // Cierre involuntario: mostrar modal
+          setCountdown(COUNTDOWN_SECONDS)
+          setShowModal(true)
         }
       }
     )
 
-    return () => {
-      subscription.unsubscribe()
-      if (expiryTimeout) clearTimeout(expiryTimeout)
-    }
+    return () => subscription.unsubscribe()
   }, [pathname])
 
   // Cuenta regresiva y redirección automática
@@ -78,13 +53,13 @@ export default function SessionWatcher() {
     if (!showModal) return
 
     if (countdown <= 0) {
-      router.replace('/login?reason=inactivity')
+      window.location.href = '/login?reason=inactivity'
       return
     }
 
     const t = setTimeout(() => setCountdown((c) => c - 1), 1000)
     return () => clearTimeout(t)
-  }, [showModal, countdown, router])
+  }, [showModal, countdown])
 
   if (!showModal) return null
 
@@ -98,7 +73,6 @@ export default function SessionWatcher() {
       <div className="bg-white rounded-2xl shadow-2xl max-w-sm w-full mx-4 overflow-hidden">
         {/* Cabecera */}
         <div className="bg-amber-50 px-6 py-6 flex flex-col items-center gap-3 text-center border-b border-amber-100">
-          {/* Ícono reloj de arena */}
           <div className="w-14 h-14 bg-amber-100 rounded-full flex items-center justify-center">
             <svg
               className="w-7 h-7 text-amber-600"
@@ -141,7 +115,7 @@ export default function SessionWatcher() {
         {/* Botón */}
         <div className="px-6 py-4">
           <button
-            onClick={() => router.replace('/login?reason=inactivity')}
+            onClick={() => { window.location.href = '/login?reason=inactivity' }}
             className="w-full bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-semibold py-2.5 px-4 rounded-xl transition-colors text-sm"
           >
             Iniciar sesión ahora
