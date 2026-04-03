@@ -17,6 +17,7 @@ import {
   Calendar,
 } from 'lucide-react';
 import type { AcademyProgress } from '@/lib/types/academy';
+import { openPdfUrl } from '@/lib/mobile/pdf-download';
 
 interface EnrollmentCourse {
   id: string;
@@ -366,15 +367,14 @@ export default function MyProgressDashboard({
                         Emitido: {formatDate(cert.issued_at)}
                       </p>
                       {cert.pdf_url && (
-                        <a
-                          href={cert.pdf_url}
-                          target="_blank"
-                          rel="noopener noreferrer"
+                        <button
+                          type="button"
+                          onClick={() => openPdfUrl(cert.pdf_url!, `certificado-${cert.verification_code}.pdf`)}
                           className="flex items-center justify-center gap-2 w-full py-2 bg-yellow-600 text-white rounded-lg hover:bg-yellow-700 transition-colors"
                         >
                           <Download className="w-5 h-5" />
                           Descargar certificado
-                        </a>
+                        </button>
                       )}
                     </div>
                   ))}

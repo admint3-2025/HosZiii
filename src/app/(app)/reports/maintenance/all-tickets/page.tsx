@@ -6,6 +6,7 @@ import Link from 'next/link'
 import { StatusBadge } from '@/lib/ui/badges'
 import { formatMaintenanceTicketCode as formatTicketCode } from '@/lib/tickets/code'
 import PageHeader, { SectionTitle, StatCard } from '@/components/ui/PageHeader'
+import PdfDownloadButton from '@/components/PdfDownloadButton'
 
 export default async function MaintenanceAllTicketsPage({
   searchParams,
@@ -496,9 +497,9 @@ export default async function MaintenanceAllTicketsPage({
               <a className="btn btn-secondary" href={exportCsvHref}>
                 Descargar CSV
               </a>
-              <a className="btn btn-primary" href={exportPdfHref}>
+              <PdfDownloadButton className="btn btn-primary" href={exportPdfHref} filename="reporte-mantenimiento.pdf">
                 Descargar PDF
-              </a>
+              </PdfDownloadButton>
             </div>
           </div>
         </div>

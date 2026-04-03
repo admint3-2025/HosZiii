@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
+import { openPdfUrl } from '@/lib/mobile/pdf-download'
 
 type Props = {
   attachment: {
@@ -62,7 +63,7 @@ export default function BEOPdfThumbnail({ attachment }: Props) {
     <button
       onClick={(e) => {
         e.preventDefault()
-        if (signedUrl) window.open(signedUrl, '_blank')
+        if (signedUrl) openPdfUrl(signedUrl, attachment.file_name)
       }}
       className="group relative w-16 h-20 bg-red-50 rounded border-2 border-red-200 hover:border-red-400 transition-all overflow-hidden"
       title={`Ver PDF: ${attachment.file_name}`}

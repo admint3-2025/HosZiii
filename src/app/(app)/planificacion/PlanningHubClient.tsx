@@ -30,6 +30,7 @@ import type {
   OpsResponsable,
 } from '@/lib/ops/service'
 import type { UserPlanningProfile } from './page'
+import PdfDownloadButton from '@/components/PdfDownloadButton'
 
 type Props = {
   userProfile: UserPlanningProfile
@@ -2128,10 +2129,10 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
               <p className="mt-1 text-sm text-slate-500">Cuando termines de revisar la cartera anual, exporta exactamente la vista actual con sus filtros aplicados.</p>
             </div>
             <div className="flex flex-wrap gap-2.5">
-              <a href={exportPdfHref} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+              <PdfDownloadButton href={exportPdfHref} filename={`planeacion-${year}.pdf`} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
                 <FileText className="h-4 w-4" />
                 PDF horizontal
-              </a>
+              </PdfDownloadButton>
               <a href={exportExcelHref} className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-900 hover:bg-emerald-100">
                 <FileSpreadsheet className="h-4 w-4" />
                 Excel de la vista actual

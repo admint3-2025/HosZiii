@@ -17,6 +17,7 @@ import {
   getAssetTypesByCategory,
 } from '@/lib/assets/asset-fields'
 import { formatHistoryValue, FIELD_LABELS } from '@/lib/assets/format-history'
+import { downloadPdfBlob } from '@/lib/mobile/pdf-download'
 
 type Location = {
   id: string
@@ -610,7 +611,8 @@ export default function AssetDetailView({
         doc.text(`Página ${i} de ${pages}`, 195, 292, { align: 'right' })
       }
 
-      doc.save(`Activo_${asset.asset_tag}_${new Date().toISOString().split('T')[0]}.pdf`)
+      const fileName = `Activo_${asset.asset_tag}_${new Date().toISOString().split('T')[0]}.pdf`
+      await downloadPdfBlob(doc.output('blob'), fileName)
     } catch (error) {
       console.error('Error generating PDF:', error)
       alert('Error al descargar el PDF. Por favor, intenta nuevamente.')

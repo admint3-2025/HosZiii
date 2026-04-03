@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 import { useRouter } from 'next/navigation'
+import { openPdfUrl } from '@/lib/mobile/pdf-download'
 
 type Attachment = {
   id: string
@@ -106,6 +107,8 @@ export default function MaintenanceTicketAttachments({
       if (attachment.file_type.startsWith('image/')) {
         setPreviewUrl(data.signedUrl)
         setPreviewAlt(attachment.file_name)
+      } else if (attachment.file_type.includes('pdf') || attachment.file_name.toLowerCase().endsWith('.pdf')) {
+        openPdfUrl(data.signedUrl, attachment.file_name)
       } else {
         window.open(data.signedUrl, '_blank')
       }

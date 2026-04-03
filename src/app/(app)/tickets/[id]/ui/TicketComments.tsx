@@ -7,6 +7,7 @@ import { getSignedUrl } from '@/lib/storage/attachments'
 import { uploadViaProxy } from '@/lib/storage/upload-proxy'
 import { getAvatarInitial } from '@/lib/ui/avatar'
 import { addITTicketComment } from '../actions'
+import { openPdfUrl } from '@/lib/mobile/pdf-download'
 
 function AttachmentLink({
   attachment,
@@ -23,6 +24,8 @@ function AttachmentLink({
     if (signedUrl) {
       if (isImage) {
         onOpenImage(signedUrl, attachment.file_name || 'Imagen')
+      } else if (attachment.file_type?.includes('pdf') || attachment.file_name?.toLowerCase().endsWith('.pdf')) {
+        openPdfUrl(signedUrl, attachment.file_name)
       } else {
         window.open(signedUrl, '_blank')
       }

@@ -2,6 +2,7 @@
 import autoTable from 'jspdf-autotable'
 import { generateQRCode, getAssetQRContent } from '@/lib/qr/generator'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
+import { downloadPdfBlob } from '@/lib/mobile/pdf-download'
 
 interface DisposalData {
   id?: string
@@ -509,22 +510,22 @@ export async function generateDisposalPDF(data: DisposalData, requestId?: string
           })
         
         // PASO 6: Descargar el PDF final
-        finalDoc.save(fileName)
+        await downloadPdfBlob(finalBlob, fileName)
       } else {
         console.error('Error uploading to Supabase:', uploadError)
         // Si falla, descargar el PDF temporal
-        tempDoc.save(fileName)
+        await downloadPdfBlob(tempBlob, fileName)
       }
     } catch (error) {
       console.error('Error en proceso de PDF:', error)
       // Fallback: generar PDF sin URL
       const doc = await buildPDF(data, folio, verificationCode, generatedAt)
-      doc.save(fileName)
+      await downloadPdfBlob(doc.output('blob'), fileName)
     }
   } else {
     // Sin requestId, generar PDF sin URL de descarga
     const doc = await buildPDF(data, folio, verificationCode, generatedAt)
-    doc.save(fileName)
+    await downloadPdfBlob(doc.output('blob'), fileName)
   }
 
   return { url: pdfUrl, fileName }

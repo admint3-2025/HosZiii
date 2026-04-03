@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { getAvatarInitial } from '@/lib/ui/avatar'
 import { uploadMaintenanceTicketAttachment } from '@/lib/storage/attachments'
 import { addMaintenanceTicketComment } from '../actions'
+import { openPdfUrl } from '@/lib/mobile/pdf-download'
 
 type CommentAttachment = {
   id: string
@@ -179,6 +180,8 @@ export default function MaintenanceTicketComments({
     if (url) {
       if (attachment.mime_type?.startsWith('image/')) {
         openLightbox(url, attachment.file_name || 'Imagen')
+      } else if (attachment.mime_type?.includes('pdf') || attachment.file_name?.toLowerCase().endsWith('.pdf')) {
+        openPdfUrl(url, attachment.file_name)
       } else {
         window.open(url, '_blank')
       }

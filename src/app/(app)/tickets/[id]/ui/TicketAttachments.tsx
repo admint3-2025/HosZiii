@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { getTicketAttachments, getSignedUrl, deleteAttachment, formatFileSize, getFileIcon } from '@/lib/storage/attachments'
 import { useRouter } from 'next/navigation'
+import { openPdfUrl } from '@/lib/mobile/pdf-download'
 
 type Attachment = {
   id: string
@@ -46,7 +47,12 @@ const [attachments, setAttachments] = useState<Attachment[]>([])
   async function handleDownload(attachment: Attachment) {
     const signedUrl = await getSignedUrl(attachment.storage_path)
     if (signedUrl) {
-      window.open(signedUrl, '_blank')
+      const isPdf = attachment.file_type.includes('pdf') || attachment.file_name.toLowerCase().endsWith('.pdf')
+      if (isPdf) {
+        openPdfUrl(signedUrl, attachment.file_name)
+      } else {
+        window.open(signedUrl, '_blank')
+      }
     }
   }
 
