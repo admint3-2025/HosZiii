@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 
+const REMEMBERED_EMAIL_KEY = 'ziii:last-login-email'
+
 export default function LoginForm({ isMobile = false }: { isMobile?: boolean }) {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -15,6 +17,26 @@ export default function LoginForm({ isMobile = false }: { isMobile?: boolean }) 
   const [mode, setMode] = useState<'login' | 'forgot'>('login')
   const [sent, setSent] = useState(false)
   const [recoveryTried, setRecoveryTried] = useState(false)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const rememberedEmail = window.localStorage.getItem(REMEMBERED_EMAIL_KEY)?.trim() ?? ''
+    if (rememberedEmail) {
+      setEmail(rememberedEmail)
+    }
+  }, [])
+
+  function rememberEmail(value: string) {
+    if (typeof window === 'undefined') return
+
+    const trimmed = value.trim()
+    if (trimmed) {
+      window.localStorage.setItem(REMEMBERED_EMAIL_KEY, trimmed)
+    } else {
+      window.localStorage.removeItem(REMEMBERED_EMAIL_KEY)
+    }
+  }
 
   // Session recovery flow: if middleware sent us here due to an "expired" cookie,
   // attempt a refresh in the browser WITHOUT clearing cookies.
@@ -45,7 +67,7 @@ export default function LoginForm({ isMobile = false }: { isMobile?: boolean }) 
             router.refresh()
           }
         }
-      } catch (e: any) {
+      } catch {
         if (!cancelled) {
           setError(
             '⚠️ No se pudo recuperar la sesión automáticamente. Intenta iniciar sesión de nuevo o abre /login?clear=1 para limpiar cookies.'
@@ -66,7 +88,9 @@ export default function LoginForm({ isMobile = false }: { isMobile?: boolean }) 
     setError(null)
     setBusy(true)
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    const trimmedEmail = email.trim()
+
+    const { error } = await supabase.auth.signInWithPassword({ email: trimmedEmail, password })
     setBusy(false)
     if (error) {
       // Record failed login attempt (best-effort)
@@ -75,7 +99,7 @@ export default function LoginForm({ isMobile = false }: { isMobile?: boolean }) 
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            email: email.trim(),
+            email: trimmedEmail,
             success: false,
             error: error.code || error.message,
             userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
@@ -112,7 +136,7 @@ export default function LoginForm({ isMobile = false }: { isMobile?: boolean }) 
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: email.trim(),
+          email: trimmedEmail,
           success: true,
           userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
         }),
@@ -120,6 +144,8 @@ export default function LoginForm({ isMobile = false }: { isMobile?: boolean }) 
     } catch {
       // ignore
     }
+
+    rememberEmail(trimmedEmail)
 
     // Go straight into the app to avoid extra redirects.
     const isApp = typeof navigator !== 'undefined' && navigator.userAgent.includes('ZIIIHoSApp')
@@ -142,6 +168,8 @@ export default function LoginForm({ isMobile = false }: { isMobile?: boolean }) 
       setError('Captura tu correo.')
       return
     }
+
+    rememberEmail(trimmed)
 
     setBusy(true)
     try {
@@ -198,6 +226,9 @@ export default function LoginForm({ isMobile = false }: { isMobile?: boolean }) 
           autoComplete="email"
           required
         />
+        <p className={isMobile ? 'mt-2 text-xs text-slate-400' : 'mt-2 text-xs text-slate-500'}>
+          Este dispositivo recordará el último correo usado.
+        </p>
       </div>
 
       {mode === 'login' ? (
