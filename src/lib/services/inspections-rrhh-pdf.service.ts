@@ -147,7 +147,17 @@ export class InspectionRRHHPDFGenerator {
   async download(inspection: InspectionRRHH, filename?: string): Promise<void> {
     const fname = filename || `Inspeccion_${inspection.property_code}_${new Date(inspection.inspection_date).toISOString().split('T')[0]}.pdf`
     await this.generate(inspection)
-    this.doc.save(fname)
+    const isApp = typeof navigator !== 'undefined' && navigator.userAgent.includes('ZIIIHoSApp')
+    if (isApp && typeof window !== 'undefined' && (window as any).ReactNativeWebView) {
+      const dataUri = this.doc.output('datauristring')
+      ;(window as any).ReactNativeWebView.postMessage(JSON.stringify({
+        type: 'downloadPDF',
+        filename: fname,
+        data: dataUri,
+      }))
+    } else {
+      this.doc.save(fname)
+    }
   }
 
   private getReportTitle(inspection: InspectionRRHH): string {
