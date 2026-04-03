@@ -189,21 +189,16 @@ export class InspectionRRHHPDFGenerator {
     await this.generate(inspection)
     const isApp = typeof navigator !== 'undefined' && navigator.userAgent.includes('ZIIIHoSApp')
     if (isApp && typeof window !== 'undefined') {
-      // Android WebView: POST the PDF to server, then navigate to the HTTPS URL.
-      // Content-Disposition:attachment triggers Android download manager.
-      // Do NOT fall back to doc.save() — blob:// URLs cause "Descarga incorrecta" on Android.
+      // Android WebView: send base64 PDF to native app via postMessage.
+      // The App.tsx handler (type:'downloadPDF') writes it to cache and opens it
+      // with Sharing.shareAsync — avoids blob:// and window.location.href issues.
       try {
-        const blob = this.doc.output('blob')
-        const fd = new FormData()
-        fd.append('file', blob, fname)
-        fd.append('filename', fname)
-        const res = await fetch('/api/pdf/temp-download', { method: 'POST', body: fd })
-        if (!res.ok) throw new Error(`upload failed: ${res.status}`)
-        const json = await res.json()
-        if (!json?.id) throw new Error('no id returned')
-        window.location.href = `/api/pdf/temp-download?id=${json.id}`
+        const dataUrl = this.doc.output('datauristring') // data:application/pdf;base64,...
+        ;(window as any).ReactNativeWebView?.postMessage(
+          JSON.stringify({ type: 'downloadPDF', data: dataUrl, filename: fname })
+        )
       } catch {
-        // POST/upload failed; silently ignore — blob:// would cause a broken download notification
+        // ignore
       }
       return
     }
