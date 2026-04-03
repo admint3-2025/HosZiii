@@ -36,8 +36,14 @@ export default function LoginForm({ isMobile = false }: { isMobile?: boolean }) 
         if (error) throw error
 
         if (data?.session && !cancelled) {
-          router.replace('/hub')
-          router.refresh()
+          const isApp = typeof navigator !== 'undefined' && navigator.userAgent.includes('ZIIIHoSApp')
+          if (isApp) {
+            // WebView: full navigation to ensure cookies are committed before the server reads them
+            window.location.href = '/hub'
+          } else {
+            router.replace('/hub')
+            router.refresh()
+          }
         }
       } catch (e: any) {
         if (!cancelled) {
@@ -116,8 +122,14 @@ export default function LoginForm({ isMobile = false }: { isMobile?: boolean }) 
     }
 
     // Go straight into the app to avoid extra redirects.
-    router.replace('/hub')
-    router.refresh()
+    const isApp = typeof navigator !== 'undefined' && navigator.userAgent.includes('ZIIIHoSApp')
+    if (isApp) {
+      // WebView: full navigation to ensure cookies are committed before the server reads them
+      window.location.href = '/hub'
+    } else {
+      router.replace('/hub')
+      router.refresh()
+    }
   }
 
   async function onForgot(e: React.FormEvent) {
