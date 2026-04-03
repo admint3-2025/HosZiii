@@ -21,7 +21,7 @@ export const dynamic = 'force-dynamic'
 const TTL_MS = 5 * 60 * 1000 // 5 minutes
 
 interface CacheEntry {
-  data: Buffer
+  data: ArrayBuffer
   filename: string
   expires: number
 }
@@ -45,9 +45,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'file required' }, { status: 400 })
     }
     const id = crypto.randomUUID()
-    const buffer = Buffer.from(await file.arrayBuffer())
+    const data = await file.arrayBuffer()
     pdfCache.set(id, {
-      data: buffer,
+      data,
       filename,
       expires: Date.now() + TTL_MS,
     })
@@ -72,7 +72,7 @@ export async function GET(req: NextRequest) {
     headers: {
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="${entry.filename}"`,
-      'Content-Length': String(entry.data.length),
+      'Content-Length': String(entry.data.byteLength),
       'Cache-Control': 'no-store',
     },
   })
