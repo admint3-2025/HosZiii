@@ -26,15 +26,15 @@ export default async function LoginPage() {
 
         {/* Logo y título */}
         <div className="relative z-10 flex flex-col items-center mb-8">
-          <div className="p-3 rounded-2xl bg-white/5 border border-white/10 backdrop-blur-sm mb-4">
+          <div className="mb-5 flex h-32 w-32 items-center justify-center rounded-[2rem] border border-cyan-400/15 bg-white/5 p-4 shadow-[0_20px_50px_rgba(8,15,30,0.45)] backdrop-blur-sm">
             <img
-              src="https://ziii.com.mx/logos/1ZIIIlogo.png"
+              src="/logos/ziii-logo.png"
               alt="ZIII HoS"
-              className="h-16 w-16 object-contain"
+              className="h-24 w-24 object-contain"
             />
           </div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">ZIII HoS</h1>
-          <p className="mt-1 text-sm text-slate-400">Plataforma hotelera corporativa</p>
+          <h1 className="text-[2rem] font-bold text-white tracking-tight">ZIII HoS</h1>
+          <p className="mt-1.5 text-base text-slate-400">Plataforma hotelera corporativa</p>
           <span className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-emerald-500/15 px-3 py-1 text-xs font-semibold text-emerald-300 border border-emerald-500/25">
             <span className="h-1.5 w-1.5 rounded-full bg-emerald-400 animate-pulse" />
             HOSPITALITY SUITE
