@@ -209,9 +209,6 @@ export class InspectionRRHHPDFGenerator {
     }
     this.doc.save(fname)
   }
-    }
-    this.doc.save(fname)
-  }
 
   private getReportTitle(inspection: InspectionRRHH): string {
     const department = inspection.department?.trim?.() ?? ''
