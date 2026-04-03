@@ -2,10 +2,10 @@
  * Temporary PDF download endpoint for Android WebView.
  *
  * jsPDF.save() creates a blob:// URL which Android WebView cannot download.
- * This route accepts a base64 PDF, stores it briefly in memory, and serves it
- * as a real HTTPS attachment so Android's built-in download listener handles it.
+ * This route accepts a multipart-uploaded PDF, stores it briefly in memory,
+ * and serves it back as a real HTTPS attachment.
  *
- * POST /api/pdf/temp-download  { data: base64string, filename: string }
+ * POST /api/pdf/temp-download  multipart/form-data(file, filename)
  *   → { id: string }
  *
  * GET  /api/pdf/temp-download?id=<uuid>
@@ -58,6 +58,7 @@ export async function POST(req: NextRequest) {
 }
 
 export async function GET(req: NextRequest) {
+  cleanup()
   const id = req.nextUrl.searchParams.get('id') ?? ''
   if (!id) return new NextResponse('Not found', { status: 404 })
 
@@ -67,9 +68,7 @@ export async function GET(req: NextRequest) {
     return new NextResponse('Expired or not found', { status: 410 })
   }
 
-  pdfCache.delete(id) // one-time use
-
-  return new NextResponse(entry.data.buffer as ArrayBuffer, {
+  return new NextResponse(entry.data, {
     headers: {
       'Content-Type': 'application/pdf',
       'Content-Disposition': `attachment; filename="${entry.filename}"`,

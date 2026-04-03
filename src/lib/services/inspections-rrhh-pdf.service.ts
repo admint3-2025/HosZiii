@@ -189,18 +189,33 @@ export class InspectionRRHHPDFGenerator {
     await this.generate(inspection)
     const isApp = typeof navigator !== 'undefined' && navigator.userAgent.includes('ZIIIHoSApp')
     if (isApp && typeof window !== 'undefined') {
-      // Android WebView: send base64 PDF to native app via postMessage.
-      // The App.tsx handler (type:'downloadPDF') writes it to cache and opens it
-      // with Sharing.shareAsync — avoids blob:// and window.location.href issues.
+      // Android WebView: upload once, then either hand the short URL to native
+      // code or fall back to a normal attachment URL for older builds.
       try {
-        const dataUrl = this.doc.output('datauristring') // data:application/pdf;base64,...
-        ;(window as any).ReactNativeWebView?.postMessage(
-          JSON.stringify({ type: 'downloadPDF', data: dataUrl, filename: fname })
-        )
+        const blob = this.doc.output('blob')
+        const fd = new FormData()
+        fd.append('file', blob, fname)
+        fd.append('filename', fname)
+
+        const res = await fetch('/api/pdf/temp-download', { method: 'POST', body: fd })
+        if (!res.ok) throw new Error(`upload failed: ${res.status}`)
+
+        const json = await res.json()
+        if (!json?.id) throw new Error('no id returned')
+
+        const downloadUrl = `${window.location.origin}/api/pdf/temp-download?id=${encodeURIComponent(String(json.id))}`
+        const nativeDownloadMode = (window as any).__ziiiNativeDownloadMode
+        const nativeBridge = (window as any).ReactNativeWebView
+
+        if (nativeDownloadMode === 'url' && typeof nativeBridge?.postMessage === 'function') {
+          nativeBridge.postMessage(JSON.stringify({ type: 'downloadPDFUrl', url: downloadUrl, filename: fname }))
+        } else {
+          window.location.href = downloadUrl
+        }
+        return
       } catch {
-        // ignore
+        // Fall back below to the browser save flow if the Android path fails.
       }
-      return
     }
     this.doc.save(fname)
   }
