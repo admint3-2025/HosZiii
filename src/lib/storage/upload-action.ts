@@ -1,6 +1,7 @@
 'use server'
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { buildStorageObjectUrl } from './public-url'
 
 /**
  * Server Action para subir archivos a Supabase Storage.
@@ -72,15 +73,10 @@ export async function uploadToStorage(formData: FormData): Promise<{
       return { success: false, error: uploadError.message }
     }
 
-    // Obtener URL pública
-    const { data: urlData } = supabase.storage
-      .from(bucket)
-      .getPublicUrl(path)
-
     return {
       success: true,
       path,
-      publicUrl: urlData?.publicUrl ?? undefined,
+      publicUrl: buildStorageObjectUrl(bucket, path) ?? undefined,
     }
   } catch (error) {
     console.error('[uploadToStorage] Error inesperado:', error)

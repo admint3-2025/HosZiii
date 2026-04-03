@@ -4,7 +4,7 @@ import { useEffect, useRef, useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 import { uploadViaProxy } from '@/lib/storage/upload-proxy'
 import {
-  buildSupabaseStoragePublicUrl,
+  buildStorageObjectUrl,
   getSupabaseStoragePathFromUrl,
   normalizeSupabaseStorageUrl,
 } from '@/lib/storage/public-url'
@@ -68,7 +68,7 @@ export default function AssetImageUpload({
 
       const publicUrl =
         normalizeSupabaseStorageUrl(uploadResult.publicUrl) ||
-        buildSupabaseStoragePublicUrl('asset-images', uploadResult.path || '') ||
+        buildStorageObjectUrl('asset-images', uploadResult.path || '') ||
         ''
 
       if (!publicUrl) {

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { buildSupabaseStoragePublicUrl } from '@/lib/storage/public-url'
+import { buildStorageObjectUrl } from '@/lib/storage/public-url'
 
 /**
  * POST /api/storage/upload
@@ -85,7 +85,7 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    const publicUrl = buildSupabaseStoragePublicUrl(bucket, path)
+    const publicUrl = buildStorageObjectUrl(bucket, path)
 
     return NextResponse.json({
       success: true,

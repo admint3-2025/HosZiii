@@ -1,15 +1,33 @@
 const PUBLIC_STORAGE_SEGMENT = '/storage/v1/object/public/'
 const SIGNED_STORAGE_SEGMENT = '/storage/v1/object/sign/'
+const STORAGE_OBJECT_ROUTE = '/api/storage/object'
+const FALLBACK_URL_ORIGIN = 'http://localhost'
 
-function getPublicSupabaseOrigin(): string | null {
-  const publicUrl = process.env.NEXT_PUBLIC_SUPABASE_URL
-  if (!publicUrl) return null
-
+function parseUrl(url: string): URL | null {
   try {
-    return new URL(publicUrl).origin
+    return new URL(url, FALLBACK_URL_ORIGIN)
   } catch {
     return null
   }
+}
+
+function extractBucketAndPath(pathname: string): { bucket: string; path: string } | null {
+  for (const prefix of [PUBLIC_STORAGE_SEGMENT, SIGNED_STORAGE_SEGMENT]) {
+    const index = pathname.indexOf(prefix)
+    if (index === -1) continue
+
+    const remaining = pathname.slice(index + prefix.length)
+    const slashIndex = remaining.indexOf('/')
+    if (slashIndex <= 0) return null
+
+    const bucket = decodeURIComponent(remaining.slice(0, slashIndex))
+    const path = decodeURIComponent(remaining.slice(slashIndex + 1))
+    if (!bucket || !path) return null
+
+    return { bucket, path }
+  }
+
+  return null
 }
 
 function encodeStoragePath(path: string): string {
@@ -20,11 +38,19 @@ function encodeStoragePath(path: string): string {
     .join('/')
 }
 
-export function buildSupabaseStoragePublicUrl(bucket: string, path: string): string | null {
-  const publicOrigin = getPublicSupabaseOrigin()
-  if (!publicOrigin || !bucket || !path) return null
+export function buildStorageObjectUrl(bucket: string, path: string): string | null {
+  if (!bucket || !path) return null
 
-  return `${publicOrigin}${PUBLIC_STORAGE_SEGMENT}${encodeURIComponent(bucket)}/${encodeStoragePath(path)}`
+  const params = new URLSearchParams({
+    bucket,
+    path,
+  })
+
+  return `${STORAGE_OBJECT_ROUTE}?${params.toString()}`
+}
+
+export function buildSupabaseStoragePublicUrl(bucket: string, path: string): string | null {
+  return buildStorageObjectUrl(bucket, encodeStoragePath(path))
 }
 
 export function normalizeSupabaseStorageUrl(url: string | null | undefined): string | null {
@@ -33,41 +59,45 @@ export function normalizeSupabaseStorageUrl(url: string | null | undefined): str
   const trimmed = url.trim()
   if (!trimmed) return null
 
-  const publicOrigin = getPublicSupabaseOrigin()
-  if (!publicOrigin) return trimmed
+  const parsed = parseUrl(trimmed)
+  if (!parsed) return trimmed
 
-  try {
-    const parsed = new URL(trimmed)
-    if (!parsed.pathname.includes('/storage/v1/object/')) {
-      return trimmed
-    }
-    if (parsed.origin === publicOrigin) {
-      return parsed.toString()
-    }
-    return `${publicOrigin}${parsed.pathname}${parsed.search}${parsed.hash}`
-  } catch {
-    return trimmed
+  if (parsed.pathname === STORAGE_OBJECT_ROUTE) {
+    const bucket = parsed.searchParams.get('bucket')
+    const path = parsed.searchParams.get('path')
+    return buildStorageObjectUrl(bucket || '', path || '') || trimmed
   }
+
+  const extracted = extractBucketAndPath(parsed.pathname)
+  if (extracted) {
+    return buildStorageObjectUrl(extracted.bucket, extracted.path) || trimmed
+  }
+
+  return trimmed
 }
 
 export function getSupabaseStoragePathFromUrl(url: string | null | undefined, bucket: string): string | null {
   const normalizedUrl = normalizeSupabaseStorageUrl(url)
   if (!normalizedUrl || !bucket) return null
 
-  try {
-    const parsed = new URL(normalizedUrl)
-    const encodedBucket = encodeURIComponent(bucket)
-    const publicPrefix = `${PUBLIC_STORAGE_SEGMENT}${encodedBucket}/`
-    const signedPrefix = `${SIGNED_STORAGE_SEGMENT}${encodedBucket}/`
+  const parsed = parseUrl(normalizedUrl)
+  if (parsed) {
+    if (parsed.pathname === STORAGE_OBJECT_ROUTE) {
+      const routeBucket = parsed.searchParams.get('bucket')
+      const routePath = parsed.searchParams.get('path')
+      if (routeBucket === bucket && routePath) {
+        return routePath
+      }
+    }
 
-    if (parsed.pathname.includes(publicPrefix)) {
-      return decodeURIComponent(parsed.pathname.split(publicPrefix)[1] || '') || null
+    const extracted = extractBucketAndPath(parsed.pathname)
+    if (extracted?.bucket === bucket) {
+      return extracted.path
     }
-    if (parsed.pathname.includes(signedPrefix)) {
-      return decodeURIComponent(parsed.pathname.split(signedPrefix)[1] || '') || null
-    }
-  } catch {
-    // Fallback below for malformed or non-standard URLs.
+  }
+
+  if (!normalizedUrl.includes('://') && !normalizedUrl.startsWith('/')) {
+    return decodeURIComponent(normalizedUrl)
   }
 
   const marker = `/${bucket}/`
