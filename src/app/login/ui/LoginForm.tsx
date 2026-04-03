@@ -38,8 +38,8 @@ export default function LoginForm({ isMobile = false }: { isMobile?: boolean }) 
         if (data?.session && !cancelled) {
           const isApp = typeof navigator !== 'undefined' && navigator.userAgent.includes('ZIIIHoSApp')
           if (isApp) {
-            // WebView: full navigation to ensure cookies are committed before the server reads them
-            window.location.href = '/hub'
+            // Android WebView: wait 500ms for cookie store to sync before navigating
+            setTimeout(() => { window.location.href = '/hub' }, 500)
           } else {
             router.replace('/hub')
             router.refresh()
@@ -124,8 +124,8 @@ export default function LoginForm({ isMobile = false }: { isMobile?: boolean }) 
     // Go straight into the app to avoid extra redirects.
     const isApp = typeof navigator !== 'undefined' && navigator.userAgent.includes('ZIIIHoSApp')
     if (isApp) {
-      // WebView: full navigation to ensure cookies are committed before the server reads them
-      window.location.href = '/hub'
+      // Android WebView: wait 500ms for cookie store to sync before navigating
+      setTimeout(() => { window.location.href = '/hub' }, 500)
     } else {
       router.replace('/hub')
       router.refresh()

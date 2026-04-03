@@ -3,8 +3,9 @@ import type { NextConfig } from 'next'
 const nextConfig: NextConfig = {
   reactStrictMode: true,
   experimental: {
+    serverBodySizeLimit: '50mb',
     serverActions: {
-      bodySizeLimit: '15mb',
+      bodySizeLimit: '50mb',
     },
   },
   allowedDevOrigins: [
