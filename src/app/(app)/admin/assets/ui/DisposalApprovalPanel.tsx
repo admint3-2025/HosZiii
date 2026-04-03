@@ -64,7 +64,7 @@ export default function DisposalApprovalPanel({ requests }: Props) {
       } else {
         setError(result.error || 'Error al aprobar')
       }
-    } catch (err) {
+    } catch {
       setError('Error inesperado')
     } finally {
       setProcessingId(null)
@@ -90,7 +90,7 @@ export default function DisposalApprovalPanel({ requests }: Props) {
       } else {
         setError(result.error || 'Error al rechazar')
       }
-    } catch (err) {
+    } catch {
       setError('Error inesperado')
     } finally {
       setProcessingId(null)

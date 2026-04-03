@@ -4,7 +4,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { sendMail, getSmtpConfig } from '@/lib/email/mailer'
 import { revalidatePath } from 'next/cache'
-import { formatHistoryValue, FIELD_LABELS as HISTORY_FIELD_LABELS } from '@/lib/assets/format-history'
+import { FIELD_LABELS as HISTORY_FIELD_LABELS } from '@/lib/assets/format-history'
 
 // URL base del sistema - usar variable de entorno o detectar
 const getBaseUrl = () => {
@@ -641,8 +641,6 @@ export async function approveDisposalRequest(requestId: string, assetId: string,
       .eq('id', user.id)
       .single()
     
-    const baseUrl = getBaseUrl()
-    
     const emailHtml = `
       <!DOCTYPE html>
       <html lang="es">
@@ -796,12 +794,6 @@ export async function rejectDisposalRequest(requestId: string, notes: string) {
     // Obtener email del solicitante via admin API
     const { data: requesterData } = await supabaseAdmin.auth.admin.getUserById(request.requested_by)
     const requesterEmail = requesterData?.user?.email
-    
-    const { data: requester } = await supabaseAdmin
-      .from('profiles')
-      .select('full_name')
-      .eq('id', request.requested_by)
-      .single()
     
     const { data: rejector } = await supabase
       .from('profiles')

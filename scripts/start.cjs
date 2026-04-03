@@ -6,16 +6,15 @@ const fs = require('fs');
 const rootDir = path.resolve(__dirname, '..');
 process.chdir(rootDir);
 
-const nextBin = path.join(rootDir, 'node_modules', '.bin', 'next');
+const nextCli = path.join(rootDir, 'node_modules', 'next', 'dist', 'bin', 'next');
 const args = process.argv.slice(2);
 
 // Check if build output exists, if not run build first
 const buildOutputPath = path.join(rootDir, '.next', 'server', 'webpack-runtime.js');
 if (!fs.existsSync(buildOutputPath)) {
   console.log('[ziii] Build output not found, running build first...');
-  const buildChild = spawn(nextBin || 'next', ['build'], {
+  const buildChild = spawn(process.execPath, [nextCli, 'build'], {
     stdio: 'inherit',
-    shell: true,
   });
   
   buildChild.on('exit', (code) => {
@@ -30,9 +29,8 @@ if (!fs.existsSync(buildOutputPath)) {
 
 function runStart() {
   console.log(`[ziii] Running: next start ${args.join(' ')}`);
-  const child = spawn(nextBin || 'next', ['start', ...args], {
+  const child = spawn(process.execPath, [nextCli, 'start', ...args], {
     stdio: 'inherit',
-    shell: true,
   });
 
   child.on('exit', (code) => {

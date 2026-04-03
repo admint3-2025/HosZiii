@@ -560,7 +560,6 @@ export async function approveDisposalRequest(requestId: string, assetId: string,
       .single()
     
     const assetTag = (request.asset as { asset_tag: string })?.asset_tag || request.asset_snapshot?.asset_tag
-    const baseUrl = getBaseUrl()
     
     const emailHtml = `
       <!DOCTYPE html>
@@ -711,12 +710,6 @@ export async function rejectDisposalRequest(requestId: string, notes: string) {
     // Obtener email del solicitante via admin API
     const { data: requesterData } = await supabaseAdmin.auth.admin.getUserById(request.requested_by)
     const requesterEmail = requesterData?.user?.email
-    
-    const { data: requester } = await supabaseAdmin
-      .from('profiles')
-      .select('full_name')
-      .eq('id', request.requested_by)
-      .single()
     
     const { data: rejector } = await supabase
       .from('profiles')

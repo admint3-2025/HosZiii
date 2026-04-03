@@ -15,7 +15,6 @@ import { normalizeSupabaseStorageUrl } from '@/lib/storage/public-url'
 import {
   getAssetFieldsForType,
   getAssetTypesByCategory,
-  isITAsset,
 } from '@/lib/assets/asset-fields'
 
 type Location = {
@@ -118,7 +117,7 @@ export default function AssetDetailView({
 }) {
   const router = useRouter()
   const [isEditing, setIsEditing] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
+  const [isDeleting] = useState(false)
   const [isChangingStatus, setIsChangingStatus] = useState(false)
   const [showDisposalModal, setShowDisposalModal] = useState(false)
   const [qrImageUrl, setQrImageUrl] = useState<string | null>(null)
@@ -130,52 +129,6 @@ export default function AssetDetailView({
   const isReadOnly = userRole === 'agent_l1' || userRole === 'agent_l2'
   const hasPendingDisposal = !!pendingDisposalRequest
   const assetImageUrl = normalizeSupabaseStorageUrl(asset.image_url)
-
-  const handleDelete = async () => {
-    if (isReadOnly) {
-      alert('No tienes permiso para eliminar activos. Contacta con un supervisor.')
-      return
-    }
-
-    if (!confirm('¿Estás seguro de que deseas dar de baja este activo? Esta acción se puede revertir desde el panel de administración.')) {
-      return
-    }
-
-    setIsDeleting(true)
-    const supabase = createSupabaseBrowserClient()
-
-    const { data: { user } } = await supabase.auth.getUser()
-
-    const { error } = await supabase
-      .from('assets')
-      .update({
-        deleted_at: new Date().toISOString(),
-        deleted_by: user?.id || null
-      })
-      .eq('id', asset.id)
-
-    if (error) {
-      console.error('Error deleting asset:', error)
-      alert('Error al dar de baja el activo')
-      setIsDeleting(false)
-      return
-    }
-
-    await supabase.from('audit_log').insert({
-      entity_type: 'asset',
-      entity_id: asset.id,
-      action: 'DELETE',
-      actor_id: user?.id,
-      metadata: {
-        asset_tag: asset.asset_tag,
-        asset_type: asset.asset_type,
-        previous_status: asset.status,
-      },
-    })
-
-    router.push('/admin/assets')
-    router.refresh()
-  }
 
   const handleQuickStatusChange = async (newStatus: string) => {
     if (isReadOnly) {
@@ -302,19 +255,6 @@ export default function AssetDetailView({
         ? (window.location.origin || process.env.NEXT_PUBLIC_APP_URL || '')
         : ''
       const assetUrl = baseUrl ? `${baseUrl}/admin/assets/${asset.id}` : `/admin/assets/${asset.id}`
-
-      const formatDate = (date: string | null | undefined) => {
-        if (!date) return 'N/A'
-        const d = new Date(date)
-        if (Number.isNaN(d.getTime())) return 'N/A'
-        return d.toLocaleString('es-ES', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-        })
-      }
 
       const formatDateShort = (date: string | null | undefined) => {
         if (!date) return '—'
