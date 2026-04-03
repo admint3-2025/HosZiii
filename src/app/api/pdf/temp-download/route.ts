@@ -38,15 +38,17 @@ function cleanup() {
 export async function POST(req: NextRequest) {
   cleanup()
   try {
-    const { data, filename } = await req.json()
-    if (!data || typeof data !== 'string') {
-      return NextResponse.json({ error: 'data required' }, { status: 400 })
+    const formData = await req.formData()
+    const file = formData.get('file') as File | null
+    const filename = (formData.get('filename') as string) || 'documento.pdf'
+    if (!file) {
+      return NextResponse.json({ error: 'file required' }, { status: 400 })
     }
     const id = crypto.randomUUID()
-    const buffer = Buffer.from(data, 'base64')
+    const buffer = Buffer.from(await file.arrayBuffer())
     pdfCache.set(id, {
       data: buffer,
-      filename: typeof filename === 'string' && filename ? filename : 'documento.pdf',
+      filename,
       expires: Date.now() + TTL_MS,
     })
     return NextResponse.json({ id })

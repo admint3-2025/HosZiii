@@ -150,12 +150,11 @@ export class InspectionRRHHPDFGenerator {
     const isApp = typeof navigator !== 'undefined' && navigator.userAgent.includes('ZIIIHoSApp')
     if (isApp && typeof window !== 'undefined') {
       try {
-        const base64 = this.doc.output('datauristring').replace('data:application/pdf;base64,', '')
-        const res = await fetch('/api/pdf/temp-download', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ data: base64, filename: fname }),
-        })
+        const blob = this.doc.output('blob')
+        const fd = new FormData()
+        fd.append('file', blob, fname)
+        fd.append('filename', fname)
+        const res = await fetch('/api/pdf/temp-download', { method: 'POST', body: fd })
         const { id } = await res.json()
         const a = document.createElement('a')
         a.href = `/api/pdf/temp-download?id=${id}`
