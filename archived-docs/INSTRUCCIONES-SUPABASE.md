@@ -16,7 +16,7 @@ docker exec -i supabase-db psql -U postgres -d postgres < supabase/migration-add
 ```
 
 ```sql
--- Opción B: Desde Supabase Studio (http://192.168.31.240:8000)
+-- Opción B: Desde Supabase Studio (http://127.0.0.1:54323)
 -- 1. Ve a SQL Editor
 -- 2. Copia y pega el contenido completo de: supabase/migration-add-locations.sql
 -- 3. Click en "Run"

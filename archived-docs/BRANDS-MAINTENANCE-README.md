@@ -59,7 +59,7 @@ ssh root@192.168.31.240 "cd /opt/helpdesk && docker exec -i supabase-db psql -U 
 
 ### Opción C: Supabase Studio
 
-1. Abre [Supabase Studio](http://192.168.31.240:8000)
+1. Abre [Supabase Studio](http://127.0.0.1:54323)
 2. Ve a **SQL Editor**
 3. Copia el contenido de `supabase/seed-brands-maintenance.sql`
 4. Pega y ejecuta con **Run**

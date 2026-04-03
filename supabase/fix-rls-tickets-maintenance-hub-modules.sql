@@ -100,7 +100,7 @@ SELECT
   ) as tickets_en_su_sede
 FROM profiles p
 LEFT JOIN locations l ON l.id = p.location_id
-WHERE p.id IN (SELECT id FROM auth.users WHERE email = 'edelatorre298@gmail.com');
+WHERE p.id IN (SELECT id FROM auth.users WHERE email = 'correo@ejemplo.com');
 
 -- Paso 6: Ver cuántos usuarios tienen mantenimiento en hub_visible_modules
 SELECT 

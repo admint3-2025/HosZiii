@@ -112,7 +112,7 @@ AND schemaname = 'storage';
 -- ============================================================================
 -- INSTRUCCIONES SI EL INSERT DEL BUCKET FALLA:
 -- ============================================================================
--- 1. Ve a tu Supabase Dashboard (http://192.168.31.238:8000)
+-- 1. Ve a tu Supabase Dashboard (http://127.0.0.1:54323)
 -- 2. Ve a Storage en el menú lateral
 -- 3. Click en "Create bucket" o "New bucket"
 -- 4. Nombre: ticket-attachments

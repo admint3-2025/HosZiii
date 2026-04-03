@@ -188,7 +188,7 @@ WHERE tablename IN ('tickets', 'tickets_it', 'tickets_maintenance')
   AND cmd = 'SELECT'
 ORDER BY tablename, policyname;
 
--- Verificar acceso de Edith De la Torre
+-- Verificar acceso de un usuario objetivo
 SELECT 
   p.full_name,
   u.email,
@@ -205,7 +205,7 @@ SELECT
 FROM profiles p
 INNER JOIN auth.users u ON u.id = p.id
 LEFT JOIN locations l ON l.id = p.location_id
-WHERE u.email = 'edelatorre298@gmail.com';
+WHERE u.email = 'correo@ejemplo.com';
 
 -- Resumen de usuarios con permisos por hub_visible_modules
 SELECT 
