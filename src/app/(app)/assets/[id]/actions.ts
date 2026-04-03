@@ -2,6 +2,7 @@
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
+import { ASSETS_IT_OPTIONAL_COLUMNS, executeWithSchemaCacheFallback } from '@/lib/supabase/schema-cache-fallback'
 import { revalidatePath } from 'next/cache'
 
 export async function updateAssetWithLocationChange(
@@ -85,16 +86,18 @@ export async function updateAssetWithLocationChange(
     }
 
     const tryUpdate = async (client: typeof supabase | typeof adminClient) => {
-      // 1) Intento con updated_by
-      let res = await (client as any).from('assets_it').update(baseUpdatePayload).eq('id', assetId)
+      const result = await executeWithSchemaCacheFallback({
+        tableName: 'assets_it',
+        payload: baseUpdatePayload,
+        fallbackColumns: ASSETS_IT_OPTIONAL_COLUMNS,
+        execute: (payload) => (client as any).from('assets_it').update(payload).eq('id', assetId),
+      })
 
-      // 2) Si PostgREST no ve updated_by (cache), reintentar sin esa columna
-      if (res?.error?.message?.includes("'updated_by'") || res?.error?.message?.includes('updated_by')) {
-        const { updated_by: _ignored, ...withoutUpdatedBy } = baseUpdatePayload
-        res = await (client as any).from('assets_it').update(withoutUpdatedBy).eq('id', assetId)
+      if (result.removedColumns.length > 0) {
+        console.warn('[assets_it] Update fallback removed unsupported columns:', result.removedColumns)
       }
 
-      return res
+      return result
     }
 
     // Primero: cliente autenticado (para que auth.uid() exista en DB)
@@ -107,7 +110,7 @@ export async function updateAssetWithLocationChange(
 
     if (updateRes?.error) {
       console.error('Error updating assets_it:', updateRes.error)
-      return { success: false, error: updateRes.error.message }
+      return { success: false, error: updateRes.error.message ?? 'Error actualizando el activo IT' }
     }
 
     // Los cambios se registran automáticamente mediante el trigger track_asset_it_changes_trigger

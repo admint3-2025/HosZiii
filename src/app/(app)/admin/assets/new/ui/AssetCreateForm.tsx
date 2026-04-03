@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
+import { ASSETS_IT_OPTIONAL_COLUMNS, executeWithSchemaCacheFallback } from '@/lib/supabase/schema-cache-fallback'
 import DepartmentSelector from '@/components/DepartmentSelector'
 import BrandSelector from '@/components/BrandSelector'
 import AssetImageUpload from '@/components/AssetImageUpload'
@@ -102,9 +103,7 @@ export default function AssetCreateForm({ locations, canManageAllAssets, userRol
     // Obtener usuario actual para created_by
     const { data: { user } } = await supabase.auth.getUser()
 
-    const { data, error } = await supabase
-      .from('assets_it')
-      .insert({
+    const insertPayload: Record<string, any> = {
         asset_code: formData.asset_tag,
         name: formData.model || 'Activo IT',
         category: formData.asset_type,
@@ -123,9 +122,18 @@ export default function AssetCreateForm({ locations, canManageAllAssets, userRol
         os: formData.os || null,
         image_url: formData.image_url || null,
         created_by: user?.id || null,
-      })
-      .select()
-      .single()
+      }
+
+    const { data, error, removedColumns } = await executeWithSchemaCacheFallback<{ data: any; error: any }>({
+      tableName: 'assets_it',
+      payload: insertPayload,
+      fallbackColumns: ASSETS_IT_OPTIONAL_COLUMNS,
+      execute: (payload) => (supabase as any).from('assets_it').insert(payload).select().single(),
+    })
+
+    if (removedColumns.length > 0) {
+      console.warn('[assets_it] Insert fallback removed unsupported columns:', removedColumns)
+    }
 
     if (error) {
       console.error('Error creating asset:', error)

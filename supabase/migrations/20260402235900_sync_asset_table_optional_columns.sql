@@ -1,0 +1,17 @@
+ALTER TABLE public.assets_it
+  ADD COLUMN IF NOT EXISTS department TEXT,
+  ADD COLUMN IF NOT EXISTS updated_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS processor TEXT,
+  ADD COLUMN IF NOT EXISTS ram_gb INTEGER,
+  ADD COLUMN IF NOT EXISTS storage_gb INTEGER,
+  ADD COLUMN IF NOT EXISTS os TEXT,
+  ADD COLUMN IF NOT EXISTS dynamic_specs JSONB DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS image_url TEXT;
+
+ALTER TABLE public.assets_maintenance
+  ADD COLUMN IF NOT EXISTS department TEXT,
+  ADD COLUMN IF NOT EXISTS updated_by UUID REFERENCES auth.users(id) ON DELETE SET NULL,
+  ADD COLUMN IF NOT EXISTS dynamic_specs JSONB DEFAULT '{}'::jsonb,
+  ADD COLUMN IF NOT EXISTS image_url TEXT;
+
+NOTIFY pgrst, 'reload schema';
