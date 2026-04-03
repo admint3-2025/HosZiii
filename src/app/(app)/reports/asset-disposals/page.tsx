@@ -2,6 +2,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { redirect } from 'next/navigation'
 import Link from 'next/link'
 import ExportPDFButton from './ExportPDFButton'
+import { formatImageHistoryValue } from '@/lib/assets/format-history'
 
 type DisposalRequest = {
   id: string
@@ -44,6 +45,7 @@ const fieldLabels: Record<string, string> = {
   os: 'Sistema Operativo',
   ip_address: 'IP',
   mac_address: 'MAC',
+  image_url: 'Imagen',
 }
 
 const statusLabels: Record<string, { label: string; color: string }> = {
@@ -62,6 +64,11 @@ function formatValue(key: string, value: unknown): string {
     return (value as { name: string }).name
   }
   return String(value)
+}
+
+function formatChangeValue(fieldName: string, value: string | null | undefined): string {
+  if (fieldName === 'image_url') return formatImageHistoryValue(value ?? null)
+  return value || '(vacío)'
 }
 
 export default async function AssetDisposalsReportPage() {
@@ -291,9 +298,9 @@ export default async function AssetDisposalsReportPage() {
                               </span>
                             </div>
                             <div className="text-gray-500">
-                              <span className="line-through">{change.old_value || '(vacío)'}</span>
+                              <span className="line-through">{formatChangeValue(change.field_name, change.old_value)}</span>
                               {' → '}
-                              <span>{change.new_value || '(vacío)'}</span>
+                              <span>{formatChangeValue(change.field_name, change.new_value)}</span>
                             </div>
                           </div>
                         ))}

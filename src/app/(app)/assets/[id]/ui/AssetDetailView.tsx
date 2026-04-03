@@ -556,45 +556,25 @@ export default function AssetDetailView({
           return new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime()
         })
 
-        const translateFieldName = (fieldName: string) => {
-          const translations: Record<string, string> = {
-            'model': 'Modelo',
-            'storage gb': 'Almacenamiento',
-            'storage_gb': 'Almacenamiento',
-            'ram gb': 'Memoria RAM',
-            'ram_gb': 'Memoria RAM',
-            'processor': 'Procesador',
-            'os': 'Sistema Operativo',
-            'created': 'Creado',
-            'asset tag': 'Etiqueta',
-            'asset_tag': 'Etiqueta',
-            'brand': 'Marca',
-            'serial number': 'Número de serie',
-            'serial_number': 'Número de serie',
-            'asset type': 'Tipo',
-            'asset_type': 'Tipo',
-            'status': 'Estado',
-            'location': 'Ubicación',
-            'department': 'Departamento',
-            'assigned to': 'Asignado a',
-            'assigned_to': 'Asignado a',
-            'purchase date': 'Fecha de compra',
-            'purchase_date': 'Fecha de compra',
-            'warranty end date': 'Fin de garantía',
-            'warranty_end_date': 'Fin de garantía',
-            'notes': 'Notas',
+        const formatPdfHistoryValue = (value: string | null, fieldName: string) => {
+          if (!value || value === 'null') {
+            return fieldName === 'image_url'
+              ? formatHistoryValue(value, fieldName, locations, users, assignedUser)
+              : '(vacío)'
           }
-          return translations[fieldName.toLowerCase()] || fieldName.replace(/_/g, ' ')
+
+          return formatHistoryValue(value, fieldName, locations, users, assignedUser)
         }
 
         const historyBody = historySorted.map(h => {
           const who = h.changed_by_name || h.changed_by_email || 'Sistema'
-          const field = translateFieldName(h.field_name || '')
+          const fieldName = h.field_name || ''
+          const field = FIELD_LABELS[fieldName] || fieldName.replace(/_/g, ' ')
           return [
             formatDateShort(h.changed_at),
             compact(field, 22),
-            compact(h.old_value, 36),
-            compact(h.new_value, 36),
+            compact(formatPdfHistoryValue(h.old_value, fieldName), 36),
+            compact(formatPdfHistoryValue(h.new_value, fieldName), 36),
             compact(who, 22),
           ]
         })

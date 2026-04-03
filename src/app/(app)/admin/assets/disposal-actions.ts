@@ -4,6 +4,7 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { sendMail, getSmtpConfig } from '@/lib/email/mailer'
 import { revalidatePath } from 'next/cache'
+import { formatImageHistoryValue } from '@/lib/assets/format-history'
 
 // URL base del sistema - usar variable de entorno o detectar
 const getBaseUrl = () => {
@@ -29,6 +30,8 @@ const fieldLabels: Record<string, string> = {
 
 // Formatear valores de campos (ocultar UUIDs y URLs)
 function formatFieldValue(fieldName: string, value: string | null, userName?: string): string {
+  if (fieldName === 'image_url') return formatImageHistoryValue(value)
+
   if (!value || value === 'null') return '(vacío)'
   
   // Si hay nombre de usuario disponible, usarlo
@@ -37,11 +40,6 @@ function formatFieldValue(fieldName: string, value: string | null, userName?: st
   // Si parece un UUID
   if (/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(value)) {
     return '(usuario)'
-  }
-  
-  // Si es una URL de imagen
-  if (fieldName === 'image_url' && value.startsWith('http')) {
-    return '(imagen actualizada)'
   }
   
   return value

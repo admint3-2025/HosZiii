@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import Link from 'next/link'
 import { approveDisposalRequest, rejectDisposalRequest } from '../../disposal-actions'
+import { formatImageHistoryValue } from '@/lib/assets/format-history'
 
 interface Ticket {
   id: string
@@ -59,6 +60,7 @@ const fieldLabels: Record<string, string> = {
   assigned_to: 'Asignado a',
   location_id: 'Sede',
   notes: 'Notas',
+  image_url: 'Imagen',
   created: 'Creado'
 }
 
@@ -113,6 +115,7 @@ export default function DisposalActionsClient({ requests }: Props) {
   })
 
   const formatField = (name: string, val: string | null): string => {
+    if (name === 'image_url') return formatImageHistoryValue(val)
     if (!val || val === 'null') return '(vacío)'
     if (/^[0-9a-f-]{36}$/i.test(val)) return '(ref)'
     return val

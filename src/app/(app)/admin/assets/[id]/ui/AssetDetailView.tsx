@@ -16,6 +16,7 @@ import {
   getAssetFieldsForType,
   getAssetTypesByCategory,
 } from '@/lib/assets/asset-fields'
+import { FIELD_LABELS, formatHistoryValue } from '@/lib/assets/format-history'
 
 type Location = {
   id: string
@@ -129,6 +130,18 @@ export default function AssetDetailView({
   const isReadOnly = userRole === 'agent_l1' || userRole === 'agent_l2'
   const hasPendingDisposal = !!pendingDisposalRequest
   const assetImageUrl = normalizeSupabaseStorageUrl(asset.image_url)
+
+  const formatDisplayHistoryValue = (value: string | null, fieldName: string) => {
+    if (fieldName === 'image_url') {
+      return formatHistoryValue(value, fieldName, locations)
+    }
+
+    if (!value || value === 'null') {
+      return '(vacío)'
+    }
+
+    return formatHistoryValue(value, fieldName, locations)
+  }
 
   const handleQuickStatusChange = async (newStatus: string) => {
     if (isReadOnly) {
@@ -527,12 +540,13 @@ export default function AssetDetailView({
 
         const historyBody = historySorted.map(h => {
           const who = h.changed_by_name || h.changed_by_email || 'Sistema'
-          const field = (h.field_name || '').replace(/_/g, ' ')
+          const fieldName = h.field_name || ''
+          const field = FIELD_LABELS[fieldName] || fieldName.replace(/_/g, ' ')
           return [
             formatDateShort(h.changed_at),
             compact(field, 22),
-            compact(h.old_value, 36),
-            compact(h.new_value, 36),
+            compact(formatDisplayHistoryValue(h.old_value, fieldName), 36),
+            compact(formatDisplayHistoryValue(h.new_value, fieldName), 36),
             compact(who, 22),
           ]
         })
@@ -1245,34 +1259,6 @@ export default function AssetDetailView({
 
             <div className="space-y-2 max-h-96 overflow-y-auto">
               {assetHistory.map((change) => {
-                const fieldLabels: Record<string, string> = {
-                  status: 'Estado',
-                  asset_type: 'Tipo',
-                  brand: 'Marca',
-                  model: 'Modelo',
-                  serial_number: 'Número de Serie',
-                  processor: 'Procesador',
-                  ram_gb: 'Memoria RAM',
-                  storage_gb: 'Almacenamiento',
-                  os: 'Sistema Operativo',
-                  location_id: 'Sede',
-                  assigned_to: 'Responsable',
-                  department: 'Departamento',
-                  created: 'Creación',
-                  deleted: 'Eliminación',
-                  image_url: 'Imagen',
-                }
-
-                // Función para formatear valores de imagen
-                const formatImageValue = (value: string | null): string => {
-                  if (!value) return '(vacío)'
-                  if (value === 'Sin imagen') return 'Sin imagen'
-                  if (value === 'Imagen eliminada') return 'Imagen eliminada'
-                  // Si es una URL, mostrar texto amigable
-                  if (value.startsWith('http')) return 'Imagen agregada'
-                  return value
-                }
-
                 // Determinar si es un campo de imagen
                 const isImageField = change.field_name === 'image_url'
 
@@ -1294,24 +1280,28 @@ export default function AssetDetailView({
                             isImageField ? 'bg-purple-200 text-purple-800' :
                             'bg-blue-200 text-blue-800'
                           }`}>
-                            {fieldLabels[change.field_name] || change.field_name}
+                            {FIELD_LABELS[change.field_name] || change.field_name}
                           </span>
                           {change.change_type === 'UPDATE' && (
                             <span className="text-xs text-gray-600">
                               <span className="text-gray-400">
-                                {isImageField ? formatImageValue(change.old_value) : (change.old_value || '(vacío)')}
+                                {formatDisplayHistoryValue(change.old_value, change.field_name)}
                               </span>
                               {' → '}
                               <span className="font-semibold text-gray-900">
-                                {isImageField ? formatImageValue(change.new_value) : (change.new_value || '(vacío)')}
+                                {formatDisplayHistoryValue(change.new_value, change.field_name)}
                               </span>
                             </span>
                           )}
                           {change.change_type === 'CREATE' && (
-                            <span className="text-xs text-green-700 font-medium">{change.new_value}</span>
+                            <span className="text-xs text-green-700 font-medium">
+                              {formatDisplayHistoryValue(change.new_value, change.field_name)}
+                            </span>
                           )}
                           {change.change_type === 'DELETE' && (
-                            <span className="text-xs text-red-700 font-medium">{change.new_value}</span>
+                            <span className="text-xs text-red-700 font-medium">
+                              {formatDisplayHistoryValue(change.new_value, change.field_name)}
+                            </span>
                           )}
                         </div>
                         <div className="text-xs text-gray-600">

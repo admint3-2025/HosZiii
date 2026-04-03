@@ -4,7 +4,10 @@ import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { sendMail, getSmtpConfig } from '@/lib/email/mailer'
 import { revalidatePath } from 'next/cache'
-import { FIELD_LABELS as HISTORY_FIELD_LABELS } from '@/lib/assets/format-history'
+import {
+  FIELD_LABELS as HISTORY_FIELD_LABELS,
+  formatImageHistoryValue,
+} from '@/lib/assets/format-history'
 
 // URL base del sistema - usar variable de entorno o detectar
 const getBaseUrl = () => {
@@ -17,6 +20,8 @@ const fieldLabels = HISTORY_FIELD_LABELS
 // Formatear valores de campos para emails
 // Usa el helper centralizado pero sin acceso a arrays de locations/users
 function formatFieldValue(fieldName: string, value: string | null, userName?: string): string {
+  if (fieldName === 'image_url') return formatImageHistoryValue(value)
+
   if (!value || value === 'null') return '(vacío)'
   
   // Si hay nombre de usuario disponible, usarlo directamente
@@ -30,11 +35,6 @@ function formatFieldValue(fieldName: string, value: string | null, userName?: st
     if (fieldName === 'location_id') return '(sede)'
     if (fieldName === 'assigned_to') return '(usuario)'
     return value
-  }
-  
-  // Si es una URL de imagen
-  if (fieldName === 'image_url' && value.startsWith('http')) {
-    return 'Imagen agregada'
   }
   
   return value
