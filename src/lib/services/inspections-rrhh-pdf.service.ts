@@ -29,7 +29,8 @@ export class InspectionRRHHPDFGenerator {
     this.doc = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
-      format: 'a4'
+      format: 'a4',
+      compress: true
     })
     this.pageWidth = this.doc.internal.pageSize.getWidth()
     this.pageHeight = this.doc.internal.pageSize.getHeight()
@@ -70,26 +71,49 @@ export class InspectionRRHHPDFGenerator {
     return { dataUrl, format }
   }
 
+  /**
+   * Comprime y redimensiona una imagen usando canvas antes de embeber en el PDF.
+   */
+  private compressImage(dataUrl: string, maxDim = 300, quality = 0.82): Promise<{ dataUrl: string; format: 'JPEG' }> {
+    return new Promise((resolve, reject) => {
+      const img = new window.Image()
+      img.onload = () => {
+        const scale = Math.min(1, maxDim / Math.max(img.width || maxDim, img.height || maxDim))
+        const w = Math.max(1, Math.round((img.width || maxDim) * scale))
+        const h = Math.max(1, Math.round((img.height || maxDim) * scale))
+        const canvas = document.createElement('canvas')
+        canvas.width = w
+        canvas.height = h
+        const ctx = canvas.getContext('2d')
+        if (!ctx) { reject(new Error('no canvas ctx')); return }
+        ctx.drawImage(img, 0, 0, w, h)
+        resolve({ dataUrl: canvas.toDataURL('image/jpeg', quality), format: 'JPEG' })
+      }
+      img.onerror = () => reject(new Error('image load failed'))
+      img.src = dataUrl
+    })
+  }
+
   private async loadLogo(): Promise<void> {
     if (this.logoDataUrl) return
 
     if (!this.systemLogoUrl) return
 
+    const tryLoad = async (url: string) => {
+      const { dataUrl } = await this.fetchImageAsDataUrl(url)
+      const compressed = await this.compressImage(dataUrl, 200, 0.85)
+      this.logoDataUrl = compressed.dataUrl
+      this.logoFormat = 'JPEG'
+    }
+
     try {
-      // Intento directo (si el host permite CORS)
-      const { dataUrl, format } = await this.fetchImageAsDataUrl(this.systemLogoUrl)
-      this.logoDataUrl = dataUrl
-      this.logoFormat = format
-      return
+      await tryLoad(this.systemLogoUrl)
     } catch {
-      // Fallback: proxy same-origin para evitar bloqueos CORS
       const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(this.systemLogoUrl)}`
       try {
-        const { dataUrl, format } = await this.fetchImageAsDataUrl(proxyUrl)
-        this.logoDataUrl = dataUrl
-        this.logoFormat = format
+        await tryLoad(proxyUrl)
       } catch {
-        // Si falla, seguimos sin logo (se renderiza el fallback)
+        // Si falla, seguimos sin logo
       }
     }
   }
@@ -103,21 +127,22 @@ export class InspectionRRHHPDFGenerator {
 
     if (!resolvedUrl) return
 
-    // Logo fijo para este formato (con fallback de proxy por CORS)
+    const tryLoadBrand = async (url: string) => {
+      const { dataUrl } = await this.fetchImageAsDataUrl(url)
+      const compressed = await this.compressImage(dataUrl, 200, 0.85)
+      this.brandLogoDataUrl = compressed.dataUrl
+      this.brandLogoFormat = 'JPEG'
+    }
+
     try {
-      const { dataUrl, format } = await this.fetchImageAsDataUrl(resolvedUrl)
-      this.brandLogoDataUrl = dataUrl
-      this.brandLogoFormat = format
-      return
+      await tryLoadBrand(resolvedUrl)
     } catch {
       // Si es un endpoint same-origin (/api/brand-logo), no usamos proxy.
       if (resolvedUrl.startsWith('/')) return
 
       const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(resolvedUrl)}`
       try {
-        const { dataUrl, format } = await this.fetchImageAsDataUrl(proxyUrl)
-        this.brandLogoDataUrl = dataUrl
-        this.brandLogoFormat = format
+        await tryLoadBrand(proxyUrl)
       } catch {
         // Si falla, seguimos sin logo de marca
       }
@@ -603,9 +628,10 @@ export class InspectionRRHHPDFGenerator {
     const cached = this.evidenceImageCache.get(url)
     if (cached) return cached
     try {
-      const img = await this.fetchImageAsDataUrl(url)
-      this.evidenceImageCache.set(url, img)
-      return img
+      const { dataUrl } = await this.fetchImageAsDataUrl(url)
+      const compressed = await this.compressImage(dataUrl, 150, 0.80)
+      this.evidenceImageCache.set(url, compressed)
+      return compressed
     } catch {
       return null
     }
