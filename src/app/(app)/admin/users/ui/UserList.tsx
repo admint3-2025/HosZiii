@@ -216,6 +216,7 @@ export default function UserList() {
       setEditHubModules({
         'it-helpdesk': normalize(hm['it-helpdesk']),
         mantenimiento: normalize(hm['mantenimiento']),
+        inspecciones: normalize(hm['inspecciones']),
         corporativo: normalize(hm['corporativo']),
         academia: normalize(hm['academia']),
         politicas: normalize(hm['politicas']),
