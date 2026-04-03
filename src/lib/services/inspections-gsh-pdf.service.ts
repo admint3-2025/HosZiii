@@ -75,7 +75,12 @@ export class InspectionGSHPDFGenerator {
    * Comprime y redimensiona una imagen usando canvas antes de embeber en el PDF.
    * Esto evita que PNGs de alta resolución inflen el PDF a MB de datos sin comprimir.
    */
-  private compressImage(dataUrl: string, maxDim = 300, quality = 0.82): Promise<{ dataUrl: string; format: 'JPEG' }> {
+  private compressImage(
+    dataUrl: string,
+    maxDim = 300,
+    quality = 0.82,
+    forceJpeg = false
+  ): Promise<{ dataUrl: string; format: 'PNG' | 'JPEG' }> {
     return new Promise((resolve, reject) => {
       const img = new window.Image()
       img.onload = () => {
@@ -87,8 +92,18 @@ export class InspectionGSHPDFGenerator {
         canvas.height = h
         const ctx = canvas.getContext('2d')
         if (!ctx) { reject(new Error('no canvas ctx')); return }
+        const isPng = dataUrl.startsWith('data:image/png')
+        const useJpeg = forceJpeg || !isPng
+        if (useJpeg) {
+          ctx.fillStyle = '#ffffff'
+          ctx.fillRect(0, 0, w, h)
+        }
         ctx.drawImage(img, 0, 0, w, h)
-        resolve({ dataUrl: canvas.toDataURL('image/jpeg', quality), format: 'JPEG' })
+        if (useJpeg) {
+          resolve({ dataUrl: canvas.toDataURL('image/jpeg', quality), format: 'JPEG' })
+        } else {
+          resolve({ dataUrl: canvas.toDataURL('image/png'), format: 'PNG' })
+        }
       }
       img.onerror = () => reject(new Error('image load failed'))
       img.src = dataUrl
