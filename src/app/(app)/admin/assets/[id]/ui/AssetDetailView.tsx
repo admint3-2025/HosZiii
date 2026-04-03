@@ -10,6 +10,8 @@ import autoTable from 'jspdf-autotable'
 import AssetEditForm from './AssetEditForm'
 import DisposalRequestModal from './DisposalRequestModal'
 import { formatAssetType, getAssetTypeValue } from '@/lib/assets/format'
+import { loadOptimizedPdfImage } from '@/lib/pdf/image-utils'
+import { normalizeSupabaseStorageUrl } from '@/lib/storage/public-url'
 import {
   getAssetFieldsForType,
   getAssetTypesByCategory,
@@ -127,6 +129,7 @@ export default function AssetDetailView({
 
   const isReadOnly = userRole === 'agent_l1' || userRole === 'agent_l2'
   const hasPendingDisposal = !!pendingDisposalRequest
+  const assetImageUrl = normalizeSupabaseStorageUrl(asset.image_url)
 
   const handleDelete = async () => {
     if (isReadOnly) {
@@ -355,18 +358,35 @@ export default function AssetDetailView({
           type: 'image/png',
         }))
 
-      const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+      let logoImage: { dataUrl: string; format: 'PNG' | 'JPEG' } | null = null
+      try {
+        logoImage = await loadOptimizedPdfImage('/logos/ziii-logo.png', {
+          maxDim: 220,
+          quality: 0.85,
+        })
+      } catch (error) {
+        console.error('Error loading optimized logo:', error)
+      }
+
+      const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true })
 
       const drawHeader = (subtitle: string) => {
         doc.setFillColor(15, 23, 42) // slate-900
         doc.rect(0, 0, 210, 24, 'F')
+        if (logoImage) {
+          try {
+            doc.addImage(logoImage.dataUrl, logoImage.format, 8, 2, 20, 20)
+          } catch (error) {
+            console.error('Error adding logo to PDF:', error)
+          }
+        }
         doc.setTextColor(255, 255, 255)
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(16)
-        doc.text('ZIII HoS', 15, 15)
+        doc.text('ZIII HoS', 32, 15)
         doc.setFont('helvetica', 'normal')
         doc.setFontSize(9)
-        doc.text(subtitle, 15, 20)
+        doc.text(subtitle, 32, 20)
         doc.text(`Generado: ${new Date().toLocaleString('es-ES')}`, 195, 20, { align: 'right' })
       }
 
@@ -775,7 +795,7 @@ export default function AssetDetailView({
       )}
 
       {/* Imagen del activo y QR */}
-      {(asset.image_url || qrImageUrl || isGeneratingQr || qrError) && (
+      {(assetImageUrl || qrImageUrl || isGeneratingQr || qrError) && (
         <div className="card shadow-sm border border-slate-200">
           <div className="card-body p-4">
             <div className="flex items-center gap-2 mb-4">
@@ -787,11 +807,11 @@ export default function AssetDetailView({
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Imagen del activo */}
-              {asset.image_url && (
+              {assetImageUrl && (
                 <div className="flex flex-col">
                   <div className="bg-gray-50 rounded-lg border-2 border-gray-200 p-4 flex items-center justify-center" style={{ minHeight: '320px' }}>
                     <a
-                      href={asset.image_url}
+                      href={assetImageUrl}
                       target="_blank"
                       rel="noreferrer"
                       className="w-full flex items-center justify-center"
@@ -800,7 +820,7 @@ export default function AssetDetailView({
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={asset.image_url}
+                        src={assetImageUrl}
                         alt={`Imagen de ${asset.asset_tag}`}
                         className="max-w-full max-h-80 object-contain rounded cursor-zoom-in"
                       />

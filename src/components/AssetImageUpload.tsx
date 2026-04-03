@@ -1,8 +1,13 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 import { uploadViaProxy } from '@/lib/storage/upload-proxy'
+import {
+  buildSupabaseStoragePublicUrl,
+  getSupabaseStoragePathFromUrl,
+  normalizeSupabaseStorageUrl,
+} from '@/lib/storage/public-url'
 
 type AssetImageUploadProps = {
   assetId?: string
@@ -18,9 +23,13 @@ export default function AssetImageUpload({
   onImageRemoved,
 }: AssetImageUploadProps) {
   const [isUploading, setIsUploading] = useState(false)
-  const [previewUrl, setPreviewUrl] = useState<string | null>(currentImageUrl || null)
+  const [previewUrl, setPreviewUrl] = useState<string | null>(normalizeSupabaseStorageUrl(currentImageUrl))
   const [error, setError] = useState<string | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
+
+  useEffect(() => {
+    setPreviewUrl(normalizeSupabaseStorageUrl(currentImageUrl))
+  }, [currentImageUrl])
 
   const handleFileSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -28,7 +37,9 @@ export default function AssetImageUpload({
 
     // Validar tipo de archivo
     const validTypes = ['image/jpeg', 'image/png', 'image/webp', 'image/gif']
-    if (!validTypes.includes(file.type)) {
+    const validExtensions = ['jpg', 'jpeg', 'png', 'webp', 'gif']
+    const fileExt = file.name.split('.').pop()?.toLowerCase() || ''
+    if (!validTypes.includes(file.type) && !validExtensions.includes(fileExt)) {
       setError('Tipo de archivo no válido. Use JPG, PNG, WebP o GIF.')
       return
     }
@@ -44,8 +55,8 @@ export default function AssetImageUpload({
 
     try {
       // Generar nombre único para el archivo
-      const fileExt = file.name.split('.').pop()
-      const fileName = `${assetId || 'new'}-${Date.now()}.${fileExt}`
+      const uniqueExt = fileExt || 'jpg'
+      const fileName = `${assetId || 'new'}-${Date.now()}.${uniqueExt}`
       const filePath = `assets/${fileName}`
 
       // Subir archivo via proxy
@@ -55,7 +66,14 @@ export default function AssetImageUpload({
         throw new Error(uploadResult.error || 'Error al subir archivo')
       }
 
-      const publicUrl = uploadResult.publicUrl || ''
+      const publicUrl =
+        normalizeSupabaseStorageUrl(uploadResult.publicUrl) ||
+        buildSupabaseStoragePublicUrl('asset-images', uploadResult.path || '') ||
+        ''
+
+      if (!publicUrl) {
+        throw new Error('No se pudo resolver la URL pública de la imagen')
+      }
 
       setPreviewUrl(publicUrl)
       onImageUploaded(publicUrl)
@@ -74,9 +92,8 @@ export default function AssetImageUpload({
       const supabase = createSupabaseBrowserClient()
 
       // Extraer path del archivo de la URL
-      const urlParts = previewUrl.split('/asset-images/')
-      if (urlParts.length > 1) {
-        const filePath = urlParts[1]
+      const filePath = getSupabaseStoragePathFromUrl(previewUrl, 'asset-images')
+      if (filePath) {
         await supabase.storage.from('asset-images').remove([filePath])
       }
 

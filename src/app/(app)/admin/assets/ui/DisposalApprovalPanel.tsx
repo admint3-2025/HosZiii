@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
 import { approveDisposalRequest, rejectDisposalRequest } from '../disposal-actions'
+import { normalizeSupabaseStorageUrl } from '@/lib/storage/public-url'
 
 type DisposalRequest = {
   id: string
@@ -120,6 +121,7 @@ export default function DisposalApprovalPanel({ requests }: Props) {
         <div className="space-y-4">
           {requests.map((request) => {
             const snapshot = request.asset_snapshot
+            const imageUrl = normalizeSupabaseStorageUrl(snapshot?.image_url || request.asset?.image_url)
             const isApproving = approvingId === request.id
             const isRejecting = rejectingId === request.id
             const isProcessing = processingId === request.id
@@ -129,10 +131,10 @@ export default function DisposalApprovalPanel({ requests }: Props) {
                 <div className="p-4">
                   <div className="flex items-start gap-4">
                     {/* Imagen */}
-                    {snapshot?.image_url && (
+                    {imageUrl && (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img 
-                        src={snapshot.image_url} 
+                        src={imageUrl} 
                         alt={snapshot.asset_tag}
                         className="w-16 h-16 object-cover rounded-lg border border-gray-200"
                       />

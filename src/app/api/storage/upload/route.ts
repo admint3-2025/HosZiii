@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createSupabaseServerClient } from '@/lib/supabase/server'
+import { buildSupabaseStoragePublicUrl } from '@/lib/storage/public-url'
 
 /**
  * POST /api/storage/upload
@@ -84,15 +85,12 @@ export async function POST(request: NextRequest) {
       )
     }
 
-    // Obtener URL pública
-    const { data: urlData } = supabase.storage
-      .from(bucket)
-      .getPublicUrl(path)
+    const publicUrl = buildSupabaseStoragePublicUrl(bucket, path)
 
     return NextResponse.json({
       success: true,
       path,
-      publicUrl: urlData?.publicUrl || null,
+      publicUrl,
     })
   } catch (error) {
     console.error('[storage/upload] Error inesperado:', error)
