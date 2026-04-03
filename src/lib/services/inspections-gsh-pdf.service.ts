@@ -147,16 +147,29 @@ export class InspectionGSHPDFGenerator {
     const fname = filename || `Inspeccion_GSH_${inspection.property_code}_${new Date(inspection.inspection_date).toISOString().split('T')[0]}.pdf`
     await this.generate(inspection)
     const isApp = typeof navigator !== 'undefined' && navigator.userAgent.includes('ZIIIHoSApp')
-    if (isApp && typeof window !== 'undefined' && (window as any).ReactNativeWebView) {
-      const dataUri = this.doc.output('datauristring')
-      ;(window as any).ReactNativeWebView.postMessage(JSON.stringify({
-        type: 'downloadPDF',
-        filename: fname,
-        data: dataUri,
-      }))
-    } else {
-      this.doc.save(fname)
+    if (isApp && typeof window !== 'undefined') {
+      try {
+        const base64 = this.doc.output('datauristring').replace('data:application/pdf;base64,', '')
+        const res = await fetch('/api/pdf/temp-download', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ data: base64, filename: fname }),
+        })
+        const { id } = await res.json()
+        const a = document.createElement('a')
+        a.href = `/api/pdf/temp-download?id=${id}`
+        a.download = fname
+        a.rel = 'noopener noreferrer'
+        a.style.display = 'none'
+        document.body.appendChild(a)
+        a.click()
+        setTimeout(() => document.body.removeChild(a), 200)
+        return
+      } catch {
+        // fallback to default
+      }
     }
+    this.doc.save(fname)
   }
 
   private addHeader(inspection: InspectionGSH): void {
