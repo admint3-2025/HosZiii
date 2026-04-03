@@ -2,7 +2,40 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { getSupabaseSessionFromCookies, isSessionExpired } from '@/lib/supabase/session-cookie'
 
+/** Returns true if the error is an auth error that means the session/token is invalid */
+function isInvalidTokenError(e: unknown): boolean {
+  if (!e || typeof e !== 'object') return false
+  const err = e as Record<string, unknown>
+  const code = err.code as string | undefined
+  const msg = (err.message as string | undefined) ?? ''
+  return (
+    code === 'refresh_token_not_found' ||
+    code === 'refresh_token_already_used' ||
+    msg.includes('Invalid Refresh Token') ||
+    msg.includes('Refresh Token Not Found') ||
+    msg.includes('Already Used')
+  )
+}
+
 export async function middleware(request: NextRequest) {
+  try {
+    return await middlewareImpl(request)
+  } catch (e: unknown) {
+    // If an auth error escapes (e.g. @supabase/ssr internally refreshing token), clear cookies and send to login
+    if (isInvalidTokenError(e)) {
+      const res = NextResponse.redirect(new URL('/login', request.url))
+      request.cookies.getAll().forEach((c) => {
+        if (c.name.startsWith('sb-') || c.name.startsWith('ziii-session')) {
+          res.cookies.delete(c.name)
+        }
+      })
+      return res
+    }
+    throw e
+  }
+}
+
+async function middlewareImpl(request: NextRequest) {
   const url = process.env.SUPABASE_URL_INTERNAL ?? process.env.NEXT_PUBLIC_SUPABASE_URL
   const anonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
