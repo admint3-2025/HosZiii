@@ -21,9 +21,9 @@ export class InspectionGSHPDFGenerator {
 
   private readonly evidenceImageCache = new Map<string, { dataUrl: string; format: 'PNG' | 'JPEG' | 'WEBP' }>()
 
-  // Logo corporativo
-  private static readonly LOGO_URL = 'https://ziii.com.mx/logos/1ZIIIlogo.png'
-  private static readonly BRAND_LOGO_URL = 'https://systemach-sas.com/logo_ziii/alzendhlogo.png'
+  // Logo corporativo — archivos locales en /public/logos (sin dependencia externa)
+  private static readonly LOGO_URL = '/logos/ziii-logo.png'
+  private static readonly BRAND_LOGO_URL = '/logos/alzenh-logo.png'
 
   constructor(options?: { systemLogoUrl?: string | null; brandLogoUrl?: string | null; brandLogoKey?: string | null }) {
     this.doc = new jsPDF({
@@ -104,7 +104,7 @@ export class InspectionGSHPDFGenerator {
       const { dataUrl } = await this.fetchImageAsDataUrl(url)
       const compressed = await this.compressImage(dataUrl, 200, 0.85)
       this.logoDataUrl = compressed.dataUrl
-      this.logoFormat = 'JPEG'
+      this.logoFormat = compressed.format
     }
 
     try {
@@ -132,7 +132,7 @@ export class InspectionGSHPDFGenerator {
       const { dataUrl } = await this.fetchImageAsDataUrl(url)
       const compressed = await this.compressImage(dataUrl, 200, 0.85)
       this.brandLogoDataUrl = compressed.dataUrl
-      this.brandLogoFormat = 'JPEG'
+      this.brandLogoFormat = compressed.format
     }
 
     try {
@@ -620,7 +620,7 @@ export class InspectionGSHPDFGenerator {
     if (cached) return cached
     try {
       const { dataUrl } = await this.fetchImageAsDataUrl(url)
-      const compressed = await this.compressImage(dataUrl, 150, 0.80)
+      const compressed = await this.compressImage(dataUrl, 150, 0.80, true)
       this.evidenceImageCache.set(url, compressed)
       return compressed
     } catch {
