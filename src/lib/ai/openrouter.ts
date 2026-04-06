@@ -19,6 +19,16 @@ const OPENROUTER_BASE_URL = 'https://openrouter.ai/api/v1'
 const DEFAULT_MODEL = 'google/gemini-2.0-flash-001'
 const TIMEOUT_MS = 20_000 // ampliado para modelos más analíticos
 
+type ChatMessage = {
+  role: 'system' | 'user' | 'assistant'
+  content: string
+}
+
+type OpenRouterCompletion = {
+  raw: string
+  finishReason?: string | null
+}
+
 export type TriageResult = {
   suggestedReply: string
   confidence: 'high' | 'medium' | 'low'
@@ -57,6 +67,232 @@ function minutesBetween(from: string, to: string): number {
   return Math.max(0, Math.round((new Date(to).getTime() - new Date(from).getTime()) / 60_000))
 }
 
+function isTechnicalRole(userRole?: string): boolean {
+  const normalizedRole = userRole?.toLowerCase() ?? ''
+
+  return (
+    ['admin', 'corporate_admin', 'supervisor', 'agent'].includes(normalizedRole) ||
+    normalizedRole.startsWith('agent_') ||
+    normalizedRole.startsWith('tech_') ||
+    normalizedRole.startsWith('maintenance_')
+  )
+}
+
+function normalizeSuggestedReply(value: string) {
+  return value.replace(/\r\n/g, '\n').trim()
+}
+
+function extractFirstJsonObject(raw: string): string | null {
+  const normalized = raw
+    .replace(/^```json\s*/i, '')
+    .replace(/^```\s*/i, '')
+    .replace(/```$/i, '')
+    .trim()
+
+  let depth = 0
+  let start = -1
+  let inString = false
+  let escaped = false
+
+  for (let index = 0; index < normalized.length; index += 1) {
+    const char = normalized[index]
+
+    if (escaped) {
+      escaped = false
+      continue
+    }
+
+    if (char === '\\') {
+      escaped = true
+      continue
+    }
+
+    if (char === '"') {
+      inString = !inString
+      continue
+    }
+
+    if (inString) {
+      continue
+    }
+
+    if (char === '{') {
+      if (depth === 0) start = index
+      depth += 1
+      continue
+    }
+
+    if (char === '}') {
+      depth -= 1
+      if (depth === 0 && start >= 0) {
+        return normalized.slice(start, index + 1)
+      }
+    }
+  }
+
+  return null
+}
+
+function extractJsonStringField(raw: string, field: string): string | null {
+  const fieldPattern = new RegExp(`"${field}"\\s*:\\s*"`)
+  const match = raw.match(fieldPattern)
+
+  if (!match || match.index === undefined) {
+    return null
+  }
+
+  const start = match.index + match[0].length
+  let buffer = ''
+  let escaped = false
+
+  for (let index = start; index < raw.length; index += 1) {
+    const char = raw[index]
+
+    if (escaped) {
+      buffer += char
+      escaped = false
+      continue
+    }
+
+    if (char === '\\') {
+      buffer += char
+      escaped = true
+      continue
+    }
+
+    if (char === '"') {
+      try {
+        return JSON.parse(`"${buffer}"`) as string
+      } catch {
+        return null
+      }
+    }
+
+    buffer += char
+  }
+
+  return null
+}
+
+function normalizeTriageResult(candidate: Partial<TriageResult> | null | undefined): TriageResult | null {
+  if (!candidate || typeof candidate.suggestedReply !== 'string') {
+    return null
+  }
+
+  const suggestedReply = normalizeSuggestedReply(candidate.suggestedReply)
+  if (!suggestedReply) {
+    return null
+  }
+
+  const confidence = candidate.confidence === 'high' || candidate.confidence === 'medium' || candidate.confidence === 'low'
+    ? candidate.confidence
+    : 'low'
+
+  return {
+    suggestedReply,
+    confidence,
+    shouldEscalate: candidate.shouldEscalate === true,
+  }
+}
+
+function parseTriagePayload(raw: string): TriageResult | null {
+  const candidates = [raw.trim(), extractFirstJsonObject(raw)].filter((value): value is string => Boolean(value))
+
+  for (const candidate of candidates) {
+    try {
+      const parsed = JSON.parse(candidate) as Partial<TriageResult>
+      const normalized = normalizeTriageResult(parsed)
+      if (normalized) {
+        return normalized
+      }
+    } catch {
+      continue
+    }
+  }
+
+  const suggestedReply = extractJsonStringField(raw, 'suggestedReply')
+  if (!suggestedReply) {
+    return null
+  }
+
+  const confidenceMatch = raw.match(/"confidence"\s*:\s*"(high|medium|low)"/)
+  const escalateMatch = raw.match(/"shouldEscalate"\s*:\s*(true|false)/)
+
+  return normalizeTriageResult({
+    suggestedReply,
+    confidence: (confidenceMatch?.[1] as TriageResult['confidence'] | undefined) ?? 'low',
+    shouldEscalate: escalateMatch?.[1] === 'true',
+  })
+}
+
+function isLikelyCompleteReply(reply: string): boolean {
+  const normalized = normalizeSuggestedReply(reply)
+
+  if (normalized.length < 40) {
+    return false
+  }
+
+  if (/[:;,\-\(\[]$/.test(normalized)) {
+    return false
+  }
+
+  const lines = normalized.split('\n').filter(Boolean)
+  const lastLine = lines.length > 0 ? lines[lines.length - 1].trim() : ''
+  return !/^\d+\.$/.test(lastLine)
+}
+
+async function requestOpenRouterCompletion(params: {
+  apiKey: string
+  model: string
+  messages: ChatMessage[]
+  maxTokens: number
+}): Promise<OpenRouterCompletion | null> {
+  const controller = new AbortController()
+  const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+
+  try {
+    const res = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${params.apiKey}`,
+        'Content-Type': 'application/json',
+        'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'https://ziii-helpdesk.local',
+        'X-Title': 'ZIII Helpdesk',
+      },
+      body: JSON.stringify({
+        model: params.model,
+        messages: params.messages,
+        temperature: 0.3,
+        max_tokens: params.maxTokens,
+        response_format: { type: 'json_object' },
+      }),
+      signal: controller.signal,
+    })
+
+    if (!res.ok) {
+      console.error('[OpenRouter] Error HTTP:', res.status, await res.text())
+      return null
+    }
+
+    const data = await res.json()
+    const raw: string | undefined = data.choices?.[0]?.message?.content
+
+    if (!raw) {
+      return null
+    }
+
+    return {
+      raw,
+      finishReason: data.choices?.[0]?.finish_reason,
+    }
+  } catch (err) {
+    console.error('[OpenRouter] Error en triage:', err)
+    return null
+  } finally {
+    clearTimeout(timer)
+  }
+}
+
 /**
  * Devuelve true si el módulo AI está habilitado vía env.
  */
@@ -85,7 +321,7 @@ export async function getTicketTriage(
           .join('\n\n')
       : ''
 
-  const isTechRole = ticket.userRole && ['admin', 'corporate_admin', 'supervisor', 'agent', 'tech_l1', 'tech_l2'].includes(ticket.userRole)
+  const isTechRole = isTechnicalRole(ticket.userRole)
 
   const hasHistory = (ticket.conversationHistory ?? []).length > 0
 
@@ -120,6 +356,8 @@ REGLAS:
 - Proporciona pasos de resolución numerados y específicos: comandos, rutas, configuraciones, herramientas.
 - Si necesitas más información, indica exactamente QUÉ datos técnicos faltan y POR QUÉ.
 - Considera el contexto hotelero: impacto en huéspedes, urgencia operativa, disponibilidad de técnicos en sitio.
+- Usa numeración simple 1., 2., 3., 4. cuando listes pasos.
+- suggestedReply debe medir entre 250 y 750 caracteres.
 - Máximo 4 pasos. Sé directo y técnico.${antiRepetitionRule}${timeVerificationRule}
 
 Responde SOLO con JSON válido:
@@ -146,6 +384,8 @@ REGLAS:
 - Si no hay pasos seguros que el usuario pueda hacer solo, ve directo al cierre con técnico.
 - Máximo 3 pasos de auto-atención. Si el problema es claramente hardware o de infraestructura, no inventes pasos inútiles.
 - Si el usuario pide algo que requiere una decisión humana (como prestar un equipo, autorizar un gasto, etc.), reconoce su solicitud e indícale que un técnico la gestionará.${antiRepetitionRule}${timeVerificationRule}
+- Usa numeración simple 1., 2., 3. sin encabezados adicionales.
+- suggestedReply debe medir entre 320 y 650 caracteres.
 
 Responde SOLO con JSON válido:
 {
@@ -170,7 +410,7 @@ SEDE: ${ticket.location || 'No especificada'}${timelineInfo}${kbContext}`
     ? (isTechRole ? `PREGUNTA DEL TÉCNICO: ${userQuestion}` : userQuestion)
     : ''
 
-  const chatMessages: { role: 'system' | 'user' | 'assistant'; content: string }[] = [
+  const chatMessages: ChatMessage[] = [
     { role: 'system', content: systemPrompt },
   ]
 
@@ -192,67 +432,56 @@ SEDE: ${ticket.location || 'No especificada'}${timelineInfo}${kbContext}`
     }
   }
 
-  try {
-    const controller = new AbortController()
-    const timer = setTimeout(() => controller.abort(), TIMEOUT_MS)
+  const primaryCompletion = await requestOpenRouterCompletion({
+    apiKey,
+    model,
+    messages: chatMessages,
+    maxTokens: 1400,
+  })
 
-    const res = await fetch(`${OPENROUTER_BASE_URL}/chat/completions`, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-        'HTTP-Referer': process.env.NEXT_PUBLIC_APP_URL || 'https://ziii-helpdesk.local',
-        'X-Title': 'ZIII Helpdesk',
-      },
-      body: JSON.stringify({
-        model,
-        messages: chatMessages,
-        temperature: 0.3,
-        max_tokens: 1200,  // suficiente para JSON completo incluso con respuestas largas
-        response_format: { type: 'json_object' },
-      }),
-      signal: controller.signal,
-    })
-
-    clearTimeout(timer)
-
-    if (!res.ok) {
-      console.error('[OpenRouter] Error HTTP:', res.status, await res.text())
-      return null
-    }
-
-    const data = await res.json()
-    const raw: string | undefined = data.choices?.[0]?.message?.content
-    if (!raw) return null
-
-    // Verificar si el JSON fue truncado por límite de tokens
-    const finishReason = data.choices?.[0]?.finish_reason
-    if (finishReason === 'length') {
-      console.warn('[OpenRouter] Respuesta truncada por max_tokens. Intentando recuperar JSON parcial...')
-      // Intentar cerrar el JSON truncado extrayendo los campos presentes
-      const replyMatch = raw.match(/"suggestedReply"\s*:\s*"((?:[^"\\]|\\.)*)/)
-      const confidenceMatch = raw.match(/"confidence"\s*:\s*"(high|medium|low)"/)
-      const escalateMatch = raw.match(/"shouldEscalate"\s*:\s*(true|false)/)
-      if (replyMatch) {
-        return {
-          suggestedReply: replyMatch[1].replace(/\\n/g, '\n').replace(/\\"/g, '"'),
-          confidence: (confidenceMatch?.[1] as TriageResult['confidence']) ?? 'low',
-          shouldEscalate: escalateMatch?.[1] === 'true',
-        }
-      }
-      console.error('[OpenRouter] No se pudo recuperar respuesta truncada. Raw:', raw.slice(0, 200))
-      return null
-    }
-
-    try {
-      const parsed = JSON.parse(raw) as TriageResult
-      return parsed
-    } catch (parseErr) {
-      console.error('[OpenRouter] Error al parsear JSON. finish_reason:', finishReason, '| Raw:', raw.slice(0, 300))
-      return null
-    }
-  } catch (err) {
-    console.error('[OpenRouter] Error en triage:', err)
+  if (!primaryCompletion) {
     return null
   }
+
+  const primaryParsed = parseTriagePayload(primaryCompletion.raw)
+  if (primaryParsed && primaryCompletion.finishReason !== 'length') {
+    return primaryParsed
+  }
+
+  if (primaryCompletion.finishReason === 'length') {
+    console.warn('[OpenRouter] Respuesta truncada por max_tokens. Solicitando reintento compacto...')
+  } else if (!primaryParsed) {
+    console.warn('[OpenRouter] No se pudo parsear la respuesta IA. Reintentando con instrucciones más estrictas...')
+  }
+
+  const retryMessages: ChatMessage[] = [
+    {
+      role: 'system',
+      content: `${systemPrompt}\n\nIMPORTANTE: La respuesta anterior se cortó o no vino en JSON válido. Repite la respuesta COMPLETA en JSON válido estricto. suggestedReply debe ser breve pero completo, cerrar bien cada frase y no exceder 650 caracteres.`,
+    },
+    ...chatMessages.slice(1),
+  ]
+
+  const retryCompletion = await requestOpenRouterCompletion({
+    apiKey,
+    model,
+    messages: retryMessages,
+    maxTokens: 900,
+  })
+
+  const retryParsed = retryCompletion ? parseTriagePayload(retryCompletion.raw) : null
+  if (retryParsed) {
+    return retryParsed
+  }
+
+  if (primaryParsed && isLikelyCompleteReply(primaryParsed.suggestedReply)) {
+    console.warn('[OpenRouter] Se usará la respuesta inicial porque el reintento no devolvió JSON válido.')
+    return primaryParsed
+  }
+
+  console.error('[OpenRouter] No se pudo obtener una respuesta IA válida. Raw inicial:', primaryCompletion.raw.slice(0, 300))
+  if (retryCompletion) {
+    console.error('[OpenRouter] Raw reintento:', retryCompletion.raw.slice(0, 300))
+  }
+  return null
 }

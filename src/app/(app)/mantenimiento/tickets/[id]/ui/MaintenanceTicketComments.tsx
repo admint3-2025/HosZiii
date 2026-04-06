@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useTransition } from 'react'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 import { useRouter } from 'next/navigation'
 import { getAvatarInitial } from '@/lib/ui/avatar'
 import { uploadMaintenanceTicketAttachment } from '@/lib/storage/attachments'
+import { AICommentContent, CommentSubmissionStatusCard, isAICommentBody, type SubmissionStage } from '@/components/comments/AssistantCommentPresentation'
 import { addMaintenanceTicketComment } from '../actions'
 import { openPdfUrl } from '@/lib/mobile/pdf-download'
 
@@ -29,6 +30,13 @@ type Comment = {
   attachments?: CommentAttachment[]
 }
 
+type PendingSubmission = {
+  body: string
+  attachmentsCount: number
+  visibility: 'public' | 'internal'
+  willGenerateAI: boolean
+}
+
 export default function MaintenanceTicketComments({
   ticketId,
   comments: initialComments,
@@ -47,6 +55,7 @@ export default function MaintenanceTicketComments({
   const supabase = createSupabaseBrowserClient()
   const router = useRouter()
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const [isRefreshing, startRefreshTransition] = useTransition()
   const [comments, setComments] = useState<Comment[]>(initialComments)
   const [newComment, setNewComment] = useState('')
   const [mode, setMode] = useState<'followup' | 'note' | 'ai'>('followup')
@@ -55,6 +64,41 @@ export default function MaintenanceTicketComments({
   const [error, setError] = useState<string | null>(null)
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
   const [lightboxAlt, setLightboxAlt] = useState<string>('')
+  const [pendingSubmission, setPendingSubmission] = useState<PendingSubmission | null>(null)
+  const [loadingStage, setLoadingStage] = useState<SubmissionStage>('publishing')
+  const isSubmitting = busy || isRefreshing
+
+  useEffect(() => {
+    setComments(initialComments)
+  }, [initialComments])
+
+  useEffect(() => {
+    if (!isSubmitting || !pendingSubmission) {
+      return
+    }
+
+    setLoadingStage('publishing')
+    const timers: Array<ReturnType<typeof setTimeout>> = []
+
+    if (pendingSubmission.willGenerateAI) {
+      timers.push(setTimeout(() => setLoadingStage('analyzing'), 700))
+
+      if (pendingSubmission.attachmentsCount === 0) {
+        timers.push(setTimeout(() => setLoadingStage('refreshing'), 2200))
+      }
+    } else if (pendingSubmission.attachmentsCount === 0) {
+      timers.push(setTimeout(() => setLoadingStage('refreshing'), 900))
+    }
+
+    return () => timers.forEach(clearTimeout)
+  }, [isSubmitting, pendingSubmission])
+
+  useEffect(() => {
+    if (!isSubmitting) {
+      setPendingSubmission(null)
+      setLoadingStage('publishing')
+    }
+  }, [initialComments, isSubmitting])
 
   const isClosed = ticketStatus === 'CLOSED'
   const canAddComment = !isClosed
@@ -100,6 +144,17 @@ export default function MaintenanceTicketComments({
     setError(null)
     setBusy(true)
 
+    const trimmedComment = newComment.trim()
+    const commentPreview = trimmedComment || (pendingFiles.length > 0 ? `[Adjuntos: ${pendingFiles.length} archivo(s)]` : '')
+    const willGenerateAI = isRequester || requestAI
+
+    setPendingSubmission({
+      body: commentPreview,
+      attachmentsCount: pendingFiles.length,
+      visibility,
+      willGenerateAI,
+    })
+
     try {
       const { data: { user } } = await supabase.auth.getUser()
       if (!user) throw new Error('No autenticado')
@@ -110,7 +165,7 @@ export default function MaintenanceTicketComments({
       // 1. Crear el comentario usando server action (incluye notificaciones)
       const result = await addMaintenanceTicketComment({
         ticketId,
-        body: newComment.trim() || (pendingFiles.length > 0 ? `[Adjuntos: ${pendingFiles.length} archivo(s)]` : ''),
+        body: commentPreview,
         visibility,
         requestAI,
         userRole,
@@ -127,6 +182,9 @@ export default function MaintenanceTicketComments({
 
       // 2. Subir archivos adjuntos al comentario
       const uploadedAttachments: CommentAttachment[] = []
+      if (pendingFiles.length > 0) {
+        setLoadingStage('uploading')
+      }
       
       for (const file of pendingFiles) {
         const uploadResult = await uploadMaintenanceTicketAttachment(ticketId, file, user.id)
@@ -160,8 +218,12 @@ export default function MaintenanceTicketComments({
       
       setNewComment('')
       setPendingFiles([])
-      router.refresh()
+      setLoadingStage('refreshing')
+      startRefreshTransition(() => {
+        router.refresh()
+      })
     } catch (err: any) {
+      setPendingSubmission(null)
       setError(err.message || 'Error al agregar comentario')
     } finally {
       setBusy(false)
@@ -204,7 +266,7 @@ export default function MaintenanceTicketComments({
 
         {/* Lista de comentarios */}
         <div className="space-y-4 mb-6">
-          {visibleComments.length === 0 ? (
+          {visibleComments.length === 0 && !pendingSubmission ? (
             <div className="text-center py-8 bg-gray-50 rounded-xl">
               <svg className="w-12 h-12 text-gray-300 mx-auto mb-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
@@ -213,7 +275,7 @@ export default function MaintenanceTicketComments({
             </div>
           ) : (
             visibleComments.map((comment) => {
-              const isAI = comment.body?.startsWith('🤖 **Asistente ZIII**') || comment.body?.startsWith('🤖 **Apoyo IA**')
+              const isAI = isAICommentBody(comment.body)
               const isApoyoIA = comment.body?.startsWith('🤖 **Apoyo IA**')
               const aiName = isApoyoIA ? 'Apoyo IA — ZIII' : 'Asistente ZIII'
               return (
@@ -271,7 +333,11 @@ export default function MaintenanceTicketComments({
                         })}
                       </span>
                     </div>
-                    <p className={`text-sm whitespace-pre-wrap ${ isAI ? 'text-purple-900' : 'text-gray-700'}`}>{comment.body}</p>
+                    {isAI ? (
+                      <AICommentContent body={comment.body} />
+                    ) : (
+                      <p className="text-sm whitespace-pre-wrap text-gray-700">{comment.body}</p>
+                    )}
                     
                     {/* Adjuntos del comentario */}
                     {comment.attachments && comment.attachments.length > 0 && (
@@ -302,6 +368,16 @@ export default function MaintenanceTicketComments({
               )
             })
           )}
+          {pendingSubmission && isSubmitting ? (
+            <CommentSubmissionStatusCard
+              stage={loadingStage}
+              willGenerateAI={pendingSubmission.willGenerateAI}
+              attachmentsCount={pendingSubmission.attachmentsCount}
+              body={pendingSubmission.body}
+              visibility={pendingSubmission.visibility}
+              tone="amber"
+            />
+          ) : null}
         </div>
 
         {/* Formulario nuevo comentario */}
@@ -324,7 +400,7 @@ export default function MaintenanceTicketComments({
                       ? 'bg-white text-blue-700 shadow-sm'
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
-                  disabled={busy}
+                  disabled={isSubmitting}
                 >
                   <span>💬 Seguimiento</span>
                   <span className="text-[10px] font-normal opacity-70">Visible al solicitante</span>
@@ -337,7 +413,7 @@ export default function MaintenanceTicketComments({
                       ? 'bg-white text-amber-700 shadow-sm'
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
-                  disabled={busy}
+                  disabled={isSubmitting}
                 >
                   <span>🔒 Nota interna</span>
                   <span className="text-[10px] font-normal opacity-70">Solo el equipo técnico</span>
@@ -350,7 +426,7 @@ export default function MaintenanceTicketComments({
                       ? 'bg-white text-purple-700 shadow-sm'
                       : 'text-gray-500 hover:text-gray-700'
                   }`}
-                  disabled={busy}
+                  disabled={isSubmitting}
                 >
                   <span>🤖 Apoyo IA</span>
                   <span className="text-[10px] font-normal opacity-70">Pide apoyo al asistente</span>
@@ -382,7 +458,7 @@ export default function MaintenanceTicketComments({
                 }
                 rows={3}
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-orange-500 focus:border-orange-500 resize-none"
-                disabled={busy}
+                disabled={isSubmitting}
               />
 
               {/* Archivos pendientes */}
@@ -410,6 +486,7 @@ export default function MaintenanceTicketComments({
                         <button
                           type="button"
                           onClick={() => removeFile(idx)}
+                          disabled={isSubmitting}
                           className="text-red-500 hover:text-red-700"
                         >
                           <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -435,22 +512,22 @@ export default function MaintenanceTicketComments({
                     accept="image/*,image/heic,image/heif,.pdf,.doc,.docx,.xls,.xlsx,.txt"
                     onChange={handleFileSelect}
                     className="sr-only"
-                    disabled={busy}
+                    disabled={isSubmitting}
                   />
                 </label>
                 
                 <button
                   type="submit"
-                  disabled={busy || (!newComment.trim() && pendingFiles.length === 0)}
+                  disabled={isSubmitting || (!newComment.trim() && pendingFiles.length === 0)}
                   className="px-4 py-2 bg-gradient-to-r from-orange-500 to-amber-500 text-white rounded-lg text-sm font-semibold hover:from-orange-600 hover:to-amber-600 transition disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                 >
-                  {busy ? (
+                  {isSubmitting ? (
                     <span className="flex items-center gap-2">
                       <svg className="animate-spin w-4 h-4" fill="none" viewBox="0 0 24 24">
                         <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
                         <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"></path>
                       </svg>
-                      Enviando...
+                      {pendingSubmission?.willGenerateAI ? 'Generando respuesta...' : 'Guardando comentario...'}
                     </span>
                   ) : 'Enviar'}
                 </button>

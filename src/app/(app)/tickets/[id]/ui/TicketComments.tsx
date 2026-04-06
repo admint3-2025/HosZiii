@@ -1,13 +1,21 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 import { getSignedUrl } from '@/lib/storage/attachments'
 import { uploadViaProxy } from '@/lib/storage/upload-proxy'
 import { getAvatarInitial } from '@/lib/ui/avatar'
+import { AICommentContent, CommentSubmissionStatusCard, isAICommentBody, type SubmissionStage } from '@/components/comments/AssistantCommentPresentation'
 import { addITTicketComment } from '../actions'
 import { openPdfUrl } from '@/lib/mobile/pdf-download'
+
+type PendingSubmission = {
+  body: string
+  attachmentsCount: number
+  visibility: 'public' | 'internal'
+  willGenerateAI: boolean
+}
 
 function AttachmentLink({
   attachment,
@@ -71,6 +79,7 @@ export default function TicketComments({
 }) {
   const router = useRouter()
   const supabase = createSupabaseBrowserClient()
+  const [isRefreshing, startRefreshTransition] = useTransition()
   const [body, setBody] = useState('')
   const [mode, setMode] = useState<'followup' | 'note' | 'ai'>('followup')
   const [busy, setBusy] = useState(false)
@@ -80,6 +89,37 @@ export default function TicketComments({
   const [previewUrls, setPreviewUrls] = useState<string[]>([])
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
   const [lightboxAlt, setLightboxAlt] = useState('')
+  const [pendingSubmission, setPendingSubmission] = useState<PendingSubmission | null>(null)
+  const [loadingStage, setLoadingStage] = useState<SubmissionStage>('publishing')
+  const isSubmitting = busy || isRefreshing
+
+  useEffect(() => {
+    if (!isSubmitting || !pendingSubmission) {
+      return
+    }
+
+    setLoadingStage('publishing')
+    const timers: Array<ReturnType<typeof setTimeout>> = []
+
+    if (pendingSubmission.willGenerateAI) {
+      timers.push(setTimeout(() => setLoadingStage('analyzing'), 700))
+
+      if (pendingSubmission.attachmentsCount === 0) {
+        timers.push(setTimeout(() => setLoadingStage('refreshing'), 2200))
+      }
+    } else if (pendingSubmission.attachmentsCount === 0) {
+      timers.push(setTimeout(() => setLoadingStage('refreshing'), 900))
+    }
+
+    return () => timers.forEach(clearTimeout)
+  }, [isSubmitting, pendingSubmission])
+
+  useEffect(() => {
+    if (!isSubmitting) {
+      setPendingSubmission(null)
+      setLoadingStage('publishing')
+    }
+  }, [comments, isSubmitting])
 
   // Verificar si el ticket está cerrado
   const isClosed = ticketStatus === 'CLOSED'
@@ -153,12 +193,21 @@ export default function TicketComments({
     // Derivar visibility y requestAI del modo seleccionado
     const visibility = (!isRequester && mode !== 'followup') ? 'internal' : 'public'
     const requestAI = !isRequester && mode === 'ai'
+    const willGenerateAI = isRequester || requestAI
+
+    setPendingSubmission({
+      body: body.trim(),
+      attachmentsCount: attachments.length,
+      visibility,
+      willGenerateAI,
+    })
 
     // Crear el comentario via server action (maneja notificaciones + triage IA)
     const result = await addITTicketComment({ ticketId, body, visibility, requestAI, userRole })
 
     if (result.error) {
       setBusy(false)
+      setPendingSubmission(null)
       setError(result.error)
       return
     }
@@ -167,6 +216,7 @@ export default function TicketComments({
 
     // Subir archivos adjuntos si los hay
     if (attachments.length > 0 && commentData) {
+      setLoadingStage('uploading')
       for (const file of attachments) {
         try {
           const timestamp = Date.now()
@@ -208,13 +258,16 @@ export default function TicketComments({
     }
 
     // Limpiar estado y refrescar
-    setBusy(false)
     setBody('')
     setMode('followup')
     setAttachments([])
     previewUrls.forEach(url => URL.revokeObjectURL(url))
     setPreviewUrls([])
-    router.refresh()
+    setLoadingStage('refreshing')
+    startRefreshTransition(() => {
+      router.refresh()
+    })
+    setBusy(false)
   }
 
   async function reopenTicket() {
@@ -259,7 +312,7 @@ export default function TicketComments({
         {/* Lista de comentarios */}
         <div className="space-y-4">
           {(comments ?? []).map((c) => {
-            const isAI = c.body?.startsWith('🤖 **Asistente ZIII**') || c.body?.startsWith('🤖 **Apoyo IA**')
+            const isAI = isAICommentBody(c.body)
             const isApoyoIA = c.body?.startsWith('🤖 **Apoyo IA**')
             const aiName = isApoyoIA ? 'Apoyo IA — ZIII' : 'Asistente ZIII'
 
@@ -333,7 +386,11 @@ export default function TicketComments({
                 </div>
               </div>
               <div className="ml-12 space-y-3">
-                <div className={`whitespace-pre-wrap text-sm leading-relaxed ${isAI ? 'text-purple-900' : 'text-gray-800'}`}>{c.body}</div>
+                {isAI ? (
+                  <AICommentContent body={c.body} />
+                ) : (
+                  <div className="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">{c.body}</div>
+                )}
                 
                 {/* Mostrar adjuntos si los hay */}
                 {c.ticket_attachments && c.ticket_attachments.length > 0 && (
@@ -356,7 +413,17 @@ export default function TicketComments({
             </div>
             )
           })}
-          {comments?.length === 0 ? (
+          {pendingSubmission && isSubmitting ? (
+            <CommentSubmissionStatusCard
+              stage={loadingStage}
+              willGenerateAI={pendingSubmission.willGenerateAI}
+              attachmentsCount={pendingSubmission.attachmentsCount}
+              body={pendingSubmission.body}
+              visibility={pendingSubmission.visibility}
+              tone="violet"
+            />
+          ) : null}
+          {comments?.length === 0 && !pendingSubmission ? (
             <div className="text-center py-12">
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-3">
                 <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -434,6 +501,7 @@ export default function TicketComments({
                 <button
                   type="button"
                   onClick={() => setMode('followup')}
+                  disabled={isSubmitting}
                   className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all text-center ${
                     mode === 'followup'
                       ? 'border-blue-500 bg-blue-50'
@@ -450,6 +518,7 @@ export default function TicketComments({
                 <button
                   type="button"
                   onClick={() => setMode('note')}
+                  disabled={isSubmitting}
                   className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all text-center ${
                     mode === 'note'
                       ? 'border-amber-500 bg-amber-50'
@@ -466,6 +535,7 @@ export default function TicketComments({
                 <button
                   type="button"
                   onClick={() => setMode('ai')}
+                  disabled={isSubmitting}
                   className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all text-center ${
                     mode === 'ai'
                       ? 'border-purple-500 bg-purple-50'
@@ -492,6 +562,7 @@ export default function TicketComments({
             value={body}
             onChange={(e) => setBody(e.target.value)}
             required
+            disabled={isSubmitting}
             placeholder={
               mode === 'note'
                 ? 'Escribe una nota interna para el equipo técnico...'
@@ -521,7 +592,7 @@ export default function TicketComments({
                   accept="image/*,image/heic,image/heif"
                   onChange={handleFileSelect}
                   className="sr-only"
-                  disabled={busy}
+                  disabled={isSubmitting}
                 />
               </label>
               {attachments.length > 0 && (
@@ -545,6 +616,7 @@ export default function TicketComments({
                     <button
                       type="button"
                       onClick={() => removeAttachment(idx)}
+                      disabled={isSubmitting}
                       className="absolute top-1 right-1 p-1 bg-red-600 hover:bg-red-700 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                       title="Eliminar"
                     >
@@ -570,13 +642,17 @@ export default function TicketComments({
           ) : null}
           <button
             type="submit"
-            disabled={busy}
+            disabled={isSubmitting}
             className="btn btn-primary w-full flex items-center justify-center gap-2"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
             </svg>
-            {busy ? 'Publicando…' : 'Publicar comentario'}
+            {isSubmitting
+              ? pendingSubmission?.willGenerateAI
+                ? 'Generando respuesta...'
+                : 'Guardando comentario...'
+              : 'Publicar comentario'}
           </button>
         </form>
         ) : null}
