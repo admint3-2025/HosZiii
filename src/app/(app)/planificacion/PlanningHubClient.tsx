@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import type { LucideIcon } from 'lucide-react'
 import {
@@ -1863,6 +1863,7 @@ export default function PlanningHubClient({
   const [seedBusyPlanId, setSeedBusyPlanId] = useState<string | null>(null)
   const [busyAgendaItemId, setBusyAgendaItemId] = useState<string | null>(null)
   const [activeMatrixTooltipKey, setActiveMatrixTooltipKey] = useState<string | null>(null)
+  const activeMatrixTooltipRef = useRef<HTMLDivElement | null>(null)
 
   const accessibleDepartments = useMemo(() => {
     return buildDepartmentCatalog(userProfile, portfolio)
@@ -2054,7 +2055,12 @@ export default function PlanningHubClient({
   }, [isCatalogs])
 
   useEffect(() => {
-    function handlePointerDown() {
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target
+      if (target instanceof Node && activeMatrixTooltipRef.current?.contains(target)) {
+        return
+      }
+
       setActiveMatrixTooltipKey(null)
     }
 
@@ -2709,6 +2715,7 @@ export default function PlanningHubClient({
                                   <td key={month} className="px-2 py-4 text-center">
                                     {cell ? (
                                       <div
+                                        ref={isTooltipOpen ? activeMatrixTooltipRef : undefined}
                                         className="relative"
                                         onClick={(event) => event.stopPropagation()}
                                         onPointerDown={(event) => event.stopPropagation()}
