@@ -2,7 +2,7 @@ import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 import { createSupabaseServerClient, getSafeServerUser } from '@/lib/supabase/server'
 import { getPlanningExportBundle, normalizePlanningValue } from '@/lib/planificacion/export'
 import { generatePlanningAnnualReportPdf } from '@/lib/pdf/planning-annual-report'
-import { loadZiiiLogoDataUrl } from '@/lib/pdf/ziii-logo'
+import { loadPdfLogoFromUrl, loadZiiiLogoDataUrl } from '@/lib/pdf/ziii-logo'
 
 export const runtime = 'nodejs'
 
@@ -20,6 +20,9 @@ export async function GET(request: Request) {
     const department = normalizePlanningValue(searchParams.get('department')) || 'ALL'
     const locationId = searchParams.get('locationId') ?? 'ALL'
     const reportMode = searchParams.get('reportMode') === 'alerts' ? 'alerts' : 'informative'
+    const brandLogoMode = (searchParams.get('brandLogoMode') ?? '').trim().toLowerCase()
+    const brandLogoKey = (searchParams.get('brandLogoKey') ?? '').trim().toLowerCase()
+    const brandLogoUrl = (searchParams.get('brandLogoUrl') ?? '').trim()
 
     const bundle = await getPlanningExportBundle({
       supabase,
@@ -33,8 +36,29 @@ export async function GET(request: Request) {
       },
     })
 
-    const logo = await loadZiiiLogoDataUrl()
-    const pdf = generatePlanningAnnualReportPdf({ bundle, logo: logo ?? undefined })
+    const requestOrigin = new URL(request.url).origin
+    const logo = await loadZiiiLogoDataUrl({ boxWidth: 160, boxHeight: 160, quality: 84 })
+
+    let brandLogo = null
+    if (brandLogoMode !== 'none') {
+      if (brandLogoKey) {
+        brandLogo = await loadPdfLogoFromUrl(
+          `${requestOrigin}/api/brand-logo?brand=${encodeURIComponent(brandLogoKey)}`,
+          { boxWidth: 360, boxHeight: 120, quality: 84 }
+        )
+      } else if (/^https?:\/\//i.test(brandLogoUrl)) {
+        brandLogo = await loadPdfLogoFromUrl(
+          `${requestOrigin}/api/proxy-image?url=${encodeURIComponent(brandLogoUrl)}`,
+          { boxWidth: 360, boxHeight: 120, quality: 84 }
+        )
+      }
+    }
+
+    const pdf = generatePlanningAnnualReportPdf({
+      bundle,
+      logo: logo ? { ...logo, width: 36, height: 36 } : undefined,
+      brandLogo: brandLogo ? { ...brandLogo, width: 116, height: 34 } : undefined,
+    })
     const fileName = `plan-anual-${bundle.year}-${bundle.filters.department === 'ALL' ? 'todos' : bundle.filters.department.toLowerCase().replace(/\s+/g, '-')}-${reportMode}.pdf`
 
     return new Response(new Blob([pdf], { type: 'application/pdf' }), {

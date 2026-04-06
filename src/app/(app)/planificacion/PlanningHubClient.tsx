@@ -31,7 +31,7 @@ import type {
   OpsResponsable,
 } from '@/lib/ops/service'
 import { buildPlanningDemoData, type PlanningDemoData } from '@/lib/planificacion/demo-data'
-import PdfDownloadButton from '@/components/PdfDownloadButton'
+import { downloadPdfUrl } from '@/lib/mobile/pdf-download'
 import type { UserPlanningProfile } from './planning-page-context'
 
 type Props = {
@@ -2163,6 +2163,39 @@ export default function PlanningHubClient({
   const exportPdfAlertsHref = `/api/planificacion/export/pdf?${exportQuery}&reportMode=alerts`
   const exportExcelHref = `/api/planificacion/export/excel?${exportQuery}`
 
+  function downloadPlanningPdf(baseHref: string, filename: string) {
+    if (typeof window === 'undefined') return
+
+    const storageKey = 'planning:pdf:brandLogo'
+    const previous = window.localStorage.getItem(storageKey)
+    const input = window.prompt(
+      "Logo del cliente para el PDF (opcional).\n\n- Escribe una URL https://...\n- O una clave interna (ej: alzen)\n- O 'none' para no mostrar logo\n\nDeja vacío para usar el último/default.",
+      previous ?? 'alzen'
+    )
+
+    const normalized = (input ?? '').trim()
+    const selected = normalized.length > 0 ? normalized : (previous ?? 'alzen')
+    window.localStorage.setItem(storageKey, selected)
+
+    const lower = selected.toLowerCase()
+    const isUrl = /^https?:\/\//i.test(selected)
+    const url = new URL(baseHref, window.location.origin)
+
+    url.searchParams.delete('brandLogoMode')
+    url.searchParams.delete('brandLogoKey')
+    url.searchParams.delete('brandLogoUrl')
+
+    if (lower === 'none') {
+      url.searchParams.set('brandLogoMode', 'none')
+    } else if (isUrl) {
+      url.searchParams.set('brandLogoUrl', selected)
+    } else {
+      url.searchParams.set('brandLogoKey', selected)
+    }
+
+    downloadPdfUrl(`${url.pathname}${url.search}`, filename)
+  }
+
   async function updateAgendaStatus(id: string, estado: OpsAgendaItem['estado']) {
     if (demoMode) {
       setError('El demo es solo lectura y no depende de Supabase.')
@@ -2464,14 +2497,22 @@ export default function PlanningHubClient({
                     </div>
                   ) : (
                     <div className="flex flex-wrap gap-2.5">
-                      <PdfDownloadButton href={exportPdfInformativeHref} filename={`planeacion-${year}-informativo.pdf`} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                      <button
+                        type="button"
+                        onClick={() => downloadPlanningPdf(exportPdfInformativeHref, `planeacion-${year}-informativo.pdf`)}
+                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                      >
                         <FileText className="h-4 w-4" />
                         PDF informativo
-                      </PdfDownloadButton>
-                      <PdfDownloadButton href={exportPdfAlertsHref} filename={`planeacion-${year}-alertas.pdf`} className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-900 hover:bg-rose-100">
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => downloadPlanningPdf(exportPdfAlertsHref, `planeacion-${year}-alertas.pdf`)}
+                        className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-900 hover:bg-rose-100"
+                      >
                         <AlertTriangle className="h-4 w-4" />
                         PDF con alertas
-                      </PdfDownloadButton>
+                      </button>
                       <a href={exportExcelHref} className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-900 hover:bg-emerald-100">
                         <FileSpreadsheet className="h-4 w-4" />
                         Excel de la vista actual
