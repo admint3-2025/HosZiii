@@ -279,6 +279,27 @@ const STATUS_STYLES: Record<string, string> = {
   mixed: 'bg-violet-100 text-violet-800 border-violet-200',
 }
 
+const EVENT_STATUS_OPTIONS: OpsAgendaItem['estado'][] = ['pendiente', 'en_proceso', 'completado', 'cancelado']
+
+const EVENT_PRIORITY_STYLES: Record<string, { badge: string; accent: string }> = {
+  BAJA: {
+    badge: 'border-slate-200 bg-slate-100 text-slate-700',
+    accent: 'border-l-slate-300',
+  },
+  MEDIA: {
+    badge: 'border-sky-200 bg-sky-50 text-sky-700',
+    accent: 'border-l-sky-400',
+  },
+  ALTA: {
+    badge: 'border-amber-200 bg-amber-50 text-amber-700',
+    accent: 'border-l-amber-400',
+  },
+  CRITICA: {
+    badge: 'border-rose-200 bg-rose-50 text-rose-700',
+    accent: 'border-l-rose-500',
+  },
+}
+
 const PLAN_STATE_STYLES: Record<string, string> = {
   activo: 'bg-emerald-100 text-emerald-800 border-emerald-200',
   pausado: 'bg-amber-100 text-amber-800 border-amber-200',
@@ -289,6 +310,43 @@ const INPUT_CLASS = 'w-full rounded-xl border border-slate-300 bg-white px-3 py-
 
 function normalize(value: string | null | undefined) {
   return (value ?? '').trim().toUpperCase()
+}
+
+function normalizeLabelToken(value: string | null | undefined) {
+  return normalize(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+}
+
+function formatAgendaStatusLabel(status: OpsAgendaItem['estado']) {
+  switch (status) {
+    case 'en_proceso':
+      return 'En proceso'
+    case 'completado':
+      return 'Completado'
+    case 'cancelado':
+      return 'Cancelado'
+    case 'pendiente':
+    default:
+      return 'Pendiente'
+  }
+}
+
+function formatPriorityLabel(priority: string | null | undefined) {
+  switch (normalizeLabelToken(priority)) {
+    case 'CRITICA':
+      return 'Critica'
+    case 'ALTA':
+      return 'Alta'
+    case 'MEDIA':
+      return 'Media'
+    case 'BAJA':
+      return 'Baja'
+    default:
+      return priority?.trim() || 'Sin prioridad'
+  }
+}
+
+function getEventPriorityStyle(priority: string | null | undefined) {
+  return EVENT_PRIORITY_STYLES[normalizeLabelToken(priority)] ?? EVENT_PRIORITY_STYLES.MEDIA
 }
 
 function resolveDepartmentConfig(value: string | null | undefined) {
@@ -945,53 +1003,112 @@ function EventStatusTooltip({
   onStatusChange: (agendaId: string, estado: OpsAgendaItem['estado']) => void
 }) {
   return (
-    <div className={`pointer-events-none absolute left-1/2 top-full z-30 mt-2 w-80 -translate-x-1/2 ${open ? 'block' : 'hidden group-hover:block group-focus-within:block'}`}>
-      <div className="pointer-events-auto rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-2xl">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Eventos del mes</p>
-          <button type="button" onClick={onClose} className="rounded-full border border-slate-200 px-2 py-1 text-[10px] font-semibold text-slate-500 hover:bg-slate-50">
-            Cerrar
-          </button>
-        </div>
-        <div className="mt-3 max-h-72 space-y-2 overflow-y-auto pr-1">
-          {events.map((event) => (
-            <div key={event.agenda_id} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold text-slate-900">{formatDate(event.due_date)}</p>
-                  <p className="mt-1 text-[11px] text-slate-500">#{event.ocurrencia_nro} · {event.entidad_objetivo}</p>
-                </div>
-                <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold ${STATUS_STYLES[event.estado] ?? STATUS_STYLES.pendiente}`}>{event.estado}</span>
-              </div>
-              <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-600">
-                <span className="rounded-full bg-white px-2 py-1 font-medium text-slate-600">{formatCurrency(event.monto_estimado)}</span>
-                <span className="rounded-full bg-white px-2 py-1 font-medium text-slate-600">{event.esfuerzo_estimado} hrs</span>
-                <span className="rounded-full bg-white px-2 py-1 font-medium text-slate-600">{event.prioridad}</span>
-              </div>
-              {canManage ? (
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {(['pendiente', 'en_proceso', 'completado', 'cancelado'] as const).map((estado) => (
-                    <button
-                      key={estado}
-                      type="button"
-                      onClick={(eventClick) => {
-                        eventClick.stopPropagation()
-                        onStatusChange(event.agenda_id, estado)
-                      }}
-                      disabled={busyAgendaItemId === event.agenda_id || event.estado === estado}
-                      className={`rounded-full border px-2 py-1 text-[10px] font-semibold transition ${event.estado === estado ? STATUS_STYLES[estado] : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'} disabled:opacity-60`}
-                    >
-                      {busyAgendaItemId === event.agenda_id && event.estado !== estado ? 'Guardando...' : estado}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
+    <div className={`pointer-events-none absolute left-1/2 top-full z-30 mt-3 w-[26rem] max-w-[calc(100vw-2rem)] -translate-x-1/2 ${open ? 'block' : 'hidden'}`}>
+      <div className="pointer-events-auto overflow-hidden rounded-[1.6rem] border border-slate-300 bg-white text-left shadow-[0_28px_70px_-32px_rgba(15,23,42,0.55)] ring-1 ring-slate-950/5">
+        <div className="border-b border-slate-800 bg-slate-950 px-4 py-4 text-white">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">Vista operativa</p>
+              <h4 className="mt-2 text-sm font-semibold text-white">Eventos del mes</h4>
+              <p className="mt-1 text-xs text-slate-400">{events.length} programado{events.length === 1 ? '' : 's'} para esta ventana.</p>
             </div>
-          ))}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Cerrar panel de eventos"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 hover:text-white"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
-        <div className="mt-3 flex justify-end border-t border-slate-100 pt-3">
-          <button type="button" onClick={onOpenPlan} className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-[11px] font-semibold text-sky-700 hover:bg-sky-100">
+        <div className="max-h-[26rem] space-y-3 overflow-y-auto bg-slate-50/80 px-4 py-4">
+          {events.map((event) => {
+            const priorityStyle = getEventPriorityStyle(event.prioridad)
+
+            return (
+              <article
+                key={event.agenda_id}
+                className={`rounded-[1.35rem] border border-slate-200 border-l-4 ${priorityStyle.accent} bg-white p-4 shadow-[0_16px_34px_-28px_rgba(15,23,42,0.8)]`}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="inline-flex rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600">
+                        Ocurrencia {event.ocurrencia_nro}
+                      </span>
+                      <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold ${STATUS_STYLES[event.estado] ?? STATUS_STYLES.pendiente}`}>
+                        {formatAgendaStatusLabel(event.estado)}
+                      </span>
+                    </div>
+                    <p className="mt-3 truncate text-sm font-semibold text-slate-950">{event.entidad_objetivo ?? 'Entidad por definir'}</p>
+                    <p className="mt-1 text-xs text-slate-500">Programado para {formatDate(event.due_date)}</p>
+                  </div>
+                  <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold ${priorityStyle.badge}`}>
+                    {formatPriorityLabel(event.prioridad)}
+                  </span>
+                </div>
+
+                <dl className="mt-4 grid grid-cols-2 gap-2.5 text-xs text-slate-600">
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+                    <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Monto estimado</dt>
+                    <dd className="mt-1 text-sm font-semibold text-slate-900">{formatCurrency(event.monto_estimado)}</dd>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+                    <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Esfuerzo</dt>
+                    <dd className="mt-1 text-sm font-semibold text-slate-900">{event.esfuerzo_estimado} hrs</dd>
+                  </div>
+                </dl>
+
+                {canManage ? (
+                  <div className="mt-4 border-t border-slate-100 pt-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Actualizar estado</p>
+                      {busyAgendaItemId === event.agenda_id ? <span className="text-[10px] font-semibold text-sky-700">Guardando cambios...</span> : null}
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      {EVENT_STATUS_OPTIONS.map((estado) => {
+                        const isActive = event.estado === estado
+
+                        return (
+                          <button
+                            key={estado}
+                            type="button"
+                            onClick={(eventClick) => {
+                              eventClick.stopPropagation()
+                              onStatusChange(event.agenda_id, estado)
+                            }}
+                            disabled={busyAgendaItemId === event.agenda_id || isActive}
+                            className={`rounded-xl border px-3 py-2 text-left text-[11px] font-semibold transition ${
+                              isActive
+                                ? 'border-slate-950 bg-slate-950 text-white shadow-sm'
+                                : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                            } disabled:cursor-not-allowed disabled:opacity-60`}
+                          >
+                            {formatAgendaStatusLabel(estado)}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[11px] text-slate-500">
+                    Vista rapida habilitada. La edicion de estado se mantiene restringida.
+                  </div>
+                )}
+              </article>
+            )
+          })}
+        </div>
+        <div className="flex items-center justify-between gap-3 border-t border-slate-200 bg-white px-4 py-3.5">
+          <p className="text-[11px] text-slate-500">{canManage ? 'Gestion directa desde la matriz anual.' : 'Consulta puntual sin salir del portafolio.'}</p>
+          <button
+            type="button"
+            onClick={onOpenPlan}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-900 bg-slate-950 px-3.5 py-2 text-[11px] font-semibold text-white transition hover:bg-slate-800"
+          >
             Abrir plan
+            <ArrowUpRight className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
@@ -2592,7 +2709,7 @@ export default function PlanningHubClient({
                                   <td key={month} className="px-2 py-4 text-center">
                                     {cell ? (
                                       <div
-                                        className="group relative"
+                                        className="relative"
                                         onClick={(event) => event.stopPropagation()}
                                         onPointerDown={(event) => event.stopPropagation()}
                                       >
@@ -2606,9 +2723,14 @@ export default function PlanningHubClient({
                                             }
                                             openPlanWorkspace(plan.id)
                                           }}
-                                          className={`w-full rounded-xl border px-1.5 py-2 text-center transition hover:scale-[1.02] ${STATUS_STYLES[cell.status ?? 'pending'] ?? STATUS_STYLES.pendiente}`}
+                                          aria-expanded={isTooltipOpen}
+                                          aria-haspopup={monthEvents.length > 0 ? 'dialog' : undefined}
+                                          className={`w-full rounded-2xl border px-2 py-2.5 text-center transition ${
+                                            isTooltipOpen ? 'scale-[1.01] border-slate-950 bg-slate-950 text-white shadow-lg shadow-slate-900/20' : 'shadow-sm hover:-translate-y-0.5 hover:shadow-md'
+                                          } ${!isTooltipOpen ? STATUS_STYLES[cell.status ?? 'pending'] ?? STATUS_STYLES.pendiente : ''}`}
                                         >
-                                          <p className="text-[10px] font-bold">{cell.count} evt</p>
+                                          <p className="text-[9px] font-bold uppercase tracking-[0.16em] opacity-80">{monthEvents.length > 0 ? 'Revisar' : 'Mes'}</p>
+                                          <p className="mt-1 text-[11px] font-bold">{cell.count} evt</p>
                                           <p className="mt-1 text-[10px]">{formatCurrency(cell.budget)}</p>
                                         </button>
                                         {monthEvents.length > 0 ? (

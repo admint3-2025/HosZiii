@@ -163,68 +163,6 @@ export function generatePlanningAnnualReportPdf(params: {
 
   currentY += 74
 
-  if (bundle.reportMode === 'alerts') {
-    doc.setFont('helvetica', 'bold')
-    doc.setFontSize(13)
-    doc.setTextColor(127, 29, 29)
-    doc.text('Alertas prioritarias para intervencion', marginLeft, currentY)
-    doc.setFont('helvetica', 'normal')
-    doc.setFontSize(10)
-    doc.setTextColor(100, 116, 139)
-    doc.text('Se resaltan primero las brechas criticas segun aging, impacto y fecha de vencimiento.', marginLeft, currentY + 14)
-
-    if (bundle.alerts.criticalItems.length > 0) {
-      autoTable(doc, {
-        startY: currentY + 24,
-        head: [['Plan', 'Sede', 'Departamento', 'Vence', 'Estado', 'Impacto']],
-        body: bundle.alerts.criticalItems.map((item) => [
-          item.entityLabel ? `${item.planName}\n${item.entityLabel}` : item.planName,
-          item.locationLabel,
-          item.departmentLabel,
-          formatPlanningDate(item.dueDate),
-          `${item.alertFlag} | ${item.estado}`,
-          formatPlanningCurrency(item.impact),
-        ]),
-        styles: {
-          font: 'helvetica',
-          fontSize: 8,
-          cellPadding: 4,
-          overflow: 'linebreak',
-          valign: 'middle',
-          textColor: [15, 23, 42],
-          lineColor: [254, 202, 202],
-          lineWidth: 0.5,
-        },
-        headStyles: {
-          fillColor: [127, 29, 29],
-          textColor: [255, 255, 255],
-          fontStyle: 'bold',
-          halign: 'center',
-        },
-        alternateRowStyles: {
-          fillColor: [254, 242, 242],
-        },
-        tableWidth: availableWidth,
-        columnStyles: {
-          0: { cellWidth: 220 },
-          1: { cellWidth: 150 },
-          2: { cellWidth: 96 },
-          3: { cellWidth: 70, halign: 'center' },
-          4: { cellWidth: 82, halign: 'center' },
-          5: { cellWidth: 84, halign: 'right' },
-        },
-        margin: { left: marginLeft, right: marginRight },
-      })
-      currentY = ((doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? currentY) + 18
-    } else {
-      doc.setFillColor(240, 253, 244)
-      doc.roundedRect(marginLeft, currentY + 24, availableWidth, 34, 8, 8, 'F')
-      doc.setTextColor(22, 101, 52)
-      doc.text('No hay alertas criticas activas para la vista seleccionada.', marginLeft + 12, currentY + 46)
-      currentY += 70
-    }
-  }
-
   const planColumnWidth = 180
   const providerColumnWidth = 130
   const locationColumnWidth = 96
