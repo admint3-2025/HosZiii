@@ -2,8 +2,11 @@ import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import {
   formatPlanningCurrency,
+  formatPlanningDate,
   PLANNING_MONTHS,
+  type PlanningAlertFlag,
   type PlanningExportBundle,
+  type PlanningExportRow,
 } from '@/lib/planificacion/export'
 
 function compactCurrency(amount: number) {
@@ -13,6 +16,70 @@ function compactCurrency(amount: number) {
     maximumFractionDigits: 0,
     notation: amount >= 1000000 ? 'compact' : 'standard',
   }).format(amount)
+}
+
+function reportModeLabel(bundle: PlanningExportBundle) {
+  return bundle.reportMode === 'alerts' ? 'PDF de alertas criticas' : 'PDF informativo'
+}
+
+function planCellText(bundle: PlanningExportBundle, row: PlanningExportRow) {
+  const lines = [row.plan.nombre]
+  if (row.entityLabel) {
+    lines.push(row.entityLabel)
+  }
+
+  if (bundle.reportMode === 'alerts') {
+    const summaryBits: string[] = []
+    if (row.criticalCount > 0) summaryBits.push(`Criticos: ${row.criticalCount}`)
+    if (row.warningCount > 0) summaryBits.push(`Alertas: ${row.warningCount}`)
+    if (row.nextDueDate) summaryBits.push(`Sig: ${formatPlanningDate(row.nextDueDate)}`)
+    if (summaryBits.length > 0) {
+      lines.push(summaryBits.join(' | '))
+    }
+  } else if (row.nextDueDate) {
+    lines.push(`Siguiente: ${formatPlanningDate(row.nextDueDate)}`)
+  }
+
+  return lines.join('\n')
+}
+
+function stateCellText(bundle: PlanningExportBundle, row: PlanningExportRow) {
+  if (bundle.reportMode !== 'alerts') return row.plan.estado
+  if (row.criticalCount > 0) return `${row.plan.estado}\n${row.criticalCount} crit`
+  if (row.warningCount > 0) return `${row.plan.estado}\n${row.warningCount} alerta`
+  return row.plan.estado
+}
+
+function monthCellText(bundle: PlanningExportBundle, row: PlanningExportRow, month: number) {
+  const cell = row.matrix.get(month)
+  if (!cell) return '-'
+
+  const lines: string[] = []
+  if (bundle.reportMode === 'alerts') {
+    const flag = row.monthlyAlertFlags.get(month)
+    if (flag === 'RED') lines.push('CRIT')
+    if (flag === 'YELLOW') lines.push('WARN')
+  }
+
+  lines.push(`${cell.count} evt`)
+  lines.push(compactCurrency(cell.budget))
+  return lines.join('\n')
+}
+
+function alertStyle(flag: PlanningAlertFlag | null) {
+  if (flag === 'RED') {
+    return {
+      fill: [254, 226, 226] as [number, number, number],
+      text: [127, 29, 29] as [number, number, number],
+    }
+  }
+  if (flag === 'YELLOW') {
+    return {
+      fill: [254, 243, 199] as [number, number, number],
+      text: [146, 64, 14] as [number, number, number],
+    }
+  }
+  return null
 }
 
 export function generatePlanningAnnualReportPdf(params: {
@@ -61,6 +128,7 @@ export function generatePlanningAnnualReportPdf(params: {
   doc.setFontSize(11)
   doc.setTextColor(203, 213, 225)
   doc.text(`Vista ${bundle.year} | ${bundle.filters.departmentLabel} | ${bundle.filters.locationLabel}`, headerTextX, 58)
+  doc.text(reportModeLabel(bundle), headerTextX, 73)
   doc.text(
     `Generado ${bundle.generatedAt.toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })}`,
     pageWidth - marginRight,
@@ -69,7 +137,7 @@ export function generatePlanningAnnualReportPdf(params: {
   )
   doc.text(bundle.profile.fullName ?? 'Usuario del sistema', pageWidth - marginRight, 58, { align: 'right' })
 
-  let currentY = 102
+  let currentY = 116
   const summary = [
     { label: 'Planes activos', value: String(bundle.summary.activePlans) },
     { label: 'Eventos del año', value: String(bundle.summary.totalEvents) },
@@ -94,6 +162,68 @@ export function generatePlanningAnnualReportPdf(params: {
   })
 
   currentY += 74
+
+  if (bundle.reportMode === 'alerts') {
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(13)
+    doc.setTextColor(127, 29, 29)
+    doc.text('Alertas prioritarias para intervencion', marginLeft, currentY)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(10)
+    doc.setTextColor(100, 116, 139)
+    doc.text('Se resaltan primero las brechas criticas segun aging, impacto y fecha de vencimiento.', marginLeft, currentY + 14)
+
+    if (bundle.alerts.criticalItems.length > 0) {
+      autoTable(doc, {
+        startY: currentY + 24,
+        head: [['Plan', 'Sede', 'Departamento', 'Vence', 'Estado', 'Impacto']],
+        body: bundle.alerts.criticalItems.map((item) => [
+          item.entityLabel ? `${item.planName}\n${item.entityLabel}` : item.planName,
+          item.locationLabel,
+          item.departmentLabel,
+          formatPlanningDate(item.dueDate),
+          `${item.alertFlag} | ${item.estado}`,
+          formatPlanningCurrency(item.impact),
+        ]),
+        styles: {
+          font: 'helvetica',
+          fontSize: 8,
+          cellPadding: 4,
+          overflow: 'linebreak',
+          valign: 'middle',
+          textColor: [15, 23, 42],
+          lineColor: [254, 202, 202],
+          lineWidth: 0.5,
+        },
+        headStyles: {
+          fillColor: [127, 29, 29],
+          textColor: [255, 255, 255],
+          fontStyle: 'bold',
+          halign: 'center',
+        },
+        alternateRowStyles: {
+          fillColor: [254, 242, 242],
+        },
+        tableWidth: availableWidth,
+        columnStyles: {
+          0: { cellWidth: 220 },
+          1: { cellWidth: 150 },
+          2: { cellWidth: 96 },
+          3: { cellWidth: 70, halign: 'center' },
+          4: { cellWidth: 82, halign: 'center' },
+          5: { cellWidth: 84, halign: 'right' },
+        },
+        margin: { left: marginLeft, right: marginRight },
+      })
+      currentY = ((doc as jsPDF & { lastAutoTable?: { finalY: number } }).lastAutoTable?.finalY ?? currentY) + 18
+    } else {
+      doc.setFillColor(240, 253, 244)
+      doc.roundedRect(marginLeft, currentY + 24, availableWidth, 34, 8, 8, 'F')
+      doc.setTextColor(22, 101, 52)
+      doc.text('No hay alertas criticas activas para la vista seleccionada.', marginLeft + 12, currentY + 46)
+      currentY += 70
+    }
+  }
 
   const planColumnWidth = 180
   const providerColumnWidth = 130
@@ -121,17 +251,14 @@ export function generatePlanningAnnualReportPdf(params: {
   ]]
 
   const body = bundle.rows.map((row) => {
-    const monthCells = Array.from({ length: 12 }, (_, index) => {
-      const cell = row.matrix.get(index + 1)
-      return cell ? `${cell.count} evt\n${compactCurrency(cell.budget)}` : '-'
-    })
+    const monthCells = Array.from({ length: 12 }, (_, index) => monthCellText(bundle, row, index + 1))
 
     return [
-      `${row.plan.nombre}\n${row.plan.entidad?.nombre ?? 'Sin entidad'}`,
+      planCellText(bundle, row),
       row.plan.responsable?.nombre ?? 'Sin proveedor',
       row.locationLabel,
       row.department.shortLabel,
-      row.plan.estado,
+      stateCellText(bundle, row),
       ...monthCells,
       formatPlanningCurrency(row.annualBudget),
     ]
@@ -183,6 +310,37 @@ export function generatePlanningAnnualReportPdf(params: {
       17: { cellWidth: annualTotalColumnWidth, halign: 'right' },
     },
     margin: { left: marginLeft, right: marginRight, bottom: 32 },
+    didParseCell: (hookData) => {
+      if (hookData.section !== 'body') return
+
+      const row = bundle.rows[hookData.row.index]
+      if (!row) return
+
+      if (bundle.reportMode === 'alerts') {
+        if (hookData.column.index === 0 || hookData.column.index === 4) {
+          const style = alertStyle(row.maxAlertFlag)
+          if (style) {
+            hookData.cell.styles.fillColor = style.fill
+            hookData.cell.styles.textColor = style.text
+            hookData.cell.styles.fontStyle = 'bold'
+          }
+        }
+
+        if (hookData.column.index >= 5 && hookData.column.index <= 16) {
+          const month = hookData.column.index - 4
+          const style = alertStyle(row.monthlyAlertFlags.get(month) ?? null)
+          if (style) {
+            hookData.cell.styles.fillColor = style.fill
+            hookData.cell.styles.textColor = style.text
+            hookData.cell.styles.fontStyle = 'bold'
+          }
+        }
+      }
+
+      if (hookData.column.index === 17 && row.criticalCount > 0) {
+        hookData.cell.styles.fontStyle = 'bold'
+      }
+    },
     didDrawPage: (hookData) => {
       const totalPages = doc.getNumberOfPages()
       doc.setFontSize(9)

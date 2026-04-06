@@ -2036,7 +2036,8 @@ export default function PlanningHubClient({
     return params.toString()
   }, [selectedDepartment, selectedLocationId, year])
 
-  const exportPdfHref = `/api/planificacion/export/pdf?${exportQuery}`
+  const exportPdfInformativeHref = `/api/planificacion/export/pdf?${exportQuery}&reportMode=informative`
+  const exportPdfAlertsHref = `/api/planificacion/export/pdf?${exportQuery}&reportMode=alerts`
   const exportExcelHref = `/api/planificacion/export/excel?${exportQuery}`
 
   async function updateAgendaStatus(id: string, estado: OpsAgendaItem['estado']) {
@@ -2340,9 +2341,13 @@ export default function PlanningHubClient({
                     </div>
                   ) : (
                     <div className="flex flex-wrap gap-2.5">
-                      <PdfDownloadButton href={exportPdfHref} filename={`planeacion-${year}.pdf`} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
+                      <PdfDownloadButton href={exportPdfInformativeHref} filename={`planeacion-${year}-informativo.pdf`} className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
                         <FileText className="h-4 w-4" />
-                        PDF horizontal
+                        PDF informativo
+                      </PdfDownloadButton>
+                      <PdfDownloadButton href={exportPdfAlertsHref} filename={`planeacion-${year}-alertas.pdf`} className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-900 hover:bg-rose-100">
+                        <AlertTriangle className="h-4 w-4" />
+                        PDF con alertas
                       </PdfDownloadButton>
                       <a href={exportExcelHref} className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-900 hover:bg-emerald-100">
                         <FileSpreadsheet className="h-4 w-4" />

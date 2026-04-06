@@ -19,6 +19,7 @@ export async function GET(request: Request) {
     const year = Number(searchParams.get('year') ?? new Date().getFullYear())
     const department = normalizePlanningValue(searchParams.get('department')) || 'ALL'
     const locationId = searchParams.get('locationId') ?? 'ALL'
+    const reportMode = searchParams.get('reportMode') === 'alerts' ? 'alerts' : 'informative'
 
     const bundle = await getPlanningExportBundle({
       supabase,
@@ -28,12 +29,13 @@ export async function GET(request: Request) {
         year: Number.isFinite(year) ? year : new Date().getFullYear(),
         department,
         locationId,
+        reportMode,
       },
     })
 
     const logo = await loadZiiiLogoDataUrl()
     const pdf = generatePlanningAnnualReportPdf({ bundle, logo: logo ?? undefined })
-    const fileName = `plan-anual-${bundle.year}-${bundle.filters.department === 'ALL' ? 'todos' : bundle.filters.department.toLowerCase().replace(/\s+/g, '-')}.pdf`
+    const fileName = `plan-anual-${bundle.year}-${bundle.filters.department === 'ALL' ? 'todos' : bundle.filters.department.toLowerCase().replace(/\s+/g, '-')}-${reportMode}.pdf`
 
     return new Response(new Blob([pdf], { type: 'application/pdf' }), {
       headers: {
