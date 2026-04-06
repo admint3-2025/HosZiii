@@ -148,13 +148,24 @@ export function generatePlanningAnnualReportPdf(params: {
 
   if (hasBrandLogo && brandLogo) {
     try {
+      const brandLogoWidth = brandLogo.width ?? 116
+      const brandLogoHeight = brandLogo.height ?? 34
+      const brandBadgeWidth = brandLogoWidth + 28
+      const brandBadgeHeight = brandLogoHeight + 18
+      const brandBadgeX = (pageWidth - brandBadgeWidth) / 2
+      const brandBadgeY = (headerHeight - brandBadgeHeight) / 2
+
+      doc.setFillColor(248, 250, 252)
+      doc.setDrawColor(203, 213, 225)
+      doc.roundedRect(brandBadgeX, brandBadgeY, brandBadgeWidth, brandBadgeHeight, 10, 10, 'FD')
+
       doc.addImage(
         brandLogo.dataUrl,
         brandLogo.type ?? 'PNG',
-        (pageWidth - (brandLogo.width ?? 116)) / 2,
-        (headerHeight - (brandLogo.height ?? 34)) / 2,
-        brandLogo.width ?? 116,
-        brandLogo.height ?? 34,
+        (pageWidth - brandLogoWidth) / 2,
+        (headerHeight - brandLogoHeight) / 2,
+        brandLogoWidth,
+        brandLogoHeight,
       )
     } catch {
       // ignore brand logo rendering failures

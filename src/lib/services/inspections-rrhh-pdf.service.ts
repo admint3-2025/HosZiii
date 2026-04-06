@@ -18,6 +18,7 @@ export class InspectionRRHHPDFGenerator {
   private readonly systemLogoUrl: string | null
   private readonly brandLogoUrl: string | null
   private readonly brandLogoKey: string | null
+  private readonly allowDefaultBrandLogo: boolean
 
   private readonly evidenceImageCache = new Map<string, { dataUrl: string; format: 'PNG' | 'JPEG' | 'WEBP' }>()
 
@@ -40,6 +41,12 @@ export class InspectionRRHHPDFGenerator {
     this.systemLogoUrl = options?.systemLogoUrl ?? InspectionRRHHPDFGenerator.LOGO_URL
     this.brandLogoUrl = options?.brandLogoUrl ?? null
     this.brandLogoKey = options?.brandLogoKey ?? null
+    this.allowDefaultBrandLogo = !(
+      options && (
+        Object.prototype.hasOwnProperty.call(options, 'brandLogoUrl') ||
+        Object.prototype.hasOwnProperty.call(options, 'brandLogoKey')
+      )
+    )
   }
 
   private async fetchImageAsDataUrl(url: string): Promise<{ dataUrl: string; format: 'PNG' | 'JPEG' | 'WEBP' }> {
@@ -138,7 +145,11 @@ export class InspectionRRHHPDFGenerator {
 
     const resolvedUrl = this.brandLogoKey
       ? `/api/brand-logo?brand=${encodeURIComponent(this.brandLogoKey)}`
-      : this.brandLogoUrl ?? InspectionRRHHPDFGenerator.BRAND_LOGO_URL
+      : this.brandLogoUrl
+        ? this.brandLogoUrl
+        : this.allowDefaultBrandLogo
+          ? InspectionRRHHPDFGenerator.BRAND_LOGO_URL
+          : null
 
     if (!resolvedUrl) return
 
