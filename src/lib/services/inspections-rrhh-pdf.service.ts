@@ -14,6 +14,8 @@ export class InspectionRRHHPDFGenerator {
   private logoFormat?: 'PNG' | 'JPEG' | 'WEBP'
   private brandLogoDataUrl?: string
   private brandLogoFormat?: 'PNG' | 'JPEG' | 'WEBP'
+  private brandLogoNatWidth = 0
+  private brandLogoNatHeight = 0
 
   private readonly systemLogoUrl: string | null
   private readonly brandLogoUrl: string | null
@@ -86,7 +88,7 @@ export class InspectionRRHHPDFGenerator {
     maxDim = 300,
     quality = 0.82,
     forceJpeg = false
-  ): Promise<{ dataUrl: string; format: 'PNG' | 'JPEG' }> {
+  ): Promise<{ dataUrl: string; format: 'PNG' | 'JPEG'; width: number; height: number }> {
     return new Promise((resolve, reject) => {
       const img = new window.Image()
       img.onload = () => {
@@ -106,9 +108,9 @@ export class InspectionRRHHPDFGenerator {
         }
         ctx.drawImage(img, 0, 0, w, h)
         if (useJpeg) {
-          resolve({ dataUrl: canvas.toDataURL('image/jpeg', quality), format: 'JPEG' })
+          resolve({ dataUrl: canvas.toDataURL('image/jpeg', quality), format: 'JPEG', width: w, height: h })
         } else {
-          resolve({ dataUrl: canvas.toDataURL('image/png'), format: 'PNG' })
+          resolve({ dataUrl: canvas.toDataURL('image/png'), format: 'PNG', width: w, height: h })
         }
       }
       img.onerror = () => reject(new Error('image load failed'))
@@ -158,6 +160,8 @@ export class InspectionRRHHPDFGenerator {
       const compressed = await this.compressImage(dataUrl, 200, 0.85)
       this.brandLogoDataUrl = compressed.dataUrl
       this.brandLogoFormat = compressed.format
+      this.brandLogoNatWidth = compressed.width
+      this.brandLogoNatHeight = compressed.height
     }
 
     try {
@@ -245,12 +249,21 @@ export class InspectionRRHHPDFGenerator {
     const logoY = this.currentY
     const logoSize = 22
 
-    // Logo de marca (derecha) (solo aplica a ciertos hoteles)
-    const brandLogoX = this.pageWidth - this.margin - logoSize
-    const brandLogoY = logoY
+    // Logo de marca (derecha) — respeta aspecto original dentro de un box
+    const brandBoxW = 32
+    const brandBoxH = logoSize
+    let brandW = brandBoxW
+    let brandH = brandBoxH
+    if (this.brandLogoNatWidth > 0 && this.brandLogoNatHeight > 0) {
+      const scale = Math.min(brandBoxW / this.brandLogoNatWidth, brandBoxH / this.brandLogoNatHeight)
+      brandW = this.brandLogoNatWidth * scale
+      brandH = this.brandLogoNatHeight * scale
+    }
+    const brandLogoX = this.pageWidth - this.margin - brandW
+    const brandLogoY = logoY + (logoSize - brandH) / 2
 
     const textLeftX = logoX + logoSize + 5
-    const textRightX = brandLogoX - 4
+    const textRightX = (this.pageWidth - this.margin - brandBoxW) - 4
     const maxTextWidth = Math.max(10, textRightX - textLeftX)
 
     const ellipsizeToWidth = (text: string, maxWidth: number): string => {
@@ -297,7 +310,7 @@ export class InspectionRRHHPDFGenerator {
     // Logo de marca (derecha)
     if (this.brandLogoDataUrl) {
       try {
-        this.doc.addImage(this.brandLogoDataUrl, this.brandLogoFormat || 'PNG', brandLogoX, brandLogoY, logoSize, logoSize)
+        this.doc.addImage(this.brandLogoDataUrl, this.brandLogoFormat || 'PNG', brandLogoX, brandLogoY, brandW, brandH)
       } catch {
         // silencioso
       }
