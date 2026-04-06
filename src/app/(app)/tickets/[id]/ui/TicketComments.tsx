@@ -64,7 +64,7 @@ function AttachmentLink({
 
 export default function TicketComments({
   ticketId,
-  comments,
+  comments: initialComments,
   ticketStatus,
   ticketClosedAt,
   isRequester,
@@ -80,6 +80,7 @@ export default function TicketComments({
   const router = useRouter()
   const supabase = createSupabaseBrowserClient()
   const [isRefreshing, startRefreshTransition] = useTransition()
+  const [comments, setComments] = useState<any[]>(initialComments)
   const [body, setBody] = useState('')
   const [mode, setMode] = useState<'followup' | 'note' | 'ai'>('followup')
   const [busy, setBusy] = useState(false)
@@ -92,6 +93,10 @@ export default function TicketComments({
   const [pendingSubmission, setPendingSubmission] = useState<PendingSubmission | null>(null)
   const [loadingStage, setLoadingStage] = useState<SubmissionStage>('publishing')
   const isSubmitting = busy || isRefreshing
+
+  useEffect(() => {
+    setComments(initialComments)
+  }, [initialComments])
 
   useEffect(() => {
     if (!isSubmitting || !pendingSubmission) {
@@ -119,7 +124,7 @@ export default function TicketComments({
       setPendingSubmission(null)
       setLoadingStage('publishing')
     }
-  }, [comments, isSubmitting])
+  }, [initialComments, isSubmitting])
 
   // Verificar si el ticket está cerrado
   const isClosed = ticketStatus === 'CLOSED'
@@ -213,6 +218,8 @@ export default function TicketComments({
     }
 
     const commentData = result.comment
+    const aiComment = result.aiComment
+    const { data: { user } } = await supabase.auth.getUser()
 
     // Subir archivos adjuntos si los hay
     if (attachments.length > 0 && commentData) {
@@ -263,6 +270,18 @@ export default function TicketComments({
     setAttachments([])
     previewUrls.forEach(url => URL.revokeObjectURL(url))
     setPreviewUrls([])
+    setComments(prev => [
+      ...prev,
+      {
+        ...commentData,
+        author: {
+          full_name: user?.user_metadata?.full_name,
+          email: user?.email,
+        },
+        ticket_attachments: [],
+      },
+      ...(aiComment ? [{ ...aiComment, ticket_attachments: [] }] : []),
+    ])
     setLoadingStage('refreshing')
     startRefreshTransition(() => {
       router.refresh()

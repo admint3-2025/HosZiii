@@ -179,6 +179,7 @@ export default function MaintenanceTicketComments({
       }
       
       const commentData = result.comment
+      const aiComment = result.aiComment
 
       // 2. Subir archivos adjuntos al comentario
       const uploadedAttachments: CommentAttachment[] = []
@@ -214,7 +215,7 @@ export default function MaintenanceTicketComments({
           email: user.email,
         },
         attachments: uploadedAttachments,
-      }])
+      }, ...(aiComment ? [{ ...aiComment, attachments: [] }] : [])])
       
       setNewComment('')
       setPendingFiles([])
