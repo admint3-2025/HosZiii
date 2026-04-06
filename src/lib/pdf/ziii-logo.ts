@@ -67,6 +67,26 @@ async function optimizePdfLogo(bytes: Uint8Array, options?: PdfLogoLoadOptions):
   }
 }
 
+const BRAND_FILE_MAP: Record<string, { relPath: string; type: PdfLogo['type'] }> = {
+  alzen: { relPath: path.join('archived-docs', 'logos', 'alzendhlogo.png'), type: 'PNG' },
+}
+
+export async function loadBrandLogoFromDisk(key: string, options?: PdfLogoLoadOptions): Promise<PdfLogo | null> {
+  const entry = BRAND_FILE_MAP[key]
+  if (!entry) return null
+
+  try {
+    const absPath = path.join(process.cwd(), entry.relPath)
+    const bytes = await fs.readFile(absPath)
+    const optimized = await optimizePdfLogo(new Uint8Array(bytes), options)
+    if (optimized) return optimized
+
+    return { dataUrl: toDataUrl(new Uint8Array(bytes), entry.type), type: entry.type }
+  } catch {
+    return null
+  }
+}
+
 export async function loadPdfLogoFromUrl(url: string, options?: PdfLogoLoadOptions): Promise<PdfLogo | null> {
   try {
     const res = await fetch(url, { cache: 'no-store' })
@@ -76,7 +96,12 @@ export async function loadPdfLogoFromUrl(url: string, options?: PdfLogoLoadOptio
     if (contentType && !contentType.startsWith('image/')) return null
 
     const buf = new Uint8Array(await res.arrayBuffer())
-    return optimizePdfLogo(buf, options)
+    const optimized = await optimizePdfLogo(buf, options)
+    if (optimized) return optimized
+
+    // Fallback: use raw bytes when sharp is not available
+    const type: PdfLogo['type'] = contentType.includes('jpeg') || contentType.includes('jpg') ? 'JPEG' : 'PNG'
+    return { dataUrl: toDataUrl(buf, type), type }
   } catch {
     return null
   }
