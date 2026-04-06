@@ -1,6 +1,5 @@
 ﻿import fs from 'node:fs/promises'
 import path from 'node:path'
-import sharp from 'sharp'
 
 export type PdfLogo = {
   dataUrl: string
@@ -33,7 +32,8 @@ async function optimizePdfLogo(bytes: Uint8Array, options?: PdfLogoLoadOptions):
   const forceJpeg = options?.forceJpeg ?? false
 
   try {
-    const source = sharp(Buffer.from(bytes), { failOn: 'none' }).rotate()
+    const sharpModule = await import('sharp')
+    const source = sharpModule.default(Buffer.from(bytes), { failOn: 'none' }).rotate()
     const metadata = await source.metadata()
     const useJpeg = forceJpeg || !(metadata.hasAlpha ?? false)
     const background = useJpeg
