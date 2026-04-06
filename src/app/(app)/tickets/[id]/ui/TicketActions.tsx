@@ -299,13 +299,13 @@ export default function TicketActions({
       />
 
       <div className="sticky top-6">
-        <div className="card shadow-sm border border-gray-200">
-        <div className="bg-gradient-to-r from-indigo-50 via-sky-50 to-white border-b border-indigo-100 px-4 py-2.5">
+        <div className="card rounded-2xl border border-slate-200/70 bg-white shadow-sm shadow-slate-200/70">
+        <div className="border-b border-slate-100 bg-gradient-to-r from-white via-slate-50 to-indigo-50/70 px-4 py-3">
           <div className="flex items-center gap-2">
             <span className="inline-flex h-6 w-6 items-center justify-center rounded-full bg-indigo-100 text-indigo-600 text-xs font-semibold">⚡</span>
             <div>
-              <h3 className="text-xs font-semibold text-indigo-900 uppercase tracking-wide">Acciones del ticket</h3>
-              <p className="mt-0.5 text-[11px] text-indigo-600">Flujo operativo: estado, escalamiento, correo y eliminación auditable.</p>
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-slate-800">Acciones del ticket</h3>
+              <p className="mt-0.5 text-[11px] text-slate-500">Flujo operativo: estado, escalamiento, correo y eliminación auditable.</p>
             </div>
           </div>
         </div>
@@ -313,10 +313,10 @@ export default function TicketActions({
         <div className="p-4 space-y-4 text-sm">
           {/* Cambiar estado */}
           <div>
-            <label className="block text-xs font-semibold text-indigo-800 mb-1">
+            <label className="mb-1 block text-xs font-semibold text-slate-700">
               Estado del ticket
             </label>
-            <p className="text-[11px] text-indigo-600 mb-1">Define en qué etapa del ciclo de atención se encuentra.</p>
+            <p className="mb-1 text-[11px] text-slate-500">Define en qué etapa del ciclo de atención se encuentra.</p>
             <select
               className="select select-sm w-full"
               value={nextStatus}
@@ -330,11 +330,11 @@ export default function TicketActions({
             </select>
 
             {nextStatus === 'ASSIGNED' && (
-              <div className="mt-2 p-2.5 bg-blue-50 rounded border border-blue-200">
-                <label className="block text-xs font-semibold text-blue-900 mb-1">
+              <div className="mt-2 rounded-xl border border-indigo-100 bg-indigo-50/70 p-3">
+                <label className="mb-1 block text-xs font-semibold text-slate-800">
                   Asignar responsable
                 </label>
-                <p className="text-[11px] text-blue-700 mb-1">Selecciona el técnico que quedará como responsable del ticket.</p>
+                <p className="mb-1 text-[11px] text-slate-600">Selecciona el técnico que quedará como responsable del ticket.</p>
                 <select
                   className="select select-sm w-full"
                   value={assignedAgentId}
@@ -355,7 +355,7 @@ export default function TicketActions({
                 type="button"
                 disabled={busy}
                 onClick={updateStatus}
-                className="btn btn-sm btn-primary px-4"
+                className="rounded-lg bg-slate-900 px-4 py-2 text-xs font-semibold text-white shadow-lg shadow-slate-900/10 transition-all hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-70"
               >
                 {busy ? 'Aplicando…' : 'Aplicar estado'}
               </button>
@@ -430,8 +430,8 @@ export default function TicketActions({
             )}
 
             {supportLevel === 2 && (
-              <div className="p-2.5 bg-blue-50 rounded border border-blue-200 text-center">
-                <p className="text-xs text-blue-700">Ya está en Nivel 2</p>
+              <div className="rounded-xl border border-indigo-100 bg-indigo-50/70 p-2.5 text-center">
+                <p className="text-xs text-indigo-700">Ya está en Nivel 2</p>
               </div>
             )}
           </div>
@@ -470,14 +470,14 @@ export default function TicketActions({
             <div className="pt-3 border-t border-gray-200 flex flex-col gap-2">
               <div className="flex items-center justify-between">
                 <div>
-                  <p className="text-xs font-semibold text-blue-800">Enviar por correo</p>
-                  <p className="text-[11px] text-blue-600">Envía un resumen completo del ticket para investigación o deslinde.</p>
+                  <p className="text-xs font-semibold text-slate-700">Enviar por correo</p>
+                  <p className="text-[11px] text-slate-500">Envía un resumen completo del ticket para investigación o deslinde.</p>
                 </div>
                 <button
                   type="button"
                   disabled={busy}
                   onClick={() => setShowEmailModal(true)}
-                  className="btn btn-sm bg-blue-600 hover:bg-blue-700 text-white whitespace-nowrap"
+                  className="btn btn-sm whitespace-nowrap border-transparent bg-slate-900 text-white hover:bg-slate-800"
                 >
                   Enviar resumen
                 </button>
@@ -523,21 +523,21 @@ export default function TicketActions({
       {showEmailModal && (
         <div className="fixed inset-0 bg-black bg-opacity-50 z-50 flex items-center justify-center p-4">
           <div className="bg-white rounded-xl shadow-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto">
-            <div className="sticky top-0 bg-gradient-to-r from-blue-600 to-blue-700 text-white px-6 py-4 rounded-t-xl">
+            <div className="sticky top-0 rounded-t-xl bg-gradient-to-r from-slate-900 to-slate-800 px-6 py-4 text-white">
               <h3 className="text-lg font-bold flex items-center gap-2">
                 <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                 </svg>
                 Enviar Ticket por Correo
               </h3>
-              <p className="text-sm text-blue-100 mt-1">
+              <p className="mt-1 text-sm text-slate-300">
                 Información completa para investigación
               </p>
             </div>
 
             <div className="p-6 space-y-4">
-              <div className="p-3 bg-blue-50 border border-blue-200 rounded-lg">
-                <p className="text-xs text-blue-800">
+              <div className="rounded-xl border border-indigo-100 bg-indigo-50 p-3">
+                <p className="text-xs text-slate-700">
                   📧 Se enviará un correo con toda la información del ticket: descripción, comentarios, historial, tiempos, etc.
                 </p>
               </div>
@@ -617,7 +617,7 @@ export default function TicketActions({
                   type="button"
                   onClick={handleSendTicketEmail}
                   disabled={busy || !emailRecipient.trim() || !emailRecipientName.trim()}
-                  className="btn flex-1 bg-blue-600 hover:bg-blue-700 text-white disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                  className="btn flex-1 flex items-center justify-center gap-2 border-transparent bg-slate-900 text-white hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />

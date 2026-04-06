@@ -22,7 +22,7 @@ type Props = {
 
 export default function TicketAttachments({ ticketId, canDelete }: Props) {
   const router = useRouter()
-const [attachments, setAttachments] = useState<Attachment[]>([])
+  const [attachments, setAttachments] = useState<Attachment[]>([])
   const [loading, setLoading] = useState(true)
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [previewImage, setPreviewImage] = useState<Attachment | null>(null)
@@ -73,15 +73,15 @@ const [attachments, setAttachments] = useState<Attachment[]>([])
 
   if (loading) {
     return (
-      <div className="card shadow-lg border-0">
+      <div className="card rounded-2xl border border-slate-200/70 bg-white shadow-sm shadow-slate-200/70">
         <div className="card-body pt-3 pb-4">
-          <div className="flex items-center gap-2 mb-3">
-            <div className="p-1.5 bg-green-100 rounded-lg">
-              <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <div className="mb-4 flex items-center gap-3 border-b border-slate-100 pb-4">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-indigo-100 bg-indigo-50 text-indigo-600">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
               </svg>
             </div>
-            <h3 className="text-xs font-semibold text-gray-900 uppercase tracking-wide">Archivos adjuntos</h3>
+            <h3 className="text-xs font-bold uppercase tracking-[0.18em] text-slate-700">Archivos adjuntos</h3>
           </div>
           <div className="flex items-center justify-center py-8">
             <svg className="animate-spin w-6 h-6 text-gray-400" fill="none" viewBox="0 0 24 24">
@@ -96,17 +96,17 @@ const [attachments, setAttachments] = useState<Attachment[]>([])
 
   if (attachments.length === 0) {
     return (
-      <div className="card shadow-lg border-0 bg-gray-50">
+      <div className="card rounded-2xl border border-slate-200/70 bg-white shadow-sm shadow-slate-200/70">
         <div className="card-body pt-3 pb-4">
-          <div className="flex items-center gap-2 mb-2.5">
-            <div className="p-1.5 bg-gray-200 rounded-lg">
+          <div className="mb-4 flex items-center gap-3 border-b border-slate-100 pb-4">
+            <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-slate-200 bg-slate-100 text-slate-500">
               <svg className="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
               </svg>
             </div>
-            <h3 className="text-xs font-semibold text-gray-700 uppercase tracking-wide">Archivos adjuntos</h3>
+            <h3 className="text-xs font-bold uppercase tracking-[0.18em] text-slate-700">Archivos adjuntos</h3>
           </div>
-          <p className="text-sm text-gray-500 text-center py-3">
+          <p className="py-3 text-center text-sm text-slate-500">
             No hay archivos adjuntos en este ticket
           </p>
         </div>
@@ -115,15 +115,15 @@ const [attachments, setAttachments] = useState<Attachment[]>([])
   }
 
   return (
-    <div className="card shadow-lg border-0">
+    <div className="card rounded-2xl border border-slate-200/70 bg-white shadow-sm shadow-slate-200/70">
       <div className="card-body pt-3 pb-4">
-        <div className="flex items-center gap-2 mb-3">
-          <div className="p-1.5 bg-green-100 rounded-lg">
-            <svg className="w-4 h-4 text-green-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <div className="mb-4 flex items-center gap-3 border-b border-slate-100 pb-4">
+          <div className="flex h-9 w-9 items-center justify-center rounded-xl border border-indigo-100 bg-indigo-50 text-indigo-600">
+            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
             </svg>
           </div>
-          <h3 className="text-xs font-semibold text-gray-900 uppercase tracking-wide">
+          <h3 className="text-xs font-bold uppercase tracking-[0.18em] text-slate-700">
             Archivos adjuntos ({attachments.length})
           </h3>
         </div>
@@ -135,13 +135,13 @@ const [attachments, setAttachments] = useState<Attachment[]>([])
             return (
               <div
                 key={attachment.id}
-                className="flex items-center gap-3 p-3 bg-gradient-to-r from-gray-50 to-gray-100 border border-gray-200 rounded-lg hover:shadow-md transition-shadow group"
+                className="group flex items-center gap-3 rounded-xl border border-slate-200 bg-gradient-to-r from-white to-slate-50 p-3 transition-shadow hover:shadow-md"
               >
                 {/* Ícono/Preview */}
                 <div className="flex-shrink-0">
                   {isImage ? (
                     <div 
-                      className="w-12 h-12 bg-white rounded border border-gray-300 flex items-center justify-center overflow-hidden cursor-pointer hover:ring-2 hover:ring-blue-500 transition-all"
+                      className="flex h-12 w-12 cursor-pointer items-center justify-center overflow-hidden rounded-lg border border-slate-300 bg-white transition-all hover:ring-2 hover:ring-indigo-500"
                       onClick={() => setPreviewImage(attachment)}
                       title="Click para vista previa"
                     >
@@ -181,7 +181,7 @@ const [attachments, setAttachments] = useState<Attachment[]>([])
                   <button
                     type="button"
                     onClick={() => handleDownload(attachment)}
-                    className="p-2 text-gray-500 hover:text-blue-600 hover:bg-blue-50 rounded transition-colors"
+                    className="rounded-lg p-2 text-slate-500 transition-colors hover:bg-indigo-50 hover:text-indigo-600"
                     title="Descargar archivo"
                   >
                     <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">

@@ -156,10 +156,10 @@ export function AssetAssignForm({
       <input type="hidden" name="assetIdentifier" value={assetIdentifier} />
 
       <div className="flex items-center justify-end gap-2">
-        <button type="button" className="btn btn-sm btn-primary" onClick={() => setOpen(true)}>
+        <button type="button" className="btn btn-sm border-transparent bg-slate-900 text-white hover:bg-slate-800" onClick={() => setOpen(true)}>
           Buscar
         </button>
-        <button type="submit" className="btn btn-sm btn-outline-primary" disabled={!hasSelection || isPending}>
+        <button type="submit" className="btn btn-sm border-slate-300 bg-white text-slate-700 hover:bg-slate-100" disabled={!hasSelection || isPending}>
           {isPending ? 'Guardando...' : 'Guardar'}
         </button>
       </div>
@@ -169,7 +169,7 @@ export function AssetAssignForm({
       {open && (
         <div className="fixed inset-0 z-30 flex items-center justify-center bg-black/40 p-4">
           <div className="w-full max-w-xl rounded-xl bg-white shadow-2xl">
-            <div className="flex items-center justify-between border-b px-4 py-3">
+            <div className="flex items-center justify-between border-b border-slate-100 bg-gradient-to-r from-white via-slate-50 to-indigo-50/70 px-4 py-3">
               <div>
                 <div className="text-sm font-semibold text-gray-900">Seleccionar activo</div>
                 <div className="text-xs text-gray-600">Primero elige la sede y luego escribe para buscar.</div>
@@ -252,7 +252,7 @@ export function AssetAssignForm({
                           setSelectedId(asset.id)
                           setOpen(false)
                         }}
-                        className="w-full text-left px-3 py-2 hover:bg-blue-50 transition-colors"
+                        className="w-full px-3 py-2 text-left transition-colors hover:bg-indigo-50"
                       >
                         <div className="flex items-center justify-between text-sm font-semibold text-gray-900">
                           <span>{asset.asset_tag}</span>
