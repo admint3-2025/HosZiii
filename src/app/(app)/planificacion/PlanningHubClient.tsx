@@ -635,15 +635,15 @@ function SummaryCard({
   icon: LucideIcon
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{title}</p>
-          <p className={`mt-3 text-3xl font-black leading-none ${accent}`}>{value}</p>
-          <p className="mt-2 text-sm text-slate-500">{help}</p>
+    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{title}</p>
+          <p className={`mt-1.5 text-2xl font-black leading-none ${accent}`}>{value}</p>
+          <p className="mt-1 text-xs text-slate-500 truncate">{help}</p>
         </div>
-        <div className="rounded-2xl bg-slate-100 p-3 text-slate-600">
-          <Icon className="h-5 w-5" />
+        <div className="flex-shrink-0 rounded-xl bg-slate-100 p-2.5 text-slate-600">
+          <Icon className="h-4 w-4" />
         </div>
       </div>
     </div>
@@ -683,18 +683,18 @@ function PlanningActionCard({
   return (
     <Link
       href={href}
-      className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md"
+      className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md flex items-center gap-3"
     >
-      <div className="flex items-start justify-between gap-4">
-        <div className="rounded-2xl bg-slate-100 p-3 text-slate-700">
-          <Icon className="h-5 w-5" />
-        </div>
-        <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">
-          Abrir
-        </span>
+      <div className="flex-shrink-0 rounded-xl bg-slate-100 p-2.5 text-slate-700">
+        <Icon className="h-4 w-4" />
       </div>
-      <h3 className="mt-4 text-lg font-bold text-slate-900">{title}</h3>
-      <p className="mt-2 text-sm leading-6 text-slate-500">{description}</p>
+      <div className="min-w-0">
+        <h3 className="text-sm font-bold text-slate-900">{title}</h3>
+        <p className="mt-0.5 text-xs text-slate-500 truncate">{description}</p>
+      </div>
+      <span className="ml-auto flex-shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+        Abrir
+      </span>
     </Link>
   )
 }
@@ -2378,30 +2378,27 @@ export default function PlanningHubClient({
 
   return (
     <div className="min-h-screen bg-slate-100">
-      <div className="mx-auto max-w-[1600px] px-4 py-8 sm:px-6 lg:px-8">
-        <section className="rounded-[28px] border border-slate-200 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-800 px-6 py-5 text-white shadow-sm">
-          <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-            <div className="max-w-2xl">
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-200">
-                <Building2 className="h-3.5 w-3.5" />
+      <div className="mx-auto max-w-[1600px] px-4 py-5 sm:px-6 lg:px-8">
+        <section className="rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-800 px-5 py-4 text-white shadow-sm">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="min-w-0 flex-1">
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-300">
+                <Building2 className="h-3 w-3" />
                 Planeacion anual corporativa
               </div>
-              <h1 className="mt-3 text-[1.95rem] font-extrabold tracking-[-0.03em] text-white xl:text-[2.15rem]">{viewTitle}</h1>
-              <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-300">{viewDescription}</p>
+              <h1 className="mt-1.5 text-[1.45rem] font-extrabold tracking-[-0.03em] text-white xl:text-[1.6rem]">{viewTitle}</h1>
+              <p className="mt-1 text-xs leading-5 text-slate-400">{viewDescription}</p>
             </div>
-            <div className="flex flex-col gap-3 xl:min-w-[360px] xl:items-end">
-              <div className="grid gap-3 sm:grid-cols-[116px_1fr] sm:items-center xl:w-full">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-300">Ejercicio</p>
-                  <p className="mt-1 text-xs text-slate-400">Ano de trabajo</p>
-                </div>
-                <select className="w-full rounded-xl border border-white/10 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-900 outline-none" value={year} onChange={(e) => setYear(Number(e.target.value))}>
+            <div className="flex flex-shrink-0 flex-col gap-2 xl:items-end">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-slate-400">Ejercicio</span>
+                <select className="rounded-lg border border-white/10 bg-slate-50 px-3 py-1.5 text-sm font-semibold text-slate-900 outline-none" value={year} onChange={(e) => setYear(Number(e.target.value))}>
                   {[initialYear - 1, initialYear, initialYear + 1, initialYear + 2].map((item) => (
                     <option key={item} value={item}>{item}</option>
                   ))}
                 </select>
               </div>
-              <div className="flex flex-wrap gap-2.5 xl:justify-end">
+              <div className="flex flex-wrap gap-2 xl:justify-end">
                 <button
                   type="button"
                   onClick={() => {
@@ -2426,7 +2423,7 @@ export default function PlanningHubClient({
             </div>
           </div>
 
-          <div className="mt-5 flex flex-wrap gap-2 border-t border-white/10 pt-4">
+          <div className="mt-3 flex flex-wrap gap-2 border-t border-white/10 pt-3">
             <PlanningViewLink href={overviewHref} label="Dashboard" active={isOverview} />
             <PlanningViewLink href={portfolioHref} label="Portafolio" active={isPortfolio} />
             <PlanningViewLink href={catalogsHref} label="Catalogos" active={isCatalogs} />
@@ -2441,22 +2438,17 @@ export default function PlanningHubClient({
 
         {!isCatalogs ? (
           <>
-            <section className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+            <section className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
               <SummaryCard title="Planes activos" value={String(activePlans)} help="Planes visibles en la vista actual" accent="text-slate-900" icon={ClipboardList} />
               <SummaryCard title={isPortfolio ? 'Eventos del anio' : 'Ventana operativa'} value={String(isPortfolio ? totalEvents : openEvents)} help={isPortfolio ? 'Ocurrencias programadas en la matriz anual' : 'Compromisos abiertos dentro del horizonte cargado'} accent="text-sky-700" icon={CalendarDays} />
               <SummaryCard title="Presupuesto planeado" value={formatCurrency(totalPlanned)} help="Monto agregado desde control financiero" accent="text-emerald-700" icon={Banknote} />
               <SummaryCard title="Alertas criticas" value={String(totalCritical)} help="Planes con brecha operativa activa" accent="text-rose-700" icon={AlertTriangle} />
             </section>
 
-            <section className="mt-6 rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-              <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
-                <div className="max-w-2xl">
-                  <h2 className="text-xl font-bold text-slate-900">Contexto de trabajo</h2>
-                  <p className="mt-1 text-sm text-slate-500">
-                    {isOverview
-                      ? 'Acota la lectura del dashboard antes de entrar al detalle. La idea es revisar riesgo, compromisos proximos y decidir donde trabajar.'
-                      : 'Define la sede y el departamento antes de abrir la matriz, exportar o intervenir un plan.'}
-                  </p>
+            <section className="mt-4 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+              <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900">Contexto de trabajo</h2>
                 </div>
                 <div className="grid w-full gap-4 md:grid-cols-2 xl:w-auto xl:grid-cols-[280px_280px_240px]">
                   <Field label="Sede">
@@ -2477,10 +2469,10 @@ export default function PlanningHubClient({
                       ))}
                     </select>
                   </Field>
-                  <div className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
-                    <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">Vista actual</p>
-                    <p className="mt-2 text-sm font-bold text-slate-900">{selectedLocationLabel}</p>
-                    <p className="mt-1 text-sm text-slate-500">{selectedDepartmentLabel}</p>
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Vista actual</p>
+                    <p className="mt-1 text-sm font-bold text-slate-900">{selectedLocationLabel}</p>
+                    <p className="text-xs text-slate-500">{selectedDepartmentLabel}</p>
                   </div>
                 </div>
               </div>
@@ -2529,12 +2521,12 @@ export default function PlanningHubClient({
 
         {isOverview ? (
           <>
-            <section className="mt-6 grid gap-6 xl:grid-cols-[1.15fr_1fr]">
-              <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+            <section className="mt-4 grid gap-4 xl:grid-cols-[1.15fr_1fr]">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <h2 className="text-xl font-bold text-slate-900">Riesgo y cumplimiento</h2>
-                    <p className="mt-1 text-sm text-slate-500">Lo que necesita intervención primero. Si aquí no está claro, el dashboard falla.</p>
+                    <h2 className="text-base font-bold text-slate-900">Riesgo y cumplimiento</h2>
+                    <p className="mt-0.5 text-xs text-slate-500">Lo que necesita intervención primero.</p>
                   </div>
                   <Link href={portfolioHref} className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
                     Ver portafolio
@@ -2564,11 +2556,11 @@ export default function PlanningHubClient({
                 </div>
               </div>
 
-              <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <h2 className="text-xl font-bold text-slate-900">Proximos compromisos</h2>
-                    <p className="mt-1 text-sm text-slate-500">Ventana operativa breve para saber qué toca intervenir sin entrar a la matriz anual.</p>
+                    <h2 className="text-base font-bold text-slate-900">Proximos compromisos</h2>
+                    <p className="mt-0.5 text-xs text-slate-500">Ventana operativa breve para intervenir sin entrar a la matriz.</p>
                   </div>
                   <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-600">
                     {upcomingAgendaItems.length} visibles
@@ -2597,15 +2589,15 @@ export default function PlanningHubClient({
               </div>
             </section>
 
-            <section className="mt-6 grid gap-6 xl:grid-cols-[1.1fr_0.9fr]">
-              <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+            <section className="mt-4 grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
                 <div className="flex items-start justify-between gap-4">
                   <div>
-                    <h3 className="text-xl font-bold text-slate-900">Lectura por departamento</h3>
-                    <p className="mt-1 text-sm text-slate-500">Resumen ejecutivo para detectar carga, presupuesto y riesgo sin duplicar tarjetas decorativas.</p>
+                    <h3 className="text-base font-bold text-slate-900">Lectura por departamento</h3>
+                    <p className="mt-0.5 text-xs text-slate-500">Resumen ejecutivo para detectar carga, presupuesto y riesgo.</p>
                   </div>
                 </div>
-                <div className="mt-5 space-y-3">
+                <div className="mt-4 space-y-3">
                   {departmentHealthRows.map((row) => (
                     <div key={row.department.key} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
                       <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
@@ -2639,10 +2631,10 @@ export default function PlanningHubClient({
                 </div>
               </div>
 
-              <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-                <h3 className="text-xl font-bold text-slate-900">Superficies operativas</h3>
-                <p className="mt-1 text-sm text-slate-500">Cada flujo en su propio espacio para no mezclar lectura ejecutiva con trabajo transaccional.</p>
-                <div className="mt-5 grid gap-4">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <h3 className="text-base font-bold text-slate-900">Superficies operativas</h3>
+                <p className="mt-0.5 text-xs text-slate-500">Cada flujo en su propio espacio para no mezclar lectura ejecutiva con trabajo transaccional.</p>
+                <div className="mt-4 grid gap-3">
                   <PlanningActionCard
                     href={portfolioHref}
                     title="Portafolio anual"
@@ -2667,15 +2659,15 @@ export default function PlanningHubClient({
                       <p className="mt-2 text-sm leading-6 text-amber-800/90">En la demo no se crea ni se edita informacion. Usa esta ruta para revisar layout, filtros y navegacion sin autenticacion.</p>
                     </div>
                   ) : (
-                    <button type="button" onClick={openCreatePlanModal} className="rounded-2xl border border-slate-200 bg-slate-900 p-5 text-left text-white transition-all hover:-translate-y-0.5 hover:bg-slate-800 hover:shadow-md">
-                      <div className="flex items-start justify-between gap-4">
-                        <div className="rounded-2xl bg-white/10 p-3 text-white">
-                          <FolderPlus className="h-5 w-5" />
-                        </div>
-                        <span className="rounded-full bg-white/10 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-200">Accion</span>
+                    <button type="button" onClick={openCreatePlanModal} className="rounded-xl border border-slate-200 bg-slate-900 px-4 py-3 text-left text-white transition-all hover:-translate-y-0.5 hover:bg-slate-800 hover:shadow-md flex items-center gap-3">
+                      <div className="flex-shrink-0 rounded-xl bg-white/10 p-2.5 text-white">
+                        <FolderPlus className="h-4 w-4" />
                       </div>
-                      <h3 className="mt-4 text-lg font-bold">Nuevo plan</h3>
-                      <p className="mt-2 text-sm leading-6 text-slate-300">Crea un plan anual y siembra su agenda inicial desde un flujo dedicado, sin meterte primero a la matriz.</p>
+                      <div className="min-w-0">
+                        <h3 className="text-sm font-bold">Nuevo plan</h3>
+                        <p className="mt-0.5 text-xs leading-5 text-slate-300 truncate">Crea un plan anual y siembra su agenda inicial desde un flujo dedicado.</p>
+                      </div>
+                      <span className="ml-auto flex-shrink-0 rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-200">Nuevo</span>
                     </button>
                   )}
                 </div>
