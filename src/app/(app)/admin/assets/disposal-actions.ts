@@ -67,12 +67,38 @@ const ticketStatusLabels: Record<string, string> = {
 async function getNotificationRecipients(assetId: string, requesterId: string) {
   const supabaseAdmin = createSupabaseAdminClient()
   
-  // Obtener activo con responsable
-  const { data: asset } = await supabaseAdmin
-    .from('assets')
-    .select('assigned_to, location_id, asset_tag')
+  // Obtener activo con responsable (IT o Mantenimiento)
+  let asset: any = null
+  let isItAsset = false
+
+  const { data: itAsset } = await supabaseAdmin
+    .from('assets_it')
+    .select('assigned_to_user_id, location_id, asset_code')
     .eq('id', assetId)
     .single()
+
+  if (itAsset) {
+    isItAsset = true
+    asset = {
+      assigned_to: itAsset.assigned_to_user_id,
+      location_id: itAsset.location_id,
+      asset_tag: itAsset.asset_code
+    }
+  } else {
+    const { data: maintAsset } = await supabaseAdmin
+      .from('assets_maintenance')
+      .select('assigned_to_user_id, location_id, asset_code')
+      .eq('id', assetId)
+      .single()
+
+    if (maintAsset) {
+      asset = {
+        assigned_to: maintAsset.assigned_to_user_id,
+        location_id: maintAsset.location_id,
+        asset_tag: maintAsset.asset_code
+      }
+    }
+  }
   
   const recipients: { id: string; email: string; name: string; role: string }[] = []
   const addedEmails = new Set<string>()
@@ -99,14 +125,19 @@ async function getNotificationRecipients(assetId: string, requesterId: string) {
     }
   }
   
-  // Obtener supervisores de la misma sede
+  // Obtener supervisores de la misma sede, filtrando por módulo del activo
   if (asset?.location_id) {
+    const moduleKey = isItAsset ? 'it-helpdesk' : 'mantenimiento'
     const { data: supervisors } = await supabaseAdmin
       .from('profiles')
-      .select('id, full_name')
+      .select('id, full_name, hub_visible_modules')
       .eq('role', 'supervisor')
     
     for (const sup of supervisors || []) {
+      // Solo notificar supervisores del módulo correspondiente al tipo de activo
+      const modules = sup.hub_visible_modules as Record<string, string> | null
+      if (modules?.[moduleKey] !== 'supervisor') continue
+
       const { data: userLocs } = await supabaseAdmin
         .from('user_locations')
         .select('location_id')

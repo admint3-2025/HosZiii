@@ -64,6 +64,7 @@ async function getNotificationRecipients(assetId: string, requesterId: string) {
   
   // Obtener activo con responsable (IT o Mantenimiento)
   let asset: any = null
+  let isItAsset = false
   
   const { data: itAsset } = await supabaseAdmin
     .from('assets_it')
@@ -72,6 +73,7 @@ async function getNotificationRecipients(assetId: string, requesterId: string) {
     .single()
   
   if (itAsset) {
+    isItAsset = true
     asset = {
       assigned_to: itAsset.assigned_to_user_id,
       location_id: itAsset.location_id,
@@ -118,14 +120,19 @@ async function getNotificationRecipients(assetId: string, requesterId: string) {
     }
   }
   
-  // Obtener supervisores de la misma sede
+  // Obtener supervisores de la misma sede, filtrando por módulo del activo
   if (asset?.location_id) {
+    const moduleKey = isItAsset ? 'it-helpdesk' : 'mantenimiento'
     const { data: supervisors } = await supabaseAdmin
       .from('profiles')
-      .select('id, full_name')
+      .select('id, full_name, hub_visible_modules')
       .eq('role', 'supervisor')
     
     for (const sup of supervisors || []) {
+      // Solo notificar supervisores del módulo correspondiente al tipo de activo
+      const modules = sup.hub_visible_modules as Record<string, string> | null
+      if (modules?.[moduleKey] !== 'supervisor') continue
+
       const { data: userLocs } = await supabaseAdmin
         .from('user_locations')
         .select('location_id')

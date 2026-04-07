@@ -54,7 +54,7 @@ function generateFolio(): string {
 
 // Función auxiliar para construir el PDF
 async function buildPDF(data: DisposalData, folio: string, verificationCode: string, generatedAt: string, pdfDownloadUrl?: string): Promise<jsPDF> {
-  const doc = new jsPDF()
+  const doc = new jsPDF({ compress: true, putOnlyUsedFonts: true })
   const pageWidth = doc.internal.pageSize.getWidth()
   const pageHeight = doc.internal.pageSize.getHeight()
   const margin = 15
@@ -64,23 +64,47 @@ async function buildPDF(data: DisposalData, folio: string, verificationCode: str
   // HEADER
   // ═══════════════════════════════════════════════════════════════
   
-  doc.setFillColor(30, 64, 175)
+  doc.setFillColor(15, 23, 42)
   doc.rect(0, 0, pageWidth, 32, 'F')
   
-  doc.setFillColor(59, 130, 246)
+  doc.setFillColor(30, 41, 59)
   doc.rect(0, 32, pageWidth, 3, 'F')
 
   // Logo ZIII
   try {
     let logoBase64 = ''
+    let logoFormat: 'PNG' | 'JPEG' = 'PNG'
     try {
       const logoResponse = await fetch('/ziii-logo.png')
       const logoBlob = await logoResponse.blob()
-      logoBase64 = await new Promise<string>((resolve) => {
+      const rawBase64 = await new Promise<string>((resolve) => {
         const reader = new FileReader()
         reader.onloadend = () => resolve(reader.result as string)
         reader.readAsDataURL(logoBlob)
       })
+      // Comprimir logo con canvas para reducir peso del PDF
+      const compressed = await new Promise<{ dataUrl: string; format: 'PNG' | 'JPEG' }>((resolve) => {
+        const img = new window.Image()
+        img.onload = () => {
+          const MAX = 120
+          const scale = Math.min(1, MAX / Math.max(img.width || MAX, img.height || MAX))
+          const w = Math.max(1, Math.round((img.width || MAX) * scale))
+          const h = Math.max(1, Math.round((img.height || MAX) * scale))
+          const canvas = document.createElement('canvas')
+          canvas.width = w
+          canvas.height = h
+          const ctx = canvas.getContext('2d')
+          if (!ctx) { resolve({ dataUrl: rawBase64, format: 'PNG' }); return }
+          ctx.fillStyle = '#ffffff'
+          ctx.fillRect(0, 0, w, h)
+          ctx.drawImage(img, 0, 0, w, h)
+          resolve({ dataUrl: canvas.toDataURL('image/jpeg', 0.82), format: 'JPEG' })
+        }
+        img.onerror = () => resolve({ dataUrl: rawBase64, format: 'PNG' })
+        img.src = rawBase64
+      })
+      logoBase64 = compressed.dataUrl
+      logoFormat = compressed.format
     } catch {
       const logoResponse = await fetch('https://ziii.com.mx/logos/1ZIIIlogo.png')
       const logoBlob = await logoResponse.blob()
@@ -92,7 +116,7 @@ async function buildPDF(data: DisposalData, folio: string, verificationCode: str
     }
     
     if (logoBase64) {
-      doc.addImage(logoBase64, 'PNG', margin, 4, 24, 24)
+      doc.addImage(logoBase64, logoFormat, margin, 4, 24, 24)
     }
   } catch (error) {
     console.error('Error loading logo:', error)
@@ -346,7 +370,7 @@ async function buildPDF(data: DisposalData, folio: string, verificationCode: str
       serialNumber: data.serialNumber,
       status: 'DADO DE BAJA'
     })
-    const qrImage = await generateQRCode(qrContent, { size: 400, margin: 1, errorCorrectionLevel: 'H' })
+    const qrImage = await generateQRCode(qrContent, { size: 200, margin: 1, errorCorrectionLevel: 'H' })
     
     doc.addImage(qrImage, 'PNG', leftX, y + 10, qrSize, qrSize)
     
@@ -398,7 +422,7 @@ async function buildPDF(data: DisposalData, folio: string, verificationCode: str
       code: verificationCode
     })
     
-    const docQrImage = await generateQRCode(docQRContent, { size: 400, margin: 1, errorCorrectionLevel: 'H' })
+    const docQrImage = await generateQRCode(docQRContent, { size: 200, margin: 1, errorCorrectionLevel: 'H' })
     doc.addImage(docQrImage, 'PNG', rightX, y + 10, qrSize, qrSize)
     
     doc.setTextColor(0, 0, 0)
