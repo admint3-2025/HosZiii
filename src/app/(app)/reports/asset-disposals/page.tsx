@@ -122,23 +122,23 @@ export default async function AssetDisposalsReportPage() {
     <main className="p-6 space-y-6">
 
       {/* ── HEADER ──────────────────────────────────────────────────── */}
-      <div className="relative overflow-hidden rounded-lg bg-gradient-to-br from-rose-700 via-rose-600 to-pink-700 shadow-md">
-        <div className="absolute top-0 right-0 w-56 h-56 bg-white/10 rounded-full blur-3xl -mr-28 -mt-28 pointer-events-none" />
-        <div className="absolute bottom-0 left-1/3 w-32 h-32 bg-white/5 rounded-full blur-2xl pointer-events-none" />
+      <div className="relative overflow-hidden rounded-lg bg-gradient-to-br from-slate-800 via-slate-700 to-slate-800 shadow-md">
+        <div className="absolute top-0 right-0 w-56 h-56 bg-rose-500/5 rounded-full blur-3xl -mr-28 -mt-28 pointer-events-none" />
+        <div className="absolute left-0 top-0 bottom-0 w-1 bg-rose-500/60 pointer-events-none" />
         <div className="relative z-10 px-5 py-4">
           <div className="flex items-center gap-3">
             <Link
               href="/reports"
-              className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center hover:bg-white/30 transition-colors flex-shrink-0"
+              className="w-8 h-8 rounded-lg bg-white/10 border border-white/15 flex items-center justify-center hover:bg-white/20 transition-colors flex-shrink-0"
             >
               <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
               </svg>
             </Link>
             <div>
-              <p className="text-rose-200 text-xs font-medium uppercase tracking-widest mb-0.5">Reportes · Activos</p>
+              <p className="text-slate-400 text-xs font-medium uppercase tracking-widest mb-0.5">Reportes · Activos</p>
               <h1 className="text-xl font-bold text-white">Solicitudes de Baja</h1>
-              <p className="text-rose-100/80 text-sm mt-0.5">Desincorporación de activos con snapshot y auditoría completa</p>
+              <p className="text-slate-400 text-sm mt-0.5">Desincorporación de activos con snapshot y auditoría completa</p>
             </div>
           </div>
         </div>
