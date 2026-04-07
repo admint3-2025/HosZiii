@@ -119,254 +119,250 @@ export default async function AssetDisposalsReportPage() {
   const rejected = disposals.filter(d => d.status === 'rejected').length
 
   return (
-    <div className="min-h-screen bg-gray-50 p-6">
-      <div className="max-w-5xl mx-auto">
-        {/* Header */}
-        <div className="relative overflow-hidden rounded-xl bg-slate-900 border border-slate-700/60 shadow-lg mb-6">
-          {/* Grid texture */}
-          <div
-            className="absolute inset-0 opacity-[0.035] pointer-events-none"
-            style={{ backgroundImage: 'repeating-linear-gradient(0deg,#fff,#fff 1px,transparent 1px,transparent 44px),repeating-linear-gradient(90deg,#fff,#fff 1px,transparent 1px,transparent 44px)' }}
-          />
-          {/* Ambient glow */}
-          <div className="absolute -top-16 -right-16 w-64 h-64 bg-rose-600/10 rounded-full blur-3xl pointer-events-none" />
-          {/* Left accent bar */}
-          <div className="absolute left-0 top-0 bottom-0 w-[3px] rounded-l-xl bg-gradient-to-b from-rose-500 via-rose-600 to-slate-900" />
+    <main className="p-6 space-y-6">
 
-          <div className="relative z-10 px-6 py-5 pl-7">
-            <div className="flex items-center justify-between gap-6">
-              {/* Left: nav + title */}
-              <div className="flex items-center gap-4 min-w-0">
-                <Link
-                  href="/reports"
-                  className="flex-shrink-0 w-9 h-9 rounded-lg bg-slate-800 border border-slate-700 flex items-center justify-center hover:bg-slate-700 hover:border-slate-600 transition-all group"
-                >
-                  <svg className="w-4 h-4 text-slate-400 group-hover:text-slate-200 transition-colors" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-                  </svg>
-                </Link>
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className="flex-shrink-0 w-10 h-10 rounded-xl bg-rose-500/10 border border-rose-500/25 flex items-center justify-center">
-                    <svg className="w-5 h-5 text-rose-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
-                    </svg>
-                  </div>
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5 mb-0.5">
-                      <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-widest">Reportes</span>
-                      <span className="text-slate-700 text-[10px]">/</span>
-                      <span className="text-[10px] font-semibold text-rose-400/70 uppercase tracking-widest">Activos</span>
-                    </div>
-                    <h1 className="text-base font-bold text-white leading-snug truncate">Solicitudes de Baja</h1>
-                    <p className="text-slate-500 text-[11px] mt-px">Desincorporación de activos con snapshot y auditoría</p>
-                  </div>
-                </div>
-              </div>
-
-              {/* Right: stat pills */}
-              <div className="hidden sm:flex items-center gap-1 flex-shrink-0">
-                <div className="flex flex-col items-center px-4 py-2 rounded-lg bg-slate-800/70 border border-slate-700/60 min-w-[60px]">
-                  <span className="text-xl font-bold text-white tabular-nums leading-none">{disposals.length}</span>
-                  <span className="text-[10px] text-slate-500 uppercase tracking-wide mt-1">Total</span>
-                </div>
-                <div className="flex flex-col items-center px-4 py-2 rounded-lg bg-amber-500/10 border border-amber-500/20 min-w-[60px]">
-                  <span className="text-xl font-bold text-amber-400 tabular-nums leading-none">{pending}</span>
-                  <span className="text-[10px] text-amber-600/80 uppercase tracking-wide mt-1">Pendientes</span>
-                </div>
-                <div className="flex flex-col items-center px-4 py-2 rounded-lg bg-emerald-500/10 border border-emerald-500/20 min-w-[60px]">
-                  <span className="text-xl font-bold text-emerald-400 tabular-nums leading-none">{approved}</span>
-                  <span className="text-[10px] text-emerald-600/80 uppercase tracking-wide mt-1">Aprobadas</span>
-                </div>
-                <div className="flex flex-col items-center px-4 py-2 rounded-lg bg-rose-500/10 border border-rose-500/20 min-w-[60px]">
-                  <span className="text-xl font-bold text-rose-400 tabular-nums leading-none">{rejected}</span>
-                  <span className="text-[10px] text-rose-600/80 uppercase tracking-wide mt-1">Rechazadas</span>
-                </div>
-              </div>
+      {/* ── HEADER ──────────────────────────────────────────────────── */}
+      <div className="relative overflow-hidden rounded-lg bg-gradient-to-br from-rose-700 via-rose-600 to-pink-700 shadow-md">
+        <div className="absolute top-0 right-0 w-56 h-56 bg-white/10 rounded-full blur-3xl -mr-28 -mt-28 pointer-events-none" />
+        <div className="absolute bottom-0 left-1/3 w-32 h-32 bg-white/5 rounded-full blur-2xl pointer-events-none" />
+        <div className="relative z-10 px-5 py-4">
+          <div className="flex items-center gap-3">
+            <Link
+              href="/reports"
+              className="w-8 h-8 rounded-lg bg-white/20 backdrop-blur-sm border border-white/30 flex items-center justify-center hover:bg-white/30 transition-colors flex-shrink-0"
+            >
+              <svg className="w-4 h-4 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+              </svg>
+            </Link>
+            <div>
+              <p className="text-rose-200 text-xs font-medium uppercase tracking-widest mb-0.5">Reportes · Activos</p>
+              <h1 className="text-xl font-bold text-white">Solicitudes de Baja</h1>
+              <p className="text-rose-100/80 text-sm mt-0.5">Desincorporación de activos con snapshot y auditoría completa</p>
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Estadísticas móvil (solo visible en sm-) */}
-        <div className="grid grid-cols-4 gap-3 mb-6 sm:hidden">
-          <div className="bg-white rounded-lg border border-gray-200 p-3 shadow-sm text-center">
-            <div className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Total</div>
-            <div className="text-2xl font-bold text-gray-900">{disposals.length}</div>
-          </div>
-          <div className="bg-white rounded-lg border border-amber-200 p-3 shadow-sm text-center">
-            <div className="text-xs font-medium text-amber-600 uppercase tracking-wide mb-1">Pendientes</div>
-            <div className="text-2xl font-bold text-amber-600">{pending}</div>
-          </div>
-          <div className="bg-white rounded-lg border border-green-200 p-3 shadow-sm text-center">
-            <div className="text-xs font-medium text-green-600 uppercase tracking-wide mb-1">Aprobadas</div>
-            <div className="text-2xl font-bold text-green-600">{approved}</div>
-          </div>
-          <div className="bg-white rounded-lg border border-red-200 p-3 shadow-sm text-center">
-            <div className="text-xs font-medium text-red-600 uppercase tracking-wide mb-1">Rechazadas</div>
-            <div className="text-2xl font-bold text-red-600">{rejected}</div>
+      {/* ── STATS GRID ──────────────────────────────────────────────── */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="card border-gray-200">
+          <div className="card-body">
+            <div className="text-xs font-semibold text-gray-500 uppercase tracking-wide">Total</div>
+            <div className="text-3xl font-bold text-gray-900 mt-1">{disposals.length}</div>
+            <div className="text-xs text-gray-400 mt-1">Solicitudes registradas</div>
           </div>
         </div>
+        <div className="card bg-gradient-to-br from-amber-50 to-yellow-50 border-amber-200">
+          <div className="card-body">
+            <div className="text-xs font-semibold text-amber-700 uppercase tracking-wide">Pendientes</div>
+            <div className="text-3xl font-bold text-amber-700 mt-1">{pending}</div>
+            <div className="text-xs text-amber-600/70 mt-1">Esperando autorización</div>
+          </div>
+        </div>
+        <div className="card bg-gradient-to-br from-emerald-50 to-green-50 border-emerald-200">
+          <div className="card-body">
+            <div className="text-xs font-semibold text-emerald-700 uppercase tracking-wide">Aprobadas</div>
+            <div className="text-3xl font-bold text-emerald-700 mt-1">{approved}</div>
+            <div className="text-xs text-emerald-600/70 mt-1">Bajas autorizadas</div>
+          </div>
+        </div>
+        <div className="card bg-gradient-to-br from-red-50 to-rose-50 border-red-200">
+          <div className="card-body">
+            <div className="text-xs font-semibold text-red-700 uppercase tracking-wide">Rechazadas</div>
+            <div className="text-3xl font-bold text-red-700 mt-1">{rejected}</div>
+            <div className="text-xs text-red-600/70 mt-1">Solicitudes denegadas</div>
+          </div>
+        </div>
+      </div>
 
-        {/* Lista de solicitudes */}
+      {/* ── ALERTA PENDIENTES ────────────────────────────────────────── */}
+      {pending > 0 && (
+        <div className="flex items-center justify-between gap-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3">
+          <div className="flex items-center gap-2 text-amber-800 text-sm font-medium">
+            <svg className="w-4 h-4 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
+            </svg>
+            {pending} solicitud{pending > 1 ? 'es' : ''} pendiente{pending > 1 ? 's' : ''} de revisión
+          </div>
+          <Link href="/assets/disposals" className="btn btn-warning btn-sm">
+            Revisar →
+          </Link>
+        </div>
+      )}
+
+      {/* ── LISTA DE SOLICITUDES ─────────────────────────────────────── */}
+      {disposals.length === 0 ? (
+        <div className="card">
+          <div className="card-body items-center py-16 text-center text-gray-400">
+            <svg className="w-12 h-12 mb-3 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+            </svg>
+            <p className="font-medium text-gray-500">No hay solicitudes de baja registradas</p>
+          </div>
+        </div>
+      ) : (
         <div className="space-y-4">
-          {disposals.length === 0 ? (
-            <div className="bg-white rounded-lg border border-gray-200 p-8 text-center text-gray-500">
-              No hay solicitudes de baja registradas
-            </div>
-          ) : (
-            disposals.map((disposal) => (
-              <div
-                key={disposal.id}
-                className="bg-white rounded-lg border border-gray-200 overflow-hidden"
-              >
-                {/* Cabecera */}
-                <div className="px-4 py-3 border-b border-gray-100 flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div>
-                      <h3 className="font-medium text-gray-900">
-                        {String(disposal.asset?.asset_tag ?? (disposal.asset_snapshot as Record<string, unknown>)?.asset_tag ?? 'Sin etiqueta')}
-                        <span className="ml-2 text-gray-400 font-normal text-sm">
-                          {String(disposal.asset?.asset_type ?? (disposal.asset_snapshot as Record<string, unknown>)?.asset_type ?? '')}
-                        </span>
-                      </h3>
-                      <p className="text-xs text-gray-500">
-                        {disposal.requester?.full_name ?? 'Desconocido'} •{' '}
-                        {new Date(disposal.created_at).toLocaleDateString('es-ES', {
-                          day: '2-digit',
-                          month: 'short',
-                          year: 'numeric'
-                        })}
-                      </p>
+          {disposals.map((disposal) => {
+            const snap = disposal.asset_snapshot as Record<string, unknown> | null
+            const assetTag = String(disposal.asset?.asset_tag ?? snap?.asset_tag ?? 'Sin etiqueta')
+            const assetType = String(disposal.asset?.asset_type ?? snap?.asset_type ?? '')
+            const isApproved = disposal.status === 'approved'
+            const isRejected = disposal.status === 'rejected'
+
+            return (
+              <div key={disposal.id} className="card overflow-hidden">
+                {/* ── Banda de estado superior ── */}
+                <div className={`h-1 w-full ${isApproved ? 'bg-emerald-400' : isRejected ? 'bg-red-400' : 'bg-amber-400'}`} />
+
+                <div className="card-body p-0">
+                  {/* ── Cabecera de la tarjeta ── */}
+                  <div className="flex items-start justify-between gap-4 px-5 pt-4 pb-3 border-b border-gray-100">
+                    <div className="flex items-center gap-3">
+                      <div className={`w-10 h-10 rounded-xl flex items-center justify-center flex-shrink-0 ${
+                        isApproved ? 'bg-emerald-100 text-emerald-600' :
+                        isRejected ? 'bg-red-100 text-red-600' :
+                        'bg-amber-100 text-amber-600'
+                      }`}>
+                        <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                        </svg>
+                      </div>
+                      <div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          <h3 className="font-bold text-gray-900 text-base">{assetTag}</h3>
+                          {assetType && (
+                            <span className="text-xs font-medium bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">{assetType}</span>
+                          )}
+                          <span className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${
+                            isApproved ? 'bg-emerald-100 text-emerald-700' :
+                            isRejected ? 'bg-red-100 text-red-700' :
+                            'bg-amber-100 text-amber-700'
+                          }`}>
+                            {statusLabels[disposal.status].label}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-400 mt-0.5">
+                          Solicitado por <span className="text-gray-600 font-medium">{disposal.requester?.full_name ?? 'Desconocido'}</span>
+                          {' · '}
+                          {new Date(disposal.created_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}
+                        </p>
+                      </div>
+                    </div>
+                    <div className="flex-shrink-0">
+                      <ExportPDFButton disposal={disposal} />
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    <span className={`px-2 py-1 rounded text-xs font-medium ${
-                      disposal.status === 'approved' ? 'bg-green-100 text-green-700' :
-                      disposal.status === 'rejected' ? 'bg-red-100 text-red-700' :
-                      'bg-amber-100 text-amber-700'
-                    }`}>
-                      {statusLabels[disposal.status].label}
-                    </span>
-                    <ExportPDFButton disposal={disposal} />
-                  </div>
-                </div>
 
-                <div className="p-4 space-y-4">
-                  {/* Motivo */}
-                  <div>
-                    <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">Motivo</h4>
-                    <p className="text-sm text-gray-700">{disposal.reason}</p>
-                  </div>
+                  {/* ── Cuerpo: grid de 2 columnas ── */}
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-0 divide-y md:divide-y-0 md:divide-x divide-gray-100">
 
-                  {/* Resolución (si existe) */}
-                  {disposal.status !== 'pending' && (
-                    <div className="border-l-2 border-gray-200 pl-3">
-                      <h4 className="text-xs font-medium text-gray-500 uppercase tracking-wide mb-1">
-                        {disposal.status === 'approved' ? 'Aprobación' : 'Rechazo'}
-                      </h4>
-                      <p className="text-sm text-gray-700">
-                        {disposal.reviewer?.full_name ?? 'Desconocido'}
-                        {disposal.reviewed_at && (
-                          <span className="text-gray-400"> • {new Date(disposal.reviewed_at).toLocaleDateString('es-ES')}</span>
-                        )}
-                      </p>
-                      {disposal.review_notes && (
-                        <p className="text-sm text-gray-600 mt-1">{disposal.review_notes}</p>
+                    {/* Columna izquierda: motivo + resolución */}
+                    <div className="px-5 py-4 space-y-4">
+                      <div>
+                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-1">Motivo de la solicitud</p>
+                        <p className="text-sm text-gray-700 leading-relaxed">{disposal.reason}</p>
+                      </div>
+
+                      {disposal.status !== 'pending' && (
+                        <div className={`rounded-lg p-3 ${isApproved ? 'bg-emerald-50 border border-emerald-100' : 'bg-red-50 border border-red-100'}`}>
+                          <p className={`text-[10px] font-semibold uppercase tracking-widest mb-1 ${isApproved ? 'text-emerald-600' : 'text-red-600'}`}>
+                            {isApproved ? 'Aprobado por' : 'Rechazado por'}
+                          </p>
+                          <p className={`text-sm font-medium ${isApproved ? 'text-emerald-800' : 'text-red-800'}`}>
+                            {disposal.reviewer?.full_name ?? 'Desconocido'}
+                            {disposal.reviewed_at && (
+                              <span className="font-normal text-xs ml-2 opacity-70">
+                                {new Date(disposal.reviewed_at).toLocaleDateString('es-ES', { day: '2-digit', month: 'short', year: 'numeric' })}
+                              </span>
+                            )}
+                          </p>
+                          {disposal.review_notes && (
+                            <p className={`text-xs mt-1 ${isApproved ? 'text-emerald-700' : 'text-red-700'}`}>{disposal.review_notes}</p>
+                          )}
+                        </div>
                       )}
                     </div>
-                  )}
 
-                  {/* Snapshot del activo */}
-                  {disposal.asset_snapshot && (
-                    <details className="group">
-                      <summary className="cursor-pointer text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1">
-                        <span className="group-open:rotate-90 transition-transform text-xs">▶</span>
-                        Ver snapshot del activo
-                      </summary>
-                      <div className="mt-2 grid grid-cols-2 md:grid-cols-3 gap-2 text-xs">
-                        {Object.entries(disposal.asset_snapshot).map(([key, value]) => {
-                          const formatted = formatValue(key, value)
-                          if (!formatted || key === 'id' || key === 'created_at' || key === 'updated_at') return null
-                          const label = fieldLabels[key] ?? key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
-                          return (
-                            <div key={key}>
-                              <span className="text-gray-400">{label}:</span>{' '}
-                              <span className="text-gray-700">{formatted}</span>
-                            </div>
-                          )
-                        })}
+                    {/* Columna derecha: snapshot resumido */}
+                    {snap && (
+                      <div className="px-5 py-4">
+                        <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-widest mb-2">Datos del activo (snapshot)</p>
+                        <div className="grid grid-cols-2 gap-x-4 gap-y-1.5">
+                          {(['brand','model','serial_number','status','location_name','department','assigned_user_name','purchase_date'] as const).map((key) => {
+                            const val = formatValue(key, snap[key])
+                            if (!val) return null
+                            return (
+                              <div key={key} className="min-w-0">
+                                <p className="text-[10px] text-gray-400 leading-tight">{fieldLabels[key] ?? key}</p>
+                                <p className="text-xs font-medium text-gray-800 truncate">{val}</p>
+                              </div>
+                            )
+                          })}
+                        </div>
                       </div>
-                    </details>
-                  )}
+                    )}
+                  </div>
 
-                  {/* Historial de incidencias */}
-                  {disposal.tickets_snapshot && disposal.tickets_snapshot.length > 0 && (
-                    <details className="group">
-                      <summary className="cursor-pointer text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1">
-                        <span className="group-open:rotate-90 transition-transform text-xs">▶</span>
-                        Incidencias ({disposal.tickets_snapshot.length})
-                      </summary>
-                      <div className="mt-2 space-y-1">
-                        {(disposal.tickets_snapshot as Array<{ id: string; number: number; title: string; status: string; created_at: string }>).map((ticket, idx) => (
-                          <div key={idx} className="text-xs flex items-center justify-between py-1 border-b border-gray-100 last:border-0">
-                            <div>
-                              <span className="font-medium text-gray-700">#{ticket.number}</span>{' '}
-                              <span className="text-gray-600">{ticket.title}</span>
-                            </div>
-                            <span className="text-gray-400">
-                              {ticket.status} • {new Date(ticket.created_at).toLocaleDateString('es-ES')}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
-                    </details>
-                  )}
+                  {/* ── Footer: detalles colapsables ── */}
+                  <div className="px-5 pb-4 pt-2 border-t border-gray-100 flex flex-wrap gap-3">
+                    {snap && (
+                      <details className="group w-full">
+                        <summary className="cursor-pointer inline-flex items-center gap-1.5 text-xs font-medium text-blue-600 hover:text-blue-800 select-none list-none">
+                          <svg className="w-3.5 h-3.5 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                          Ver snapshot completo
+                        </summary>
+                        <div className="mt-2 grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-x-4 gap-y-2 text-xs bg-gray-50 rounded-lg p-3 border border-gray-100">
+                          {Object.entries(snap).map(([key, value]) => {
+                            const formatted = formatValue(key, value)
+                            if (!formatted || ['id','created_at','updated_at'].includes(key)) return null
+                            const label = fieldLabels[key] ?? key.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase())
+                            return (
+                              <div key={key} className="min-w-0">
+                                <p className="text-gray-400 text-[10px] leading-tight">{label}</p>
+                                <p className="text-gray-700 font-medium truncate">{formatted}</p>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </details>
+                    )}
 
-                  {/* Historial de cambios */}
-                  {disposal.changes_snapshot && disposal.changes_snapshot.length > 0 && (
-                    <details className="group">
-                      <summary className="cursor-pointer text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1">
-                        <span className="group-open:rotate-90 transition-transform text-xs">▶</span>
-                        Cambios ({disposal.changes_snapshot.length})
-                      </summary>
-                      <div className="mt-2 space-y-1">
-                        {(disposal.changes_snapshot as Array<{ field_name: string; old_value: string; new_value: string; changed_at: string; changed_by_name?: string }>).map((change, idx) => (
-                          <div key={idx} className="text-xs py-1 border-b border-gray-100 last:border-0">
-                            <div className="flex items-center justify-between">
-                              <span className="text-gray-700">
-                                {fieldLabels[change.field_name] ?? change.field_name}
+                    {disposal.changes_snapshot && disposal.changes_snapshot.length > 0 && (
+                      <details className="group w-full">
+                        <summary className="cursor-pointer inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-800 select-none list-none">
+                          <svg className="w-3.5 h-3.5 transition-transform group-open:rotate-90" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+                          </svg>
+                          Cambios ({disposal.changes_snapshot.length})
+                        </summary>
+                        <div className="mt-2 divide-y divide-gray-100 text-xs rounded-lg border border-gray-100 overflow-hidden">
+                          {(disposal.changes_snapshot as Array<{ field_name: string; old_value: string; new_value: string; changed_at: string; changed_by_name?: string }>).map((change, idx) => (
+                            <div key={idx} className="flex items-center justify-between gap-4 px-3 py-2 bg-white hover:bg-gray-50">
+                              <div className="min-w-0">
+                                <span className="font-semibold text-gray-700">{fieldLabels[change.field_name] ?? change.field_name}</span>
+                                <span className="mx-1.5 text-gray-300">·</span>
+                                <span className="text-gray-400 line-through">{formatChangeValue(change.field_name, change.old_value)}</span>
+                                <span className="mx-1 text-gray-300">→</span>
+                                <span className="text-gray-700">{formatChangeValue(change.field_name, change.new_value)}</span>
+                              </div>
+                              <span className="text-gray-400 flex-shrink-0 whitespace-nowrap">
+                                {change.changed_by_name ?? 'Sistema'} · {new Date(change.changed_at).toLocaleDateString('es-ES')}
                               </span>
-                              <span className="text-gray-400">
-                                {change.changed_by_name ?? 'Sistema'} • {new Date(change.changed_at).toLocaleDateString('es-ES')}
-                              </span>
                             </div>
-                            <div className="text-gray-500">
-                              <span className="line-through">{formatChangeValue(change.field_name, change.old_value)}</span>
-                              {' → '}
-                              <span>{formatChangeValue(change.field_name, change.new_value)}</span>
-                            </div>
-                          </div>
-                        ))}
-                      </div>
-                    </details>
-                  )}
+                          ))}
+                        </div>
+                      </details>
+                    )}
+                  </div>
                 </div>
               </div>
-            ))
-          )}
+            )
+          })}
         </div>
-
-        {/* Link a panel de autorización */}
-        {pending > 0 && (
-          <div className="mt-6">
-            <Link
-              href="/assets/disposals"
-              className="inline-flex items-center gap-2 text-sm text-amber-600 hover:text-amber-700 font-medium"
-            >
-              {pending} solicitud(es) pendiente(s) de autorización →
-            </Link>
-          </div>
-        )}
-      </div>
-    </div>
+      )}
+    </main>
   )
 }
