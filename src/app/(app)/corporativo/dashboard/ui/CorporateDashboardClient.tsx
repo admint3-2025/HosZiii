@@ -468,7 +468,8 @@ export default function CorporateDashboardClient({ hubModules, isAdmin }: Corpor
 
   const loadPlanningStats = async () => {
     try {
-      const supabase = createSupabaseBrowserClient()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const supabase = createSupabaseBrowserClient() as any
       const currentYear = new Date().getFullYear()
       const today = new Date().toISOString().split('T')[0]
 
