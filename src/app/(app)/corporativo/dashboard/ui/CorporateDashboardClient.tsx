@@ -16,7 +16,9 @@ import {
   ChevronUp,
   MapPin,
   User,
-  Calendar
+  Calendar,
+  CalendarDays,
+  TrendingUp
 } from 'lucide-react'
 
 // Tipo para hub_visible_modules
@@ -311,6 +313,13 @@ export default function CorporateDashboardClient({ hubModules, isAdmin }: Corpor
   const [pendingReviews, setPendingReviews] = useState<any[]>([])
   const [itStats, setItStats] = useState<any>(null)
   const [maintenanceStats, setMaintenanceStats] = useState<any>(null)
+  const [planningStats, setPlanningStats] = useState<{
+    activos: number
+    pausados: number
+    totalEventosPendientes: number
+    eventosVencidos: number
+    totalMonto: number
+  } | null>(null)
   const [roomsOosTotal, setRoomsOosTotal] = useState<number | null>(null)
   const [loading, setLoading] = useState(true)
   const [refreshing, setRefreshing] = useState(false)
@@ -323,7 +332,7 @@ export default function CorporateDashboardClient({ hubModules, isAdmin }: Corpor
 
   // Helper para verificar si un módulo está visible
   // Si hubModules es null (admin), todos los módulos están visibles
-  // Si hubModules existe pero el módulo no está definido o es true, está visible 
+  // Si hubModules existe pero el módulo no está definido o es true, está visible
   // Solo se oculta si está explícitamente en false
   const isModuleVisible = (moduleKey: string): boolean => {
     if (isAdmin || hubModules === null) return true
@@ -338,9 +347,10 @@ export default function CorporateDashboardClient({ hubModules, isAdmin }: Corpor
   const showMaintenance = isModuleVisible('mantenimiento')
   const showInspections = isModuleVisible('inspecciones-rrhh')
   const showAcademia = isModuleVisible('academia')
+  const showPlanificacion = isModuleVisible('planificacion')
 
   // Calcular cuántas columnas mostrar en el grid principal
-  const visibleModulesCount = [showIT, showMaintenance, showInspections].filter(Boolean).length
+  const visibleModulesCount = [showIT, showMaintenance, showInspections, showPlanificacion].filter(Boolean).length
 
   const normalizeStatus = (status: unknown) => {
     if (typeof status !== 'string') return ''
@@ -440,6 +450,11 @@ export default function CorporateDashboardClient({ hubModules, isAdmin }: Corpor
         await loadMaintenanceStats()
       }
 
+      // Solo cargar planificacion si está visible
+      if (showPlanificacion) {
+        await loadPlanningStats()
+      }
+
       // KPI: habitaciones fuera de servicio (OOS) - solo admin (reemplaza "Usuarios")
       if (isAdmin) {
         await loadRoomsOutOfServiceTotal()
@@ -448,6 +463,46 @@ export default function CorporateDashboardClient({ hubModules, isAdmin }: Corpor
       console.error('Error al cargar datos:', error)
     } finally {
       setLoading(false)
+    }
+  }
+
+  const loadPlanningStats = async () => {
+    try {
+      const supabase = createSupabaseBrowserClient()
+      const currentYear = new Date().getFullYear()
+      const today = new Date().toISOString().split('T')[0]
+
+      // Planes del año actual
+      const { data: planes } = await supabase
+        .schema('ops')
+        .from('planes_maestros')
+        .select('id, estado, monto_total_planeado')
+        .gte('fecha_fin', `${currentYear}-01-01`)
+        .lte('fecha_inicio', `${currentYear}-12-31`)
+
+      const activos = (planes ?? []).filter((p: any) => p.estado === 'activo').length
+      const pausados = (planes ?? []).filter((p: any) => p.estado === 'pausado').length
+      const totalMonto = (planes ?? []).reduce((s: number, p: any) => s + (Number(p.monto_total_planeado) || 0), 0)
+      const planIds = (planes ?? []).map((p: any) => p.id)
+
+      let totalEventosPendientes = 0
+      let eventosVencidos = 0
+
+      if (planIds.length > 0) {
+        const { data: agenda } = await supabase
+          .schema('ops')
+          .from('agenda_operativa')
+          .select('id, due_date, estado')
+          .in('plan_maestro_id', planIds)
+          .in('estado', ['pendiente', 'en_proceso'])
+
+        totalEventosPendientes = (agenda ?? []).length
+        eventosVencidos = (agenda ?? []).filter((a: any) => a.due_date < today).length
+      }
+
+      setPlanningStats({ activos, pausados, totalEventosPendientes, eventosVencidos, totalMonto })
+    } catch (error) {
+      console.error('Error loading planning stats:', error)
     }
   }
 
@@ -675,6 +730,18 @@ export default function CorporateDashboardClient({ hubModules, isAdmin }: Corpor
             />
           )}
           
+          {/* Planificación */}
+          {showPlanificacion && planningStats && (
+            <KPICard
+              title="PLANES ACTIVOS"
+              value={planningStats.activos}
+              trend={planningStats.eventosVencidos > 0 ? { value: planningStats.eventosVencidos, direction: 'down' } : undefined}
+              color="purple"
+              icon={<CalendarDays size={24} />}
+              data={generateSparklineData(planningStats.activos)}
+            />
+          )}
+          
           {/* Usuarios - solo para admin */}
           {isAdmin && roomsOosTotal !== null && (
             <KPICard
@@ -820,6 +887,80 @@ export default function CorporateDashboardClient({ hubModules, isAdmin }: Corpor
             <div className="p-4 text-center text-gray-400 text-xs">Cargando...</div>
           )}
         </div>
+        )}
+
+        {/* Planificación - Solo si visible */}
+        {showPlanificacion && (
+          <div className="bg-white border border-gray-200 rounded-lg overflow-hidden">
+            <div className="px-3 py-2 border-b border-gray-100 flex justify-between items-center">
+              <div className="flex items-center gap-1.5">
+                <div className="p-1 bg-violet-600 rounded">
+                  <CalendarDays className="w-3 h-3 text-white" />
+                </div>
+                <span className="text-[10px] font-bold text-gray-700 uppercase tracking-wider">Planificacion</span>
+              </div>
+              <Link href="/planificacion" className="text-violet-600 hover:text-violet-700 text-[9px] font-semibold">VER →</Link>
+            </div>
+            {planningStats ? (
+              <div className="p-3 space-y-1.5">
+                {/* Planes por estado */}
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-gray-500 font-medium">Planes activos</span>
+                  <span className="text-sm font-bold text-violet-600 tabular-nums">{planningStats.activos}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-gray-500 font-medium">En pausa</span>
+                  <span className="text-sm font-bold text-amber-500 tabular-nums">{planningStats.pausados}</span>
+                </div>
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] text-gray-500 font-medium">Eventos pendientes</span>
+                  <span className="text-sm font-bold text-sky-600 tabular-nums">{planningStats.totalEventosPendientes}</span>
+                </div>
+                {planningStats.eventosVencidos > 0 && (
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] text-red-500 font-semibold flex items-center gap-1">
+                      <AlertTriangle size={10} />
+                      Eventos vencidos
+                    </span>
+                    <span className="text-sm font-bold text-red-600 tabular-nums">{planningStats.eventosVencidos}</span>
+                  </div>
+                )}
+                {/* Presupuesto */}
+                <div className="flex items-center justify-between pt-1.5 border-t border-gray-100">
+                  <span className="text-[10px] text-gray-600 font-semibold flex items-center gap-1">
+                    <TrendingUp size={10} />
+                    Presupuesto planeado
+                  </span>
+                  <span className="text-[11px] font-bold text-gray-900 tabular-nums">
+                    {planningStats.totalMonto > 0
+                      ? new Intl.NumberFormat('es-MX', { style: 'currency', currency: 'MXN', maximumFractionDigits: 0 }).format(planningStats.totalMonto)
+                      : '—'}
+                  </span>
+                </div>
+                {/* Barra de estado */}
+                {planningStats.totalEventosPendientes > 0 && (
+                  <div className="flex h-1.5 rounded-full overflow-hidden bg-gray-100 mt-1">
+                    <div
+                      className="bg-red-500 transition-all"
+                      style={{ width: `${Math.min((planningStats.eventosVencidos / planningStats.totalEventosPendientes) * 100, 100)}%` }}
+                    />
+                    <div
+                      className="bg-sky-500 transition-all"
+                      style={{ width: `${Math.min(((planningStats.totalEventosPendientes - planningStats.eventosVencidos) / planningStats.totalEventosPendientes) * 100, 100)}%` }}
+                    />
+                  </div>
+                )}
+                {planningStats.totalEventosPendientes > 0 && (
+                  <div className="flex gap-2 text-[8px] text-gray-400 mt-0.5">
+                    <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-red-500" />Vencidos</span>
+                    <span className="flex items-center gap-0.5"><span className="w-1.5 h-1.5 rounded-full bg-sky-500" />Al corriente</span>
+                  </div>
+                )}
+              </div>
+            ) : (
+              <div className="p-4 text-center text-gray-400 text-xs">Cargando...</div>
+            )}
+          </div>
         )}
 
         {/* Inspecciones - Solo si visible */}
@@ -1145,6 +1286,17 @@ export default function CorporateDashboardClient({ hubModules, isAdmin }: Corpor
           </Link>
         )}
         
+        {/* Planificacion */}
+        {showPlanificacion && (
+          <Link
+            href="/planificacion"
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-white border border-gray-200 rounded-lg hover:border-violet-300 hover:bg-violet-50 transition-all text-xs font-medium text-gray-700 hover:text-violet-700"
+          >
+            <CalendarDays className="w-4 h-4" />
+            Planificacion
+          </Link>
+        )}
+
         {/* Academia */}
         {showAcademia && (
           <Link
