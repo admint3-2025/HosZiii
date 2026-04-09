@@ -210,8 +210,24 @@ export default function KBAdminView() {
         </div>
       ) : (
         <div className="grid gap-4 lg:grid-cols-2">
-          {articles.map((article) => (
+          {articles.map((article, idx) => (
             <div key={article.id} className="bg-white rounded-2xl border border-slate-200 shadow-sm hover:shadow-lg hover:border-teal-300 transition-all p-5">
+              {/* Ranking badge (solo para aprobados) */}
+              {filter === 'approved' && (
+                <div className="flex items-center gap-2 mb-3">
+                  <span className="text-xl leading-none">
+                    {idx === 0 ? '🥇' : idx === 1 ? '🥈' : idx === 2 ? '🥉' : null}
+                  </span>
+                  {idx > 2 && (
+                    <span className="w-6 h-6 rounded-full bg-slate-100 flex items-center justify-center text-xs font-bold text-slate-500">
+                      {idx + 1}
+                    </span>
+                  )}
+                  <span className="ml-auto text-xs font-bold text-purple-600 bg-purple-50 border border-purple-100 px-2 py-0.5 rounded-full">
+                    Score: {article.relevance_score.toFixed(1)}
+                  </span>
+                </div>
+              )}
               {/* Header del artículo */}
               <div className="mb-4">
                 <h3 className="text-lg font-bold text-slate-800 mb-2">{article.title}</h3>
@@ -280,9 +296,6 @@ export default function KBAdminView() {
                           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                         </svg>
                         <span className="text-xs">{article.times_used} usos</span>
-                      </div>
-                      <div className="ml-auto text-xs font-bold text-purple-600">
-                        Score: {article.relevance_score.toFixed(1)}
                       </div>
                     </div>
                   )}

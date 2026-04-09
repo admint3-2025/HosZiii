@@ -336,9 +336,11 @@ export default function AppShellClient({
     ...(canManageITAsSupervisor
       ? ([{ id: 'hd_assets', label: 'Activos IT', icon: 'Assets', href: '/assets' }] as MenuSection['items'])
       : []),
-    // KB: supervisores IT
+    // KB: supervisores ven la vista admin; usuarios regulares ven la vista pública
     ...(canManageIT
       ? ([{ id: 'hd_knowledge', label: 'Base de Conocimientos', icon: 'Book', href: '/admin/knowledge-base' }] as MenuSection['items'])
+      : itAccess
+      ? ([{ id: 'hd_knowledge_public', label: 'Base de Conocimientos', icon: 'Book', href: '/knowledge-base' }] as MenuSection['items'])
       : []),
   ]
 
