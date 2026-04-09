@@ -257,6 +257,30 @@ export async function rejectKBArticle(
 }
 
 /**
+ * Helper: enriquecer artículos con el full_name del creador desde profiles
+ * (la FK created_by apunta a auth.users, no a profiles, por lo que no se puede hacer join directo con el hint)
+ */
+async function enrichWithCreator(supabase: any, articles: KBArticle[]) {
+  const ids = [...new Set(articles.map((a) => a.created_by).filter(Boolean))]
+  if (ids.length === 0) return articles
+
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id, full_name')
+    .in('id', ids)
+
+  const profileMap: Record<string, string> = {}
+  for (const p of profiles || []) {
+    profileMap[p.id] = p.full_name || ''
+  }
+
+  return articles.map((a) => ({
+    ...a,
+    creator: { full_name: profileMap[a.created_by] || '' },
+  }))
+}
+
+/**
  * Obtener artículos pendientes de revisión
  */
 export async function getPendingKBArticles(): Promise<{
@@ -272,18 +296,17 @@ export async function getPendingKBArticles(): Promise<{
     
     const { data, error } = await supabase
       .from('knowledge_base_articles')
-      .select(`
-        *,
-        creator:profiles!knowledge_base_articles_created_by_fkey(full_name),
-        source_ticket:tickets!knowledge_base_articles_source_ticket_id_fkey(ticket_number, title)
-      `)
+      .select('*, source_ticket:tickets(ticket_number, title)')
       .eq('status', 'pending')
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
     
     if (error) throw error
+
+    // Enriquecer con nombre del creador
+    const articles = await enrichWithCreator(supabase, data || [])
     
-    return { success: true, articles: data || [] }
+    return { success: true, articles }
   } catch (error) {
     console.error('Error getting pending KB articles:', error)
     return { success: false, error: 'Error al obtener artículos pendientes' }
@@ -306,18 +329,17 @@ export async function getApprovedKBArticles(): Promise<{
     
     const { data, error } = await supabase
       .from('knowledge_base_articles')
-      .select(`
-        *,
-        creator:profiles!knowledge_base_articles_created_by_fkey(full_name),
-        source_ticket:tickets!knowledge_base_articles_source_ticket_id_fkey(ticket_number, title)
-      `)
+      .select('*, source_ticket:tickets(ticket_number, title)')
       .eq('status', 'approved')
       .is('deleted_at', null)
       .order('relevance_score', { ascending: false })
     
     if (error) throw error
+
+    // Enriquecer con nombre del creador
+    const articles = await enrichWithCreator(supabase, data || [])
     
-    return { success: true, articles: data || [] }
+    return { success: true, articles }
   } catch (error) {
     console.error('Error getting approved KB articles:', error)
     return { success: false, error: 'Error al obtener artículos aprobados' }
