@@ -392,3 +392,121 @@ export async function createKBArticle(data: {
     return { success: false, error: 'Error al crear artículo' }
   }
 }
+
+/**
+ * Actualizar artículo existente (admin/supervisor)
+ */
+export async function updateKBArticle(
+  articleId: string,
+  data: {
+    title?: string
+    summary?: string
+    solution?: string
+    category_level1?: string
+    category_level2?: string | null
+    category_level3?: string | null
+    tags?: string[]
+  }
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('No authenticated')
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+    if (!profile || !['admin', 'supervisor'].includes(profile.role)) {
+      throw new Error('Sin permisos')
+    }
+
+    const { error } = await supabase
+      .from('knowledge_base_articles')
+      .update({ ...data, updated_at: new Date().toISOString() })
+      .eq('id', articleId)
+
+    if (error) throw error
+
+    revalidatePath('/knowledge-base')
+    revalidatePath('/admin/knowledge-base')
+    return { success: true }
+  } catch (error) {
+    console.error('Error updating KB article:', error)
+    return { success: false, error: 'Error al actualizar artículo' }
+  }
+}
+
+/**
+ * Eliminar artículo - soft delete (admin)
+ */
+export async function deleteKBArticle(
+  articleId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('No authenticated')
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+    if (!profile || profile.role !== 'admin') {
+      throw new Error('Sin permisos - solo admin puede eliminar')
+    }
+
+    const { error } = await supabase
+      .from('knowledge_base_articles')
+      .update({ deleted_at: new Date().toISOString(), deleted_by: user.id })
+      .eq('id', articleId)
+
+    if (error) throw error
+
+    revalidatePath('/knowledge-base')
+    revalidatePath('/admin/knowledge-base')
+    return { success: true }
+  } catch (error) {
+    console.error('Error deleting KB article:', error)
+    return { success: false, error: 'Error al eliminar artículo' }
+  }
+}
+
+/**
+ * Ajustar score manualmente (admin/supervisor)
+ */
+export async function setKBArticleScore(
+  articleId: string,
+  score: number
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('No authenticated')
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+    if (!profile || !['admin', 'supervisor'].includes(profile.role)) {
+      throw new Error('Sin permisos')
+    }
+
+    const { error } = await supabase
+      .from('knowledge_base_articles')
+      .update({ relevance_score: score })
+      .eq('id', articleId)
+
+    if (error) throw error
+
+    revalidatePath('/knowledge-base')
+    revalidatePath('/admin/knowledge-base')
+    return { success: true }
+  } catch (error) {
+    console.error('Error setting KB score:', error)
+    return { success: false, error: 'Error al ajustar score' }
+  }
+}

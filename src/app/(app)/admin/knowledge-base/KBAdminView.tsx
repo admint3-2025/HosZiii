@@ -6,6 +6,9 @@ import {
   getApprovedKBArticles,
   approveKBArticle, 
   rejectKBArticle,
+  updateKBArticle,
+  deleteKBArticle,
+  setKBArticleScore,
   type KBArticle
 } from '@/lib/knowledge-base/actions'
 
@@ -22,6 +25,14 @@ export default function KBAdminView() {
   const [processing, setProcessing] = useState(false)
   const [filter, setFilter] = useState<'approved' | 'pending'>('approved')
   const [pendingCount, setPendingCount] = useState(0)
+  const [editingArticle, setEditingArticle] = useState<PendingArticle | null>(null)
+  const [editForm, setEditForm] = useState({
+    title: '', summary: '', solution: '',
+    tags: '', category_level1: '', category_level2: '', category_level3: ''
+  })
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [scoreInputs, setScoreInputs] = useState<Record<string, string>>({})
+  const [savingScore, setSavingScore] = useState<Record<string, boolean>>({})
 
   useEffect(() => {
     loadArticles()
@@ -77,6 +88,70 @@ export default function KBAdminView() {
       alert('Error al rechazar: ' + result.error)
     }
     setProcessing(false)
+  }
+
+  function openEdit(article: PendingArticle) {
+    setEditingArticle(article)
+    setEditForm({
+      title: article.title,
+      summary: article.summary || '',
+      solution: article.solution,
+      tags: (article.tags || []).join(', '),
+      category_level1: article.category_level1,
+      category_level2: article.category_level2 || '',
+      category_level3: article.category_level3 || '',
+    })
+  }
+
+  async function handleSaveEdit() {
+    if (!editingArticle) return
+    setProcessing(true)
+    const result = await updateKBArticle(editingArticle.id, {
+      title: editForm.title,
+      summary: editForm.summary,
+      solution: editForm.solution,
+      tags: editForm.tags.split(',').map(t => t.trim()).filter(Boolean),
+      category_level1: editForm.category_level1,
+      category_level2: editForm.category_level2 || null,
+      category_level3: editForm.category_level3 || null,
+    })
+    if (result.success) {
+      setEditingArticle(null)
+      await loadArticles()
+    } else {
+      alert('Error al guardar: ' + result.error)
+    }
+    setProcessing(false)
+  }
+
+  async function handleDelete(articleId: string) {
+    setProcessing(true)
+    const result = await deleteKBArticle(articleId)
+    if (result.success) {
+      setDeleteConfirmId(null)
+      setArticles(articles.filter(a => a.id !== articleId))
+    } else {
+      alert('Error al eliminar: ' + result.error)
+    }
+    setProcessing(false)
+  }
+
+  async function handleSaveScore(articleId: string) {
+    const scoreStr = scoreInputs[articleId]
+    const score = parseFloat(scoreStr)
+    if (isNaN(score) || score < 0 || score > 100) {
+      alert('Score debe ser entre 0 y 100')
+      return
+    }
+    setSavingScore(prev => ({ ...prev, [articleId]: true }))
+    const result = await setKBArticleScore(articleId, score)
+    if (result.success) {
+      setArticles(articles.map(a => a.id === articleId ? { ...a, relevance_score: score } : a))
+      setScoreInputs(prev => ({ ...prev, [articleId]: '' }))
+    } else {
+      alert('Error al ajustar score: ' + result.error)
+    }
+    setSavingScore(prev => ({ ...prev, [articleId]: false }))
   }
 
   if (loading) {
@@ -313,28 +388,92 @@ export default function KBAdminView() {
                 )}
 
                 {/* Acciones */}
-                <div className="flex gap-2 pt-4 border-t">
-                  <button
-                    onClick={() => setSelectedArticle(article)}
-                    className="btn btn-sm flex-1 bg-blue-600 hover:bg-blue-700 text-white border-0"
-                  >
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
-                    </svg>
-                    Ver solución completa
-                  </button>
-                  {filter === 'pending' && (
+                <div className="space-y-2 pt-4 border-t">
+                  {/* Score manual (solo aprobados) */}
+                  {filter === 'approved' && (
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs text-slate-500 font-medium whitespace-nowrap">Score:</label>
+                      <input
+                        type="number"
+                        min={0}
+                        max={100}
+                        step={0.5}
+                        placeholder={article.relevance_score.toFixed(1)}
+                        value={scoreInputs[article.id] ?? ''}
+                        onChange={e => setScoreInputs(prev => ({ ...prev, [article.id]: e.target.value }))}
+                        className="w-24 border border-slate-200 rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-purple-400"
+                      />
+                      <button
+                        onClick={() => handleSaveScore(article.id)}
+                        disabled={!scoreInputs[article.id] || savingScore[article.id]}
+                        className="btn btn-xs bg-purple-600 hover:bg-purple-700 text-white border-0 disabled:opacity-40"
+                      >
+                        Guardar
+                      </button>
+                    </div>
+                  )}
+                  <div className="flex gap-2">
                     <button
-                      onClick={() => handleApprove(article.id)}
-                      disabled={processing}
-                      className="btn btn-sm bg-green-600 hover:bg-green-700 text-white border-0 disabled:opacity-50"
+                      onClick={() => setSelectedArticle(article)}
+                      className="btn btn-sm flex-1 bg-blue-600 hover:bg-blue-700 text-white border-0"
                     >
                       <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
                       </svg>
-                      Aprobar
+                      Ver
                     </button>
+                    <button
+                      onClick={() => openEdit(article)}
+                      className="btn btn-sm bg-amber-500 hover:bg-amber-600 text-white border-0"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z" />
+                      </svg>
+                      Editar
+                    </button>
+                    {filter === 'pending' && (
+                      <button
+                        onClick={() => handleApprove(article.id)}
+                        disabled={processing}
+                        className="btn btn-sm bg-green-600 hover:bg-green-700 text-white border-0 disabled:opacity-50"
+                      >
+                        <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                          <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+                        </svg>
+                        Aprobar
+                      </button>
+                    )}
+                    <button
+                      onClick={() => setDeleteConfirmId(article.id)}
+                      title="Eliminar artículo"
+                      className="btn btn-sm bg-red-500 hover:bg-red-600 text-white border-0"
+                    >
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                      </svg>
+                    </button>
+                  </div>
+                  {/* Confirmación de eliminación */}
+                  {deleteConfirmId === article.id && (
+                    <div className="bg-red-50 border border-red-200 rounded-xl p-3 text-sm">
+                      <p className="text-red-700 font-medium mb-2">¿Eliminar este artículo? Esta acción no se puede deshacer.</p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => handleDelete(article.id)}
+                          disabled={processing}
+                          className="btn btn-xs bg-red-600 hover:bg-red-700 text-white border-0 disabled:opacity-50"
+                        >
+                          Sí, eliminar
+                        </button>
+                        <button
+                          onClick={() => setDeleteConfirmId(null)}
+                          className="btn btn-xs bg-slate-200 hover:bg-slate-300 text-slate-700 border-0"
+                        >
+                          Cancelar
+                        </button>
+                      </div>
+                    </div>
                   )}
                 </div>
             </div>
@@ -449,6 +588,112 @@ export default function KBAdminView() {
                   </div>
                 </>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de edición */}
+      {editingArticle && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+            <div className="sticky top-0 bg-gradient-to-r from-amber-500 to-orange-500 text-white p-5">
+              <div className="flex items-center justify-between">
+                <h2 className="text-xl font-bold">Editar artículo</h2>
+                <button
+                  onClick={() => setEditingArticle(null)}
+                  className="text-white hover:bg-white/20 rounded-lg p-1.5 transition-colors"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="text-sm font-semibold text-slate-700 mb-1 block">Título</label>
+                <input
+                  type="text"
+                  value={editForm.title}
+                  onChange={e => setEditForm(f => ({ ...f, title: e.target.value }))}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                />
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-slate-700 mb-1 block">Resumen</label>
+                <textarea
+                  value={editForm.summary}
+                  onChange={e => setEditForm(f => ({ ...f, summary: e.target.value }))}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  rows={2}
+                />
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-slate-700 mb-1 block">Solución</label>
+                <textarea
+                  value={editForm.solution}
+                  onChange={e => setEditForm(f => ({ ...f, solution: e.target.value }))}
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  rows={7}
+                />
+              </div>
+              <div className="grid grid-cols-3 gap-3">
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-1 block">Categoría 1</label>
+                  <input
+                    type="text"
+                    value={editForm.category_level1}
+                    onChange={e => setEditForm(f => ({ ...f, category_level1: e.target.value }))}
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-1 block">Categoría 2</label>
+                  <input
+                    type="text"
+                    value={editForm.category_level2}
+                    onChange={e => setEditForm(f => ({ ...f, category_level2: e.target.value }))}
+                    placeholder="Opcional"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  />
+                </div>
+                <div>
+                  <label className="text-sm font-semibold text-slate-700 mb-1 block">Categoría 3</label>
+                  <input
+                    type="text"
+                    value={editForm.category_level3}
+                    onChange={e => setEditForm(f => ({ ...f, category_level3: e.target.value }))}
+                    placeholder="Opcional"
+                    className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                  />
+                </div>
+              </div>
+              <div>
+                <label className="text-sm font-semibold text-slate-700 mb-1 block">Etiquetas (separadas por coma)</label>
+                <input
+                  type="text"
+                  value={editForm.tags}
+                  onChange={e => setEditForm(f => ({ ...f, tags: e.target.value }))}
+                  placeholder="windows, bsod, arranque"
+                  className="w-full border border-slate-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400"
+                />
+              </div>
+              <div className="flex gap-3 pt-2 border-t">
+                <button
+                  onClick={handleSaveEdit}
+                  disabled={processing}
+                  className="btn flex-1 bg-amber-500 hover:bg-amber-600 text-white border-0 disabled:opacity-50"
+                >
+                  {processing ? 'Guardando...' : 'Guardar cambios'}
+                </button>
+                <button
+                  onClick={() => setEditingArticle(null)}
+                  className="btn bg-slate-200 hover:bg-slate-300 text-slate-700 border-0"
+                >
+                  Cancelar
+                </button>
+              </div>
             </div>
           </div>
         </div>
