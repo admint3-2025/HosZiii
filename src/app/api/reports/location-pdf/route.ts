@@ -49,6 +49,16 @@ export async function POST(request: Request) {
 
     if (!locationId) return new Response('locationId required', { status: 400 })
 
+    const { data: locationRecord } = await supabase
+      .from('locations')
+      .select('name, code, manager_name')
+      .eq('id', locationId)
+      .maybeSingle()
+
+    const resolvedLocationName = String(locationRecord?.name || locationName || 'Sede').trim()
+    const resolvedLocationCode = String(locationRecord?.code || locationCode || 'N/A').trim()
+    const locationManagerName = String(locationRecord?.manager_name || '').trim()
+
     const tableName = ticketType === 'MAINTENANCE' ? 'tickets_maintenance' : 'tickets'
 
     let query = supabase
@@ -135,7 +145,7 @@ export async function POST(request: Request) {
         priority: translateTicketPriorityEs(t.priority),
         requester: requester?.full_name || '',
         assignee: agent?.full_name || '',
-        location: locationCode,
+        location: resolvedLocationCode,
         createdAt: t.created_at
           ? new Date(t.created_at).toLocaleDateString('es-MX', {
               timeZone: 'America/Mexico_City',
@@ -165,9 +175,14 @@ export async function POST(request: Request) {
     const pdf = generateTicketsReportPdf({
       eyebrow: 'Reporte por sede',
       title: `Reporte de Tickets ${typeLabel}`,
-      subtitle: locationName,
-      meta: `${locationCode}${dateRange ? `  |  ${dateRange}` : ''}`,
+      subtitle: resolvedLocationName,
+      meta: `${resolvedLocationCode}${dateRange ? `  |  ${dateRange}` : ''}`,
       tableTitle: 'Detalle operativo de tickets',
+      signature: {
+        title: 'Firma de conformidad',
+        name: locationManagerName || ' ',
+        role: 'Responsable de la propiedad',
+      },
       summary,
       rows,
       generatedAt: new Date(),
@@ -183,7 +198,7 @@ export async function POST(request: Request) {
       ],
     })
 
-    const safeCode = locationCode.replace(/[^a-zA-Z0-9-_]/g, '_')
+    const safeCode = resolvedLocationCode.replace(/[^a-zA-Z0-9-_]/g, '_')
     const nowDate = new Date().toISOString().slice(0, 10)
     const filename = `tickets-${typeLabel.toLowerCase()}-${safeCode}-${nowDate}.pdf`
 

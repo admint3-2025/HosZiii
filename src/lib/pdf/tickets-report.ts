@@ -28,6 +28,12 @@ export type TicketPdfSummaryItem = {
   value: string
 }
 
+export type TicketPdfSignature = {
+  title: string
+  name?: string | null
+  role?: string
+}
+
 export type TicketPdfTheme = Partial<{
   pageBg: PdfRgb
   headerBg: PdfRgb
@@ -169,6 +175,7 @@ export function generateTicketsReportPdf(params: {
   subtitle?: string
   meta?: string
   tableTitle?: string
+  signature?: TicketPdfSignature
   summary?: TicketPdfSummaryItem[]
   rows: TicketPdfRow[]
   generatedAt?: Date
@@ -425,7 +432,7 @@ export function generateTicketsReportPdf(params: {
       fillColor: theme.tableZebra,
     },
     columnStyles,
-    margin: { left: leftMargin, right: rightMargin },
+    margin: { left: leftMargin, right: rightMargin, bottom: 26 },
     didParseCell: (hookData) => {
       if (hookData.section !== 'body') return
 
@@ -462,6 +469,50 @@ export function generateTicketsReportPdf(params: {
       }
     },
   })
+
+  if (params.signature) {
+    const boxW = 220
+    const boxH = 78
+    const boxX = pageW - rightMargin - boxW
+    const preferredBoxY = pageH - boxH - 18
+    const signatureName = params.signature.name?.trim() || ' '
+    const signatureRole = params.signature.role?.trim() || 'Responsable de la propiedad'
+    const autoTableState = (doc as jsPDF & { lastAutoTable?: { finalY?: number } }).lastAutoTable
+    const finalY = autoTableState?.finalY ?? y
+    const needsNewPage = finalY + 18 > preferredBoxY
+
+    if (needsNewPage) {
+      doc.addPage()
+    }
+
+    const signaturePage = doc.getNumberOfPages()
+    const boxY = pageH - boxH - 18
+
+    doc.setPage(signaturePage)
+    setFill(doc, [255, 255, 255])
+    setDraw(doc, theme.tableBorder)
+    doc.setLineWidth(0.9)
+    doc.roundedRect(boxX, boxY, boxW, boxH, 10, 10, 'FD')
+
+    setText(doc, theme.sectionMutedText)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(8)
+    doc.text(params.signature.title.toUpperCase(), boxX + 14, boxY + 16)
+
+    setDraw(doc, [148, 163, 184])
+    doc.setLineWidth(0.8)
+    doc.line(boxX + 16, boxY + 43, boxX + boxW - 16, boxY + 43)
+
+    setText(doc, theme.sectionText)
+    doc.setFont('helvetica', 'bold')
+    doc.setFontSize(10.5)
+    doc.text(signatureName, boxX + boxW / 2, boxY + 57, { align: 'center' })
+
+    setText(doc, theme.sectionMutedText)
+    doc.setFont('helvetica', 'normal')
+    doc.setFontSize(8.5)
+    doc.text(signatureRole, boxX + boxW / 2, boxY + 69, { align: 'center' })
+  }
 
   const arrayBuffer = doc.output('arraybuffer') as ArrayBuffer
   return new Uint8Array(arrayBuffer)
