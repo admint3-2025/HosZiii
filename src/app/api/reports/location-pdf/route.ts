@@ -9,6 +9,45 @@ import { formatTicketCode } from '@/lib/tickets/code'
 
 export const runtime = 'nodejs'
 
+const MEXICO_TZ = 'America/Mexico_City'
+
+function getTimeZoneOffsetMs(date: Date, timeZone: string): number {
+  const parts = new Intl.DateTimeFormat('en-US', {
+    timeZone,
+    hour12: false,
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+  }).formatToParts(date)
+
+  const year = Number(parts.find((part) => part.type === 'year')?.value ?? '0')
+  const month = Number(parts.find((part) => part.type === 'month')?.value ?? '1')
+  const day = Number(parts.find((part) => part.type === 'day')?.value ?? '1')
+  const hour = Number(parts.find((part) => part.type === 'hour')?.value ?? '0')
+  const minute = Number(parts.find((part) => part.type === 'minute')?.value ?? '0')
+  const second = Number(parts.find((part) => part.type === 'second')?.value ?? '0')
+
+  const asUtc = Date.UTC(year, month - 1, day, hour, minute, second)
+  return asUtc - date.getTime()
+}
+
+function getMexicoDayStartUtc(dateString: string): string {
+  const [year, month, day] = dateString.split('-').map(Number)
+  const guess = new Date(Date.UTC(year, month - 1, day, 0, 0, 0))
+  const offset = getTimeZoneOffsetMs(guess, MEXICO_TZ)
+  return new Date(guess.getTime() - offset).toISOString()
+}
+
+function getMexicoNextDayStartUtc(dateString: string): string {
+  const [year, month, day] = dateString.split('-').map(Number)
+  const guess = new Date(Date.UTC(year, month - 1, day + 1, 0, 0, 0))
+  const offset = getTimeZoneOffsetMs(guess, MEXICO_TZ)
+  return new Date(guess.getTime() - offset).toISOString()
+}
+
 export async function POST(request: Request) {
   try {
     const supabase = await createSupabaseServerClient()
@@ -81,13 +120,12 @@ export async function POST(request: Request) {
       .range(0, 999)
 
     if (from) {
-      const fromIso = new Date(`${from}T00:00:00.000Z`).toISOString()
+      const fromIso = getMexicoDayStartUtc(from)
       query = query.gte('created_at', fromIso) as typeof query
     }
     if (to) {
-      const d = new Date(`${to}T00:00:00.000Z`)
-      d.setUTCDate(d.getUTCDate() + 1)
-      query = query.lt('created_at', d.toISOString()) as typeof query
+      const toIsoExclusive = getMexicoNextDayStartUtc(to)
+      query = query.lt('created_at', toIsoExclusive) as typeof query
     }
 
     const { data: rawTickets, error } = await query
