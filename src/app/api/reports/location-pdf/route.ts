@@ -159,12 +159,15 @@ export async function POST(request: Request) {
     const typeLabel = ticketType === 'MAINTENANCE' ? 'Mantenimiento' : 'IT'
     const dateRange =
       from || to
-        ? ` | ${from ? `Desde: ${from}` : ''}${from && to ? '  ' : ''}${to ? `Hasta: ${to}` : ''}`
+        ? `${from ? `Desde ${from}` : ''}${from && to ? '  |  ' : ''}${to ? `Hasta ${to}` : ''}`
         : ''
 
     const pdf = generateTicketsReportPdf({
-      title: `Reporte de Tickets ${typeLabel} — ${locationName}`,
-      subtitle: `${locationCode}${dateRange}`,
+      eyebrow: 'Reporte por sede',
+      title: `Reporte de Tickets ${typeLabel}`,
+      subtitle: locationName,
+      meta: `${locationCode}${dateRange ? `  |  ${dateRange}` : ''}`,
+      tableTitle: 'Detalle operativo de tickets',
       summary,
       rows,
       generatedAt: new Date(),
