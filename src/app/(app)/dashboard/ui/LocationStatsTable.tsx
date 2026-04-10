@@ -2,6 +2,7 @@
 
 import { useMemo, useState, useEffect } from "react"
 import { createSupabaseBrowserClient } from "@/lib/supabase/browser"
+import { downloadPdfBlob } from "@/lib/mobile/pdf-download"
 
 type LocationStatsRow = {
   location_id: string
@@ -183,6 +184,7 @@ export default function LocationStatsTable({ rows, ticketType = 'IT' }: Props) {
     if (!selected?.location_id) return
     setGeneratingPdf(true)
     setPdfMessage(null)
+
     try {
       const res = await fetch('/api/reports/location-pdf', {
         method: 'POST',
@@ -198,22 +200,20 @@ export default function LocationStatsTable({ rows, ticketType = 'IT' }: Props) {
           logoType: pdfLogoDataUrl ? pdfLogoType : undefined,
         }),
       })
+
       if (!res.ok) {
         const text = await res.text()
         setPdfMessage('Error al generar el PDF: ' + text)
         return
       }
+
       const blob = await res.blob()
-      const url = URL.createObjectURL(blob)
-      const a = document.createElement('a')
-      a.href = url
       const disp = res.headers.get('Content-Disposition') || ''
       const match = disp.match(/filename="([^"]+)"/)
-      a.download = match?.[1] || 'reporte-sede.pdf'
-      document.body.appendChild(a)
-      a.click()
-      a.remove()
-      URL.revokeObjectURL(url)
+      const filename = match?.[1] || 'reporte-sede.pdf'
+
+      await downloadPdfBlob(blob, filename)
+
       setShowPdfModal(false)
       setPdfMessage(null)
     } catch (err) {
