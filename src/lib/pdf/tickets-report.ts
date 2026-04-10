@@ -195,10 +195,10 @@ export function generateTicketsReportPdf(params: {
   const leftMargin = 24
   const rightMargin = 24
 
-  const logoW = params.logo?.width ?? 34
-  const logoH = params.logo?.height ?? 34
   const hasLogo = Boolean(params.logo?.dataUrl)
-  const headerTextX = leftMargin + (hasLogo ? logoW + 12 : 0)
+  const logoBoxW = hasLogo ? Math.max((params.logo?.width ?? 34) + 30, 88) : 0
+  const logoBoxH = hasLogo ? Math.max((params.logo?.height ?? 34) + 22, 62) : 0
+  const headerTextX = leftMargin + (hasLogo ? logoBoxW + 18 : 0)
   const headerRightReserved = 180
 
   setFill(doc, theme.pageBg)
@@ -234,7 +234,41 @@ export function generateTicketsReportPdf(params: {
 
   if (hasLogo && params.logo) {
     try {
-      doc.addImage(params.logo.dataUrl, params.logo.type ?? 'PNG', leftMargin, 14, logoW, logoH)
+      const logoBoxX = leftMargin
+      const logoBoxY = 16
+      const logoPaddingX = 10
+      const logoPaddingY = 8
+      const logoMaxW = logoBoxW - logoPaddingX * 2
+      const logoMaxH = logoBoxH - logoPaddingY * 2
+
+      setFill(doc, [255, 255, 255])
+      setDraw(doc, [226, 232, 240])
+      doc.setLineWidth(0.8)
+      doc.roundedRect(logoBoxX, logoBoxY, logoBoxW, logoBoxH, 12, 12, 'FD')
+
+      let renderW = logoMaxW
+      let renderH = logoMaxH
+
+      try {
+        const imageProps = doc.getImageProperties(params.logo.dataUrl)
+        const imageAspect = imageProps.width / Math.max(imageProps.height, 1)
+        const boxAspect = logoMaxW / Math.max(logoMaxH, 1)
+
+        if (imageAspect > boxAspect) {
+          renderW = logoMaxW
+          renderH = renderW / imageAspect
+        } else {
+          renderH = logoMaxH
+          renderW = renderH * imageAspect
+        }
+      } catch {
+        renderW = Math.min(params.logo.width ?? logoMaxW, logoMaxW)
+        renderH = Math.min(params.logo.height ?? logoMaxH, logoMaxH)
+      }
+
+      const renderX = logoBoxX + (logoBoxW - renderW) / 2
+      const renderY = logoBoxY + (logoBoxH - renderH) / 2
+      doc.addImage(params.logo.dataUrl, params.logo.type ?? 'PNG', renderX, renderY, renderW, renderH)
     } catch {
       // ignore logo rendering errors to avoid failing the report download
     }
