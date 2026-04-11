@@ -21,6 +21,14 @@ type TopAgent = {
   avg_resolution_days: number
 }
 
+type PdfTicketOption = {
+  id: string
+  ticket_number: string | number
+  title: string
+  status: string
+  created_at: string
+}
+
 type Props = {
   rows: LocationStatsRow[]
   ticketType?: 'IT' | 'MAINTENANCE'
@@ -60,6 +68,10 @@ export default function LocationStatsTable({ rows, ticketType = 'IT' }: Props) {
   const [pdfLogoPreview, setPdfLogoPreview] = useState<string | null>(null)
   const [generatingPdf, setGeneratingPdf] = useState(false)
   const [pdfMessage, setPdfMessage] = useState<string | null>(null)
+  const [pdfTickets, setPdfTickets] = useState<PdfTicketOption[]>([])
+  const [loadingPdfTickets, setLoadingPdfTickets] = useState(false)
+  const [selectedPdfTicketIds, setSelectedPdfTicketIds] = useState<string[]>([])
+  const [pdfTicketSearch, setPdfTicketSearch] = useState('')
 
   // Cargar agentes más activos cuando cambia la sede seleccionada
   useEffect(() => {
@@ -162,8 +174,168 @@ export default function LocationStatsTable({ rows, ticketType = 'IT' }: Props) {
     loadTopAgents()
   }, [selectedLocationId, ticketType])
 
+  useEffect(() => {
+    if (!showPdfModal || !selected?.location_id) return
+
+    const MEXICO_TZ = 'America/Mexico_City'
+
+    function getTimeZoneOffsetMs(date: Date, timeZone: string): number {
+      const parts = new Intl.DateTimeFormat('en-US', {
+        timeZone,
+        hour12: false,
+        year: 'numeric',
+        month: '2-digit',
+        day: '2-digit',
+        hour: '2-digit',
+        minute: '2-digit',
+        second: '2-digit',
+      }).formatToParts(date)
+
+      const year = Number(parts.find((part) => part.type === 'year')?.value ?? '0')
+      const month = Number(parts.find((part) => part.type === 'month')?.value ?? '1')
+      const day = Number(parts.find((part) => part.type === 'day')?.value ?? '1')
+      const hour = Number(parts.find((part) => part.type === 'hour')?.value ?? '0')
+      const minute = Number(parts.find((part) => part.type === 'minute')?.value ?? '0')
+      const second = Number(parts.find((part) => part.type === 'second')?.value ?? '0')
+
+      const asUtc = Date.UTC(year, month - 1, day, hour, minute, second)
+      return asUtc - date.getTime()
+    }
+
+    function getMexicoDayStartUtc(dateString: string): string {
+      const [year, month, day] = dateString.split('-').map(Number)
+      const guess = new Date(Date.UTC(year, month - 1, day, 0, 0, 0))
+      const offset = getTimeZoneOffsetMs(guess, MEXICO_TZ)
+      return new Date(guess.getTime() - offset).toISOString()
+    }
+
+    function getMexicoNextDayStartUtc(dateString: string): string {
+      const [year, month, day] = dateString.split('-').map(Number)
+      const guess = new Date(Date.UTC(year, month - 1, day + 1, 0, 0, 0))
+      const offset = getTimeZoneOffsetMs(guess, MEXICO_TZ)
+      return new Date(guess.getTime() - offset).toISOString()
+    }
+
+    const loadPdfTickets = async () => {
+      setLoadingPdfTickets(true)
+      try {
+        const supabase = createSupabaseBrowserClient()
+        const tableName = ticketType === 'MAINTENANCE' ? 'tickets_maintenance' : 'tickets'
+
+        let query = supabase
+          .from(tableName)
+          .select('id, ticket_number, title, status, created_at')
+          .eq('location_id', selected.location_id)
+          .is('deleted_at', null)
+          .order('created_at', { ascending: false })
+          .range(0, 299)
+
+        if (pdfFrom) {
+          query = query.gte('created_at', getMexicoDayStartUtc(pdfFrom)) as typeof query
+        }
+        if (pdfTo) {
+          query = query.lt('created_at', getMexicoNextDayStartUtc(pdfTo)) as typeof query
+        }
+
+        const { data, error } = await query
+        if (error) {
+          console.error('Error loading PDF tickets:', error)
+          setPdfMessage('No se pudieron cargar los tickets para el selector.')
+          setPdfTickets([])
+          setSelectedPdfTicketIds([])
+          return
+        }
+
+        const nextTickets = (data || []) as PdfTicketOption[]
+        setPdfTickets(nextTickets)
+        setSelectedPdfTicketIds(nextTickets.map((ticket) => ticket.id))
+      } catch (error) {
+        console.error('Error loading PDF tickets:', error)
+        setPdfMessage('No se pudieron cargar los tickets para el selector.')
+        setPdfTickets([])
+        setSelectedPdfTicketIds([])
+      } finally {
+        setLoadingPdfTickets(false)
+      }
+    }
+
+    loadPdfTickets()
+  }, [showPdfModal, selected?.location_id, ticketType, pdfFrom, pdfTo])
+
   if (!rows || rows.length === 0) {
     return null
+  }
+
+  const isClosedStatus = (status: string) => ['CLOSED', 'CANCELLED', 'CANCELED', 'RESOLVED'].includes(String(status || '').toUpperCase())
+  const pdfOpenCount = pdfTickets.filter((ticket) => !isClosedStatus(ticket.status)).length
+  const pdfClosedCount = pdfTickets.filter((ticket) => isClosedStatus(ticket.status)).length
+  const pdfSelectedCount = selectedPdfTicketIds.length
+  const filteredPdfTickets = pdfTickets.filter((ticket) => {
+    const search = pdfTicketSearch.trim().toLowerCase()
+    if (!search) return true
+
+    return [ticket.ticket_number, ticket.title, ticket.status]
+      .map((value) => String(value || '').toLowerCase())
+      .some((value) => value.includes(search))
+  })
+
+  function formatPdfTicketDate(value: string) {
+    return new Date(value).toLocaleDateString('es-MX', {
+      timeZone: 'America/Mexico_City',
+      day: '2-digit',
+      month: 'short',
+      year: 'numeric',
+    })
+  }
+
+  function togglePdfTicket(ticketId: string) {
+    setSelectedPdfTicketIds((current) =>
+      current.includes(ticketId)
+        ? current.filter((id) => id !== ticketId)
+        : [...current, ticketId]
+    )
+  }
+
+  function selectAllPdfTickets() {
+    setSelectedPdfTicketIds(pdfTickets.map((ticket) => ticket.id))
+  }
+
+  function clearPdfTicketSelection() {
+    setSelectedPdfTicketIds([])
+  }
+
+  function selectOnlyOpenPdfTickets() {
+    setSelectedPdfTicketIds(pdfTickets.filter((ticket) => !isClosedStatus(ticket.status)).map((ticket) => ticket.id))
+  }
+
+  function getPdfTicketStatusLabel(status: string) {
+    const key = String(status || '').toUpperCase()
+    const map: Record<string, string> = {
+      NEW: 'NUEVO',
+      OPEN: 'ABIERTO',
+      ASSIGNED: 'ASIGNADO',
+      IN_PROGRESS: 'EN PROGRESO',
+      NEEDS_INFO: 'REQUIERE INFO',
+      WAITING: 'EN ESPERA',
+      WAITING_THIRD_PARTY: 'ESPERA TERCEROS',
+      RESOLVED: 'RESUELTO',
+      CLOSED: 'CERRADO',
+      CANCELLED: 'CANCELADO',
+      CANCELED: 'CANCELADO',
+    }
+
+    return map[key] ?? key
+  }
+
+  function getPdfTicketStatusClass(status: string) {
+    const key = String(status || '').toUpperCase()
+
+    if (['CLOSED', 'RESOLVED'].includes(key)) return 'bg-emerald-50 text-emerald-700 border-emerald-200'
+    if (['NEW', 'OPEN'].includes(key)) return 'bg-violet-50 text-violet-700 border-violet-200'
+    if (['ASSIGNED', 'IN_PROGRESS'].includes(key)) return 'bg-amber-50 text-amber-700 border-amber-200'
+    if (['NEEDS_INFO', 'WAITING', 'WAITING_THIRD_PARTY'].includes(key)) return 'bg-orange-50 text-orange-700 border-orange-200'
+
+    return 'bg-slate-50 text-slate-700 border-slate-200'
   }
 
   function handleLogoFile(e: React.ChangeEvent<HTMLInputElement>) {
@@ -182,6 +354,11 @@ export default function LocationStatsTable({ rows, ticketType = 'IT' }: Props) {
 
   async function handleGeneratePdf() {
     if (!selected?.location_id) return
+    if (selectedPdfTicketIds.length === 0) {
+      setPdfMessage('Selecciona al menos un ticket para generar el PDF.')
+      return
+    }
+
     setGeneratingPdf(true)
     setPdfMessage(null)
 
@@ -195,6 +372,7 @@ export default function LocationStatsTable({ rows, ticketType = 'IT' }: Props) {
           locationCode: selected.location_code,
           from: pdfFrom || undefined,
           to: pdfTo || undefined,
+          ticketIds: selectedPdfTicketIds,
           ticketType,
           logoDataUrl: pdfLogoDataUrl || undefined,
           logoType: pdfLogoDataUrl ? pdfLogoType : undefined,
@@ -691,7 +869,7 @@ export default function LocationStatsTable({ rows, ticketType = 'IT' }: Props) {
       {/* Modal PDF con filtros de fecha y logo */}
       {showPdfModal && (
         <div className="fixed inset-0 z-40 flex items-center justify-center bg-black/40 px-4 text-xs">
-          <div className="w-full max-w-lg rounded-xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
+          <div className="w-full max-w-3xl rounded-xl bg-white shadow-2xl border border-slate-200 overflow-hidden">
             {/* Header */}
             <div className="bg-gradient-to-r from-rose-600 to-pink-600 px-5 py-4 flex items-center justify-between">
               <div>
@@ -711,20 +889,20 @@ export default function LocationStatsTable({ rows, ticketType = 'IT' }: Props) {
               </button>
             </div>
 
-            <div className="px-5 py-4 space-y-4">
+            <div className="px-5 py-4 space-y-4 max-h-[76vh] overflow-y-auto">
               {/* KPIs rápidos */}
               <div className="grid grid-cols-3 gap-2">
                 <div className="rounded-lg bg-slate-50 border border-slate-200 px-3 py-2">
                   <p className="text-[10px] text-slate-500">Total tickets</p>
-                  <p className="text-sm font-bold text-slate-900">{selected.total_tickets}</p>
+                  <p className="text-sm font-bold text-slate-900">{pdfTickets.length}</p>
                 </div>
                 <div className="rounded-lg bg-amber-50 border border-amber-200 px-3 py-2">
                   <p className="text-[10px] text-amber-600">Abiertos</p>
-                  <p className="text-sm font-bold text-amber-700">{selected.open_tickets}</p>
+                  <p className="text-sm font-bold text-amber-700">{pdfOpenCount}</p>
                 </div>
                 <div className="rounded-lg bg-emerald-50 border border-emerald-200 px-3 py-2">
                   <p className="text-[10px] text-emerald-700">Cerrados</p>
-                  <p className="text-sm font-bold text-emerald-700">{selected.closed_tickets}</p>
+                  <p className="text-sm font-bold text-emerald-700">{pdfClosedCount}</p>
                 </div>
               </div>
 
@@ -757,6 +935,110 @@ export default function LocationStatsTable({ rows, ticketType = 'IT' }: Props) {
                 {!pdfFrom && !pdfTo && (
                   <p className="text-[10px] text-slate-400 mt-1.5">Sin fechas = se incluyen todos los tickets de la sede.</p>
                 )}
+              </div>
+
+              <div>
+                <div className="flex items-center justify-between gap-3 mb-2">
+                  <div>
+                    <p className="text-[10px] font-semibold text-slate-600 uppercase tracking-wide">
+                      Tickets a incluir en el PDF
+                    </p>
+                    <p className="text-[10px] text-slate-400 mt-0.5">
+                      Seleccionados {pdfSelectedCount} de {pdfTickets.length}
+                    </p>
+                  </div>
+                  <div className="flex flex-wrap items-center gap-2 text-[10px]">
+                    <button
+                      type="button"
+                      onClick={selectAllPdfTickets}
+                      className="rounded-md border border-slate-300 px-2.5 py-1 font-medium text-slate-600 hover:bg-slate-50"
+                    >
+                      Todos
+                    </button>
+                    <button
+                      type="button"
+                      onClick={selectOnlyOpenPdfTickets}
+                      className="rounded-md border border-amber-300 px-2.5 py-1 font-medium text-amber-700 hover:bg-amber-50"
+                    >
+                      Solo abiertos
+                    </button>
+                    <button
+                      type="button"
+                      onClick={clearPdfTicketSelection}
+                      className="rounded-md border border-rose-300 px-2.5 py-1 font-medium text-rose-700 hover:bg-rose-50"
+                    >
+                      Limpiar
+                    </button>
+                  </div>
+                </div>
+
+                <div className="mb-2">
+                  <input
+                    type="text"
+                    value={pdfTicketSearch}
+                    onChange={(e) => setPdfTicketSearch(e.target.value)}
+                    placeholder="Buscar por código, título o estado"
+                    className="w-full rounded-md border border-slate-300 px-3 py-1.5 text-[11px] focus:outline-none focus:ring-1 focus:ring-rose-400 focus:border-rose-400"
+                  />
+                </div>
+
+                <div className="rounded-lg border border-slate-200 overflow-hidden bg-white">
+                  <div className="max-h-64 overflow-y-auto divide-y divide-slate-100">
+                    {loadingPdfTickets ? (
+                      <div className="flex items-center justify-center gap-2 py-8 text-[11px] text-slate-500">
+                        <svg className="w-4 h-4 animate-spin text-rose-500" fill="none" viewBox="0 0 24 24">
+                          <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                          <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                        </svg>
+                        Cargando tickets...
+                      </div>
+                    ) : filteredPdfTickets.length === 0 ? (
+                      <div className="py-8 text-center text-[11px] text-slate-500">
+                        No hay tickets para mostrar con esos filtros.
+                      </div>
+                    ) : (
+                      filteredPdfTickets.map((ticket) => {
+                        const checked = selectedPdfTicketIds.includes(ticket.id)
+
+                        return (
+                          <label
+                            key={ticket.id}
+                            className={`flex items-start gap-3 px-3 py-2.5 cursor-pointer transition-colors ${
+                              checked ? 'bg-rose-50/50' : 'hover:bg-slate-50'
+                            }`}
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => togglePdfTicket(ticket.id)}
+                              className="mt-1 h-4 w-4 rounded border-slate-300 text-rose-600 focus:ring-rose-500"
+                            />
+                            <div className="flex-1 min-w-0">
+                              <div className="flex items-start justify-between gap-3">
+                                <div className="min-w-0">
+                                  <div className="flex items-center gap-2 mb-1">
+                                    <span className="inline-flex items-center rounded-md bg-slate-100 px-2 py-0.5 text-[10px] font-bold text-slate-700">
+                                      {ticket.ticket_number}
+                                    </span>
+                                    <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-semibold ${getPdfTicketStatusClass(ticket.status)}`}>
+                                      {getPdfTicketStatusLabel(ticket.status)}
+                                    </span>
+                                  </div>
+                                  <p className="text-[11px] font-medium text-slate-800 leading-snug">
+                                    {ticket.title}
+                                  </p>
+                                </div>
+                                <span className="text-[10px] text-slate-500 whitespace-nowrap">
+                                  {formatPdfTicketDate(ticket.created_at)}
+                                </span>
+                              </div>
+                            </div>
+                          </label>
+                        )
+                      })
+                    )}
+                  </div>
+                </div>
               </div>
 
               {/* Logo personalizado */}

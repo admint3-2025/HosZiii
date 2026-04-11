@@ -72,6 +72,7 @@ export async function POST(request: Request) {
       locationCode,
       from,
       to,
+      ticketIds,
       ticketType = 'IT',
       logoDataUrl,
       logoType,
@@ -81,10 +82,15 @@ export async function POST(request: Request) {
       locationCode: string
       from?: string
       to?: string
+      ticketIds?: string[]
       ticketType?: 'IT' | 'MAINTENANCE'
       logoDataUrl?: string
       logoType?: 'PNG' | 'JPEG'
     }
+
+    const selectedTicketIds = Array.isArray(ticketIds)
+      ? ticketIds.filter((value): value is string => typeof value === 'string' && value.trim().length > 0)
+      : []
 
     if (!locationId) return new Response('locationId required', { status: 400 })
 
@@ -118,6 +124,10 @@ export async function POST(request: Request) {
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
       .range(0, 999)
+
+    if (selectedTicketIds.length > 0) {
+      query = query.in('id', selectedTicketIds) as typeof query
+    }
 
     if (from) {
       const fromIso = getMexicoDayStartUtc(from)
