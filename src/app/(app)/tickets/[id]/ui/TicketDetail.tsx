@@ -4,6 +4,7 @@ import TicketActions from "./TicketActions"
 import TicketComments from "./TicketComments"
 import TicketAttachments from "./TicketAttachments"
 import RemoteConnectionInfo from "./RemoteConnectionInfo"
+import PdfDownloadButton from "@/components/PdfDownloadButton"
 import { StatusBadge, PriorityBadge, LevelBadge } from "@/lib/ui/badges"
 import { formatTicketCode } from "@/lib/tickets/code"
 import { getAvatarInitial } from "@/lib/ui/avatar"
@@ -39,6 +40,9 @@ export default function TicketDetail({
   const canEditAsset = ["supervisor", "admin"].includes(userRole)
   const isRequester = ticket.current_user_id === ticket.requester_id
   const surfaceCardClass = "card rounded-2xl border border-slate-200/70 bg-white shadow-sm shadow-slate-200/70"
+  const ticketCode = formatTicketCode({ ticket_number: ticket.ticket_number, created_at: ticket.created_at })
+  const detailPdfHref = `/api/reports/ticket-detail-pdf?ticketId=${encodeURIComponent(String(ticket.id))}&ticketType=IT`
+  const detailPdfFilename = `ticket-it-${ticketCode.replace(/[^a-zA-Z0-9-_]/g, '_')}.pdf`
 
   return (
     <div className="space-y-6">
@@ -55,7 +59,7 @@ export default function TicketDetail({
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z" />
                 </svg>
                 <span className="text-base font-bold text-slate-700">
-                  {formatTicketCode({ ticket_number: ticket.ticket_number, created_at: ticket.created_at })}
+                  {ticketCode}
                 </span>
               </div>
               <div className="min-w-0 flex-1 space-y-2">
@@ -85,10 +89,23 @@ export default function TicketDetail({
               </div>
             </div>
 
-            <div className="flex flex-wrap items-center gap-1.5 flex-shrink-0 xl:justify-end">
-              <StatusBadge status={ticket.status} />
-              <PriorityBadge priority={ticket.priority} />
-              <LevelBadge level={ticket.support_level} />
+            <div className="flex flex-col items-start gap-2 flex-shrink-0 xl:items-end">
+              <div className="flex flex-wrap items-center gap-1.5 xl:justify-end">
+                <StatusBadge status={ticket.status} />
+                <PriorityBadge priority={ticket.priority} />
+                <LevelBadge level={ticket.support_level} />
+              </div>
+              <PdfDownloadButton
+                href={detailPdfHref}
+                filename={detailPdfFilename}
+                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50"
+                title="Descargar reporte ejecutivo del ticket en PDF"
+              >
+                <svg className="h-4 w-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" />
+                </svg>
+                Descargar PDF ejecutivo
+              </PdfDownloadButton>
             </div>
           </div>
         </div>
