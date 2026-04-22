@@ -4,7 +4,7 @@ import TicketActions from "./TicketActions"
 import TicketComments from "./TicketComments"
 import TicketAttachments from "./TicketAttachments"
 import RemoteConnectionInfo from "./RemoteConnectionInfo"
-import PdfDownloadButton from "@/components/PdfDownloadButton"
+import TicketPdfExportButton from "@/components/TicketPdfExportButton"
 import { StatusBadge, PriorityBadge, LevelBadge } from "@/lib/ui/badges"
 import { formatTicketCode } from "@/lib/tickets/code"
 import { getAvatarInitial } from "@/lib/ui/avatar"
@@ -41,8 +41,8 @@ export default function TicketDetail({
   const isRequester = ticket.current_user_id === ticket.requester_id
   const surfaceCardClass = "card rounded-2xl border border-slate-200/70 bg-white shadow-sm shadow-slate-200/70"
   const ticketCode = formatTicketCode({ ticket_number: ticket.ticket_number, created_at: ticket.created_at })
-  const detailPdfHref = `/api/reports/ticket-detail-pdf?ticketId=${encodeURIComponent(String(ticket.id))}&ticketType=IT`
   const detailPdfFilename = `ticket-it-${ticketCode.replace(/[^a-zA-Z0-9-_]/g, '_')}.pdf`
+  const locationCode = ticket?.location?.code ?? ticket?.location_code ?? null
 
   return (
     <div className="space-y-6">
@@ -469,8 +469,10 @@ export default function TicketDetail({
       )}
 
       <div className="flex justify-end">
-        <PdfDownloadButton
-          href={detailPdfHref}
+        <TicketPdfExportButton
+          ticketId={String(ticket.id)}
+          ticketType="IT"
+          locationCode={locationCode}
           filename={detailPdfFilename}
           className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50"
           title="Descargar reporte ejecutivo del ticket en PDF"
@@ -479,7 +481,7 @@ export default function TicketDetail({
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" />
           </svg>
           Descargar PDF ejecutivo
-        </PdfDownloadButton>
+        </TicketPdfExportButton>
       </div>
     </div>
   )

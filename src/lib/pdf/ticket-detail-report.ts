@@ -38,6 +38,10 @@ export type TicketDetailReportParams = {
     dataUrl: string
     type?: 'PNG' | 'JPEG'
   }
+  brandLogo?: {
+    dataUrl: string
+    type?: 'PNG' | 'JPEG'
+  }
   summary: TicketDetailSummaryItem[]
   contextFields: TicketDetailContextField[]
   description: string
@@ -86,11 +90,43 @@ function setText(doc: jsPDF, color: PdfRgb) {
   doc.setTextColor(color[0], color[1], color[2])
 }
 
+function sanitizeForPdf(value: string): string {
+  if (!value) return ''
+  let text = String(value)
+  // Normalize unicode
+  try {
+    text = text.normalize('NFKC')
+  } catch {}
+  // Smart quotes -> ASCII
+  text = text
+    .replace(/[\u2018\u2019\u201A\u201B]/g, "'")
+    .replace(/[\u201C\u201D\u201E\u201F]/g, '"')
+    .replace(/[\u2013\u2014]/g, '-')
+    .replace(/[\u2026]/g, '...')
+  // Strip markdown bold/italic markers
+  text = text.replace(/\*\*/g, '').replace(/__/g, '').replace(/\*/g, '').replace(/(^|\s)_([^_]+)_(?=\s|$)/g, '$1$2')
+  // Remove emojis and symbols in supplementary planes or pictographs
+  text = text.replace(/[\u{1F000}-\u{1FFFF}]/gu, '')
+  text = text.replace(/[\u{2600}-\u{27BF}]/gu, '')
+  text = text.replace(/[\u{FE00}-\u{FE0F}]/gu, '')
+  text = text.replace(/[\u{200B}-\u{200F}\u{2028}-\u{202F}\u{2060}-\u{206F}]/gu, '')
+  // Replace any remaining non WinAnsi (outside 0x20..0xFF) with space
+  text = text.replace(/[^\x09\x0A\x0D\x20-\xFF]/g, ' ')
+  return text
+}
+
 function clipText(value: string, maxLength: number): string {
-  const normalized = String(value || '').replace(/\s+/g, ' ').trim()
+  const normalized = sanitizeForPdf(value).replace(/\s+/g, ' ').trim()
   if (!normalized) return '-'
   if (normalized.length <= maxLength) return normalized
   return `${normalized.slice(0, maxLength - 1)}...`
+}
+
+function sanitizeMultiline(value: string, maxLength: number): string {
+  const cleaned = sanitizeForPdf(value).replace(/[\t\r]+/g, ' ').replace(/ {2,}/g, ' ').trim()
+  if (!cleaned) return '-'
+  if (cleaned.length <= maxLength) return cleaned
+  return `${cleaned.slice(0, maxLength - 1)}...`
 }
 
 function nextAutoTableY(doc: jsPDF, fallback: number): number {
@@ -224,6 +260,21 @@ export function generateTicketDetailPdf(params: TicketDetailReportParams): Uint8
     }
   }
 
+  if (params.brandLogo?.dataUrl) {
+    try {
+      const brandW = 96
+      const brandH = 32
+      const brandX = pageW - rightMargin - 54 - 16 - brandW
+      const brandY = 20 + (54 - brandH) / 2
+      setFill(doc, [255, 255, 255])
+      setDraw(doc, [226, 232, 240])
+      doc.roundedRect(brandX - 6, brandY - 6, brandW + 12, brandH + 12, 8, 8, 'FD')
+      doc.addImage(params.brandLogo.dataUrl, params.brandLogo.type ?? 'PNG', brandX, brandY, brandW, brandH)
+    } catch {
+      // Ignore brand logo rendering errors.
+    }
+  }
+
   setText(doc, COLORS.headerAccent)
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(8.5)
@@ -284,10 +335,10 @@ export function generateTicketDetailPdf(params: TicketDetailReportParams): Uint8
   y = nextAutoTableY(doc, y) + 18
   y = drawSectionTitle(doc, 'Descripcion y Resolucion', null, y, pageW, rightMargin)
 
-  const descriptionRows: string[][] = [[clipText(params.description || 'Sin descripcion registrada.', 1500)]]
+  const descriptionRows: string[][] = [[sanitizeMultiline(params.description || 'Sin descripcion registrada.', 2500)]]
 
   if (params.resolution?.trim()) {
-    descriptionRows.push([`Resolucion registrada:\n${clipText(params.resolution, 1500)}`])
+    descriptionRows.push([`Resolucion registrada:\n${sanitizeMultiline(params.resolution, 2500)}`])
   }
 
   autoTable(doc, {
@@ -371,7 +422,7 @@ export function generateTicketDetailPdf(params: TicketDetailReportParams): Uint8
         clipText(comment.date, 28),
         clipText(comment.author, 32),
         comment.visibility === 'internal' ? 'Interno' : 'Publico',
-        clipText(comment.body, 540),
+        sanitizeMultiline(comment.body, 1200),
       ])
     : [['-', '-', '-', 'Sin comentarios registrados para este ticket.']]
 
@@ -399,10 +450,10 @@ export function generateTicketDetailPdf(params: TicketDetailReportParams): Uint8
       fillColor: COLORS.tableZebra,
     },
     columnStyles: {
-      0: { cellWidth: 82 },
-      1: { cellWidth: 100 },
+      0: { cellWidth: 82, overflow: 'linebreak' },
+      1: { cellWidth: 100, overflow: 'linebreak' },
       2: { cellWidth: 62, halign: 'center' },
-      3: { cellWidth: pageW - leftMargin - rightMargin - 244 },
+      3: { cellWidth: pageW - leftMargin - rightMargin - 244, overflow: 'linebreak' },
     },
     margin: { left: leftMargin, right: rightMargin, bottom: 34 },
   })

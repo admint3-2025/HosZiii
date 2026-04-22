@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { loadZiiiLogoDataUrl } from '@/lib/pdf/ziii-logo'
+import { loadZiiiLogoDataUrl, loadBrandLogoFromDisk, loadPdfLogoFromUrl } from '@/lib/pdf/ziii-logo'
 import {
   generateTicketDetailPdf,
   type TicketDetailContextField,
@@ -127,6 +127,9 @@ export async function GET(request: Request) {
     const { searchParams } = new URL(request.url)
     const ticketId = String(searchParams.get('ticketId') || '').trim()
     const ticketType = parseTicketType(searchParams.get('ticketType'))
+    const brandLogoMode = String(searchParams.get('brandLogoMode') || '').trim().toLowerCase()
+    const brandLogoKey = String(searchParams.get('brandLogoKey') || '').trim().toLowerCase()
+    const brandLogoUrl = String(searchParams.get('brandLogoUrl') || '').trim()
 
     if (!ticketId) {
       return new Response('ticketId is required', { status: 400 })
@@ -379,6 +382,21 @@ export async function GET(request: Request) {
 
     const logo = await loadZiiiLogoDataUrl()
 
+    let brandLogo = null
+    if (brandLogoMode !== 'none') {
+      const requestOrigin = new URL(request.url).origin
+      if (brandLogoKey) {
+        brandLogo = await loadBrandLogoFromDisk(brandLogoKey, { boxWidth: 360, boxHeight: 120, quality: 84 })
+        if (!brandLogo) {
+          const brandUrl = `${requestOrigin}/api/brand-logo?brand=${encodeURIComponent(brandLogoKey)}`
+          brandLogo = await loadPdfLogoFromUrl(brandUrl, { boxWidth: 360, boxHeight: 120, quality: 84 })
+        }
+      } else if (/^https?:\/\//i.test(brandLogoUrl)) {
+        const proxyUrl = `${requestOrigin}/api/proxy-image?url=${encodeURIComponent(brandLogoUrl)}`
+        brandLogo = await loadPdfLogoFromUrl(proxyUrl, { boxWidth: 360, boxHeight: 120, quality: 84 })
+      }
+    }
+
     const pdf = generateTicketDetailPdf({
       ticketCode,
       title: String((ticket as any).title || 'Ticket sin titulo'),
@@ -387,6 +405,7 @@ export async function GET(request: Request) {
       generatedAt: new Date(),
       generatedBy: (viewerProfile as ViewerProfile | null)?.full_name || user.email || 'Sistema ZIII',
       logo: logo ?? undefined,
+      brandLogo: brandLogo ?? undefined,
       summary,
       contextFields,
       description: String((ticket as any).description || 'Sin descripcion registrada.'),
