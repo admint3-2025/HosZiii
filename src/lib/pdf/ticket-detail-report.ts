@@ -38,10 +38,6 @@ export type TicketDetailReportParams = {
     dataUrl: string
     type?: 'PNG' | 'JPEG'
   }
-  brandLogo?: {
-    dataUrl: string
-    type?: 'PNG' | 'JPEG'
-  }
   summary: TicketDetailSummaryItem[]
   contextFields: TicketDetailContextField[]
   description: string
@@ -247,31 +243,35 @@ export function generateTicketDetailPdf(params: TicketDetailReportParams): Uint8
 
   if (params.logo?.dataUrl) {
     try {
-      const logoW = 54
-      const logoH = 54
-      const logoX = pageW - rightMargin - logoW
-      const logoY = 20
+      // Fit logo inside a generous box preserving aspect ratio
+      const boxW = 130
+      const boxH = 64
+      const padding = 6
+      let drawW = boxW
+      let drawH = boxH
+
+      try {
+        const props = doc.getImageProperties(params.logo.dataUrl)
+        if (props && props.width > 0 && props.height > 0) {
+          const scale = Math.min(boxW / props.width, boxH / props.height)
+          drawW = props.width * scale
+          drawH = props.height * scale
+        }
+      } catch {
+        // Fallback to box dimensions if metadata not available
+      }
+
+      const boxX = pageW - rightMargin - boxW
+      const boxY = (headerH - boxH) / 2
+      const imgX = boxX + (boxW - drawW) / 2
+      const imgY = boxY + (boxH - drawH) / 2
+
       setFill(doc, [255, 255, 255])
       setDraw(doc, [226, 232, 240])
-      doc.roundedRect(logoX - 8, logoY - 8, logoW + 16, logoH + 16, 10, 10, 'FD')
-      doc.addImage(params.logo.dataUrl, params.logo.type ?? 'PNG', logoX, logoY, logoW, logoH)
+      doc.roundedRect(boxX - padding, boxY - padding, boxW + padding * 2, boxH + padding * 2, 10, 10, 'FD')
+      doc.addImage(params.logo.dataUrl, params.logo.type ?? 'PNG', imgX, imgY, drawW, drawH)
     } catch {
       // Ignore logo rendering errors without blocking report creation.
-    }
-  }
-
-  if (params.brandLogo?.dataUrl) {
-    try {
-      const brandW = 96
-      const brandH = 32
-      const brandX = pageW - rightMargin - 54 - 16 - brandW
-      const brandY = 20 + (54 - brandH) / 2
-      setFill(doc, [255, 255, 255])
-      setDraw(doc, [226, 232, 240])
-      doc.roundedRect(brandX - 6, brandY - 6, brandW + 12, brandH + 12, 8, 8, 'FD')
-      doc.addImage(params.brandLogo.dataUrl, params.brandLogo.type ?? 'PNG', brandX, brandY, brandW, brandH)
-    } catch {
-      // Ignore brand logo rendering errors.
     }
   }
 
