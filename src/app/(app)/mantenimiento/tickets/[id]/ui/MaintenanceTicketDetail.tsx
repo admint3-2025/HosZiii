@@ -95,29 +95,16 @@ export default function MaintenanceTicketDetail({
           )}
         </div>
 
-        <div className="flex flex-col items-start gap-2 xl:items-end">
-          <div className="flex items-center gap-2 flex-wrap">
-            <span className={`px-3 py-1.5 rounded-lg text-sm font-bold ${status.bg} ${status.text} shadow-sm`}>
-              {status.label}
-            </span>
-            <span className={`px-3 py-1.5 rounded-lg text-sm font-bold ${priority.bg} ${priority.text} shadow-sm`}>
-              {priority.label}
-            </span>
-            <span className="px-3 py-1.5 rounded-lg text-sm font-bold bg-indigo-500 text-white shadow-sm">
-              N{ticket.support_level || 1}
-            </span>
-          </div>
-          <PdfDownloadButton
-            href={detailPdfHref}
-            filename={detailPdfFilename}
-            className="inline-flex items-center gap-2 rounded-xl border border-orange-200 bg-white px-3 py-2 text-xs font-semibold text-orange-900 shadow-sm transition hover:-translate-y-0.5 hover:bg-orange-50"
-            title="Descargar reporte ejecutivo del ticket en PDF"
-          >
-            <svg className="w-4 h-4 text-orange-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" />
-            </svg>
-            Descargar PDF ejecutivo
-          </PdfDownloadButton>
+        <div className="flex items-center gap-2 flex-wrap">
+          <span className={`px-3 py-1.5 rounded-lg text-sm font-bold ${status.bg} ${status.text} shadow-sm`}>
+            {status.label}
+          </span>
+          <span className={`px-3 py-1.5 rounded-lg text-sm font-bold ${priority.bg} ${priority.text} shadow-sm`}>
+            {priority.label}
+          </span>
+          <span className="px-3 py-1.5 rounded-lg text-sm font-bold bg-indigo-500 text-white shadow-sm">
+            N{ticket.support_level || 1}
+          </span>
         </div>
       </div>
 
@@ -470,6 +457,20 @@ export default function MaintenanceTicketDetail({
               userRole={userRole}
             />
           )}
+
+          <div className="flex justify-end">
+            <PdfDownloadButton
+              href={detailPdfHref}
+              filename={detailPdfFilename}
+              className="inline-flex items-center gap-2 rounded-xl border border-orange-200 bg-white px-4 py-2 text-sm font-semibold text-orange-900 shadow-sm transition hover:-translate-y-0.5 hover:bg-orange-50"
+              title="Descargar reporte ejecutivo del ticket en PDF"
+            >
+              <svg className="w-4 h-4 text-orange-700" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" />
+              </svg>
+              Descargar PDF ejecutivo
+            </PdfDownloadButton>
+          </div>
         </div>
       </div>
     </div>

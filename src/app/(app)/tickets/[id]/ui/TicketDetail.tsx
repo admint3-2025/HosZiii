@@ -89,23 +89,10 @@ export default function TicketDetail({
               </div>
             </div>
 
-            <div className="flex flex-col items-start gap-2 flex-shrink-0 xl:items-end">
-              <div className="flex flex-wrap items-center gap-1.5 xl:justify-end">
-                <StatusBadge status={ticket.status} />
-                <PriorityBadge priority={ticket.priority} />
-                <LevelBadge level={ticket.support_level} />
-              </div>
-              <PdfDownloadButton
-                href={detailPdfHref}
-                filename={detailPdfFilename}
-                className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-3 py-2 text-xs font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50"
-                title="Descargar reporte ejecutivo del ticket en PDF"
-              >
-                <svg className="h-4 w-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" />
-                </svg>
-                Descargar PDF ejecutivo
-              </PdfDownloadButton>
+            <div className="flex flex-wrap items-center gap-1.5 flex-shrink-0 xl:justify-end">
+              <StatusBadge status={ticket.status} />
+              <PriorityBadge priority={ticket.priority} />
+              <LevelBadge level={ticket.support_level} />
             </div>
           </div>
         </div>
@@ -480,6 +467,20 @@ export default function TicketDetail({
           hasEscalationRequest={hasEscalationRequest}
         />
       )}
+
+      <div className="flex justify-end">
+        <PdfDownloadButton
+          href={detailPdfHref}
+          filename={detailPdfFilename}
+          className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2 text-sm font-semibold text-slate-700 shadow-sm transition hover:-translate-y-0.5 hover:bg-slate-50"
+          title="Descargar reporte ejecutivo del ticket en PDF"
+        >
+          <svg className="h-4 w-4 text-slate-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 3v12m0 0l-4-4m4 4l4-4M5 21h14" />
+          </svg>
+          Descargar PDF ejecutivo
+        </PdfDownloadButton>
+      </div>
     </div>
   )
 }

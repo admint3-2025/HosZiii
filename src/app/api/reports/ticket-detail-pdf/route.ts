@@ -8,6 +8,7 @@ import {
 } from '@/lib/pdf/ticket-detail-report'
 import { translateTicketPriorityEs, translateTicketStatusEs } from '@/lib/pdf/tickets-report'
 import { formatTicketCode, formatMaintenanceTicketCode } from '@/lib/tickets/code'
+import { getCategoryPathLabel } from '@/lib/categories/path'
 
 export const runtime = 'nodejs'
 
@@ -191,7 +192,7 @@ export async function GET(request: Request) {
             assigned_agent_id,
             closed_by,
             location_id,
-            category,
+            category_id,
             hk_room_id
           `,
           )
@@ -250,6 +251,15 @@ export async function GET(request: Request) {
         : Promise.resolve({ data: null as any }),
       supabase.from(attachmentsTable).select('id', { count: 'exact', head: true }).eq('ticket_id', ticketId),
     ])
+
+    let categoryLabel = 'Sin categoria'
+    if (!isMaintenance) {
+      const categoryId = String((ticket as any).category_id || '') || null
+      if (categoryId) {
+        const { data: cats } = await supabase.from('categories').select('id,name,parent_id')
+        categoryLabel = getCategoryPathLabel(cats ?? [], categoryId) || 'Sin categoria'
+      }
+    }
 
     const comments = (rawComments ?? []) as Array<{
       body: string | null
@@ -313,7 +323,7 @@ export async function GET(request: Request) {
         label: 'Categoria / Area',
         value: isMaintenance
           ? String((ticket as any).service_area || 'Sin area')
-          : String((ticket as any).category || 'Sin categoria'),
+          : categoryLabel,
       },
       {
         label: 'Impacto / Urgencia',
