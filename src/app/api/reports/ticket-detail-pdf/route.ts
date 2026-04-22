@@ -1,5 +1,5 @@
 import { createSupabaseServerClient } from '@/lib/supabase/server'
-import { loadZiiiLogoDataUrl, loadBrandLogoFromDisk, loadPdfLogoFromUrl } from '@/lib/pdf/ziii-logo'
+import { loadZiiiLogoDataUrl } from '@/lib/pdf/ziii-logo'
 import {
   generateTicketDetailPdf,
   type TicketDetailContextField,
@@ -116,6 +116,42 @@ async function fetchProfilesSafe(
 }
 
 export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url)
+  return handleRequest(request, {
+    ticketId: String(searchParams.get('ticketId') || '').trim(),
+    ticketType: parseTicketType(searchParams.get('ticketType')),
+  })
+}
+
+export async function POST(request: Request) {
+  let body: any = {}
+  try {
+    body = await request.json()
+  } catch {
+    return new Response('Invalid JSON body', { status: 400 })
+  }
+
+  return handleRequest(request, {
+    ticketId: String(body?.ticketId || '').trim(),
+    ticketType: parseTicketType(body?.ticketType ?? null),
+    logoOverride:
+      typeof body?.logoDataUrl === 'string' && body.logoDataUrl.startsWith('data:')
+        ? {
+            dataUrl: body.logoDataUrl,
+            type: body?.logoType === 'JPEG' ? 'JPEG' : 'PNG',
+          }
+        : null,
+  })
+}
+
+async function handleRequest(
+  request: Request,
+  params: {
+    ticketId: string
+    ticketType: TicketType
+    logoOverride?: { dataUrl: string; type: 'PNG' | 'JPEG' } | null
+  },
+) {
   try {
     const supabase = await createSupabaseServerClient()
     const {
@@ -124,12 +160,7 @@ export async function GET(request: Request) {
 
     if (!user) return new Response('Unauthorized', { status: 401 })
 
-    const { searchParams } = new URL(request.url)
-    const ticketId = String(searchParams.get('ticketId') || '').trim()
-    const ticketType = parseTicketType(searchParams.get('ticketType'))
-    const brandLogoMode = String(searchParams.get('brandLogoMode') || '').trim().toLowerCase()
-    const brandLogoKey = String(searchParams.get('brandLogoKey') || '').trim().toLowerCase()
-    const brandLogoUrl = String(searchParams.get('brandLogoUrl') || '').trim()
+    const { ticketId, ticketType, logoOverride } = params
 
     if (!ticketId) {
       return new Response('ticketId is required', { status: 400 })
@@ -380,22 +411,7 @@ export async function GET(request: Request) {
       { label: 'Adjuntos', value: String(attachmentCount || 0) },
     ]
 
-    const logo = await loadZiiiLogoDataUrl()
-
-    let brandLogo = null
-    if (brandLogoMode !== 'none') {
-      const requestOrigin = new URL(request.url).origin
-      if (brandLogoKey) {
-        brandLogo = await loadBrandLogoFromDisk(brandLogoKey, { boxWidth: 360, boxHeight: 120, quality: 84 })
-        if (!brandLogo) {
-          const brandUrl = `${requestOrigin}/api/brand-logo?brand=${encodeURIComponent(brandLogoKey)}`
-          brandLogo = await loadPdfLogoFromUrl(brandUrl, { boxWidth: 360, boxHeight: 120, quality: 84 })
-        }
-      } else if (/^https?:\/\//i.test(brandLogoUrl)) {
-        const proxyUrl = `${requestOrigin}/api/proxy-image?url=${encodeURIComponent(brandLogoUrl)}`
-        brandLogo = await loadPdfLogoFromUrl(proxyUrl, { boxWidth: 360, boxHeight: 120, quality: 84 })
-      }
-    }
+    const logo = logoOverride ?? (await loadZiiiLogoDataUrl())
 
     const pdf = generateTicketDetailPdf({
       ticketCode,
@@ -405,7 +421,6 @@ export async function GET(request: Request) {
       generatedAt: new Date(),
       generatedBy: (viewerProfile as ViewerProfile | null)?.full_name || user.email || 'Sistema ZIII',
       logo: logo ?? undefined,
-      brandLogo: brandLogo ?? undefined,
       summary,
       contextFields,
       description: String((ticket as any).description || 'Sin descripcion registrada.'),
