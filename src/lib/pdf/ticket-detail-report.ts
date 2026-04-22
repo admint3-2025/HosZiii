@@ -141,10 +141,10 @@ function drawSummaryCards(
   if (!items.length) return startY
 
   const columns = Math.min(3, Math.max(items.length, 1))
-  const gapX = 10
-  const gapY = 10
+  const gapX = 8
+  const gapY = 6
   const cardW = (pageW - leftMargin - rightMargin - gapX * (columns - 1)) / columns
-  const cardH = 56
+  const cardH = 38
   const rows = Math.ceil(items.length / columns)
 
   items.forEach((item, index) => {
@@ -155,25 +155,25 @@ function drawSummaryCards(
 
     setFill(doc, COLORS.cardBg)
     setDraw(doc, COLORS.cardBorder)
-    doc.setLineWidth(0.75)
-    doc.roundedRect(x, y, cardW, cardH, 10, 10, 'FD')
+    doc.setLineWidth(0.6)
+    doc.roundedRect(x, y, cardW, cardH, 7, 7, 'FD')
 
     const accent = CARD_ACCENTS[index % CARD_ACCENTS.length]
     setFill(doc, accent)
-    doc.roundedRect(x, y, 7, cardH, 10, 10, 'F')
+    doc.roundedRect(x, y, 5, cardH, 7, 7, 'F')
 
     setText(doc, COLORS.cardLabel)
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(9)
-    doc.text(clipText(item.label.toUpperCase(), 28), x + 15, y + 19)
+    doc.setFontSize(7.5)
+    doc.text(clipText(item.label.toUpperCase(), 28), x + 11, y + 13)
 
     setText(doc, COLORS.cardValue)
     doc.setFont('helvetica', 'bold')
-    doc.setFontSize(14)
-    doc.text(clipText(item.value, 44), x + 15, y + 40)
+    doc.setFontSize(11)
+    doc.text(clipText(item.value, 44), x + 11, y + 28)
   })
 
-  return startY + rows * cardH + (rows - 1) * gapY + 12
+  return startY + rows * cardH + (rows - 1) * gapY + 8
 }
 
 function drawSectionTitle(doc: jsPDF, title: string, subtitle: string | null, y: number, pageW: number, rightMargin: number): number {
@@ -235,18 +235,18 @@ export function generateTicketDetailPdf(params: TicketDetailReportParams): Uint8
   setFill(doc, COLORS.pageBg)
   doc.rect(0, 0, pageW, pageH, 'F')
 
-  const headerH = 108
+  const headerH = 78
   setFill(doc, COLORS.headerBg)
   doc.rect(0, 0, pageW, headerH, 'F')
   setFill(doc, COLORS.headerAccent)
-  doc.rect(0, 0, 8, headerH, 'F')
+  doc.rect(0, 0, 6, headerH, 'F')
 
   if (params.logo?.dataUrl) {
     try {
-      // Fit logo inside a generous box preserving aspect ratio
-      const boxW = 130
-      const boxH = 64
-      const padding = 6
+      // Fit logo inside a compact box preserving aspect ratio
+      const boxW = 110
+      const boxH = 52
+      const padding = 4
       let drawW = boxW
       let drawH = boxH
 
@@ -268,7 +268,7 @@ export function generateTicketDetailPdf(params: TicketDetailReportParams): Uint8
 
       setFill(doc, [255, 255, 255])
       setDraw(doc, [226, 232, 240])
-      doc.roundedRect(boxX - padding, boxY - padding, boxW + padding * 2, boxH + padding * 2, 10, 10, 'FD')
+      doc.roundedRect(boxX - padding, boxY - padding, boxW + padding * 2, boxH + padding * 2, 8, 8, 'FD')
       doc.addImage(params.logo.dataUrl, params.logo.type ?? 'PNG', imgX, imgY, drawW, drawH)
     } catch {
       // Ignore logo rendering errors without blocking report creation.
@@ -277,27 +277,27 @@ export function generateTicketDetailPdf(params: TicketDetailReportParams): Uint8
 
   setText(doc, COLORS.headerAccent)
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(8.5)
-  doc.text('REPORTE EJECUTIVO DE TICKET', leftMargin, 24)
+  doc.setFontSize(7.5)
+  doc.text('REPORTE EJECUTIVO DE TICKET', leftMargin, 18)
 
   setText(doc, COLORS.headerText)
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(18)
-  doc.text('Detalle Integral de Ticket', leftMargin, 44)
+  doc.setFontSize(14)
+  doc.text('Detalle Integral de Ticket', leftMargin, 34)
 
   setText(doc, COLORS.headerMuted)
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(10.5)
-  doc.text(clipText(`${params.moduleLabel} | ${params.ticketCode}`, 70), leftMargin, 62)
+  doc.setFontSize(9)
+  doc.text(clipText(`${params.moduleLabel} | ${params.ticketCode}`, 70), leftMargin, 48)
 
   const subtitle = params.subtitle?.trim() || params.title
-  const subtitleLines = doc.splitTextToSize(clipText(subtitle, 170), pageW - leftMargin - rightMargin - 80)
+  const subtitleLines = doc.splitTextToSize(clipText(subtitle, 170), pageW - leftMargin - rightMargin - 130)
   setText(doc, COLORS.headerText)
   doc.setFont('helvetica', 'bold')
-  doc.setFontSize(12)
-  doc.text(subtitleLines, leftMargin, 81)
+  doc.setFontSize(10)
+  doc.text(subtitleLines, leftMargin, 63)
 
-  let y = headerH + 16
+  let y = headerH + 10
 
   y = drawSummaryCards(doc, params.summary, y, pageW, leftMargin, rightMargin)
 
