@@ -130,6 +130,12 @@ function nextAutoTableY(doc: jsPDF, fallback: number): number {
   return typeof state?.finalY === 'number' ? state.finalY : fallback
 }
 
+function getContextValue(fields: TicketDetailContextField[], label: string): string {
+  const normalizedLabel = label.trim().toLowerCase()
+  const match = fields.find((field) => field.label.trim().toLowerCase() === normalizedLabel)
+  return match?.value?.trim() || 'Solicitante'
+}
+
 function drawSummaryCards(
   doc: jsPDF,
   items: TicketDetailSummaryItem[],
@@ -215,6 +221,56 @@ function drawFooter(doc: jsPDF, generatedBy: string, generatedAt: Date) {
     doc.text(`Fecha: ${generatedAt.toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })}`, width / 2, height - 15, { align: 'center' })
     doc.text(`Pagina ${page}/${pages}`, width - 24, height - 15, { align: 'right' })
   }
+}
+
+function drawRequesterSignature(
+  doc: jsPDF,
+  requesterName: string,
+  y: number,
+  pageW: number,
+  pageH: number,
+  leftMargin: number,
+  rightMargin: number,
+): number {
+  const sectionH = 92
+
+  if (y + sectionH > pageH - 42) {
+    doc.addPage()
+    setFill(doc, COLORS.pageBg)
+    doc.rect(0, 0, pageW, pageH, 'F')
+    y = 42
+  }
+
+  y = drawSectionTitle(doc, 'Confirmacion del Servicio', 'Firma del solicitante', y, pageW, rightMargin)
+
+  setText(doc, COLORS.sectionMuted)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(8.2)
+  doc.text(
+    'Con mi firma confirmo la recepcion del servicio realizado y el cierre de la atencion indicada en este reporte.',
+    leftMargin,
+    y + 4,
+  )
+
+  const lineY = y + 52
+  const lineW = 240
+  const lineX = leftMargin
+
+  setDraw(doc, COLORS.sectionText)
+  doc.setLineWidth(0.8)
+  doc.line(lineX, lineY, lineX + lineW, lineY)
+
+  setText(doc, COLORS.sectionText)
+  doc.setFont('helvetica', 'bold')
+  doc.setFontSize(9)
+  doc.text(clipText(requesterName, 58), lineX, lineY + 15)
+
+  setText(doc, COLORS.sectionMuted)
+  doc.setFont('helvetica', 'normal')
+  doc.setFontSize(7.8)
+  doc.text('Nombre y firma del solicitante', lineX, lineY + 28)
+
+  return lineY + 36
 }
 
 export function generateTicketDetailPdf(params: TicketDetailReportParams): Uint8Array<ArrayBuffer> {
@@ -457,6 +513,18 @@ export function generateTicketDetailPdf(params: TicketDetailReportParams): Uint8
     },
     margin: { left: leftMargin, right: rightMargin, bottom: 34 },
   })
+
+  y = nextAutoTableY(doc, y) + 18
+  doc.setPage(doc.getNumberOfPages())
+  drawRequesterSignature(
+    doc,
+    getContextValue(params.contextFields, 'Solicitante'),
+    y,
+    pageW,
+    pageH,
+    leftMargin,
+    rightMargin,
+  )
 
   drawFooter(doc, generatedBy, generatedAt)
 
