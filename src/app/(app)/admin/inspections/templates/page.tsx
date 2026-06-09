@@ -415,7 +415,7 @@ export default function InspectionTemplatesAdminPage() {
         <div className="text-sm text-slate-500">Cargando plantilla...</div>
       ) : areas.length === 0 ? (
         <div className="rounded-lg border border-dashed border-slate-300 p-6 text-sm text-slate-500">
-          No hay plantilla cargada. Usa "Cargar plantilla base" o agrega áreas manualmente.
+          No hay plantilla cargada. Usa &quot;Cargar plantilla base&quot; o agrega áreas manualmente.
         </div>
       ) : (
         <div className="space-y-4">

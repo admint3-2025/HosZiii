@@ -77,7 +77,7 @@ export class InspectionTemplatesService {
     if (error) return { data: null, error }
     if (!template) return { data: null, error: null }
 
-    const areas = (template.areas || [])
+    const areas: InspectionTemplateArea[] = (template.areas || [])
       .map((area: any) => ({
         id: area.id,
         area_name: area.area_name,
@@ -96,9 +96,9 @@ export class InspectionTemplatesService {
             default_comments: item.default_comments ?? '',
             applies_to: item.applies_to ?? null
           }))
-          .sort((a, b) => a.item_order - b.item_order)
+          .sort((a: InspectionTemplateItem, b: InspectionTemplateItem) => a.item_order - b.item_order)
       }))
-      .sort((a, b) => a.area_order - b.area_order)
+      .sort((a: InspectionTemplateArea, b: InspectionTemplateArea) => a.area_order - b.area_order)
 
     return {
       data: {
