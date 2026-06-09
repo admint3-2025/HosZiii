@@ -84,7 +84,7 @@ export async function sendExpoPushNotification(
       return { sent: false, error: `Expo API error: ${response.status} ${text}` }
     }
 
-    const result = await response.json()
+    await response.json()
     console.log(`[ExpoPush] ✓ Enviado a ${tokens.length} dispositivo(s)`)
     return { sent: true, receipts: tokens.length }
   } catch (error) {

@@ -66,7 +66,7 @@ export function WebViewBridge() {
       ;(window as any).ReactNativeWebView.postMessage(
         JSON.stringify({ type: 'requestPushToken' })
       )
-    } catch (_e) { /* ignorar */ }
+    } catch { /* ignorar */ }
 
     return () => {
       window.removeEventListener('expoPushTokenReady', handleToken)
