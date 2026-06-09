@@ -12,6 +12,7 @@ import { getSistemasInspectionTemplateAreas } from '@/lib/templates/inspection-s
 import { getAlimentosBebidasInspectionTemplateAreas } from '@/lib/templates/inspection-alimentos-bebidas-template'
 import { getAmaLlavesInspectionTemplateAreas } from '@/lib/templates/inspection-ama-llaves-template'
 import { getContabilidadInspectionTemplateAreas } from '@/lib/templates/inspection-contabilidad-template'
+import { InspectionTemplatesService } from '@/lib/services/inspection-templates.service'
 
 type Department = {
   id: string
@@ -108,6 +109,8 @@ export default function InspectionFlowSelector({
   const [allowedDepartments, setAllowedDepartments] = useState<string[] | null>(null)
   const [propertiesError, setPropertiesError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [templateLoading, setTemplateLoading] = useState(false)
+  const [dbTemplate, setDbTemplate] = useState<InspectionRRHHArea[] | null>(null)
 
   // Cargar usuario y ubicaciones al montar
   useEffect(() => {
@@ -186,6 +189,30 @@ export default function InspectionFlowSelector({
     setSelectedProperty(prop)
     setStep('dashboard')
   }
+
+  useEffect(() => {
+    if (!selectedDepartment || !selectedProperty) return
+    if (templateOverride) {
+      setDbTemplate(templateOverride)
+      return
+    }
+
+    let cancelled = false
+    const loadTemplate = async () => {
+      setTemplateLoading(true)
+      const { data } = await InspectionTemplatesService.getTemplateAreasForDepartment(
+        selectedDepartment.id,
+        selectedProperty.code
+      )
+      if (!cancelled) {
+        setDbTemplate(data)
+        setTemplateLoading(false)
+      }
+    }
+
+    loadTemplate()
+    return () => { cancelled = true }
+  }, [selectedDepartment?.id, selectedProperty?.code, templateOverride])
 
   const handleBack = () => {
     if (step === 'property') {
@@ -302,11 +329,22 @@ export default function InspectionFlowSelector({
       }
     }
 
+    if (templateLoading) {
+      return (
+        <div className="flex items-center justify-center py-12">
+          <div className="text-center">
+            <div className="inline-block w-6 h-6 border-2 border-slate-200 border-t-blue-500 rounded-full animate-spin"></div>
+            <p className="mt-2 text-slate-500 text-sm">Cargando plantilla...</p>
+          </div>
+        </div>
+      )
+    }
+
     if (isGSH) {
       return (
         <GSHInspectionManager
           {...commonProps}
-          templateOverride={templateOverride}
+          templateOverride={templateOverride || dbTemplate}
           isGSH={true}
         />
       )
@@ -316,14 +354,14 @@ export default function InspectionFlowSelector({
       return (
         <MarketingInspectionManager
           {...commonProps}
-          templateOverride={templateOverride}
+          templateOverride={templateOverride || dbTemplate}
           isMarketing={true}
         />
       )
     }
 
     // Para los nuevos departamentos, usar el template específico o el override
-    const finalTemplate = templateOverride || departmentTemplate
+    const finalTemplate = templateOverride || dbTemplate || departmentTemplate
 
     return (
       <RRHHInspectionManager
