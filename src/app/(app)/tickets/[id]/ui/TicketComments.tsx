@@ -1,12 +1,21 @@
 'use client'
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback, useEffect, useTransition } from 'react'
 import { useRouter } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 import { getSignedUrl } from '@/lib/storage/attachments'
 import { uploadViaProxy } from '@/lib/storage/upload-proxy'
 import { getAvatarInitial } from '@/lib/ui/avatar'
+import { AICommentContent, CommentSubmissionStatusCard, isAICommentBody, type SubmissionStage } from '@/components/comments/AssistantCommentPresentation'
 import { addITTicketComment } from '../actions'
+import { openPdfUrl } from '@/lib/mobile/pdf-download'
+
+type PendingSubmission = {
+  body: string
+  attachmentsCount: number
+  visibility: 'public' | 'internal'
+  willGenerateAI: boolean
+}
 
 function AttachmentLink({
   attachment,
@@ -23,6 +32,8 @@ function AttachmentLink({
     if (signedUrl) {
       if (isImage) {
         onOpenImage(signedUrl, attachment.file_name || 'Imagen')
+      } else if (attachment.file_type?.includes('pdf') || attachment.file_name?.toLowerCase().endsWith('.pdf')) {
+        openPdfUrl(signedUrl, attachment.file_name)
       } else {
         window.open(signedUrl, '_blank')
       }
@@ -32,19 +43,19 @@ function AttachmentLink({
   return (
     <button
       onClick={handleClick}
-      className="group relative flex items-center gap-2 px-3 py-2 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition-colors text-sm cursor-pointer"
+      className="group relative flex cursor-pointer items-center gap-2 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm transition-colors hover:border-indigo-200 hover:bg-indigo-50"
     >
       {isImage ? (
-        <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
         </svg>
       ) : (
-        <svg className="w-4 h-4 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <svg className="w-4 h-4 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13" />
         </svg>
       )}
-      <span className="text-blue-700 font-medium truncate max-w-[200px]">{attachment.file_name}</span>
-      <span className="text-xs text-blue-600">
+      <span className="max-w-[200px] truncate font-medium text-slate-700">{attachment.file_name}</span>
+      <span className="text-xs text-indigo-600">
         ({(attachment.file_size / 1024).toFixed(1)} KB)
       </span>
     </button>
@@ -53,7 +64,7 @@ function AttachmentLink({
 
 export default function TicketComments({
   ticketId,
-  comments,
+  comments: initialComments,
   ticketStatus,
   ticketClosedAt,
   isRequester,
@@ -68,6 +79,8 @@ export default function TicketComments({
 }) {
   const router = useRouter()
   const supabase = createSupabaseBrowserClient()
+  const [isRefreshing, startRefreshTransition] = useTransition()
+  const [comments, setComments] = useState<any[]>(initialComments)
   const [body, setBody] = useState('')
   const [mode, setMode] = useState<'followup' | 'note' | 'ai'>('followup')
   const [busy, setBusy] = useState(false)
@@ -77,6 +90,41 @@ export default function TicketComments({
   const [previewUrls, setPreviewUrls] = useState<string[]>([])
   const [lightboxUrl, setLightboxUrl] = useState<string | null>(null)
   const [lightboxAlt, setLightboxAlt] = useState('')
+  const [pendingSubmission, setPendingSubmission] = useState<PendingSubmission | null>(null)
+  const [loadingStage, setLoadingStage] = useState<SubmissionStage>('publishing')
+  const isSubmitting = busy || isRefreshing
+
+  useEffect(() => {
+    setComments(initialComments)
+  }, [initialComments])
+
+  useEffect(() => {
+    if (!isSubmitting || !pendingSubmission) {
+      return
+    }
+
+    setLoadingStage('publishing')
+    const timers: Array<ReturnType<typeof setTimeout>> = []
+
+    if (pendingSubmission.willGenerateAI) {
+      timers.push(setTimeout(() => setLoadingStage('analyzing'), 700))
+
+      if (pendingSubmission.attachmentsCount === 0) {
+        timers.push(setTimeout(() => setLoadingStage('refreshing'), 2200))
+      }
+    } else if (pendingSubmission.attachmentsCount === 0) {
+      timers.push(setTimeout(() => setLoadingStage('refreshing'), 900))
+    }
+
+    return () => timers.forEach(clearTimeout)
+  }, [isSubmitting, pendingSubmission])
+
+  useEffect(() => {
+    if (!isSubmitting) {
+      setPendingSubmission(null)
+      setLoadingStage('publishing')
+    }
+  }, [initialComments, isSubmitting])
 
   // Verificar si el ticket está cerrado
   const isClosed = ticketStatus === 'CLOSED'
@@ -150,20 +198,32 @@ export default function TicketComments({
     // Derivar visibility y requestAI del modo seleccionado
     const visibility = (!isRequester && mode !== 'followup') ? 'internal' : 'public'
     const requestAI = !isRequester && mode === 'ai'
+    const willGenerateAI = isRequester || requestAI
+
+    setPendingSubmission({
+      body: body.trim(),
+      attachmentsCount: attachments.length,
+      visibility,
+      willGenerateAI,
+    })
 
     // Crear el comentario via server action (maneja notificaciones + triage IA)
     const result = await addITTicketComment({ ticketId, body, visibility, requestAI, userRole })
 
     if (result.error) {
       setBusy(false)
+      setPendingSubmission(null)
       setError(result.error)
       return
     }
 
     const commentData = result.comment
+    const aiComment = result.aiComment
+    const { data: { user } } = await supabase.auth.getUser()
 
     // Subir archivos adjuntos si los hay
     if (attachments.length > 0 && commentData) {
+      setLoadingStage('uploading')
       for (const file of attachments) {
         try {
           const timestamp = Date.now()
@@ -205,13 +265,28 @@ export default function TicketComments({
     }
 
     // Limpiar estado y refrescar
-    setBusy(false)
     setBody('')
     setMode('followup')
     setAttachments([])
     previewUrls.forEach(url => URL.revokeObjectURL(url))
     setPreviewUrls([])
-    router.refresh()
+    setComments(prev => [
+      ...prev,
+      {
+        ...commentData,
+        author: {
+          full_name: user?.user_metadata?.full_name,
+          email: user?.email,
+        },
+        ticket_attachments: [],
+      },
+      ...(aiComment ? [{ ...aiComment, ticket_attachments: [] }] : []),
+    ])
+    setLoadingStage('refreshing')
+    startRefreshTransition(() => {
+      router.refresh()
+    })
+    setBusy(false)
   }
 
   async function reopenTicket() {
@@ -256,7 +331,7 @@ export default function TicketComments({
         {/* Lista de comentarios */}
         <div className="space-y-4">
           {(comments ?? []).map((c) => {
-            const isAI = c.body?.startsWith('🤖 **Asistente ZIII**') || c.body?.startsWith('🤖 **Apoyo IA**')
+            const isAI = isAICommentBody(c.body)
             const isApoyoIA = c.body?.startsWith('🤖 **Apoyo IA**')
             const aiName = isApoyoIA ? 'Apoyo IA — ZIII' : 'Asistente ZIII'
 
@@ -306,7 +381,7 @@ export default function TicketComments({
                           Interno
                         </span>
                       ) : (
-                        <span className="inline-flex items-center gap-1 text-xs font-medium text-blue-700 bg-blue-50 px-2 py-0.5 rounded-md">
+                        <span className="inline-flex items-center gap-1 rounded-md bg-indigo-50 px-2 py-0.5 text-xs font-medium text-indigo-700">
                           <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z" />
                           </svg>
@@ -330,7 +405,11 @@ export default function TicketComments({
                 </div>
               </div>
               <div className="ml-12 space-y-3">
-                <div className={`whitespace-pre-wrap text-sm leading-relaxed ${isAI ? 'text-purple-900' : 'text-gray-800'}`}>{c.body}</div>
+                {isAI ? (
+                  <AICommentContent body={c.body} />
+                ) : (
+                  <div className="whitespace-pre-wrap text-sm leading-relaxed text-gray-800">{c.body}</div>
+                )}
                 
                 {/* Mostrar adjuntos si los hay */}
                 {c.ticket_attachments && c.ticket_attachments.length > 0 && (
@@ -353,7 +432,17 @@ export default function TicketComments({
             </div>
             )
           })}
-          {comments?.length === 0 ? (
+          {pendingSubmission && isSubmitting ? (
+            <CommentSubmissionStatusCard
+              stage={loadingStage}
+              willGenerateAI={pendingSubmission.willGenerateAI}
+              attachmentsCount={pendingSubmission.attachmentsCount}
+              body={pendingSubmission.body}
+              visibility={pendingSubmission.visibility}
+              tone="violet"
+            />
+          ) : null}
+          {comments?.length === 0 && !pendingSubmission ? (
             <div className="text-center py-12">
               <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-gray-100 mb-3">
                 <svg className="w-8 h-8 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -431,22 +520,24 @@ export default function TicketComments({
                 <button
                   type="button"
                   onClick={() => setMode('followup')}
+                  disabled={isSubmitting}
                   className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all text-center ${
                     mode === 'followup'
-                      ? 'border-blue-500 bg-blue-50'
+                      ? 'border-indigo-500 bg-indigo-50'
                       : 'border-gray-200 bg-white hover:border-gray-300'
                   }`}
                 >
-                  <svg className={`w-5 h-5 ${mode === 'followup' ? 'text-blue-600' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <svg className={`w-5 h-5 ${mode === 'followup' ? 'text-indigo-600' : 'text-gray-400'}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                   </svg>
-                  <span className={`text-xs font-semibold ${mode === 'followup' ? 'text-blue-700' : 'text-gray-600'}`}>Seguimiento</span>
+                  <span className={`text-xs font-semibold ${mode === 'followup' ? 'text-indigo-700' : 'text-gray-600'}`}>Seguimiento</span>
                   <span className="text-xs text-gray-400 leading-tight">Visible al solicitante</span>
                 </button>
 
                 <button
                   type="button"
                   onClick={() => setMode('note')}
+                  disabled={isSubmitting}
                   className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all text-center ${
                     mode === 'note'
                       ? 'border-amber-500 bg-amber-50'
@@ -463,6 +554,7 @@ export default function TicketComments({
                 <button
                   type="button"
                   onClick={() => setMode('ai')}
+                  disabled={isSubmitting}
                   className={`flex flex-col items-center gap-1 p-3 rounded-xl border-2 transition-all text-center ${
                     mode === 'ai'
                       ? 'border-purple-500 bg-purple-50'
@@ -489,6 +581,7 @@ export default function TicketComments({
             value={body}
             onChange={(e) => setBody(e.target.value)}
             required
+            disabled={isSubmitting}
             placeholder={
               mode === 'note'
                 ? 'Escribe una nota interna para el equipo técnico...'
@@ -501,7 +594,7 @@ export default function TicketComments({
           {/* Selector de imágenes */}
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-xs font-semibold text-gray-700 uppercase tracking-wider">
-              <svg className="w-4 h-4 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <svg className="w-4 h-4 text-indigo-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" />
               </svg>
               Adjuntar Imágenes
@@ -518,7 +611,7 @@ export default function TicketComments({
                   accept="image/*,image/heic,image/heif"
                   onChange={handleFileSelect}
                   className="sr-only"
-                  disabled={busy}
+                  disabled={isSubmitting}
                 />
               </label>
               {attachments.length > 0 && (
@@ -542,6 +635,7 @@ export default function TicketComments({
                     <button
                       type="button"
                       onClick={() => removeAttachment(idx)}
+                      disabled={isSubmitting}
                       className="absolute top-1 right-1 p-1 bg-red-600 hover:bg-red-700 text-white rounded-full opacity-0 group-hover:opacity-100 transition-opacity"
                       title="Eliminar"
                     >
@@ -567,13 +661,17 @@ export default function TicketComments({
           ) : null}
           <button
             type="submit"
-            disabled={busy}
-            className="btn btn-primary w-full flex items-center justify-center gap-2"
+            disabled={isSubmitting}
+            className="flex w-full items-center justify-center gap-2 rounded-lg bg-slate-900 px-4 py-3 text-sm font-bold text-white shadow-lg shadow-slate-900/20 transition-all hover:-translate-y-0.5 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-80"
           >
             <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
             </svg>
-            {busy ? 'Publicando…' : 'Publicar comentario'}
+            {isSubmitting
+              ? pendingSubmission?.willGenerateAI
+                ? 'Generando respuesta...'
+                : 'Guardando comentario...'
+              : 'Publicar comentario'}
           </button>
         </form>
         ) : null}

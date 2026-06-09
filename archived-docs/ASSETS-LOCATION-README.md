@@ -108,7 +108,7 @@ WHERE location_id IN (SELECT get_accessible_locations())
 .\scripts\apply-assets-location-migration.ps1
 ```
 
-Luego ejecutar el SQL en Supabase Studio (http://192.168.31.238:8000)
+Luego ejecutar el SQL en Supabase Studio (http://127.0.0.1:54323)
 
 ### 2. Crear Sedes
 ```sql

@@ -27,7 +27,6 @@ supabase/00-deploy-all.sql
 supabase/FIX-FINAL-drop-and-recreate-all.sql
 supabase/ROLLBACK-restore-original-triggers.sql
 supabase/add-asset-category-to-profiles.sql
-supabase/cambiar-password-usuario.sql
 supabase/check-comments-rls.sql
 supabase/check-timezone.sql
 supabase/clean-old-notifications.sql
@@ -35,8 +34,6 @@ supabase/debug-check-rls-policies.sql
 supabase/debug-find-missing-trigger.sql
 supabase/debug-rls-policies.sql
 supabase/debug-show-function-code.sql
-supabase/debug-user-locations.sql
-supabase/delete-user-manual.sql
 supabase/diagnose-trigger-issue.sql
 supabase/enable-triggers-smart.sql
 supabase/fix-add-comment-id-to-attachments.sql
@@ -53,7 +50,6 @@ supabase/fix-assets-triggers-case-sensitive.sql
 supabase/fix-audit-log-assets.sql
 supabase/fix-beo-stats-location-filter.sql
 supabase/fix-beo-view-with-attachment.sql
-supabase/fix-clean-user-locations.sql
 supabase/fix-duplicates.sql
 supabase/fix-generate-asset-code-params.sql
 supabase/fix-infer-ticket-asset-category.sql
@@ -67,7 +63,6 @@ supabase/fix-supervisor-location-access.sql
 supabase/fix-timezone.sql
 supabase/fix-triggers-insert-validation.sql
 supabase/fix-user-location-access.sql
-supabase/generar-passwords-temporales.sql
 supabase/migration-add-asset-catalogs.sql
 supabase/migration-add-asset-images.sql
 supabase/migration-add-asset-permission.sql
@@ -99,8 +94,6 @@ supabase/migration-filter-notifications-by-asset-category.sql
 supabase/migration-improve-disposal-snapshot.sql
 supabase/migration-role-based-asset-access.sql
 supabase/policies.sql
-supabase/promote-admins.sql
-supabase/reset-password-admin.sql
 supabase/schema.sql
 supabase/seed-brands-maintenance.sql
 supabase/seed-extended-categories.sql
@@ -112,7 +105,6 @@ supabase/seed.sql
 supabase/storage-complete-setup.sql
 supabase/storage-setup.sql
 supabase/test-aging-tickets.sql
-supabase/update-admin-email.sql
 supabase/update-user-asset-categories.sql
 supabase/verify-realtime-notifications.sql
 supabase/view-location-incident-stats.sql

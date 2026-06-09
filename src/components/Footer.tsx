@@ -1,4 +1,4 @@
-import Link from 'next/link'
+﻿import Link from 'next/link'
 
 export default function Footer() {
   return (
@@ -8,7 +8,7 @@ export default function Footer() {
           {/* Logo + Nombre */}
           <div className="flex items-center gap-2">
             <img
-              src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png"
+              src="https://ziii.com.mx/logos/1ZIIIlogo.png"
               alt="ZIII"
               className="h-5 w-5 object-contain"
             />

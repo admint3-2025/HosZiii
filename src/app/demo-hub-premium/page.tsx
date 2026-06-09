@@ -1,4 +1,4 @@
-import React from 'react'
+﻿import React from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import {
@@ -25,7 +25,7 @@ type ModuleCard = {
   href: string
 }
 
-const logoUrl = 'https://systemach-sas.com/logo_ziii/ZIII%20logo.png'
+const logoUrl = 'https://ziii.com.mx/logos/1ZIIIlogo.png'
 
 const modules: ModuleCard[] = [
   {

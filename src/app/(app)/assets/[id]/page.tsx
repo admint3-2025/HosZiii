@@ -50,7 +50,6 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
 
   // Obtener activo - puede ser de IT o Mantenimiento
   let rawAsset: any = null
-  let assetCategory: 'IT' | 'MAINTENANCE' = 'IT'
   
   // Primero intentar IT
   const { data: itAsset, error: itError } = await supabase
@@ -65,7 +64,6 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
 
   if (itAsset && !itError) {
     rawAsset = itAsset
-    assetCategory = 'IT'
   } else {
     // Si no es IT, intentar Mantenimiento
     const { data: maintAsset, error: maintError } = await supabase
@@ -80,7 +78,6 @@ export default async function AssetDetailPage({ params }: { params: Promise<{ id
     
     if (maintAsset && !maintError) {
       rawAsset = maintAsset
-      assetCategory = 'MAINTENANCE'
     }
   }
 

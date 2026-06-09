@@ -10,12 +10,14 @@ import autoTable from 'jspdf-autotable'
 import AssetEditForm from './AssetEditForm'
 import DisposalRequestModal from './DisposalRequestModal'
 import { formatAssetType, getAssetTypeValue } from '@/lib/assets/format'
+import { loadOptimizedPdfImage } from '@/lib/pdf/image-utils'
+import { normalizeSupabaseStorageUrl } from '@/lib/storage/public-url'
 import {
   getAssetFieldsForType,
   getAssetTypesByCategory,
-  isITAsset,
 } from '@/lib/assets/asset-fields'
 import { formatHistoryValue, FIELD_LABELS } from '@/lib/assets/format-history'
+import { downloadPdfBlob } from '@/lib/mobile/pdf-download'
 
 type Location = {
   id: string
@@ -126,7 +128,7 @@ export default function AssetDetailView({
 }) {
   const router = useRouter()
   const [isEditing, setIsEditing] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
+  const [isDeleting] = useState(false)
   const [isChangingStatus, setIsChangingStatus] = useState(false)
   const [showDisposalModal, setShowDisposalModal] = useState(false)
   const [qrImageUrl, setQrImageUrl] = useState<string | null>(null)
@@ -137,52 +139,8 @@ export default function AssetDetailView({
 
   const isReadOnly = userRole === 'agent_l1' || userRole === 'agent_l2'
   const hasPendingDisposal = !!pendingDisposalRequest
-
-  const handleDelete = async () => {
-    if (isReadOnly) {
-      alert('No tienes permiso para eliminar activos. Contacta con un supervisor.')
-      return
-    }
-
-    if (!confirm('¿Estás seguro de que deseas dar de baja este activo? Esta acción se puede revertir desde el panel de administración.')) {
-      return
-    }
-
-    setIsDeleting(true)
-    const supabase = createSupabaseBrowserClient()
-
-    const { data: { user } } = await supabase.auth.getUser()
-
-    const { error } = await supabase
-      .from('assets')
-      .update({
-        deleted_at: new Date().toISOString(),
-        deleted_by: user?.id || null
-      })
-      .eq('id', asset.id)
-
-    if (error) {
-      console.error('Error deleting asset:', error)
-      alert('Error al dar de baja el activo')
-      setIsDeleting(false)
-      return
-    }
-
-    await supabase.from('audit_log').insert({
-      entity_type: 'asset',
-      entity_id: asset.id,
-      action: 'DELETE',
-      actor_id: user?.id,
-      metadata: {
-        asset_tag: asset.asset_tag,
-        asset_type: asset.asset_type,
-        previous_status: asset.status,
-      },
-    })
-
-    router.push(backLink)
-    router.refresh()
-  }
+  const assetImageUrl = normalizeSupabaseStorageUrl(asset.image_url)
+  const detailPath = `${backLink.replace(/\/$/, '')}/${asset.id}`
 
   const handleQuickStatusChange = async (newStatus: string) => {
     if (isReadOnly) {
@@ -245,7 +203,7 @@ export default function AssetDetailView({
         const baseUrl = typeof window !== 'undefined'
           ? (window.location.origin || process.env.NEXT_PUBLIC_APP_URL || '')
           : ''
-        const assetUrl = baseUrl ? `${baseUrl}/assets/${asset.id}` : `/assets/${asset.id}`
+        const assetUrl = baseUrl ? `${baseUrl}${detailPath}` : detailPath
 
         // QR funcional: siempre debe abrir/redireccionar al detalle del activo.
         const dataUrl = await QRCode.toDataURL(assetUrl, {
@@ -284,6 +242,7 @@ export default function AssetDetailView({
     stats?.openTickets,
     stats?.locationChangeCount,
     stats?.assignmentChangeCount,
+    detailPath,
     qrNonce,
   ])
 
@@ -309,20 +268,7 @@ export default function AssetDetailView({
       const baseUrl = typeof window !== 'undefined'
         ? (window.location.origin || process.env.NEXT_PUBLIC_APP_URL || '')
         : ''
-      const assetUrl = baseUrl ? `${baseUrl}/assets/${asset.id}` : `/assets/${asset.id}`
-
-      const formatDate = (date: string | null | undefined) => {
-        if (!date) return 'N/A'
-        const d = new Date(date)
-        if (Number.isNaN(d.getTime())) return 'N/A'
-        return d.toLocaleString('es-ES', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-        })
-      }
+      const assetUrl = baseUrl ? `${baseUrl}${detailPath}` : detailPath
 
       const formatDateShort = (date: string | null | undefined) => {
         if (!date) return '—'
@@ -366,30 +312,26 @@ export default function AssetDetailView({
           type: 'image/png',
         }))
 
-      // Cargar logo una vez para usarlo en todas las páginas
-      let logoBase64 = ''
+      let logoImage: { dataUrl: string; format: 'PNG' | 'JPEG' } | null = null
       try {
-        const logoResponse = await fetch('/ziii-logo.png')
-        const logoBlob = await logoResponse.blob()
-        logoBase64 = await new Promise<string>((resolve) => {
-          const reader = new FileReader()
-          reader.onloadend = () => resolve(reader.result as string)
-          reader.readAsDataURL(logoBlob)
+        logoImage = await loadOptimizedPdfImage('/logos/ziii-logo.png', {
+          maxDim: 220,
+          quality: 0.85,
         })
       } catch (error) {
-        console.error('Error loading logo:', error)
+        console.error('Error loading optimized logo:', error)
       }
 
-      const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+      const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true })
 
       const drawHeader = (subtitle: string) => {
         doc.setFillColor(15, 23, 42) // slate-900
         doc.rect(0, 0, 210, 24, 'F')
         
         // Logo ZIII (más grande: 20mm x 20mm)
-        if (logoBase64) {
+        if (logoImage) {
           try {
-            doc.addImage(logoBase64, 'PNG', 8, 2, 20, 20)
+            doc.addImage(logoImage.dataUrl, logoImage.format, 8, 2, 20, 20)
           } catch (error) {
             console.error('Error adding logo to PDF:', error)
           }
@@ -615,45 +557,25 @@ export default function AssetDetailView({
           return new Date(b.changed_at).getTime() - new Date(a.changed_at).getTime()
         })
 
-        const translateFieldName = (fieldName: string) => {
-          const translations: Record<string, string> = {
-            'model': 'Modelo',
-            'storage gb': 'Almacenamiento',
-            'storage_gb': 'Almacenamiento',
-            'ram gb': 'Memoria RAM',
-            'ram_gb': 'Memoria RAM',
-            'processor': 'Procesador',
-            'os': 'Sistema Operativo',
-            'created': 'Creado',
-            'asset tag': 'Etiqueta',
-            'asset_tag': 'Etiqueta',
-            'brand': 'Marca',
-            'serial number': 'Número de serie',
-            'serial_number': 'Número de serie',
-            'asset type': 'Tipo',
-            'asset_type': 'Tipo',
-            'status': 'Estado',
-            'location': 'Ubicación',
-            'department': 'Departamento',
-            'assigned to': 'Asignado a',
-            'assigned_to': 'Asignado a',
-            'purchase date': 'Fecha de compra',
-            'purchase_date': 'Fecha de compra',
-            'warranty end date': 'Fin de garantía',
-            'warranty_end_date': 'Fin de garantía',
-            'notes': 'Notas',
+        const formatPdfHistoryValue = (value: string | null, fieldName: string) => {
+          if (!value || value === 'null') {
+            return fieldName === 'image_url'
+              ? formatHistoryValue(value, fieldName, locations, users, assignedUser)
+              : '(vacío)'
           }
-          return translations[fieldName.toLowerCase()] || fieldName.replace(/_/g, ' ')
+
+          return formatHistoryValue(value, fieldName, locations, users, assignedUser)
         }
 
         const historyBody = historySorted.map(h => {
           const who = h.changed_by_name || h.changed_by_email || 'Sistema'
-          const field = translateFieldName(h.field_name || '')
+          const fieldName = h.field_name || ''
+          const field = FIELD_LABELS[fieldName] || fieldName.replace(/_/g, ' ')
           return [
             formatDateShort(h.changed_at),
             compact(field, 22),
-            compact(h.old_value, 36),
-            compact(h.new_value, 36),
+            compact(formatPdfHistoryValue(h.old_value, fieldName), 36),
+            compact(formatPdfHistoryValue(h.new_value, fieldName), 36),
             compact(who, 22),
           ]
         })
@@ -689,7 +611,8 @@ export default function AssetDetailView({
         doc.text(`Página ${i} de ${pages}`, 195, 292, { align: 'right' })
       }
 
-      doc.save(`Activo_${asset.asset_tag}_${new Date().toISOString().split('T')[0]}.pdf`)
+      const fileName = `Activo_${asset.asset_tag}_${new Date().toISOString().split('T')[0]}.pdf`
+      await downloadPdfBlob(doc.output('blob'), fileName)
     } catch (error) {
       console.error('Error generating PDF:', error)
       alert('Error al descargar el PDF. Por favor, intenta nuevamente.')
@@ -856,7 +779,7 @@ export default function AssetDetailView({
       )}
 
       {/* Imagen del activo y QR */}
-      {(asset.image_url || qrImageUrl || isGeneratingQr || qrError) && (
+      {(assetImageUrl || qrImageUrl || isGeneratingQr || qrError) && (
         <div className="card shadow-sm border border-slate-200">
           <div className="card-body p-4">
             <div className="flex items-center gap-2 mb-4">
@@ -868,11 +791,11 @@ export default function AssetDetailView({
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Imagen del activo */}
-              {asset.image_url && (
+              {assetImageUrl && (
                 <div className="flex flex-col">
                   <div className="bg-gray-50 rounded-lg border-2 border-gray-200 p-4 flex items-center justify-center" style={{ minHeight: '320px' }}>
                     <a
-                      href={asset.image_url}
+                      href={assetImageUrl}
                       target="_blank"
                       rel="noreferrer"
                       className="w-full flex items-center justify-center"
@@ -881,7 +804,7 @@ export default function AssetDetailView({
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={asset.image_url}
+                        src={assetImageUrl}
                         alt={`Imagen de ${asset.asset_tag}`}
                         className="max-w-full max-h-80 object-contain rounded cursor-zoom-in"
                       />

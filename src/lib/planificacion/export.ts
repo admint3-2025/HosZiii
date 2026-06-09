@@ -40,7 +40,12 @@ export type PlanningExportFilters = {
   year: number
   department: string
   locationId: string
+  reportMode?: PlanningPdfReportMode
 }
+
+export type PlanningPdfReportMode = 'informative' | 'alerts'
+
+export type PlanningAlertFlag = 'RED' | 'YELLOW' | 'GREEN'
 
 export type PlanningDepartmentDef = {
   key: string
@@ -59,13 +64,34 @@ export type PlanningExportRow = {
   plan: PlanningPlanWithRelations
   department: PlanningDepartmentDef
   locationLabel: string
+  entityLabel: string | null
   matrix: Map<number, PlanningMatrixCell>
+  monthlyAlertFlags: Map<number, PlanningAlertFlag>
   annualBudget: number
+  criticalCount: number
+  warningCount: number
+  maxAlertFlag: PlanningAlertFlag | null
+  nextDueDate: string | null
+}
+
+export type PlanningExportAlertItem = {
+  planId: string
+  planName: string
+  entityLabel: string | null
+  departmentLabel: string
+  locationLabel: string
+  dueDate: string
+  estado: string
+  alertFlag: PlanningAlertFlag
+  alertLabel: string
+  impact: number
+  agingDays: number
 }
 
 export type PlanningExportBundle = {
   generatedAt: Date
   year: number
+  reportMode: PlanningPdfReportMode
   profile: PlanningExportProfile
   filters: {
     department: string
@@ -75,6 +101,10 @@ export type PlanningExportBundle = {
   }
   locations: PlanningExportLocation[]
   rows: PlanningExportRow[]
+  alerts: {
+    criticalItems: PlanningExportAlertItem[]
+    warningItems: PlanningExportAlertItem[]
+  }
   summary: {
     activePlans: number
     totalEvents: number
@@ -186,6 +216,13 @@ function statusRank(status: string) {
   return 0
 }
 
+function alertFlagRank(flag: PlanningAlertFlag | null | undefined) {
+  if (flag === 'RED') return 3
+  if (flag === 'YELLOW') return 2
+  if (flag === 'GREEN') return 1
+  return 0
+}
+
 export function getPlanningDepartmentConfig(value: string | null | undefined) {
   const normalized = normalizePlanningValue(value)
   if (!normalized) return null
@@ -269,6 +306,13 @@ export function getPlanningLocationLabel(centroCosto: string | null | undefined,
   if (!centroCosto) return 'Sin sede asignada'
   const matched = locations.find((location) => locationMatches(centroCosto, location))
   return matched ? `${matched.code} - ${matched.name}` : centroCosto
+}
+
+export function getPlanningDistinctEntityLabel(planName: string, entityName: string | null | undefined) {
+  const cleanPlan = planName.trim()
+  const cleanEntity = (entityName ?? '').trim()
+  if (!cleanEntity) return null
+  return normalizePlanningValue(cleanPlan) === normalizePlanningValue(cleanEntity) ? null : cleanEntity
 }
 
 function matchesSelectedLocation(
@@ -395,6 +439,7 @@ export async function getPlanningExportBundle(params: {
   const locations = await getPlanningLocations({ supabase, adminSupabase, userId, profile })
   const visibleDepartmentKeys = new Set(getAccessibleDepartments(profile).map((item) => item.key))
   const bounds = monthBounds(filters.year)
+  const reportMode: PlanningPdfReportMode = filters.reportMode === 'alerts' ? 'alerts' : 'informative'
 
   const [plans, calendar, compliance, financial] = await Promise.all([
     listPlanes(supabase),
@@ -428,15 +473,94 @@ export async function getPlanningExportBundle(params: {
     financial: byLocation.financial.filter((item) => selectedDepartment === 'ALL' || normalizePlanningValue(item.departamento_dueno) === selectedDepartment),
   }
 
-  const rows = scopedPortfolio.plans.map((plan) => ({
-    plan,
-    department: getDepartmentConfigOrFallback(plan.departamento_dueno),
-    locationLabel: getPlanningLocationLabel(plan.centro_costo, locations),
-    matrix: getMatrixForPlan(plan, scopedPortfolio.calendar),
-    annualBudget: scopedPortfolio.calendar
-      .filter((item) => item.plan_maestro_id === plan.id)
-      .reduce((sum, item) => sum + Number(item.monto_estimado || 0), 0),
-  }))
+  const complianceByPlanId = new Map<string, OpsComplianceItem[]>()
+  for (const item of scopedPortfolio.compliance) {
+    const bucket = complianceByPlanId.get(item.plan_id) ?? []
+    bucket.push(item)
+    complianceByPlanId.set(item.plan_id, bucket)
+  }
+
+  const calendarByPlanId = new Map<string, OpsCalendarItem[]>()
+  for (const item of scopedPortfolio.calendar) {
+    const bucket = calendarByPlanId.get(item.plan_maestro_id) ?? []
+    bucket.push(item)
+    calendarByPlanId.set(item.plan_maestro_id, bucket)
+  }
+
+  const rows = scopedPortfolio.plans.map((plan) => {
+    const planCompliance = (complianceByPlanId.get(plan.id) ?? []).slice().sort((left, right) => right.aging_days - left.aging_days)
+    const planCalendar = (calendarByPlanId.get(plan.id) ?? []).slice().sort((left, right) => left.due_date.localeCompare(right.due_date, 'es-MX'))
+    const monthlyAlertFlags = new Map<number, PlanningAlertFlag>()
+
+    for (const item of planCompliance) {
+      const month = new Date(`${item.due_date}T00:00:00`)
+      const monthIndex = month.getMonth() + 1
+      const current = monthlyAlertFlags.get(monthIndex)
+      if (!current || alertFlagRank(item.alert_flag) > alertFlagRank(current)) {
+        monthlyAlertFlags.set(monthIndex, item.alert_flag)
+      }
+    }
+
+    const criticalCount = planCompliance.filter((item) => item.alert_flag === 'RED').length
+    const warningCount = planCompliance.filter((item) => item.alert_flag === 'YELLOW').length
+    const maxAlertFlag: PlanningAlertFlag | null = criticalCount > 0
+      ? 'RED'
+      : warningCount > 0
+        ? 'YELLOW'
+        : planCompliance.length > 0
+          ? 'GREEN'
+          : null
+
+    return {
+      plan,
+      department: getDepartmentConfigOrFallback(plan.departamento_dueno),
+      locationLabel: getPlanningLocationLabel(plan.centro_costo, locations),
+      entityLabel: getPlanningDistinctEntityLabel(plan.nombre, plan.entidad?.nombre ?? null),
+      matrix: getMatrixForPlan(plan, scopedPortfolio.calendar),
+      monthlyAlertFlags,
+      annualBudget: planCalendar.reduce((sum, item) => sum + Number(item.monto_estimado || 0), 0),
+      criticalCount,
+      warningCount,
+      maxAlertFlag,
+      nextDueDate: planCalendar[0]?.due_date ?? null,
+    }
+  })
+
+  const criticalItems: PlanningExportAlertItem[] = scopedPortfolio.compliance
+    .filter((item) => item.alert_flag === 'RED')
+    .sort((left, right) => right.aging_days - left.aging_days || right.impacto_financiero - left.impacto_financiero)
+    .slice(0, 10)
+    .map((item) => ({
+      planId: item.plan_id,
+      planName: item.plan_nombre,
+      entityLabel: getPlanningDistinctEntityLabel(item.plan_nombre, item.entidad_objetivo),
+      departmentLabel: getDepartmentConfigOrFallback(item.departamento).label,
+      locationLabel: getPlanningLocationLabel(item.centro_costo, locations),
+      dueDate: item.due_date,
+      estado: item.estado,
+      alertFlag: item.alert_flag,
+      alertLabel: item.alert_label,
+      impact: Number(item.impacto_financiero || 0),
+      agingDays: item.aging_days,
+    }))
+
+  const warningItems: PlanningExportAlertItem[] = scopedPortfolio.compliance
+    .filter((item) => item.alert_flag === 'YELLOW')
+    .sort((left, right) => right.aging_days - left.aging_days || right.impacto_financiero - left.impacto_financiero)
+    .slice(0, 8)
+    .map((item) => ({
+      planId: item.plan_id,
+      planName: item.plan_nombre,
+      entityLabel: getPlanningDistinctEntityLabel(item.plan_nombre, item.entidad_objetivo),
+      departmentLabel: getDepartmentConfigOrFallback(item.departamento).label,
+      locationLabel: getPlanningLocationLabel(item.centro_costo, locations),
+      dueDate: item.due_date,
+      estado: item.estado,
+      alertFlag: item.alert_flag,
+      alertLabel: item.alert_label,
+      impact: Number(item.impacto_financiero || 0),
+      agingDays: item.aging_days,
+    }))
 
   const departmentLabel = selectedDepartment === 'ALL'
     ? 'Todos los departamentos'
@@ -451,6 +575,7 @@ export async function getPlanningExportBundle(params: {
   return {
     generatedAt: new Date(),
     year: filters.year,
+    reportMode,
     profile,
     filters: {
       department: selectedDepartment,
@@ -460,6 +585,10 @@ export async function getPlanningExportBundle(params: {
     },
     locations,
     rows,
+    alerts: {
+      criticalItems,
+      warningItems,
+    },
     summary: {
       activePlans: scopedPortfolio.plans.filter((plan) => plan.estado === 'activo').length,
       totalEvents: scopedPortfolio.calendar.length,

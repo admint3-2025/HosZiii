@@ -23,29 +23,27 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 })
     }
 
-    // Primero obtener todos los IDs
-    const { data: allRecords, error: fetchError } = await admin
+    // Contar registros antes de eliminar
+    const { count, error: countError } = await admin
       .from('login_audits')
-      .select('id')
+      .select('id', { count: 'exact', head: true })
 
-    if (fetchError) {
+    if (countError) {
       return NextResponse.json(
-        { error: 'Error obteniendo registros: ' + fetchError.message },
+        { error: 'Error obteniendo registros: ' + countError.message },
         { status: 500 }
       )
     }
 
-    // Si no hay registros, retorna éxito
-    if (!allRecords || allRecords.length === 0) {
+    if (!count || count === 0) {
       return NextResponse.json({ success: true, message: 'Historial ya estaba vacío', deleted: 0 })
     }
 
-    // Obtener todos los IDs y borrar en lotes
-    const ids = allRecords.map((r: any) => r.id)
+    // Eliminar todos los registros con un filtro ligero (no pone IDs en el URL)
     const { error: deleteError } = await admin
       .from('login_audits')
       .delete()
-      .in('id', ids)
+      .not('id', 'is', null)
 
     if (deleteError) {
       return NextResponse.json(
@@ -57,7 +55,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ 
       success: true, 
       message: 'Historial de sesiones eliminado correctamente',
-      deleted: ids.length
+      deleted: count
     })
   } catch (error: any) {
     return NextResponse.json(

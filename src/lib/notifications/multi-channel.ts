@@ -4,6 +4,7 @@
  * - Email (SMTP)
  * - Supabase (Push in-app)
  * - Telegram (Bot API)
+ * - Expo Push (Notificaciones móviles)
  *
  * Escalable a Opción 2 con:
  * - Preferencias de usuario por tipo de notificación
@@ -13,6 +14,7 @@
 
 import { sendMail } from '../email/mailer'
 import { sendTelegramNotification } from '@/lib/telegram'
+import { sendExpoPushNotification } from '@/lib/notifications/expo-push'
 import { createSupabaseAdminClient } from '@/lib/supabase/admin'
 
 export type NotificationType =
@@ -29,6 +31,7 @@ export interface NotificationChannels {
   email?: boolean
   push?: boolean // In-app push (Supabase)
   telegram?: boolean
+  mobilePush?: boolean // Expo Push (mobile app)
 }
 
 export interface NotificationPayload {
@@ -38,6 +41,7 @@ export interface NotificationPayload {
   message: string
   emailBody?: string // HTML para email
   telegramTemplate?: { title: string; message: string }
+  pushData?: Record<string, unknown> // Datos extra para mobile push
   channels?: NotificationChannels // Override de canales (Opción 2)
   // Datos opcionales para la BD
   relatedId?: string // ticket_id, inspection_id, etc.
@@ -50,6 +54,7 @@ export interface NotificationResult {
     email?: { sent: boolean; error?: string }
     push?: { sent: boolean; error?: string }
     telegram?: { sent: boolean; error?: string }
+    mobilePush?: { sent: boolean; error?: string }
   }
 }
 
@@ -70,6 +75,7 @@ export async function sendMultiChannelNotification(
     email: payload.channels?.email ?? true,
     push: payload.channels?.push ?? true,
     telegram: payload.channels?.telegram ?? true,
+    mobilePush: payload.channels?.mobilePush ?? true,
   }
 
   console.log(`[Notifications] 📤 Enviando "${payload.title}" al usuario ${payload.userId}`)
@@ -145,11 +151,41 @@ export async function sendMultiChannelNotification(
       }
     }
 
+    // 4. Enviar Mobile Push (Expo)
+    if (channels.mobilePush) {
+      try {
+        const pushResult = await sendExpoPushNotification(
+          payload.userId,
+          payload.title,
+          payload.message,
+          {
+            type: payload.type,
+            ticketId: payload.relatedId,
+            ...(payload.pushData ?? {}),
+          }
+        )
+        result.channels.mobilePush = {
+          sent: pushResult.sent,
+          error: pushResult.error,
+        }
+        if (pushResult.sent) {
+          console.log(`[Notifications] ✓ Mobile push enviado`)
+        }
+      } catch (error) {
+        result.channels.mobilePush = {
+          sent: false,
+          error: error instanceof Error ? error.message : 'Unknown error',
+        }
+        console.error('[Notifications] ✗ Error enviando mobile push:', error)
+      }
+    }
+
     // Determinar éxito general
     result.success =
       (result.channels.email?.sent || !channels.email) &&
       (result.channels.push?.sent || !channels.push) &&
-      (result.channels.telegram?.sent || !channels.telegram)
+      (result.channels.telegram?.sent || !channels.telegram) &&
+      (result.channels.mobilePush?.sent || !channels.mobilePush)
 
     console.log(`[Notifications] ${result.success ? '✅' : '⚠️'} Resultado:`, result.channels)
 

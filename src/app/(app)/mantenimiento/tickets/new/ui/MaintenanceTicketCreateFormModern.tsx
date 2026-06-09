@@ -103,6 +103,7 @@ export default function MaintenanceTicketCreateFormModern({
   const [loadingHkRooms, setLoadingHkRooms] = useState(false)
 
   const [showCategoryModal, setShowCategoryModal] = useState(false)
+  const [showGuideModal, setShowGuideModal] = useState(false)
   const [categoryModalLevel, setCategoryModalLevel] = useState<1 | 2 | 3>(1)
   const [newCategoryName, setNewCategoryName] = useState('')
   const [savingCategory, setSavingCategory] = useState(false)
@@ -583,6 +584,7 @@ export default function MaintenanceTicketCreateFormModern({
             <button
               type="button"
               className="w-full py-2.5 bg-white/10 hover:bg-white/20 rounded-lg text-xs font-semibold transition-colors border border-white/10 backdrop-blur-sm"
+              onClick={() => setShowGuideModal(true)}
             >
               Ver Guía
             </button>
@@ -1012,6 +1014,121 @@ export default function MaintenanceTicketCreateFormModern({
           </div>
         </main>
       </div>
+
+      {/* Modal Guía de Tickets */}
+      {showGuideModal && (
+        <div
+          className="fixed inset-0 z-[9999] bg-black/60 backdrop-blur-sm flex items-center justify-center p-4"
+          onClick={() => setShowGuideModal(false)}
+        >
+          <div
+            className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Header */}
+            <div className="px-6 py-5 rounded-t-2xl flex items-start justify-between bg-orange-500">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 bg-white/20 rounded-xl flex items-center justify-center">
+                  <HelpCircle size={22} className="text-white" />
+                </div>
+                <div>
+                  <h2 className="text-lg font-bold text-white">Guía para Crear una Solicitud de Mantenimiento</h2>
+                  <p className="text-xs text-white/70 mt-0.5">Sigue estos pasos para una atención más rápida y efectiva</p>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={() => setShowGuideModal(false)}
+                className="text-white/70 hover:text-white transition-colors p-1"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            {/* Content */}
+            <div className="p-6 space-y-5">
+
+              {/* Paso 1 */}
+              <div className="flex gap-4">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white bg-orange-500">1</div>
+                <div>
+                  <h3 className="font-semibold text-slate-800 text-sm">Describe el problema con claridad</h3>
+                  <p className="text-slate-500 text-xs mt-1 leading-relaxed">
+                    Usa un título breve pero descriptivo. En la descripción indica <strong>qué falló</strong>, <strong>dónde exactamente</strong> (área, habitación, piso) y <strong>desde cuándo ocurre</strong>. Cuanto más detallado, más rápido actuamos.
+                  </p>
+                </div>
+              </div>
+
+              {/* Paso 2 */}
+              <div className="flex gap-4">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white bg-orange-500">2</div>
+                <div>
+                  <h3 className="font-semibold text-slate-800 text-sm">Indica la ubicación exacta</h3>
+                  <p className="text-slate-500 text-xs mt-1 leading-relaxed">
+                    Selecciona la sede, área o habitación afectada. Si es una habitación de hotel, usa el campo de habitación para vincularla directamente al trabajo.
+                  </p>
+                </div>
+              </div>
+
+              {/* Paso 3 */}
+              <div className="flex gap-4">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white bg-orange-500">3</div>
+                <div>
+                  <h3 className="font-semibold text-slate-800 text-sm">Selecciona la categoría correcta</h3>
+                  <p className="text-slate-500 text-xs mt-1 leading-relaxed">
+                    Elige la especialidad (Electricidad, Plomería, Carpintería, etc.) y el tipo de trabajo. Esto asigna la solicitud al técnico con las habilidades correctas.
+                  </p>
+                </div>
+              </div>
+
+              {/* Paso 4 */}
+              <div className="flex gap-4">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white bg-orange-500">4</div>
+                <div>
+                  <h3 className="font-semibold text-slate-800 text-sm">Asigna la prioridad correctamente</h3>
+                  <ul className="text-slate-500 text-xs mt-1 space-y-1 leading-relaxed">
+                    <li><span className="font-semibold text-red-500">CRÍTICA</span> — Riesgo para personas, inundación activa, falla de seguridad. Uso muy excepcional.</li>
+                    <li><span className="font-semibold text-orange-500">ALTA</span> — Falla que impide uso del área o representa un riesgo latente.</li>
+                    <li><span className="font-semibold text-yellow-500">MEDIA</span> — Problema que molesta pero no bloquea la operación.</li>
+                    <li><span className="font-semibold text-green-500">BAJA</span> — Mantenimiento preventivo, mejoras estéticas o solicitudes sin urgencia.</li>
+                  </ul>
+                </div>
+              </div>
+
+              {/* Paso 5 */}
+              <div className="flex gap-4">
+                <div className="flex-shrink-0 w-8 h-8 rounded-full flex items-center justify-center text-sm font-bold text-white bg-orange-500">5</div>
+                <div>
+                  <h3 className="font-semibold text-slate-800 text-sm">Adjunta fotos o evidencia</h3>
+                  <p className="text-slate-500 text-xs mt-1 leading-relaxed">
+                    Una foto del problema (gotera, falla eléctrica, mobiliario roto, etc.) permite al técnico llegar preparado con las herramientas y materiales correctos, ahorrando tiempo y recursos.
+                  </p>
+                </div>
+              </div>
+
+              {/* Tip */}
+              <div className="rounded-xl p-4 flex gap-3 bg-orange-50 border border-orange-100">
+                <AlertTriangle size={18} className="text-orange-500 flex-shrink-0 mt-0.5" />
+                <p className="text-xs leading-relaxed text-orange-700">
+                  <strong>Recuerda:</strong> Una solicitud bien documentada se resuelve hasta 3 veces más rápido. Evita crear solicitudes duplicadas; si necesitas agregar información usa los comentarios de la solicitud ya creada.
+                </p>
+              </div>
+
+            </div>
+
+            {/* Footer */}
+            <div className="px-6 py-4 border-t border-slate-100 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowGuideModal(false)}
+                className="px-5 py-2.5 rounded-lg text-sm font-semibold text-white transition-colors bg-orange-500 hover:bg-orange-600"
+              >
+                Entendido
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Modal Crear Categoría */}
       {showCategoryModal && (

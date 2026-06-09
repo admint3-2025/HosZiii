@@ -1,4 +1,4 @@
-export function passwordResetRequestEmailTemplate(params: {
+﻿export function passwordResetRequestEmailTemplate(params: {
   appName: string
   requestingUserName: string
   requestingUserEmail: string
@@ -30,7 +30,7 @@ export function passwordResetRequestEmailTemplate(params: {
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background:#f9fafb; padding:40px 20px;">
       <!-- Logo / Header -->
       <div style="max-width:600px; margin:0 auto 24px auto; text-align:center;">
-        <img src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png" alt="ZIII HoS" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
+        <img src="https://ziii.com.mx/logos/1ZIIIlogo.png" alt="ZIII HoS" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
       </div>
 
       <!-- Main Card -->
@@ -170,7 +170,7 @@ export function temporaryPasswordEmailTemplate(params: {
 
       <!-- Logo -->
       <div style="max-width:600px; margin:0 auto 24px auto; text-align:center;">
-        <img src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png" alt="${escapeHtml(appName)}" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
+        <img src="https://ziii.com.mx/logos/1ZIIIlogo.png" alt="${escapeHtml(appName)}" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
       </div>
 
       <!-- Main Card -->
@@ -339,7 +339,7 @@ export function passwordRecoveryEmailTemplate(params: {
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background:#f9fafb; padding:40px 20px;">
       <!-- Logo / Header -->
       <div style="max-width:600px; margin:0 auto 24px auto; text-align:center;">
-        <img src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png" alt="ZIII HoS" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
+        <img src="https://ziii.com.mx/logos/1ZIIIlogo.png" alt="ZIII HoS" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
       </div>
 
       <!-- Main Card -->
@@ -500,7 +500,7 @@ export function ticketCreatedEmailTemplate(params: {
       
       <!-- Logo / Header -->
       <div style="max-width:600px; margin:0 auto 24px auto; text-align:center;">
-        <img src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png" alt="ZIII HoS" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
+        <img src="https://ziii.com.mx/logos/1ZIIIlogo.png" alt="ZIII HoS" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
       </div>
 
       <!-- Main Card -->
@@ -729,7 +729,7 @@ export function ticketAssignedToRequesterEmailTemplate(params: {
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background:#f9fafb; padding:40px 20px;">
       
       <div style="max-width:600px; margin:0 auto 24px auto; text-align:center;">
-        <img src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png" alt="ZIII Helpdesk" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
+        <img src="https://ziii.com.mx/logos/1ZIIIlogo.png" alt="ZIII Helpdesk" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
       </div>
 
       <div style="max-width:600px; margin:0 auto; background:#ffffff; border-radius:16px; box-shadow:0 4px 6px rgba(0,0,0,0.07); overflow:hidden;">
@@ -925,7 +925,7 @@ export function ticketAssignedEmailTemplate(params: {
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background:#f9fafb; padding:40px 20px;">
       
       <div style="max-width:600px; margin:0 auto 24px auto; text-align:center;">
-        <img src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png" alt="ZIII Helpdesk" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
+        <img src="https://ziii.com.mx/logos/1ZIIIlogo.png" alt="ZIII Helpdesk" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
       </div>
 
       <div style="max-width:600px; margin:0 auto; background:#ffffff; border-radius:16px; box-shadow:0 4px 6px rgba(0,0,0,0.07); overflow:hidden;">
@@ -1184,7 +1184,7 @@ export function ticketStatusChangedEmailTemplate(params: {
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background:#f9fafb; padding:40px 20px;">
       
       <div style="max-width:600px; margin:0 auto 24px auto; text-align:center;">
-        <img src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png" alt="ZIII Helpdesk" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
+        <img src="https://ziii.com.mx/logos/1ZIIIlogo.png" alt="ZIII Helpdesk" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
       </div>
 
       <div style="max-width:600px; margin:0 auto; background:#ffffff; border-radius:16px; box-shadow:0 4px 6px rgba(0,0,0,0.07); overflow:hidden;">
@@ -1420,7 +1420,7 @@ export function ticketClosedEmailTemplate(params: {
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background:#f9fafb; padding:40px 20px;">
       
       <div style="max-width:600px; margin:0 auto 24px auto; text-align:center;">
-        <img src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png" alt="ZIII Helpdesk" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
+        <img src="https://ziii.com.mx/logos/1ZIIIlogo.png" alt="ZIII Helpdesk" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
       </div>
 
       <div style="max-width:600px; margin:0 auto; background:#ffffff; border-radius:16px; box-shadow:0 4px 6px rgba(0,0,0,0.07); overflow:hidden;">
@@ -1653,7 +1653,7 @@ export function ticketEscalatedEmailTemplate(params: {
   <body style="margin:0; padding:0; background-color:#f9fafb;">
     <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background:#f9fafb; padding:40px 20px;">
       <div style="max-width:600px; margin:0 auto 24px auto; text-align:center;">
-        <img src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png" alt="ZIII Helpdesk" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
+        <img src="https://ziii.com.mx/logos/1ZIIIlogo.png" alt="ZIII Helpdesk" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
       </div>
 
       <div style="max-width:600px; margin:0 auto; background:#ffffff; border-radius:16px; box-shadow:0 4px 6px rgba(0,0,0,0.07); overflow:hidden;">
@@ -1901,7 +1901,7 @@ export function ticketLocationStaffNotificationTemplate(params: {
       
       <!-- Logo / Header -->
       <div style="max-width:600px; margin:0 auto 24px auto; text-align:center;">
-        <img src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png" alt="ZIII Helpdesk" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
+        <img src="https://ziii.com.mx/logos/1ZIIIlogo.png" alt="ZIII Helpdesk" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
       </div>
 
       <!-- Main Card -->
@@ -2167,7 +2167,7 @@ export function ticketInvestigationEmailTemplate(params: {
       
       <!-- Logo -->
       <div style="max-width:700px; margin:0 auto 24px auto; text-align:center;">
-        <img src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png" alt="ZIII Helpdesk" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
+        <img src="https://ziii.com.mx/logos/1ZIIIlogo.png" alt="ZIII Helpdesk" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
       </div>
 
       <!-- Main Card -->
@@ -2527,7 +2527,7 @@ export function locationSummaryEmailTemplate(params: {
 
       <!-- Header / Logo -->
       <div style="max-width:720px; margin:0 auto 24px auto; text-align:center;">
-        <img src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png" alt="ZIII Helpdesk" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
+        <img src="https://ziii.com.mx/logos/1ZIIIlogo.png" alt="ZIII Helpdesk" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
       </div>
 
       <!-- Main Card -->
@@ -2743,7 +2743,7 @@ export function roomsOutOfServiceFollowUpEmailTemplate(params: {
   <body style="margin:0; padding:0; background-color:#f9fafb;">
     <div style="font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif; background:#f9fafb; padding:40px 20px;">
       <div style="max-width:700px; margin:0 auto 24px auto; text-align:center;">
-        <img src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png" alt="ZIII HoS" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
+        <img src="https://ziii.com.mx/logos/1ZIIIlogo.png" alt="ZIII HoS" width="180" height="120" style="display:block; margin:0 auto; height:120px; width:auto; max-width:100%;" />
       </div>
 
       <div style="max-width:700px; margin:0 auto; background:#ffffff; border-radius:16px; box-shadow:0 4px 6px rgba(0,0,0,0.07); overflow:hidden; border:1px solid #e5e7eb;">
@@ -2916,7 +2916,7 @@ export function criticalInspectionAlertTemplate(params: {
         <!-- Header with Logo -->
         <div style="background:linear-gradient(135deg, #0f172a 0%, #1e293b 100%); padding:28px 32px; text-align:center;">
           <div style="margin-bottom:12px;">
-            <img src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png" alt="ZIII HoS" style="height:40px; width:auto;" />
+            <img src="https://ziii.com.mx/logos/1ZIIIlogo.png" alt="ZIII HoS" style="height:40px; width:auto;" />
           </div>
           <div style="font-size:32px; margin-bottom:8px;">⚠️</div>
           <h1 style="margin:0; font-size:20px; font-weight:700; color:#ffffff; letter-spacing:-0.5px;">

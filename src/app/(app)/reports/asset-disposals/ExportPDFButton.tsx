@@ -2,6 +2,7 @@
 
 import { useState } from 'react'
 import { generateDisposalPDF } from '@/lib/pdf/disposal-pdf'
+import { formatImageHistoryValue } from '@/lib/assets/format-history'
 
 type DisposalRequest = {
   id: string
@@ -43,6 +44,11 @@ function formatDate(dateStr: string | null | undefined): string {
     month: 'short',
     year: 'numeric'
   })
+}
+
+function formatChangeValue(fieldName: string, value: string | null | undefined): string {
+  if (fieldName === 'image_url') return formatImageHistoryValue(value ?? null)
+  return value || '(vacío)'
 }
 
 export default function ExportPDFButton({ disposal }: ExportPDFButtonProps) {
@@ -97,8 +103,8 @@ export default function ExportPDFButton({ disposal }: ExportPDFButtonProps) {
         })),
         changes: changes.map(c => ({
           field: c.field_name,
-          from: c.old_value || '(vacío)',
-          to: c.new_value || '(vacío)',
+          from: formatChangeValue(c.field_name, c.old_value),
+          to: formatChangeValue(c.field_name, c.new_value),
           date: formatDate(c.changed_at),
           by: c.changed_by_name ?? 'Sistema'
         }))

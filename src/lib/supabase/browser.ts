@@ -17,10 +17,10 @@ export function createSupabaseBrowserClient() {
       name: 'ziii-session',
     },
     auth: {
-      // CRITICAL: also disable auto-refresh in the browser to prevent token rotation races.
-      // The session is validated server-side via cookie parsing, so the browser doesn't
-      // need to auto-refresh. Manual refresh can be triggered when needed (e.g., /login?recover=1).
-      autoRefreshToken: false,
+      // autoRefreshToken activo: el cliente del browser renueva el JWT antes de que expire
+      // usando el refresh token (válido 60 días). El middleware del server tiene autoRefreshToken:false
+      // para evitar races server-side, pero el browser puede renovar libremente (singleton).
+      autoRefreshToken: true,
       persistSession: true,
       detectSessionInUrl: true,
     },

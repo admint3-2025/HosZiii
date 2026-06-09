@@ -1,4 +1,4 @@
-'use server'
+﻿'use server'
 
 import { createSupabaseServerClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
@@ -505,7 +505,7 @@ export async function escalateTicket(ticketId: string, currentLevel: number, ass
             <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background:#f9fafb; padding:40px 20px;">
               
               <div style="max-width:600px; margin:0 auto 24px auto; text-align:center;">
-                <img src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png" alt="ZIII Helpdesk" width="180" height="120" style="display:block; margin:0 auto;" />
+                <img src="https://ziii.com.mx/logos/1ZIIIlogo.png" alt="ZIII Helpdesk" width="180" height="120" style="display:block; margin:0 auto;" />
               </div>
 
               <div style="max-width:600px; margin:0 auto; background:#ffffff; border-radius:16px; box-shadow:0 4px 6px rgba(0,0,0,0.07); overflow:hidden;">
@@ -910,7 +910,7 @@ export async function requestEscalation(ticketId: string, reason: string) {
           <div style="font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; background:#f9fafb; padding:40px 20px;">
             
             <div style="max-width:600px; margin:0 auto 24px auto; text-align:center;">
-              <img src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png" alt="ZIII Helpdesk" width="180" height="120" style="display:block; margin:0 auto;" />
+              <img src="https://ziii.com.mx/logos/1ZIIIlogo.png" alt="ZIII Helpdesk" width="180" height="120" style="display:block; margin:0 auto;" />
             </div>
 
             <div style="max-width:600px; margin:0 auto; background:#ffffff; border-radius:16px; box-shadow:0 4px 6px rgba(0,0,0,0.07); overflow:hidden;">
@@ -1321,6 +1321,8 @@ export async function addITTicketComment(data: {
     const isCommentByRequester = user.id === ticket.requester_id
     const shouldRunAI = process.env.AI_TRIAGE_ENABLED === 'true' && (isCommentByRequester || data.requestAI === true)
 
+    let aiComment: any = null
+
     if (shouldRunAI) {
       try {
         const { getTicketTriage } = await import('@/lib/ai/openrouter')
@@ -1364,21 +1366,82 @@ export async function addITTicketComment(data: {
           // Sol: público (se lo ve el usuario) • Téc: interno (solo equipo IT)
           const aiVisibility = isCommentByRequester ? 'public' : 'internal'
           const aiLabel = isCommentByRequester ? '🤖 **Asistente ZIII**' : '🤖 **Apoyo IA**'
-          await supabase.from('ticket_comments').insert({
-            ticket_id: data.ticketId,
-            body: `${aiLabel} (confianza ${confidenceLabel}):\n\n${triage.suggestedReply}${escalateNote}`,
-            visibility: aiVisibility,
-            author_id: user.id,
-          })
+          const { data: insertedAIComment, error: aiInsertError } = await supabase
+            .from('ticket_comments')
+            .insert({
+              ticket_id: data.ticketId,
+              body: `${aiLabel} (confianza ${confidenceLabel}):\n\n${triage.suggestedReply}${escalateNote}`,
+              visibility: aiVisibility,
+              author_id: user.id,
+            })
+            .select()
+            .single()
+
+          if (aiInsertError) {
+            console.error('[addITTicketComment] Error insertando comentario AI:', aiInsertError)
+          } else {
+            aiComment = insertedAIComment
+          }
+        }
+
+        if (!aiComment) {
+          const fallbackVisibility = isCommentByRequester ? 'public' : 'internal'
+          const fallbackLabel = isCommentByRequester ? '🤖 **Asistente ZIII**' : '🤖 **Apoyo IA**'
+          const fallbackBody = isCommentByRequester
+            ? `${fallbackLabel} (confianza baja):\n\nNo pude generar una guía automática completa en este momento. Nuestro equipo técnico revisará tu actualización y dará seguimiento a la brevedad.`
+            : `${fallbackLabel} (confianza baja):\n\nNo fue posible generar una sugerencia automática en este momento. Reintenta la solicitud en unos segundos o continúa el análisis manual con la evidencia del ticket.`
+
+          const { data: insertedFallbackComment, error: fallbackInsertError } = await supabase
+            .from('ticket_comments')
+            .insert({
+              ticket_id: data.ticketId,
+              body: fallbackBody,
+              visibility: fallbackVisibility,
+              author_id: user.id,
+            })
+            .select()
+            .single()
+
+          if (fallbackInsertError) {
+            console.error('[addITTicketComment] Error insertando fallback AI:', fallbackInsertError)
+          } else {
+            aiComment = insertedFallbackComment
+          }
         }
       } catch (aiErr) {
         console.error('[addITTicketComment] Error en triage AI:', aiErr)
+
+        const fallbackVisibility = isCommentByRequester ? 'public' : 'internal'
+        const fallbackLabel = isCommentByRequester ? '🤖 **Asistente ZIII**' : '🤖 **Apoyo IA**'
+        const fallbackBody = isCommentByRequester
+          ? `${fallbackLabel} (confianza baja):\n\nNo pude generar una guía automática completa en este momento. Nuestro equipo técnico revisará tu actualización y dará seguimiento a la brevedad.`
+          : `${fallbackLabel} (confianza baja):\n\nNo fue posible generar una sugerencia automática en este momento. Reintenta la solicitud en unos segundos o continúa el análisis manual con la evidencia del ticket.`
+
+        const { data: insertedFallbackComment, error: fallbackInsertError } = await supabase
+          .from('ticket_comments')
+          .insert({
+            ticket_id: data.ticketId,
+            body: fallbackBody,
+            visibility: fallbackVisibility,
+            author_id: user.id,
+          })
+          .select()
+          .single()
+
+        if (fallbackInsertError) {
+          console.error('[addITTicketComment] Error insertando fallback tras excepción AI:', fallbackInsertError)
+        } else {
+          aiComment = insertedFallbackComment
+        }
       }
+
+      revalidatePath(`/tickets/${data.ticketId}`)
+      return { success: true, comment, aiComment }
     }
   } catch (notifErr) {
     console.error('[addITTicketComment] Error en notificaciones:', notifErr)
   }
 
   revalidatePath(`/tickets/${data.ticketId}`)
-  return { success: true, comment }
+  return { success: true, comment, aiComment: null }
 }

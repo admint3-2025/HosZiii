@@ -2,8 +2,11 @@ import { jsPDF } from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import {
   formatPlanningCurrency,
+  formatPlanningDate,
   PLANNING_MONTHS,
+  type PlanningAlertFlag,
   type PlanningExportBundle,
+  type PlanningExportRow,
 } from '@/lib/planificacion/export'
 
 function compactCurrency(amount: number) {
@@ -15,6 +18,70 @@ function compactCurrency(amount: number) {
   }).format(amount)
 }
 
+function reportModeLabel(bundle: PlanningExportBundle) {
+  return bundle.reportMode === 'alerts' ? 'PDF de alertas criticas' : 'PDF informativo'
+}
+
+function planCellText(bundle: PlanningExportBundle, row: PlanningExportRow) {
+  const lines = [row.plan.nombre]
+  if (row.entityLabel) {
+    lines.push(row.entityLabel)
+  }
+
+  if (bundle.reportMode === 'alerts') {
+    const summaryBits: string[] = []
+    if (row.criticalCount > 0) summaryBits.push(`Criticos: ${row.criticalCount}`)
+    if (row.warningCount > 0) summaryBits.push(`Alertas: ${row.warningCount}`)
+    if (row.nextDueDate) summaryBits.push(`Sig: ${formatPlanningDate(row.nextDueDate)}`)
+    if (summaryBits.length > 0) {
+      lines.push(summaryBits.join(' | '))
+    }
+  } else if (row.nextDueDate) {
+    lines.push(`Siguiente: ${formatPlanningDate(row.nextDueDate)}`)
+  }
+
+  return lines.join('\n')
+}
+
+function stateCellText(bundle: PlanningExportBundle, row: PlanningExportRow) {
+  if (bundle.reportMode !== 'alerts') return row.plan.estado
+  if (row.criticalCount > 0) return `${row.plan.estado}\n${row.criticalCount} crit`
+  if (row.warningCount > 0) return `${row.plan.estado}\n${row.warningCount} alerta`
+  return row.plan.estado
+}
+
+function monthCellText(bundle: PlanningExportBundle, row: PlanningExportRow, month: number) {
+  const cell = row.matrix.get(month)
+  if (!cell) return '-'
+
+  const lines: string[] = []
+  if (bundle.reportMode === 'alerts') {
+    const flag = row.monthlyAlertFlags.get(month)
+    if (flag === 'RED') lines.push('CRIT')
+    if (flag === 'YELLOW') lines.push('WARN')
+  }
+
+  lines.push(`${cell.count} evt`)
+  lines.push(compactCurrency(cell.budget))
+  return lines.join('\n')
+}
+
+function alertStyle(flag: PlanningAlertFlag | null) {
+  if (flag === 'RED') {
+    return {
+      fill: [254, 226, 226] as [number, number, number],
+      text: [127, 29, 29] as [number, number, number],
+    }
+  }
+  if (flag === 'YELLOW') {
+    return {
+      fill: [254, 243, 199] as [number, number, number],
+      text: [146, 64, 14] as [number, number, number],
+    }
+  }
+  return null
+}
+
 export function generatePlanningAnnualReportPdf(params: {
   bundle: PlanningExportBundle
   logo?: {
@@ -23,12 +90,20 @@ export function generatePlanningAnnualReportPdf(params: {
     width?: number
     height?: number
   }
+  brandLogo?: {
+    dataUrl: string
+    type?: 'PNG' | 'JPEG'
+    width?: number
+    height?: number
+  }
 }): Uint8Array<ArrayBuffer> {
-  const { bundle, logo } = params
+  const { bundle, logo, brandLogo } = params
   const doc = new jsPDF({
     orientation: 'landscape',
     unit: 'pt',
     format: 'a3',
+    compress: true,
+    putOnlyUsedFonts: true,
   })
 
   const pageWidth = doc.internal.pageSize.getWidth()
@@ -36,40 +111,90 @@ export function generatePlanningAnnualReportPdf(params: {
   const marginLeft = 28
   const marginRight = 28
   const availableWidth = pageWidth - marginLeft - marginRight
+  const headerHeight = 88
   const logoWidth = logo?.width ?? 42
   const logoHeight = logo?.height ?? 42
   const hasLogo = Boolean(logo?.dataUrl)
+  const hasBrandLogo = Boolean(brandLogo?.dataUrl)
   const headerTextX = marginLeft + (hasLogo ? logoWidth + 14 : 0)
+  const headerTextRightLimit = hasBrandLogo ? pageWidth / 2 - 86 : pageWidth - marginRight - 240
+
+  const ellipsizeToWidth = (text: string, maxWidth: number) => {
+    if (doc.getTextWidth(text) <= maxWidth) return text
+
+    const ellipsis = '...'
+    const available = Math.max(0, maxWidth - doc.getTextWidth(ellipsis))
+    if (available <= 0) return ellipsis
+
+    let candidate = text
+    while (candidate.length > 0 && doc.getTextWidth(candidate) > available) {
+      candidate = candidate.slice(0, -1)
+    }
+
+    return `${candidate}${ellipsis}`
+  }
 
   doc.setFillColor(15, 23, 42)
-  doc.rect(0, 0, pageWidth, 82, 'F')
+  doc.rect(0, 0, pageWidth, headerHeight, 'F')
   doc.setTextColor(255, 255, 255)
 
   if (hasLogo && logo) {
     try {
-      doc.addImage(logo.dataUrl, logo.type ?? 'PNG', marginLeft, 20, logoWidth, logoHeight)
+      doc.addImage(logo.dataUrl, logo.type ?? 'PNG', marginLeft, (headerHeight - logoHeight) / 2, logoWidth, logoHeight)
     } catch {
       // ignore logo rendering failures
     }
   }
 
+  if (hasBrandLogo && brandLogo) {
+    try {
+      const brandLogoWidth = brandLogo.width ?? 116
+      const brandLogoHeight = brandLogo.height ?? 34
+      const brandBadgeWidth = brandLogoWidth + 28
+      const brandBadgeHeight = brandLogoHeight + 18
+      const brandBadgeX = (pageWidth - brandBadgeWidth) / 2
+      const brandBadgeY = (headerHeight - brandBadgeHeight) / 2
+
+      doc.setFillColor(248, 250, 252)
+      doc.setDrawColor(203, 213, 225)
+      doc.roundedRect(brandBadgeX, brandBadgeY, brandBadgeWidth, brandBadgeHeight, 10, 10, 'FD')
+
+      doc.addImage(
+        brandLogo.dataUrl,
+        brandLogo.type ?? 'PNG',
+        (pageWidth - brandLogoWidth) / 2,
+        (headerHeight - brandLogoHeight) / 2,
+        brandLogoWidth,
+        brandLogoHeight,
+      )
+    } catch {
+      // ignore brand logo rendering failures
+    }
+  }
+
   doc.setFont('helvetica', 'bold')
   doc.setFontSize(21)
-  doc.text('Plan anual por departamento', headerTextX, 38)
+  doc.text(ellipsizeToWidth('Plan anual por departamento', Math.max(220, headerTextRightLimit - headerTextX)), headerTextX, 36)
 
   doc.setFont('helvetica', 'normal')
   doc.setFontSize(11)
   doc.setTextColor(203, 213, 225)
-  doc.text(`Vista ${bundle.year} | ${bundle.filters.departmentLabel} | ${bundle.filters.locationLabel}`, headerTextX, 58)
+  doc.text(
+    ellipsizeToWidth(`Vista ${bundle.year} | ${bundle.filters.departmentLabel} | ${bundle.filters.locationLabel}`, Math.max(220, headerTextRightLimit - headerTextX)),
+    headerTextX,
+    56,
+  )
+  doc.text(reportModeLabel(bundle), headerTextX, 72)
   doc.text(
     `Generado ${bundle.generatedAt.toLocaleString('es-MX', { timeZone: 'America/Mexico_City' })}`,
     pageWidth - marginRight,
-    38,
+    32,
     { align: 'right' },
   )
-  doc.text(bundle.profile.fullName ?? 'Usuario del sistema', pageWidth - marginRight, 58, { align: 'right' })
+  doc.text(bundle.profile.fullName ?? 'Usuario del sistema', pageWidth - marginRight, 50, { align: 'right' })
+  doc.text(bundle.filters.locationLabel, pageWidth - marginRight, 68, { align: 'right' })
 
-  let currentY = 102
+  let currentY = headerHeight + 28
   const summary = [
     { label: 'Planes activos', value: String(bundle.summary.activePlans) },
     { label: 'Eventos del año', value: String(bundle.summary.totalEvents) },
@@ -121,17 +246,14 @@ export function generatePlanningAnnualReportPdf(params: {
   ]]
 
   const body = bundle.rows.map((row) => {
-    const monthCells = Array.from({ length: 12 }, (_, index) => {
-      const cell = row.matrix.get(index + 1)
-      return cell ? `${cell.count} evt\n${compactCurrency(cell.budget)}` : '-'
-    })
+    const monthCells = Array.from({ length: 12 }, (_, index) => monthCellText(bundle, row, index + 1))
 
     return [
-      `${row.plan.nombre}\n${row.plan.entidad?.nombre ?? 'Sin entidad'}`,
+      planCellText(bundle, row),
       row.plan.responsable?.nombre ?? 'Sin proveedor',
       row.locationLabel,
       row.department.shortLabel,
-      row.plan.estado,
+      stateCellText(bundle, row),
       ...monthCells,
       formatPlanningCurrency(row.annualBudget),
     ]
@@ -183,6 +305,37 @@ export function generatePlanningAnnualReportPdf(params: {
       17: { cellWidth: annualTotalColumnWidth, halign: 'right' },
     },
     margin: { left: marginLeft, right: marginRight, bottom: 32 },
+    didParseCell: (hookData) => {
+      if (hookData.section !== 'body') return
+
+      const row = bundle.rows[hookData.row.index]
+      if (!row) return
+
+      if (bundle.reportMode === 'alerts') {
+        if (hookData.column.index === 0 || hookData.column.index === 4) {
+          const style = alertStyle(row.maxAlertFlag)
+          if (style) {
+            hookData.cell.styles.fillColor = style.fill
+            hookData.cell.styles.textColor = style.text
+            hookData.cell.styles.fontStyle = 'bold'
+          }
+        }
+
+        if (hookData.column.index >= 5 && hookData.column.index <= 16) {
+          const month = hookData.column.index - 4
+          const style = alertStyle(row.monthlyAlertFlags.get(month) ?? null)
+          if (style) {
+            hookData.cell.styles.fillColor = style.fill
+            hookData.cell.styles.textColor = style.text
+            hookData.cell.styles.fontStyle = 'bold'
+          }
+        }
+      }
+
+      if (hookData.column.index === 17 && row.criticalCount > 0) {
+        hookData.cell.styles.fontStyle = 'bold'
+      }
+    },
     didDrawPage: (hookData) => {
       const totalPages = doc.getNumberOfPages()
       doc.setFontSize(9)

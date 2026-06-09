@@ -1,6 +1,7 @@
 'use client'
 
-import { useEffect, useMemo, useState, type FormEvent, type ReactNode } from 'react'
+import Link from 'next/link'
+import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 import type { LucideIcon } from 'lucide-react'
 import {
@@ -29,11 +30,16 @@ import type {
   OpsPlan,
   OpsResponsable,
 } from '@/lib/ops/service'
-import type { UserPlanningProfile } from './page'
+import { buildPlanningDemoData, type PlanningDemoData } from '@/lib/planificacion/demo-data'
+import { downloadPdfUrl } from '@/lib/mobile/pdf-download'
+import type { UserPlanningProfile } from './planning-page-context'
 
 type Props = {
   userProfile: UserPlanningProfile
   initialYear: number
+  mode?: 'overview' | 'portfolio' | 'catalogs'
+  demoMode?: boolean
+  basePath?: string
 }
 
 type PlanWithRelations = OpsPlan & {
@@ -273,6 +279,27 @@ const STATUS_STYLES: Record<string, string> = {
   mixed: 'bg-violet-100 text-violet-800 border-violet-200',
 }
 
+const EVENT_STATUS_OPTIONS: OpsAgendaItem['estado'][] = ['pendiente', 'en_proceso', 'completado', 'cancelado']
+
+const EVENT_PRIORITY_STYLES: Record<string, { badge: string; accent: string }> = {
+  BAJA: {
+    badge: 'border-slate-200 bg-slate-100 text-slate-700',
+    accent: 'border-l-slate-300',
+  },
+  MEDIA: {
+    badge: 'border-sky-200 bg-sky-50 text-sky-700',
+    accent: 'border-l-sky-400',
+  },
+  ALTA: {
+    badge: 'border-amber-200 bg-amber-50 text-amber-700',
+    accent: 'border-l-amber-400',
+  },
+  CRITICA: {
+    badge: 'border-rose-200 bg-rose-50 text-rose-700',
+    accent: 'border-l-rose-500',
+  },
+}
+
 const PLAN_STATE_STYLES: Record<string, string> = {
   activo: 'bg-emerald-100 text-emerald-800 border-emerald-200',
   pausado: 'bg-amber-100 text-amber-800 border-amber-200',
@@ -283,6 +310,43 @@ const INPUT_CLASS = 'w-full rounded-xl border border-slate-300 bg-white px-3 py-
 
 function normalize(value: string | null | undefined) {
   return (value ?? '').trim().toUpperCase()
+}
+
+function normalizeLabelToken(value: string | null | undefined) {
+  return normalize(value).normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+}
+
+function formatAgendaStatusLabel(status: OpsAgendaItem['estado']) {
+  switch (status) {
+    case 'en_proceso':
+      return 'En proceso'
+    case 'completado':
+      return 'Completado'
+    case 'cancelado':
+      return 'Cancelado'
+    case 'pendiente':
+    default:
+      return 'Pendiente'
+  }
+}
+
+function formatPriorityLabel(priority: string | null | undefined) {
+  switch (normalizeLabelToken(priority)) {
+    case 'CRITICA':
+      return 'Critica'
+    case 'ALTA':
+      return 'Alta'
+    case 'MEDIA':
+      return 'Media'
+    case 'BAJA':
+      return 'Baja'
+    default:
+      return priority?.trim() || 'Sin prioridad'
+  }
+}
+
+function getEventPriorityStyle(priority: string | null | undefined) {
+  return EVENT_PRIORITY_STYLES[normalizeLabelToken(priority)] ?? EVENT_PRIORITY_STYLES.MEDIA
 }
 
 function resolveDepartmentConfig(value: string | null | undefined) {
@@ -321,6 +385,32 @@ function todayIso() {
   const now = new Date()
   const pad = (n: number) => String(n).padStart(2, '0')
   return `${now.getFullYear()}-${pad(now.getMonth() + 1)}-${pad(now.getDate())}`
+}
+
+function toIsoDate(date: Date) {
+  const pad = (n: number) => String(n).padStart(2, '0')
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
+}
+
+function addDays(date: Date, days: number) {
+  const next = new Date(date)
+  next.setDate(next.getDate() + days)
+  return next
+}
+
+function overviewBounds(year: number) {
+  const now = new Date()
+  const startOfYear = new Date(year, 0, 1)
+  const endOfYear = new Date(year, 11, 31)
+  const start = now.getFullYear() === year
+    ? new Date(Math.min(Math.max(now.getTime(), startOfYear.getTime()), endOfYear.getTime()))
+    : startOfYear
+
+  const end = addDays(start, 84)
+  return {
+    from: toIsoDate(start),
+    to: toIsoDate(end > endOfYear ? endOfYear : end),
+  }
 }
 
 function buildCreateFormState(defaultDepartment: string, defaultLocationId: string, year: number): CreateFormState {
@@ -545,69 +635,67 @@ function SummaryCard({
   icon: LucideIcon
 }) {
   return (
-    <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
-      <div className="flex items-start justify-between gap-4">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-500">{title}</p>
-          <p className={`mt-3 text-3xl font-black leading-none ${accent}`}>{value}</p>
-          <p className="mt-2 text-sm text-slate-500">{help}</p>
+    <div className="rounded-2xl border border-slate-200 bg-white px-4 py-3 shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">{title}</p>
+          <p className={`mt-1.5 text-2xl font-black leading-none ${accent}`}>{value}</p>
+          <p className="mt-1 text-xs text-slate-500 truncate">{help}</p>
         </div>
-        <div className="rounded-2xl bg-slate-100 p-3 text-slate-600">
-          <Icon className="h-5 w-5" />
+        <div className="flex-shrink-0 rounded-xl bg-slate-100 p-2.5 text-slate-600">
+          <Icon className="h-4 w-4" />
         </div>
       </div>
     </div>
   )
 }
 
-function DepartmentCard({
-  department,
-  selected,
-  onSelect,
-  plans,
-  financial,
-  calendar,
+function PlanningViewLink({
+  href,
+  label,
+  active,
 }: {
-  department: DepartmentDef
-  selected: boolean
-  onSelect: () => void
-  plans: PlanWithRelations[]
-  financial: OpsFinancialItem[]
-  calendar: OpsCalendarItem[]
+  href: string
+  label: string
+  active: boolean
 }) {
-  const Icon = department.icon
-  const activePlans = plans.filter((item) => normalize(item.departamento_dueno) === department.key)
-  const budget = financial
-    .filter((item) => normalize(item.departamento_dueno) === department.key)
-    .reduce((sum, item) => sum + Number(item.monto_total_planeado || 0), 0)
-  const events = calendar.filter((item) => normalize(item.departamento_dueno) === department.key).length
-
   return (
-    <button
-      type="button"
-      onClick={onSelect}
-      className={`rounded-2xl border p-5 text-left shadow-sm transition-all ${selected ? `${department.border} ${department.soft} ring-2 ring-sky-200` : 'border-slate-200 bg-white hover:border-slate-300 hover:shadow-md'}`}
+    <Link
+      href={href}
+      className={`rounded-full px-4 py-2 text-sm font-semibold transition-colors ${active ? 'bg-slate-900 text-white' : 'bg-white/8 text-slate-200 hover:bg-white/12'}`}
     >
-      <div className="flex items-start justify-between gap-4">
-        <div className={`rounded-2xl p-3 ${department.soft} ${department.accent}`}>
-          <Icon className="h-6 w-6" />
-        </div>
-        <span className="rounded-full bg-white px-2.5 py-1 text-[11px] font-semibold text-slate-500 shadow-sm">
-          {activePlans.length} planes
-        </span>
+      {label}
+    </Link>
+  )
+}
+
+function PlanningActionCard({
+  href,
+  title,
+  description,
+  icon: Icon,
+}: {
+  href: string
+  title: string
+  description: string
+  icon: LucideIcon
+}) {
+  return (
+    <Link
+      href={href}
+      className="rounded-xl border border-slate-200 bg-white px-4 py-3 shadow-sm transition-all hover:-translate-y-0.5 hover:border-slate-300 hover:shadow-md flex items-center gap-3"
+    >
+      <div className="flex-shrink-0 rounded-xl bg-slate-100 p-2.5 text-slate-700">
+        <Icon className="h-4 w-4" />
       </div>
-      <h3 className="mt-4 text-lg font-bold text-slate-900">{department.label}</h3>
-      <div className="mt-4 grid grid-cols-2 gap-3">
-        <div className="rounded-xl bg-white/80 px-3 py-3">
-          <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Presupuesto</p>
-          <p className="mt-1 text-sm font-bold text-slate-900">{formatCurrency(budget)}</p>
-        </div>
-        <div className="rounded-xl bg-white/80 px-3 py-3">
-          <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Eventos</p>
-          <p className="mt-1 text-sm font-bold text-slate-900">{events}</p>
-        </div>
+      <div className="min-w-0">
+        <h3 className="text-sm font-bold text-slate-900">{title}</h3>
+        <p className="mt-0.5 text-xs text-slate-500 truncate">{description}</p>
       </div>
-    </button>
+      <span className="ml-auto flex-shrink-0 rounded-full bg-slate-100 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-500">
+        Abrir
+      </span>
+    </Link>
   )
 }
 
@@ -915,53 +1003,112 @@ function EventStatusTooltip({
   onStatusChange: (agendaId: string, estado: OpsAgendaItem['estado']) => void
 }) {
   return (
-    <div className={`pointer-events-none absolute left-1/2 top-full z-30 mt-2 w-80 -translate-x-1/2 ${open ? 'block' : 'hidden group-hover:block group-focus-within:block'}`}>
-      <div className="pointer-events-auto rounded-2xl border border-slate-200 bg-white p-3 text-left shadow-2xl">
-        <div className="flex items-center justify-between gap-3">
-          <p className="text-[11px] font-semibold uppercase tracking-[0.14em] text-slate-500">Eventos del mes</p>
-          <button type="button" onClick={onClose} className="rounded-full border border-slate-200 px-2 py-1 text-[10px] font-semibold text-slate-500 hover:bg-slate-50">
-            Cerrar
-          </button>
-        </div>
-        <div className="mt-3 max-h-72 space-y-2 overflow-y-auto pr-1">
-          {events.map((event) => (
-            <div key={event.agenda_id} className="rounded-2xl border border-slate-200 bg-slate-50 px-3 py-2.5">
-              <div className="flex items-start justify-between gap-3">
-                <div>
-                  <p className="text-xs font-semibold text-slate-900">{formatDate(event.due_date)}</p>
-                  <p className="mt-1 text-[11px] text-slate-500">#{event.ocurrencia_nro} · {event.entidad_objetivo}</p>
-                </div>
-                <span className={`inline-flex rounded-full border px-2 py-0.5 text-[10px] font-semibold ${STATUS_STYLES[event.estado] ?? STATUS_STYLES.pendiente}`}>{event.estado}</span>
-              </div>
-              <div className="mt-2 flex flex-wrap gap-2 text-[11px] text-slate-600">
-                <span className="rounded-full bg-white px-2 py-1 font-medium text-slate-600">{formatCurrency(event.monto_estimado)}</span>
-                <span className="rounded-full bg-white px-2 py-1 font-medium text-slate-600">{event.esfuerzo_estimado} hrs</span>
-                <span className="rounded-full bg-white px-2 py-1 font-medium text-slate-600">{event.prioridad}</span>
-              </div>
-              {canManage ? (
-                <div className="mt-2 flex flex-wrap gap-1.5">
-                  {(['pendiente', 'en_proceso', 'completado', 'cancelado'] as const).map((estado) => (
-                    <button
-                      key={estado}
-                      type="button"
-                      onClick={(eventClick) => {
-                        eventClick.stopPropagation()
-                        onStatusChange(event.agenda_id, estado)
-                      }}
-                      disabled={busyAgendaItemId === event.agenda_id || event.estado === estado}
-                      className={`rounded-full border px-2 py-1 text-[10px] font-semibold transition ${event.estado === estado ? STATUS_STYLES[estado] : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-100'} disabled:opacity-60`}
-                    >
-                      {busyAgendaItemId === event.agenda_id && event.estado !== estado ? 'Guardando...' : estado}
-                    </button>
-                  ))}
-                </div>
-              ) : null}
+    <div className={`pointer-events-none absolute left-1/2 top-full z-30 mt-3 w-[26rem] max-w-[calc(100vw-2rem)] -translate-x-1/2 ${open ? 'block' : 'hidden'}`}>
+      <div className="pointer-events-auto overflow-hidden rounded-[1.6rem] border border-slate-300 bg-white text-left shadow-[0_28px_70px_-32px_rgba(15,23,42,0.55)] ring-1 ring-slate-950/5">
+        <div className="border-b border-slate-800 bg-slate-950 px-4 py-4 text-white">
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-slate-400">Vista operativa</p>
+              <h4 className="mt-2 text-sm font-semibold text-white">Eventos del mes</h4>
+              <p className="mt-1 text-xs text-slate-400">{events.length} programado{events.length === 1 ? '' : 's'} para esta ventana.</p>
             </div>
-          ))}
+            <button
+              type="button"
+              onClick={onClose}
+              aria-label="Cerrar panel de eventos"
+              className="inline-flex h-9 w-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-slate-300 transition hover:bg-white/10 hover:text-white"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
         </div>
-        <div className="mt-3 flex justify-end border-t border-slate-100 pt-3">
-          <button type="button" onClick={onOpenPlan} className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-[11px] font-semibold text-sky-700 hover:bg-sky-100">
+        <div className="max-h-[26rem] space-y-3 overflow-y-auto bg-slate-50/80 px-4 py-4">
+          {events.map((event) => {
+            const priorityStyle = getEventPriorityStyle(event.prioridad)
+
+            return (
+              <article
+                key={event.agenda_id}
+                className={`rounded-[1.35rem] border border-slate-200 border-l-4 ${priorityStyle.accent} bg-white p-4 shadow-[0_16px_34px_-28px_rgba(15,23,42,0.8)]`}
+              >
+                <div className="flex items-start justify-between gap-4">
+                  <div className="min-w-0">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="inline-flex rounded-full border border-slate-200 bg-slate-100 px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-slate-600">
+                        Ocurrencia {event.ocurrencia_nro}
+                      </span>
+                      <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold ${STATUS_STYLES[event.estado] ?? STATUS_STYLES.pendiente}`}>
+                        {formatAgendaStatusLabel(event.estado)}
+                      </span>
+                    </div>
+                    <p className="mt-3 truncate text-sm font-semibold text-slate-950">{event.entidad_objetivo ?? 'Entidad por definir'}</p>
+                    <p className="mt-1 text-xs text-slate-500">Programado para {formatDate(event.due_date)}</p>
+                  </div>
+                  <span className={`inline-flex rounded-full border px-2.5 py-1 text-[10px] font-semibold ${priorityStyle.badge}`}>
+                    {formatPriorityLabel(event.prioridad)}
+                  </span>
+                </div>
+
+                <dl className="mt-4 grid grid-cols-2 gap-2.5 text-xs text-slate-600">
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+                    <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Monto estimado</dt>
+                    <dd className="mt-1 text-sm font-semibold text-slate-900">{formatCurrency(event.monto_estimado)}</dd>
+                  </div>
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+                    <dt className="text-[10px] font-semibold uppercase tracking-[0.12em] text-slate-500">Esfuerzo</dt>
+                    <dd className="mt-1 text-sm font-semibold text-slate-900">{event.esfuerzo_estimado} hrs</dd>
+                  </div>
+                </dl>
+
+                {canManage ? (
+                  <div className="mt-4 border-t border-slate-100 pt-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <p className="text-[10px] font-semibold uppercase tracking-[0.18em] text-slate-500">Actualizar estado</p>
+                      {busyAgendaItemId === event.agenda_id ? <span className="text-[10px] font-semibold text-sky-700">Guardando cambios...</span> : null}
+                    </div>
+                    <div className="mt-3 grid grid-cols-2 gap-2">
+                      {EVENT_STATUS_OPTIONS.map((estado) => {
+                        const isActive = event.estado === estado
+
+                        return (
+                          <button
+                            key={estado}
+                            type="button"
+                            onClick={(eventClick) => {
+                              eventClick.stopPropagation()
+                              onStatusChange(event.agenda_id, estado)
+                            }}
+                            disabled={busyAgendaItemId === event.agenda_id || isActive}
+                            className={`rounded-xl border px-3 py-2 text-left text-[11px] font-semibold transition ${
+                              isActive
+                                ? 'border-slate-950 bg-slate-950 text-white shadow-sm'
+                                : 'border-slate-200 bg-white text-slate-700 hover:border-slate-300 hover:bg-slate-50'
+                            } disabled:cursor-not-allowed disabled:opacity-60`}
+                          >
+                            {formatAgendaStatusLabel(estado)}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="mt-4 rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-[11px] text-slate-500">
+                    Vista rapida habilitada. La edicion de estado se mantiene restringida.
+                  </div>
+                )}
+              </article>
+            )
+          })}
+        </div>
+        <div className="flex items-center justify-between gap-3 border-t border-slate-200 bg-white px-4 py-3.5">
+          <p className="text-[11px] text-slate-500">{canManage ? 'Gestion directa desde la matriz anual.' : 'Consulta puntual sin salir del portafolio.'}</p>
+          <button
+            type="button"
+            onClick={onOpenPlan}
+            className="inline-flex items-center gap-1.5 rounded-xl border border-slate-900 bg-slate-950 px-3.5 py-2 text-[11px] font-semibold text-white transition hover:bg-slate-800"
+          >
             Abrir plan
+            <ArrowUpRight className="h-3.5 w-3.5" />
           </button>
         </div>
       </div>
@@ -1675,34 +1822,48 @@ function EditPlanModal({
   )
 }
 
-export default function PlanningHubClient({ userProfile, initialYear }: Props) {
+export default function PlanningHubClient({
+  userProfile,
+  initialYear,
+  mode = 'overview',
+  demoMode = false,
+  basePath = '/planificacion',
+}: Props) {
+  const isOverview = mode === 'overview'
+  const isPortfolio = mode === 'portfolio'
+  const isCatalogs = mode === 'catalogs'
+  const initialDemoState: PlanningDemoData | null = demoMode ? buildPlanningDemoData(initialYear) : null
+  const routeBase = basePath.endsWith('/') ? basePath.slice(0, -1) : basePath
+  const overviewHref = routeBase
+  const portfolioHref = `${routeBase}/portafolio`
+  const catalogsHref = `${routeBase}/catalogos`
   const canSeeAll = userProfile.isAdmin
   const canSelectAllAssignedLocations = userProfile.isAdmin || userProfile.isCorporate
   const canSelectAllAccessibleDepartments = userProfile.isAdmin || userProfile.isCorporate
-  const canManage = userProfile.isAdmin || userProfile.role === 'supervisor'
+  const canManage = !demoMode && (userProfile.isAdmin || userProfile.role === 'supervisor')
 
   const [year, setYear] = useState(initialYear)
-  const [locations, setLocations] = useState<LocationOption[]>([])
-  const [locationsLoading, setLocationsLoading] = useState(true)
+  const [locations, setLocations] = useState<LocationOption[]>(() => initialDemoState?.locations ?? [])
+  const [locationsLoading, setLocationsLoading] = useState(!demoMode)
   const [selectedDepartment, setSelectedDepartment] = useState<string>('ALL')
   const [selectedLocationId, setSelectedLocationId] = useState<string>('ALL')
-  const [portfolio, setPortfolio] = useState<PortfolioResponse>({ plans: [], calendar: [], compliance: [], financial: [] })
+  const [portfolio, setPortfolio] = useState<PortfolioResponse>(() => initialDemoState?.portfolio ?? { plans: [], calendar: [], compliance: [], financial: [] })
   const [selectedPlanId, setSelectedPlanId] = useState<string | null>(null)
   const [agenda, setAgenda] = useState<OpsAgendaItem[]>([])
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!demoMode && !isCatalogs)
   const [refreshing, setRefreshing] = useState(false)
   const [agendaLoading, setAgendaLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [showCreateModal, setShowCreateModal] = useState(false)
   const [showEditModal, setShowEditModal] = useState(false)
-  const [showCatalogModal, setShowCatalogModal] = useState(false)
   const [showPlanWorkspaceModal, setShowPlanWorkspaceModal] = useState(false)
   const [editingPlan, setEditingPlan] = useState<PlanWithRelations | null>(null)
-  const [entityOptions, setEntityOptions] = useState<OpsEntidad[]>([])
-  const [responsibleOptions, setResponsibleOptions] = useState<OpsResponsable[]>([])
+  const [entityOptions, setEntityOptions] = useState<OpsEntidad[]>(() => initialDemoState?.entidades ?? [])
+  const [responsibleOptions, setResponsibleOptions] = useState<OpsResponsable[]>(() => initialDemoState?.responsables ?? [])
   const [seedBusyPlanId, setSeedBusyPlanId] = useState<string | null>(null)
   const [busyAgendaItemId, setBusyAgendaItemId] = useState<string | null>(null)
   const [activeMatrixTooltipKey, setActiveMatrixTooltipKey] = useState<string | null>(null)
+  const activeMatrixTooltipRef = useRef<HTMLDivElement | null>(null)
 
   const accessibleDepartments = useMemo(() => {
     return buildDepartmentCatalog(userProfile, portfolio)
@@ -1711,6 +1872,13 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
   const visibleDepartmentKeys = useMemo(() => new Set(accessibleDepartments.map((item) => item.key)), [accessibleDepartments])
 
   useEffect(() => {
+    if (demoMode) {
+      const demoState = buildPlanningDemoData(initialYear)
+      setLocations(demoState.locations)
+      setLocationsLoading(false)
+      return
+    }
+
     async function loadReferenceData() {
       try {
         setLocationsLoading(true)
@@ -1724,7 +1892,7 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
     }
 
     loadReferenceData()
-  }, [])
+  }, [demoMode, initialYear])
 
   useEffect(() => {
     if (canSelectAllAccessibleDepartments) {
@@ -1752,13 +1920,32 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
   }, [canSelectAllAssignedLocations, locations, locationsLoading])
 
   async function loadPortfolio() {
+    if (isCatalogs) {
+      setLoading(false)
+      setRefreshing(false)
+      return
+    }
+
+    if (demoMode) {
+      const demoState = buildPlanningDemoData(year)
+      setError(null)
+      setLocations(demoState.locations)
+      setPortfolio(demoState.portfolio)
+      setEntityOptions(demoState.entidades)
+      setResponsibleOptions(demoState.responsables)
+      setLoading(false)
+      setRefreshing(false)
+      return
+    }
+
     try {
       setError(null)
       setRefreshing(true)
-      const bounds = monthBounds(year)
+      const bounds = isPortfolio ? monthBounds(year) : overviewBounds(year)
+      const calendarLimit = isPortfolio ? 1200 : 240
       const [plansJson, calendarJson, complianceJson, financialJson] = await Promise.all([
         fetchJson<{ ok: true; data: PlanWithRelations[] }>('/api/ops/planes'),
-        fetchJson<{ ok: true; data: OpsCalendarItem[] }>(`/api/ops/calendar?from=${bounds.from}&to=${bounds.to}&limit=1200`),
+        fetchJson<{ ok: true; data: OpsCalendarItem[] }>(`/api/ops/calendar?from=${bounds.from}&to=${bounds.to}&limit=${calendarLimit}`),
         fetchJson<{ ok: true; data: OpsComplianceItem[] }>(`/api/ops/compliance?as_of_date=${todayIso()}`),
         fetchJson<{ ok: true; data: OpsFinancialItem[] }>('/api/ops/financial'),
       ])
@@ -1778,8 +1965,13 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
   }
 
   useEffect(() => {
-    loadPortfolio()
-  }, [canSeeAll, visibleDepartmentKeys, year])
+    if (isCatalogs) {
+      setLoading(false)
+      return
+    }
+
+    void loadPortfolio()
+  }, [canSeeAll, isCatalogs, isPortfolio, visibleDepartmentKeys, year])
 
   const scopedPortfolio = useMemo(() => {
     const basePlans = portfolio.plans.filter((plan) => canSeeAll || visibleDepartmentKeys.has(normalize(plan.departamento_dueno)))
@@ -1816,6 +2008,14 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
   }, [filteredPlans, selectedPlanId])
 
   async function loadAgenda(planId: string) {
+    if (demoMode) {
+      const demoState = buildPlanningDemoData(year)
+      setAgendaLoading(true)
+      setAgenda(demoState.agendasByPlanId[planId] ?? [])
+      setAgendaLoading(false)
+      return
+    }
+
     try {
       setAgendaLoading(true)
       const json = await fetchJson<{ ok: true; data: OpsAgendaItem[] }>(`/api/ops/agenda?plan_id=${encodeURIComponent(planId)}`)
@@ -1837,7 +2037,30 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
   }, [selectedPlanId])
 
   useEffect(() => {
-    function handlePointerDown() {
+    if (!isCatalogs) return
+
+    async function bootstrapCatalogs() {
+      try {
+        setLoading(true)
+        setError(null)
+        await loadPlanningCatalogs()
+      } catch (err: any) {
+        setError(err?.message ?? 'No se pudieron cargar los catalogos de planificacion')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    void bootstrapCatalogs()
+  }, [isCatalogs])
+
+  useEffect(() => {
+    function handlePointerDown(event: PointerEvent) {
+      const target = event.target
+      if (target instanceof Node && activeMatrixTooltipRef.current?.contains(target)) {
+        return
+      }
+
       setActiveMatrixTooltipKey(null)
     }
 
@@ -1862,19 +2085,61 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
     return visibleDepartmentKeys.has(normalize(selectedPlan.departamento_dueno))
   }, [selectedPlan, userProfile.isAdmin, visibleDepartmentKeys])
 
-  const departmentCards = useMemo(() => {
-    return accessibleDepartments.map((department) => ({
-      department,
-      selected: selectedDepartment === department.key,
-    }))
-  }, [accessibleDepartments, selectedDepartment])
-
   const totalPlanned = scopedPortfolio.financial.reduce((sum, item) => sum + Number(item.monto_total_planeado || 0), 0)
   const activePlans = filteredPlans.filter((plan) => plan.estado === 'activo').length
   const totalEvents = scopedPortfolio.calendar.length
+  const openEvents = scopedPortfolio.calendar.filter((item) => item.estado !== 'completado' && item.estado !== 'cancelado').length
   const totalCritical = scopedPortfolio.compliance.filter((item) => item.alert_flag === 'RED').length
+  const selectedLocationLabel = selectedLocationId === 'ALL'
+    ? (userProfile.isAdmin ? 'Todas las sedes' : 'Mis sedes')
+    : (locations.find((location) => location.id === selectedLocationId)?.name ?? 'Sin sede')
+  const selectedDepartmentLabel = selectedDepartment === 'ALL'
+    ? 'Todos los departamentos'
+    : (accessibleDepartments.find((department) => department.key === selectedDepartment)?.label ?? selectedDepartment)
+
+  const highlightedAlerts = useMemo(() => {
+    const red = scopedPortfolio.compliance
+      .filter((item) => item.alert_flag === 'RED')
+      .sort((left, right) => right.aging_days - left.aging_days)
+    if (red.length > 0) return red.slice(0, 6)
+
+    return scopedPortfolio.compliance
+      .filter((item) => item.alert_flag === 'YELLOW')
+      .sort((left, right) => right.aging_days - left.aging_days)
+      .slice(0, 6)
+  }, [scopedPortfolio.compliance])
+
+  const upcomingAgendaItems = useMemo(() => {
+    return scopedPortfolio.calendar
+      .filter((item) => item.estado !== 'completado' && item.estado !== 'cancelado')
+      .slice(0, 8)
+  }, [scopedPortfolio.calendar])
+
+  const departmentHealthRows = useMemo(() => {
+    return accessibleDepartments
+      .map((department) => {
+        const plans = scopedPortfolio.plans.filter((item) => normalize(item.departamento_dueno) === department.key)
+        const alerts = scopedPortfolio.compliance.filter((item) => normalize(item.departamento) === department.key)
+        const budget = scopedPortfolio.financial
+          .filter((item) => normalize(item.departamento_dueno) === department.key)
+          .reduce((sum, item) => sum + Number(item.monto_total_planeado || 0), 0)
+        const nextEvents = scopedPortfolio.calendar.filter((item) => normalize(item.departamento_dueno) === department.key).length
+
+        return {
+          department,
+          activePlans: plans.filter((item) => item.estado === 'activo').length,
+          criticalAlerts: alerts.filter((item) => item.alert_flag === 'RED').length,
+          nextEvents,
+          budget,
+        }
+      })
+      .filter((row) => row.activePlans > 0 || row.criticalAlerts > 0 || row.nextEvents > 0 || row.budget > 0)
+      .sort((left, right) => right.criticalAlerts - left.criticalAlerts || right.activePlans - left.activePlans)
+  }, [accessibleDepartments, scopedPortfolio])
 
   const matrixRows = useMemo(() => {
+    if (!isPortfolio) return []
+
     return filteredPlans.map((plan) => ({
       plan,
       matrix: getMatrixForPlan(plan, scopedPortfolio.calendar),
@@ -1883,7 +2148,7 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
         .filter((item) => item.plan_maestro_id === plan.id)
         .reduce((sum, item) => sum + Number(item.monto_estimado || 0), 0),
     }))
-  }, [filteredPlans, scopedPortfolio.calendar])
+  }, [filteredPlans, isPortfolio, scopedPortfolio.calendar])
 
   const exportQuery = useMemo(() => {
     const params = new URLSearchParams({
@@ -1894,10 +2159,49 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
     return params.toString()
   }, [selectedDepartment, selectedLocationId, year])
 
-  const exportPdfHref = `/api/planificacion/export/pdf?${exportQuery}`
+  const exportPdfInformativeHref = `/api/planificacion/export/pdf?${exportQuery}&reportMode=informative`
+  const exportPdfAlertsHref = `/api/planificacion/export/pdf?${exportQuery}&reportMode=alerts`
   const exportExcelHref = `/api/planificacion/export/excel?${exportQuery}`
 
+  function downloadPlanningPdf(baseHref: string, filename: string) {
+    if (typeof window === 'undefined') return
+
+    const storageKey = 'planning:pdf:brandLogo'
+    const previous = window.localStorage.getItem(storageKey)
+    const input = window.prompt(
+      "Logo del cliente para el PDF (opcional).\n\n- Escribe una URL https://...\n- O una clave interna (ej: alzen)\n- O 'none' para no mostrar logo\n\nDeja vacío para usar el último/default.",
+      previous ?? 'alzen'
+    )
+
+    const normalized = (input ?? '').trim()
+    const selected = normalized.length > 0 ? normalized : (previous ?? 'alzen')
+    window.localStorage.setItem(storageKey, selected)
+
+    const lower = selected.toLowerCase()
+    const isUrl = /^https?:\/\//i.test(selected)
+    const url = new URL(baseHref, window.location.origin)
+
+    url.searchParams.delete('brandLogoMode')
+    url.searchParams.delete('brandLogoKey')
+    url.searchParams.delete('brandLogoUrl')
+
+    if (lower === 'none') {
+      url.searchParams.set('brandLogoMode', 'none')
+    } else if (isUrl) {
+      url.searchParams.set('brandLogoUrl', selected)
+    } else {
+      url.searchParams.set('brandLogoKey', selected)
+    }
+
+    downloadPdfUrl(`${url.pathname}${url.search}`, filename)
+  }
+
   async function updateAgendaStatus(id: string, estado: OpsAgendaItem['estado']) {
+    if (demoMode) {
+      setError('El demo es solo lectura y no depende de Supabase.')
+      return
+    }
+
     try {
       setBusyAgendaItemId(id)
       const response = await fetch('/api/ops/agenda', {
@@ -1922,6 +2226,11 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
   }
 
   async function updatePlanState(id: string, estado: OpsPlan['estado']) {
+    if (demoMode) {
+      setError('El demo es solo lectura y no depende de Supabase.')
+      return
+    }
+
     try {
       const response = await fetch('/api/ops/planes', {
         method: 'PATCH',
@@ -1939,6 +2248,14 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
   }
 
   async function loadPlanningCatalogs() {
+    if (demoMode) {
+      const demoState = buildPlanningDemoData(year)
+      setLocations(demoState.locations)
+      setEntityOptions(demoState.entidades)
+      setResponsibleOptions(demoState.responsables)
+      return
+    }
+
     const [entitiesJson, responsiblesJson] = await Promise.all([
       fetchJson<{ ok: true; data: OpsEntidad[] }>('/api/ops/entidades'),
       fetchJson<{ ok: true; data: OpsResponsable[] }>('/api/ops/responsables'),
@@ -1950,6 +2267,10 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
 
   async function openEditPlanModal() {
     if (!selectedPlan) return
+    if (demoMode) {
+      setError('El demo es solo lectura y no depende de Supabase.')
+      return
+    }
 
     try {
       setError(null)
@@ -1962,6 +2283,11 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
   }
 
   async function openEditPlanModalForPlan(plan: PlanWithRelations) {
+    if (demoMode) {
+      setError('El demo es solo lectura y no depende de Supabase.')
+      return
+    }
+
     try {
       setError(null)
       setSelectedPlanId(plan.id)
@@ -1974,6 +2300,11 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
   }
 
   async function openCreatePlanModal() {
+    if (demoMode) {
+      setError('El demo es solo lectura y no depende de Supabase.')
+      return
+    }
+
     try {
       setError(null)
       await loadPlanningCatalogs()
@@ -1983,22 +2314,17 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
     }
   }
 
-  async function openCatalogModal() {
-    try {
-      setError(null)
-      await loadPlanningCatalogs()
-      setShowCatalogModal(true)
-    } catch (err: any) {
-      setError(err?.message ?? 'No se pudieron cargar los catalogos de planificacion')
-    }
-  }
-
   function openPlanWorkspace(planId: string) {
     setSelectedPlanId(planId)
     setShowPlanWorkspaceModal(true)
   }
 
   async function reseedPlanAgenda(planId: string) {
+    if (demoMode) {
+      setError('El demo es solo lectura y no depende de Supabase.')
+      return
+    }
+
     try {
       setSeedBusyPlanId(planId)
       setError(null)
@@ -2022,331 +2348,546 @@ export default function PlanningHubClient({ userProfile, initialYear }: Props) {
   }
 
   async function refreshPlanningCatalogs() {
-    await Promise.all([loadPlanningCatalogs(), loadPortfolio()])
+    if (demoMode) {
+      const demoState = buildPlanningDemoData(year)
+      setLocations(demoState.locations)
+      setEntityOptions(demoState.entidades)
+      setResponsibleOptions(demoState.responsables)
+      if (!isCatalogs) {
+        setPortfolio(demoState.portfolio)
+      }
+      return
+    }
+
+    await loadPlanningCatalogs()
+    if (!isCatalogs) {
+      await loadPortfolio()
+    }
   }
+
+  const viewTitle = isOverview
+    ? 'Centro de control anual'
+    : isPortfolio
+      ? 'Portafolio anual de planes'
+      : 'Catalogos de planeacion'
+  const viewDescription = isOverview
+    ? 'Resumen ejecutivo con alertas activas, proximos compromisos y accesos operativos. El portafolio detallado vive en su propia vista.'
+    : isPortfolio
+      ? 'Vista de trabajo para revisar la matriz anual, abrir planes, exportar y operar la cartera sin contaminar el dashboard.'
+      : 'Datos maestros para responsables y entidades objetivo. Desde aqui se prepara la base para crear planes consistentes.'
 
   return (
     <div className="min-h-screen bg-slate-100">
-      <div className="mx-auto max-w-[1600px] px-4 py-8 sm:px-6 lg:px-8">
-        <section className="rounded-[28px] border border-slate-200 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-800 px-6 py-5 text-white shadow-sm">
-          <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-            <div className="max-w-2xl">
-              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-200">
-                <Building2 className="h-3.5 w-3.5" />
+      <div className="mx-auto max-w-[1600px] px-4 py-5 sm:px-6 lg:px-8">
+        <section className="rounded-2xl border border-slate-200 bg-gradient-to-r from-slate-950 via-slate-900 to-slate-800 px-5 py-4 text-white shadow-sm">
+          <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+            <div className="min-w-0 flex-1">
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/10 bg-white/5 px-2.5 py-0.5 text-[10px] font-semibold uppercase tracking-[0.22em] text-slate-300">
+                <Building2 className="h-3 w-3" />
                 Planeacion anual corporativa
               </div>
-              <h1 className="mt-3 text-[1.95rem] font-extrabold tracking-[-0.03em] text-white xl:text-[2.15rem]">Cartera anual y seguimiento operativo</h1>
-              <p className="mt-2 max-w-xl text-sm leading-6 text-slate-300">
-                Portafolio real por departamentos, agenda operativa, presupuesto planeado y alertas de cumplimiento.
-                Ajusta el ejercicio, valida la vista consolidada y exporta solo cuando el cierre anual ya este listo.
-              </p>
+              <h1 className="mt-1.5 text-[1.45rem] font-extrabold tracking-[-0.03em] text-white xl:text-[1.6rem]">{viewTitle}</h1>
+              <p className="mt-1 text-xs leading-5 text-slate-400">{viewDescription}</p>
             </div>
-            <div className="flex flex-col gap-3 xl:min-w-[360px] xl:items-end">
-              <div className="grid gap-3 sm:grid-cols-[116px_1fr] sm:items-center xl:w-full">
-                <div>
-                  <p className="text-[11px] font-semibold uppercase tracking-[0.22em] text-slate-300">Ejercicio</p>
-                  <p className="mt-1 text-xs text-slate-400">Ano de trabajo</p>
-                </div>
-                <select className="w-full rounded-xl border border-white/10 bg-slate-50 px-4 py-2.5 text-sm font-semibold text-slate-900 outline-none" value={year} onChange={(e) => setYear(Number(e.target.value))}>
+            <div className="flex flex-shrink-0 flex-col gap-2 xl:items-end">
+              <div className="flex items-center gap-2">
+                <span className="text-xs font-semibold text-slate-400">Ejercicio</span>
+                <select className="rounded-lg border border-white/10 bg-slate-50 px-3 py-1.5 text-sm font-semibold text-slate-900 outline-none" value={year} onChange={(e) => setYear(Number(e.target.value))}>
                   {[initialYear - 1, initialYear, initialYear + 1, initialYear + 2].map((item) => (
                     <option key={item} value={item}>{item}</option>
                   ))}
                 </select>
               </div>
-              <div className="flex flex-wrap gap-2.5 xl:justify-end">
-                <button type="button" onClick={loadPortfolio} className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur-sm hover:bg-white/10">
+              <div className="flex flex-wrap gap-2 xl:justify-end">
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (isCatalogs) {
+                      void refreshPlanningCatalogs()
+                      return
+                    }
+                    void loadPortfolio()
+                  }}
+                  className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur-sm hover:bg-white/10"
+                >
                   <RefreshCw className={`h-4 w-4 ${refreshing ? 'animate-spin' : ''}`} />
                   Actualizar
                 </button>
-                <button type="button" onClick={openCatalogModal} className="inline-flex items-center gap-2 rounded-xl border border-white/10 bg-white/5 px-4 py-2.5 text-sm font-semibold text-white backdrop-blur-sm hover:bg-white/10">
-                  <Building2 className="h-4 w-4" />
-                  Catalogos
-                </button>
-                <button type="button" onClick={openCreatePlanModal} className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 hover:bg-slate-100">
-                  <FolderPlus className="h-4 w-4" />
-                  Nuevo plan
-                </button>
+                {!isCatalogs && !demoMode ? (
+                  <button type="button" onClick={openCreatePlanModal} className="inline-flex items-center gap-2 rounded-xl bg-white px-4 py-2.5 text-sm font-semibold text-slate-900 hover:bg-slate-100">
+                    <FolderPlus className="h-4 w-4" />
+                    Nuevo plan
+                  </button>
+                ) : null}
               </div>
             </div>
           </div>
-        </section>
 
-        <section className="mt-6 grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
-          <SummaryCard title="Planes activos" value={String(activePlans)} help="Portafolio filtrado por vista actual" accent="text-slate-900" icon={ClipboardList} />
-          <SummaryCard title="Eventos del anio" value={String(totalEvents)} help="Ocurrencias programadas en agenda" accent="text-sky-700" icon={CalendarDays} />
-          <SummaryCard title="Presupuesto planeado" value={formatCurrency(totalPlanned)} help="Monto agregado desde control financiero" accent="text-emerald-700" icon={Banknote} />
-          <SummaryCard title="Alertas criticas" value={String(totalCritical)} help="Planes con brecha operativa activa" accent="text-rose-700" icon={AlertTriangle} />
-        </section>
-
-        <section className="mt-6 rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-          <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-            <div>
-              <h2 className="text-xl font-bold text-slate-900">Vista corporativa por sede y departamento</h2>
-              <p className="mt-1 text-sm text-slate-500">Como admin puedes ver el consolidado global o bajar por propiedad y por area corporativa.</p>
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {canSelectAllAssignedLocations ? (
-                <button type="button" onClick={() => setSelectedLocationId('ALL')} className={`rounded-full px-4 py-2 text-sm font-semibold ${selectedLocationId === 'ALL' ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
-                  {userProfile.isAdmin ? 'Todas las sedes' : 'Mis sedes'}
-                </button>
-              ) : null}
-              {locations.map((location) => (
-                <button key={location.id} type="button" onClick={() => setSelectedLocationId(location.id)} className={`rounded-full px-4 py-2 text-sm font-semibold ${selectedLocationId === location.id ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
-                  {location.code}
-                </button>
-              ))}
-              {!locationsLoading && locations.length === 0 ? (
-                <span className="rounded-full bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700">Sin sedes disponibles</span>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="mt-5 flex flex-wrap gap-2 border-t border-slate-200 pt-5">
-            <div className="mr-2 inline-flex items-center rounded-full bg-slate-100 px-3 py-2 text-xs font-semibold uppercase tracking-[0.14em] text-slate-500">
-              Departamentos
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {canSelectAllAccessibleDepartments ? (
-                <button type="button" onClick={() => setSelectedDepartment('ALL')} className={`rounded-full px-4 py-2 text-sm font-semibold ${selectedDepartment === 'ALL' ? 'bg-slate-900 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
-                  Todos
-                </button>
-              ) : null}
-              {accessibleDepartments.map((department) => (
-                <button key={department.key} type="button" onClick={() => setSelectedDepartment(department.key)} className={`rounded-full px-4 py-2 text-sm font-semibold ${selectedDepartment === department.key ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-700 hover:bg-slate-200'}`}>
-                  {department.shortLabel}
-                </button>
-              ))}
-              {accessibleDepartments.length === 0 ? (
-                <span className="rounded-full bg-amber-50 px-4 py-2 text-sm font-semibold text-amber-700">Sin departamentos disponibles</span>
-              ) : null}
-            </div>
-          </div>
-
-          <div className="mt-5 grid gap-4 border-t border-slate-200 pt-5 lg:grid-cols-[1fr_auto] lg:items-center">
-            <div>
-              <h3 className="text-sm font-bold uppercase tracking-[0.18em] text-slate-700">Salida y cierre</h3>
-              <p className="mt-1 text-sm text-slate-500">Cuando termines de revisar la cartera anual, exporta exactamente la vista actual con sus filtros aplicados.</p>
-            </div>
-            <div className="flex flex-wrap gap-2.5">
-              <a href={exportPdfHref} target="_blank" rel="noreferrer" className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50">
-                <FileText className="h-4 w-4" />
-                PDF horizontal
-              </a>
-              <a href={exportExcelHref} className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-900 hover:bg-emerald-100">
-                <FileSpreadsheet className="h-4 w-4" />
-                Excel de la vista actual
-              </a>
-            </div>
-          </div>
-
-          <div className="mt-5 grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-4">
-            {departmentCards.map(({ department, selected }) => (
-              <DepartmentCard
-                key={department.key}
-                department={department}
-                selected={selected}
-                onSelect={() => setSelectedDepartment(department.key)}
-                plans={scopedPortfolio.plans}
-                financial={scopedPortfolio.financial}
-                calendar={scopedPortfolio.calendar}
-              />
-            ))}
+          <div className="mt-3 flex flex-wrap gap-2 border-t border-white/10 pt-3">
+            <PlanningViewLink href={overviewHref} label="Dashboard" active={isOverview} />
+            <PlanningViewLink href={portfolioHref} label="Portafolio" active={isPortfolio} />
+            <PlanningViewLink href={catalogsHref} label="Catalogos" active={isCatalogs} />
           </div>
         </section>
+
+        {demoMode ? (
+          <div className="mt-6 rounded-2xl border border-amber-200 bg-amber-50 px-5 py-4 text-sm text-amber-800">
+            Modo demo publico: sin validacion de usuario ni conexion a Supabase. Los datos son de ejemplo y las acciones de edicion o exportacion quedan deshabilitadas para no tocar produccion.
+          </div>
+        ) : null}
+
+        {!isCatalogs ? (
+          <>
+            <section className="mt-4 grid grid-cols-1 gap-3 md:grid-cols-2 xl:grid-cols-4">
+              <SummaryCard title="Planes activos" value={String(activePlans)} help="Planes visibles en la vista actual" accent="text-slate-900" icon={ClipboardList} />
+              <SummaryCard title={isPortfolio ? 'Eventos del anio' : 'Ventana operativa'} value={String(isPortfolio ? totalEvents : openEvents)} help={isPortfolio ? 'Ocurrencias programadas en la matriz anual' : 'Compromisos abiertos dentro del horizonte cargado'} accent="text-sky-700" icon={CalendarDays} />
+              <SummaryCard title="Presupuesto planeado" value={formatCurrency(totalPlanned)} help="Monto agregado desde control financiero" accent="text-emerald-700" icon={Banknote} />
+              <SummaryCard title="Alertas criticas" value={String(totalCritical)} help="Planes con brecha operativa activa" accent="text-rose-700" icon={AlertTriangle} />
+            </section>
+
+            <section className="mt-4 rounded-2xl border border-slate-200 bg-white px-5 py-4 shadow-sm">
+              <div className="flex flex-col gap-3 xl:flex-row xl:items-center xl:justify-between">
+                <div>
+                  <h2 className="text-sm font-bold text-slate-900">Contexto de trabajo</h2>
+                </div>
+                <div className="grid w-full gap-4 md:grid-cols-2 xl:w-auto xl:grid-cols-[280px_280px_240px]">
+                  <Field label="Sede">
+                    <select className={INPUT_CLASS} value={selectedLocationId} onChange={(e) => setSelectedLocationId(e.target.value)}>
+                      {canSelectAllAssignedLocations ? (
+                        <option value="ALL">{userProfile.isAdmin ? 'Todas las sedes' : 'Mis sedes'}</option>
+                      ) : null}
+                      {locations.map((location) => (
+                        <option key={location.id} value={location.id}>{location.code} - {location.name}</option>
+                      ))}
+                    </select>
+                  </Field>
+                  <Field label="Departamento">
+                    <select className={INPUT_CLASS} value={selectedDepartment} onChange={(e) => setSelectedDepartment(e.target.value)}>
+                      {canSelectAllAccessibleDepartments ? <option value="ALL">Todos los departamentos</option> : null}
+                      {accessibleDepartments.map((department) => (
+                        <option key={department.key} value={department.key}>{department.label}</option>
+                      ))}
+                    </select>
+                  </Field>
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5">
+                    <p className="text-[10px] font-semibold uppercase tracking-[0.16em] text-slate-500">Vista actual</p>
+                    <p className="mt-1 text-sm font-bold text-slate-900">{selectedLocationLabel}</p>
+                    <p className="text-xs text-slate-500">{selectedDepartmentLabel}</p>
+                  </div>
+                </div>
+              </div>
+
+              {isPortfolio ? (
+                <div className="mt-5 flex flex-wrap items-center justify-between gap-3 border-t border-slate-200 pt-5">
+                  <div>
+                    <h3 className="text-sm font-bold uppercase tracking-[0.18em] text-slate-700">Salida y cierre</h3>
+                    <p className="mt-1 text-sm text-slate-500">Exporta la vista actual solo cuando los filtros representen exactamente el corte que quieres revisar.</p>
+                  </div>
+                  {demoMode ? (
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+                      Exportacion deshabilitada en demo. Esta ruta sirve para revisar interfaz y navegacion sin depender de Supabase.
+                    </div>
+                  ) : (
+                    <div className="flex flex-wrap gap-2.5">
+                      <button
+                        type="button"
+                        onClick={() => downloadPlanningPdf(exportPdfInformativeHref, `planeacion-${year}-informativo.pdf`)}
+                        className="inline-flex items-center gap-2 rounded-xl border border-slate-200 bg-white px-4 py-2.5 text-sm font-semibold text-slate-700 hover:bg-slate-50"
+                      >
+                        <FileText className="h-4 w-4" />
+                        PDF informativo
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => downloadPlanningPdf(exportPdfAlertsHref, `planeacion-${year}-alertas.pdf`)}
+                        className="inline-flex items-center gap-2 rounded-xl border border-rose-200 bg-rose-50 px-4 py-2.5 text-sm font-semibold text-rose-900 hover:bg-rose-100"
+                      >
+                        <AlertTriangle className="h-4 w-4" />
+                        PDF con alertas
+                      </button>
+                      <a href={exportExcelHref} className="inline-flex items-center gap-2 rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-2.5 text-sm font-semibold text-emerald-900 hover:bg-emerald-100">
+                        <FileSpreadsheet className="h-4 w-4" />
+                        Excel de la vista actual
+                      </a>
+                    </div>
+                  )}
+                </div>
+              ) : null}
+            </section>
+          </>
+        ) : null}
 
         {error ? <div className="mt-6 rounded-2xl border border-rose-200 bg-rose-50 px-5 py-4 text-sm text-rose-700">{error}</div> : null}
 
-        <section className="mt-6">
-          <div className="rounded-[28px] border border-slate-200 bg-white shadow-sm">
-            <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
-              <div>
-                <h2 className="text-xl font-bold text-slate-900">Matriz anual de planes</h2>
-                <p className="mt-1 text-sm text-slate-500">Portafolio real de planes por mes, con lectura presupuestal y operativa.</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <button type="button" onClick={openCatalogModal} className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
-                  Gestionar catalogos
-                </button>
-                <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-600">
-                  {filteredPlans.length} planes
+        {isOverview ? (
+          <>
+            <section className="mt-4 grid gap-4 xl:grid-cols-[1.15fr_1fr]">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-base font-bold text-slate-900">Riesgo y cumplimiento</h2>
+                    <p className="mt-0.5 text-xs text-slate-500">Lo que necesita intervención primero.</p>
+                  </div>
+                  <Link href={portfolioHref} className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                    Ver portafolio
+                  </Link>
+                </div>
+                <div className="mt-4 space-y-3">
+                  {highlightedAlerts.map((item) => (
+                    <div key={item.agenda_id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">{item.plan_nombre}</p>
+                          <p className="mt-1 text-xs text-slate-500">{locationLabel(item.centro_costo, locations)} | {item.departamento} | {formatDate(item.due_date)}</p>
+                        </div>
+                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${item.alert_flag === 'RED' ? 'border-rose-200 bg-rose-100 text-rose-800' : 'border-amber-200 bg-amber-100 text-amber-800'}`}>
+                          {item.alert_flag}
+                        </span>
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600"><ArrowUpRight className="h-3.5 w-3.5" />Impacto {formatCurrency(item.impacto_financiero)}</span>
+                        <button type="button" onClick={() => openPlanWorkspace(item.plan_id)} className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                          Abrir plan
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {highlightedAlerts.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-10 text-center text-sm text-slate-500">Sin alertas activas para la vista actual.</div> : null}
                 </div>
               </div>
-            </div>
 
-            {loading ? (
-              <div className="px-6 py-16 text-center text-sm text-slate-500">Cargando cartera anual...</div>
-            ) : filteredPlans.length === 0 ? (
-              <div className="px-6 py-16 text-center">
-                <p className="text-lg font-semibold text-slate-800">No hay planes para esta vista</p>
-                <p className="mt-2 text-sm text-slate-500">Comienza creando el primer plan anual del departamento.</p>
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h2 className="text-base font-bold text-slate-900">Proximos compromisos</h2>
+                    <p className="mt-0.5 text-xs text-slate-500">Ventana operativa breve para intervenir sin entrar a la matriz.</p>
+                  </div>
+                  <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-600">
+                    {upcomingAgendaItems.length} visibles
+                  </div>
+                </div>
+                <div className="mt-4 space-y-3">
+                  {upcomingAgendaItems.map((item) => (
+                    <div key={item.agenda_id} className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                      <div className="flex items-start justify-between gap-4">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">{item.plan_nombre}</p>
+                          <p className="mt-1 text-xs text-slate-500">{item.entidad_objetivo} | {locationLabel(item.centro_costo, locations)}</p>
+                        </div>
+                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${STATUS_STYLES[item.estado] ?? STATUS_STYLES.pendiente}`}>{item.estado}</span>
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                        <span className="text-xs font-semibold text-slate-600">{formatDate(item.due_date)} · {formatCurrency(item.monto_estimado)}</span>
+                        <button type="button" onClick={() => openPlanWorkspace(item.plan_maestro_id)} className="rounded-full border border-slate-200 bg-slate-50 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-100">
+                          Abrir plan
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {upcomingAgendaItems.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-10 text-center text-sm text-slate-500">Sin eventos pendientes dentro del horizonte cargado.</div> : null}
+                </div>
               </div>
-            ) : (
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[1660px] text-left text-sm">
-                  <thead className="bg-slate-50 text-slate-600">
-                    <tr>
-                      <th className="sticky left-0 z-10 min-w-[320px] border-b border-slate-200 bg-slate-50 px-5 py-4 font-semibold">Plan / entidad</th>
-                      <th className="min-w-[170px] border-b border-slate-200 px-4 py-4 font-semibold">Sede</th>
-                      <th className="min-w-[150px] border-b border-slate-200 px-4 py-4 font-semibold">Departamento</th>
-                      <th className="min-w-[120px] border-b border-slate-200 px-4 py-4 font-semibold text-center">Estado</th>
-                      {MONTHS.map((month) => (
-                        <th key={month} className="min-w-[88px] border-b border-slate-200 px-2 py-4 text-center font-semibold">{month}</th>
-                      ))}
-                      <th className="min-w-[140px] border-b border-slate-200 bg-slate-100 px-5 py-4 text-right font-bold text-slate-900">Total anual</th>
-                      <th className="min-w-[220px] border-b border-slate-200 px-4 py-4 font-semibold text-center">Acciones</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {matrixRows.map(({ plan, matrix, eventDetails, annualBudget }) => {
-                      const department = getDepartmentConfig(plan.departamento_dueno)
-                      const canManagePlan = canManage && (userProfile.isAdmin || visibleDepartmentKeys.has(normalize(plan.departamento_dueno)))
-                      return (
-                        <tr key={plan.id} className="hover:bg-slate-50" onClick={() => openPlanWorkspace(plan.id)}>
-                          <td className="sticky left-0 z-10 border-r border-slate-100 bg-white px-5 py-4">
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-bold text-slate-900">{plan.nombre}</p>
-                                <p className="mt-1 truncate text-xs text-slate-500">{plan.entidad?.nombre ?? 'Sin entidad ligada'} | {plan.responsable?.nombre ?? 'Proveedor por definir'}</p>
-                            </div>
-                          </td>
-                          <td className="px-4 py-4">
-                            <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700">{locationLabel(plan.centro_costo, locations)}</span>
-                          </td>
-                          <td className="px-4 py-4">
-                            <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${department.soft} ${department.accent} ${department.border}`}>{department.shortLabel}</span>
-                          </td>
-                          <td className="px-4 py-4 text-center">
-                            <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${PLAN_STATE_STYLES[plan.estado] ?? PLAN_STATE_STYLES.activo}`}>{plan.estado}</span>
-                          </td>
-                          {Array.from({ length: 12 }, (_, index) => index + 1).map((month) => {
-                            const cell = matrix.get(month)
-                            const monthEvents = eventDetails.get(month) ?? []
-                            const tooltipKey = `${plan.id}:${month}`
-                            const isTooltipOpen = activeMatrixTooltipKey === tooltipKey
-                            return (
-                              <td key={month} className="px-2 py-4 text-center">
-                                {cell ? (
-                                  <div
-                                    className="group relative"
-                                    onClick={(event) => event.stopPropagation()}
-                                    onPointerDown={(event) => event.stopPropagation()}
-                                  >
-                                    <button
-                                      type="button"
-                                      onClick={(event) => {
-                                        event.stopPropagation()
-                                        if (monthEvents.length > 0) {
-                                          setActiveMatrixTooltipKey((current) => current === tooltipKey ? null : tooltipKey)
-                                          return
-                                        }
-                                        openPlanWorkspace(plan.id)
-                                      }}
-                                      className={`w-full rounded-xl border px-1.5 py-2 text-center transition hover:scale-[1.02] ${STATUS_STYLES[cell.status ?? 'pending'] ?? STATUS_STYLES.pendiente}`}
-                                    >
-                                      <p className="text-[10px] font-bold">{cell.count} evt</p>
-                                      <p className="mt-1 text-[10px]">{formatCurrency(cell.budget)}</p>
-                                    </button>
-                                    {monthEvents.length > 0 ? (
-                                      <EventStatusTooltip
-                                        events={monthEvents}
-                                        canManage={canManagePlan}
-                                        open={isTooltipOpen}
-                                        busyAgendaItemId={busyAgendaItemId}
-                                        onClose={() => setActiveMatrixTooltipKey(null)}
-                                        onOpenPlan={() => {
-                                          setActiveMatrixTooltipKey(null)
-                                          openPlanWorkspace(plan.id)
-                                        }}
-                                        onStatusChange={(agendaId, estado) => {
-                                          void updateAgendaStatus(agendaId, estado)
-                                        }}
-                                      />
-                                    ) : null}
-                                  </div>
-                                ) : (
-                                  <div className="rounded-xl border border-dashed border-slate-200 px-1.5 py-2 text-[10px] text-slate-300">-</div>
-                                )}
-                              </td>
-                            )
-                          })}
-                          <td className="bg-slate-50/80 px-5 py-4 text-right font-bold text-slate-900">{formatCurrency(annualBudget)}</td>
-                          <td className="px-4 py-4">
-                            <div className="flex flex-wrap justify-center gap-2" onClick={(event) => event.stopPropagation()}>
-                              <button type="button" onClick={() => openPlanWorkspace(plan.id)} className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
-                                Abrir
-                              </button>
-                              {canManagePlan ? (
-                                <button type="button" onClick={() => void openEditPlanModalForPlan(plan)} className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-100">
-                                  Editar
-                                </button>
-                              ) : null}
-                              {canManagePlan ? (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    if (confirm('Se reemplazara la agenda actual con una nueva distribucion basada en las fechas, frecuencia y presupuesto vigentes.')) {
-                                      void reseedPlanAgenda(plan.id)
-                                    }
-                                  }}
-                                  disabled={seedBusyPlanId === plan.id}
-                                  className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
-                                >
-                                  {seedBusyPlanId === plan.id ? 'Regenerando...' : 'Agenda'}
-                                </button>
-                              ) : null}
-                            </div>
-                          </td>
-                        </tr>
-                      )
-                    })}
-                  </tbody>
-                </table>
-              </div>
-            )}
-          </div>
-        </section>
+            </section>
 
-        <section className="mt-6">
-          <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
-              <h3 className="text-sm font-bold uppercase tracking-[0.14em] text-slate-500">Riesgo y cumplimiento</h3>
-              <div className="mt-4 space-y-3">
-                {scopedPortfolio.compliance.slice(0, 6).map((item) => (
-                  <div key={item.agenda_id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
-                    <p className="text-sm font-semibold text-slate-900">{item.plan_nombre}</p>
-                    <p className="mt-1 text-xs text-slate-500">{locationLabel(item.centro_costo, locations)} | {item.departamento} | {formatDate(item.due_date)}</p>
-                    <div className="mt-2 flex items-center justify-between">
-                      <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${item.alert_flag === 'RED' ? 'bg-rose-100 text-rose-800 border-rose-200' : item.alert_flag === 'YELLOW' ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-emerald-100 text-emerald-800 border-emerald-200'}`}>{item.alert_flag}</span>
-                      <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600"><ArrowUpRight className="h-3.5 w-3.5" />Impacto {formatCurrency(item.impacto_financiero)}</span>
+            <section className="mt-4 grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h3 className="text-base font-bold text-slate-900">Lectura por departamento</h3>
+                    <p className="mt-0.5 text-xs text-slate-500">Resumen ejecutivo para detectar carga, presupuesto y riesgo.</p>
+                  </div>
+                </div>
+                <div className="mt-4 space-y-3">
+                  {departmentHealthRows.map((row) => (
+                    <div key={row.department.key} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-4">
+                      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+                        <div className="flex items-center gap-3">
+                          <div className={`rounded-2xl p-3 ${row.department.soft} ${row.department.accent}`}>
+                            <row.department.icon className="h-5 w-5" />
+                          </div>
+                          <div>
+                            <p className="text-sm font-semibold text-slate-900">{row.department.label}</p>
+                            <p className="text-xs text-slate-500">{row.activePlans} planes activos · {row.nextEvents} eventos visibles</p>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-3 md:min-w-[320px] md:grid-cols-3">
+                          <div className="rounded-xl bg-white px-3 py-2.5">
+                            <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Alertas</p>
+                            <p className="mt-1 text-sm font-bold text-slate-900">{row.criticalAlerts}</p>
+                          </div>
+                          <div className="rounded-xl bg-white px-3 py-2.5">
+                            <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Eventos</p>
+                            <p className="mt-1 text-sm font-bold text-slate-900">{row.nextEvents}</p>
+                          </div>
+                          <div className="rounded-xl bg-white px-3 py-2.5 col-span-2 md:col-span-1">
+                            <p className="text-[11px] uppercase tracking-[0.14em] text-slate-400">Presupuesto</p>
+                            <p className="mt-1 text-sm font-bold text-slate-900">{formatCurrency(row.budget)}</p>
+                          </div>
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                  {departmentHealthRows.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-10 text-center text-sm text-slate-500">No hay departamentos con actividad en la vista actual.</div> : null}
+                </div>
+              </div>
+
+              <div className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm">
+                <h3 className="text-base font-bold text-slate-900">Superficies operativas</h3>
+                <p className="mt-0.5 text-xs text-slate-500">Cada flujo en su propio espacio para no mezclar lectura ejecutiva con trabajo transaccional.</p>
+                <div className="mt-4 grid gap-3">
+                  <PlanningActionCard
+                    href={portfolioHref}
+                    title="Portafolio anual"
+                    description="Abre la matriz completa, exporta la vista actual y trabaja la cartera con sus meses y acciones."
+                    icon={ClipboardList}
+                  />
+                  <PlanningActionCard
+                    href={catalogsHref}
+                    title="Catalogos maestros"
+                    description="Gestiona responsables y entidades objetivo sin interrumpir la lectura del dashboard."
+                    icon={Building2}
+                  />
+                  {demoMode ? (
+                    <div className="rounded-2xl border border-amber-200 bg-amber-50 p-5 text-left text-amber-900">
+                      <div className="flex items-start justify-between gap-4">
+                        <div className="rounded-2xl bg-amber-100 p-3 text-amber-800">
+                          <FolderPlus className="h-5 w-5" />
+                        </div>
+                        <span className="rounded-full bg-amber-100 px-2.5 py-1 text-[11px] font-semibold uppercase tracking-[0.14em] text-amber-800">Solo lectura</span>
+                      </div>
+                      <h3 className="mt-4 text-lg font-bold">Nuevo plan</h3>
+                      <p className="mt-2 text-sm leading-6 text-amber-800/90">En la demo no se crea ni se edita informacion. Usa esta ruta para revisar layout, filtros y navegacion sin autenticacion.</p>
+                    </div>
+                  ) : (
+                    <button type="button" onClick={openCreatePlanModal} className="rounded-xl border border-slate-200 bg-slate-900 px-4 py-3 text-left text-white transition-all hover:-translate-y-0.5 hover:bg-slate-800 hover:shadow-md flex items-center gap-3">
+                      <div className="flex-shrink-0 rounded-xl bg-white/10 p-2.5 text-white">
+                        <FolderPlus className="h-4 w-4" />
+                      </div>
+                      <div className="min-w-0">
+                        <h3 className="text-sm font-bold">Nuevo plan</h3>
+                        <p className="mt-0.5 text-xs leading-5 text-slate-300 truncate">Crea un plan anual y siembra su agenda inicial desde un flujo dedicado.</p>
+                      </div>
+                      <span className="ml-auto flex-shrink-0 rounded-full bg-white/10 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-[0.14em] text-slate-200">Nuevo</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            </section>
+          </>
+        ) : null}
+
+        {isPortfolio ? (
+          <>
+            <section className="mt-6">
+              <div className="rounded-[28px] border border-slate-200 bg-white shadow-sm">
+                <div className="flex items-center justify-between border-b border-slate-200 px-6 py-5">
+                  <div>
+                    <h2 className="text-xl font-bold text-slate-900">Matriz anual de planes</h2>
+                    <p className="mt-1 text-sm text-slate-500">Portafolio real por mes, con lectura presupuestal y acceso directo al workspace del plan.</p>
+                  </div>
+                  <div className="flex items-center gap-3">
+                      <Link href={catalogsHref} className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                      Gestionar catalogos
+                    </Link>
+                    <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-600">
+                      {filteredPlans.length} planes
                     </div>
                   </div>
-                ))}
-                {scopedPortfolio.compliance.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">Sin alertas activas para la vista actual.</div> : null}
-              </div>
-          </div>
-        </section>
-      </div>
+                </div>
 
-      {showCatalogModal ? (
-        <ModalFrame
-          title="Catalogos de planificacion"
-          description="Gestiona proveedores y entidades sin ocupar espacio fijo dentro del tablero."
-          onClose={() => setShowCatalogModal(false)}
-          maxWidthClass="max-w-4xl"
-        >
-          <div className="flex-1 min-h-0 overflow-y-auto px-6 py-6">
-            <CatalogManagerCard
-              canManage={canManage}
-              departments={accessibleDepartments}
-              locations={locations}
-              responsables={responsibleOptions}
-              entidades={entityOptions}
-              defaultDepartment={selectedDepartment === 'ALL' ? preferredDept : selectedDepartment}
-              defaultLocationId={selectedLocationId === 'ALL' ? (locations[0]?.id ?? '') : selectedLocationId}
-              onCatalogsChanged={refreshPlanningCatalogs}
-              compact
-            />
-          </div>
-        </ModalFrame>
-      ) : null}
+                {loading ? (
+                  <div className="px-6 py-16 text-center text-sm text-slate-500">Cargando cartera anual...</div>
+                ) : filteredPlans.length === 0 ? (
+                  <div className="px-6 py-16 text-center">
+                    <p className="text-lg font-semibold text-slate-800">No hay planes para esta vista</p>
+                    <p className="mt-2 text-sm text-slate-500">Comienza creando el primer plan anual del departamento.</p>
+                  </div>
+                ) : (
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[1660px] text-left text-sm">
+                      <thead className="bg-slate-50 text-slate-600">
+                        <tr>
+                          <th className="sticky left-0 z-10 min-w-[320px] border-b border-slate-200 bg-slate-50 px-5 py-4 font-semibold">Plan / entidad</th>
+                          <th className="min-w-[170px] border-b border-slate-200 px-4 py-4 font-semibold">Sede</th>
+                          <th className="min-w-[150px] border-b border-slate-200 px-4 py-4 font-semibold">Departamento</th>
+                          <th className="min-w-[120px] border-b border-slate-200 px-4 py-4 font-semibold text-center">Estado</th>
+                          {MONTHS.map((month) => (
+                            <th key={month} className="min-w-[88px] border-b border-slate-200 px-2 py-4 text-center font-semibold">{month}</th>
+                          ))}
+                          <th className="min-w-[140px] border-b border-slate-200 bg-slate-100 px-5 py-4 text-right font-bold text-slate-900">Total anual</th>
+                          <th className="min-w-[220px] border-b border-slate-200 px-4 py-4 font-semibold text-center">Acciones</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-slate-100">
+                        {matrixRows.map(({ plan, matrix, eventDetails, annualBudget }) => {
+                          const department = getDepartmentConfig(plan.departamento_dueno)
+                          const canManagePlan = canManage && (userProfile.isAdmin || visibleDepartmentKeys.has(normalize(plan.departamento_dueno)))
+                          return (
+                            <tr key={plan.id} className="hover:bg-slate-50" onClick={() => openPlanWorkspace(plan.id)}>
+                              <td className="sticky left-0 z-10 border-r border-slate-100 bg-white px-5 py-4">
+                                <div className="min-w-0">
+                                  <p className="truncate text-sm font-bold text-slate-900">{plan.nombre}</p>
+                                  <p className="mt-1 truncate text-xs text-slate-500">{plan.entidad?.nombre ?? 'Sin entidad ligada'} | {plan.responsable?.nombre ?? 'Proveedor por definir'}</p>
+                                </div>
+                              </td>
+                              <td className="px-4 py-4">
+                                <span className="inline-flex rounded-full border border-slate-200 bg-slate-50 px-2.5 py-1 text-xs font-semibold text-slate-700">{locationLabel(plan.centro_costo, locations)}</span>
+                              </td>
+                              <td className="px-4 py-4">
+                                <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${department.soft} ${department.accent} ${department.border}`}>{department.shortLabel}</span>
+                              </td>
+                              <td className="px-4 py-4 text-center">
+                                <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${PLAN_STATE_STYLES[plan.estado] ?? PLAN_STATE_STYLES.activo}`}>{plan.estado}</span>
+                              </td>
+                              {Array.from({ length: 12 }, (_, index) => index + 1).map((month) => {
+                                const cell = matrix.get(month)
+                                const monthEvents = eventDetails.get(month) ?? []
+                                const tooltipKey = `${plan.id}:${month}`
+                                const isTooltipOpen = activeMatrixTooltipKey === tooltipKey
+                                return (
+                                  <td key={month} className="px-2 py-4 text-center">
+                                    {cell ? (
+                                      <div
+                                        ref={isTooltipOpen ? activeMatrixTooltipRef : undefined}
+                                        className="relative"
+                                        onClick={(event) => event.stopPropagation()}
+                                        onPointerDown={(event) => event.stopPropagation()}
+                                      >
+                                        <button
+                                          type="button"
+                                          onClick={(event) => {
+                                            event.stopPropagation()
+                                            if (monthEvents.length > 0) {
+                                              setActiveMatrixTooltipKey((current) => current === tooltipKey ? null : tooltipKey)
+                                              return
+                                            }
+                                            openPlanWorkspace(plan.id)
+                                          }}
+                                          aria-expanded={isTooltipOpen}
+                                          aria-haspopup={monthEvents.length > 0 ? 'dialog' : undefined}
+                                          className={`w-full rounded-2xl border px-2 py-2.5 text-center transition ${
+                                            isTooltipOpen ? 'scale-[1.01] border-slate-950 bg-slate-950 text-white shadow-lg shadow-slate-900/20' : 'shadow-sm hover:-translate-y-0.5 hover:shadow-md'
+                                          } ${!isTooltipOpen ? STATUS_STYLES[cell.status ?? 'pending'] ?? STATUS_STYLES.pendiente : ''}`}
+                                        >
+                                          <p className="text-[9px] font-bold uppercase tracking-[0.16em] opacity-80">{monthEvents.length > 0 ? 'Revisar' : 'Mes'}</p>
+                                          <p className="mt-1 text-[11px] font-bold">{cell.count} evt</p>
+                                          <p className="mt-1 text-[10px]">{formatCurrency(cell.budget)}</p>
+                                        </button>
+                                        {monthEvents.length > 0 ? (
+                                          <EventStatusTooltip
+                                            events={monthEvents}
+                                            canManage={canManagePlan}
+                                            open={isTooltipOpen}
+                                            busyAgendaItemId={busyAgendaItemId}
+                                            onClose={() => setActiveMatrixTooltipKey(null)}
+                                            onOpenPlan={() => {
+                                              setActiveMatrixTooltipKey(null)
+                                              openPlanWorkspace(plan.id)
+                                            }}
+                                            onStatusChange={(agendaId, estado) => {
+                                              void updateAgendaStatus(agendaId, estado)
+                                            }}
+                                          />
+                                        ) : null}
+                                      </div>
+                                    ) : (
+                                      <div className="rounded-xl border border-dashed border-slate-200 px-1.5 py-2 text-[10px] text-slate-300">-</div>
+                                    )}
+                                  </td>
+                                )
+                              })}
+                              <td className="bg-slate-50/80 px-5 py-4 text-right font-bold text-slate-900">{formatCurrency(annualBudget)}</td>
+                              <td className="px-4 py-4">
+                                <div className="flex flex-wrap justify-center gap-2" onClick={(event) => event.stopPropagation()}>
+                                  <button type="button" onClick={() => openPlanWorkspace(plan.id)} className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                                    Abrir
+                                  </button>
+                                  {canManagePlan ? (
+                                    <button type="button" onClick={() => void openEditPlanModalForPlan(plan)} className="rounded-full border border-sky-200 bg-sky-50 px-3 py-1.5 text-xs font-semibold text-sky-700 hover:bg-sky-100">
+                                      Editar
+                                    </button>
+                                  ) : null}
+                                  {canManagePlan ? (
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        if (confirm('Se reemplazara la agenda actual con una nueva distribucion basada en las fechas, frecuencia y presupuesto vigentes.')) {
+                                          void reseedPlanAgenda(plan.id)
+                                        }
+                                      }}
+                                      disabled={seedBusyPlanId === plan.id}
+                                      className="rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1.5 text-xs font-semibold text-emerald-700 hover:bg-emerald-100 disabled:opacity-60"
+                                    >
+                                      {seedBusyPlanId === plan.id ? 'Regenerando...' : 'Agenda'}
+                                    </button>
+                                  ) : null}
+                                </div>
+                              </td>
+                            </tr>
+                          )
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+              </div>
+            </section>
+
+            <section className="mt-6">
+              <div className="rounded-[28px] border border-slate-200 bg-white p-6 shadow-sm">
+                <div className="flex items-start justify-between gap-4">
+                  <div>
+                    <h3 className="text-sm font-bold uppercase tracking-[0.14em] text-slate-500">Riesgo y cumplimiento</h3>
+                    <p className="mt-2 text-sm text-slate-500">Este bloque queda ya como complemento del portafolio, no enterrado dentro del dashboard ejecutivo.</p>
+                  </div>
+                  <div className="rounded-full bg-slate-100 px-3 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-slate-600">
+                    {scopedPortfolio.compliance.length} alertas
+                  </div>
+                </div>
+                <div className="mt-4 space-y-3">
+                  {scopedPortfolio.compliance.slice(0, 8).map((item) => (
+                    <div key={item.agenda_id} className="rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3">
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <p className="text-sm font-semibold text-slate-900">{item.plan_nombre}</p>
+                          <p className="mt-1 text-xs text-slate-500">{locationLabel(item.centro_costo, locations)} | {item.departamento} | {formatDate(item.due_date)}</p>
+                        </div>
+                        <span className={`inline-flex rounded-full border px-2.5 py-1 text-xs font-semibold ${item.alert_flag === 'RED' ? 'bg-rose-100 text-rose-800 border-rose-200' : item.alert_flag === 'YELLOW' ? 'bg-amber-100 text-amber-800 border-amber-200' : 'bg-emerald-100 text-emerald-800 border-emerald-200'}`}>{item.alert_flag}</span>
+                      </div>
+                      <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
+                        <span className="inline-flex items-center gap-1 text-xs font-semibold text-slate-600"><ArrowUpRight className="h-3.5 w-3.5" />Impacto {formatCurrency(item.impacto_financiero)}</span>
+                        <button type="button" onClick={() => openPlanWorkspace(item.plan_id)} className="rounded-full border border-slate-200 bg-white px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50">
+                          Abrir plan
+                        </button>
+                      </div>
+                    </div>
+                  ))}
+                  {scopedPortfolio.compliance.length === 0 ? <div className="rounded-2xl border border-dashed border-slate-200 px-4 py-8 text-center text-sm text-slate-500">Sin alertas activas para la vista actual.</div> : null}
+                </div>
+              </div>
+            </section>
+          </>
+        ) : null}
+
+        {isCatalogs ? (
+          <section className="mt-6">
+            {loading ? (
+              <div className="rounded-[28px] border border-slate-200 bg-white px-6 py-16 text-center text-sm text-slate-500 shadow-sm">Cargando catalogos de planeacion...</div>
+            ) : (
+              <CatalogManagerCard
+                canManage={canManage}
+                departments={accessibleDepartments}
+                locations={locations}
+                responsables={responsibleOptions}
+                entidades={entityOptions}
+                defaultDepartment={selectedDepartment === 'ALL' ? preferredDept : selectedDepartment}
+                defaultLocationId={selectedLocationId === 'ALL' ? (locations[0]?.id ?? '') : selectedLocationId}
+                onCatalogsChanged={refreshPlanningCatalogs}
+              />
+            )}
+          </section>
+        ) : null}
+      </div>
 
       <PlanWorkspaceModal
         open={showPlanWorkspaceModal}

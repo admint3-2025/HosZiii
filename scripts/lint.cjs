@@ -5,14 +5,13 @@ const path = require('path');
 const rootDir = path.resolve(__dirname, '..');
 process.chdir(rootDir);
 
-const nextBin = path.join(rootDir, 'node_modules', '.bin', 'next');
+const nextCli = path.join(rootDir, 'node_modules', 'next', 'dist', 'bin', 'next');
 const args = process.argv.slice(2);
 
 console.log(`[ziii] Running: next lint ${args.join(' ')}`);
 
-const child = spawn(nextBin || 'next', ['lint', ...args], {
+const child = spawn(process.execPath, [nextCli, 'lint', ...args], {
   stdio: 'inherit',
-  shell: true,
 });
 
 child.on('exit', (code) => {

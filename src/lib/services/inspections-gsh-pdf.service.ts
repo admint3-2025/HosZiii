@@ -1,4 +1,4 @@
-import jsPDF from 'jspdf'
+﻿import jsPDF from 'jspdf'
 import autoTable from 'jspdf-autotable'
 import type { InspectionGSH } from './inspections-gsh.service'
 
@@ -14,22 +14,26 @@ export class InspectionGSHPDFGenerator {
   private logoFormat?: 'PNG' | 'JPEG' | 'WEBP'
   private brandLogoDataUrl?: string
   private brandLogoFormat?: 'PNG' | 'JPEG' | 'WEBP'
+  private brandLogoNatWidth = 0
+  private brandLogoNatHeight = 0
 
   private readonly systemLogoUrl: string | null
   private readonly brandLogoUrl: string | null
   private readonly brandLogoKey: string | null
+  private readonly allowDefaultBrandLogo: boolean
 
   private readonly evidenceImageCache = new Map<string, { dataUrl: string; format: 'PNG' | 'JPEG' | 'WEBP' }>()
 
-  // Logo corporativo
-  private static readonly LOGO_URL = 'https://systemach-sas.com/logo_ziii/ZIII%20logo.png'
-  private static readonly BRAND_LOGO_URL = 'https://systemach-sas.com/logo_ziii/alzendhlogo.png'
+  // Logo corporativo — archivos locales en /public/logos (sin dependencia externa)
+  private static readonly LOGO_URL = '/logos/ziii-logo.png'
+  private static readonly BRAND_LOGO_URL = '/logos/alzenh-logo.png'
 
   constructor(options?: { systemLogoUrl?: string | null; brandLogoUrl?: string | null; brandLogoKey?: string | null }) {
     this.doc = new jsPDF({
       orientation: 'portrait',
       unit: 'mm',
-      format: 'a4'
+      format: 'a4',
+      compress: true
     })
     this.pageWidth = this.doc.internal.pageSize.getWidth()
     this.pageHeight = this.doc.internal.pageSize.getHeight()
@@ -39,6 +43,12 @@ export class InspectionGSHPDFGenerator {
     this.systemLogoUrl = options?.systemLogoUrl ?? InspectionGSHPDFGenerator.LOGO_URL
     this.brandLogoUrl = options?.brandLogoUrl ?? null
     this.brandLogoKey = options?.brandLogoKey ?? null
+    this.allowDefaultBrandLogo = !(
+      options && (
+        Object.prototype.hasOwnProperty.call(options, 'brandLogoUrl') ||
+        Object.prototype.hasOwnProperty.call(options, 'brandLogoKey')
+      )
+    )
   }
 
   private async fetchImageAsDataUrl(url: string): Promise<{ dataUrl: string; format: 'PNG' | 'JPEG' | 'WEBP' }> {
@@ -70,26 +80,65 @@ export class InspectionGSHPDFGenerator {
     return { dataUrl, format }
   }
 
+  /**
+   * Comprime y redimensiona una imagen usando canvas antes de embeber en el PDF.
+   * Esto evita que PNGs de alta resolución inflen el PDF a MB de datos sin comprimir.
+   */
+  private compressImage(
+    dataUrl: string,
+    maxDim = 300,
+    quality = 0.82,
+    forceJpeg = false
+  ): Promise<{ dataUrl: string; format: 'PNG' | 'JPEG'; width: number; height: number }> {
+    return new Promise((resolve, reject) => {
+      const img = new window.Image()
+      img.onload = () => {
+        const scale = Math.min(1, maxDim / Math.max(img.width || maxDim, img.height || maxDim))
+        const w = Math.max(1, Math.round((img.width || maxDim) * scale))
+        const h = Math.max(1, Math.round((img.height || maxDim) * scale))
+        const canvas = document.createElement('canvas')
+        canvas.width = w
+        canvas.height = h
+        const ctx = canvas.getContext('2d')
+        if (!ctx) { reject(new Error('no canvas ctx')); return }
+        const isPng = dataUrl.startsWith('data:image/png')
+        const useJpeg = forceJpeg || !isPng
+        if (useJpeg) {
+          ctx.fillStyle = '#ffffff'
+          ctx.fillRect(0, 0, w, h)
+        }
+        ctx.drawImage(img, 0, 0, w, h)
+        if (useJpeg) {
+          resolve({ dataUrl: canvas.toDataURL('image/jpeg', quality), format: 'JPEG', width: w, height: h })
+        } else {
+          resolve({ dataUrl: canvas.toDataURL('image/png'), format: 'PNG', width: w, height: h })
+        }
+      }
+      img.onerror = () => reject(new Error('image load failed'))
+      img.src = dataUrl
+    })
+  }
+
   private async loadLogo(): Promise<void> {
     if (this.logoDataUrl) return
 
     if (!this.systemLogoUrl) return
 
+    const tryLoad = async (url: string) => {
+      const { dataUrl } = await this.fetchImageAsDataUrl(url)
+      const compressed = await this.compressImage(dataUrl, 200, 0.85)
+      this.logoDataUrl = compressed.dataUrl
+      this.logoFormat = compressed.format
+    }
+
     try {
-      // Intento directo (si el host permite CORS)
-      const { dataUrl, format } = await this.fetchImageAsDataUrl(this.systemLogoUrl)
-      this.logoDataUrl = dataUrl
-      this.logoFormat = format
-      return
+      await tryLoad(this.systemLogoUrl)
     } catch {
-      // Fallback: proxy same-origin para evitar bloqueos CORS
       const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(this.systemLogoUrl)}`
       try {
-        const { dataUrl, format } = await this.fetchImageAsDataUrl(proxyUrl)
-        this.logoDataUrl = dataUrl
-        this.logoFormat = format
+        await tryLoad(proxyUrl)
       } catch {
-        // Si falla, seguimos sin logo (se renderiza el fallback)
+        // Si falla, seguimos sin logo
       }
     }
   }
@@ -99,24 +148,31 @@ export class InspectionGSHPDFGenerator {
 
     const resolvedUrl = this.brandLogoKey
       ? `/api/brand-logo?brand=${encodeURIComponent(this.brandLogoKey)}`
-      : this.brandLogoUrl ?? InspectionGSHPDFGenerator.BRAND_LOGO_URL
+      : this.brandLogoUrl
+        ? this.brandLogoUrl
+        : this.allowDefaultBrandLogo
+          ? InspectionGSHPDFGenerator.BRAND_LOGO_URL
+          : null
 
     if (!resolvedUrl) return
 
-    // Logo fijo para este formato (con fallback de proxy por CORS)
+    const tryLoadBrand = async (url: string) => {
+      const { dataUrl } = await this.fetchImageAsDataUrl(url)
+      const compressed = await this.compressImage(dataUrl, 200, 0.85)
+      this.brandLogoDataUrl = compressed.dataUrl
+      this.brandLogoFormat = compressed.format
+      this.brandLogoNatWidth = compressed.width
+      this.brandLogoNatHeight = compressed.height
+    }
+
     try {
-      const { dataUrl, format } = await this.fetchImageAsDataUrl(resolvedUrl)
-      this.brandLogoDataUrl = dataUrl
-      this.brandLogoFormat = format
-      return
+      await tryLoadBrand(resolvedUrl)
     } catch {
       if (resolvedUrl.startsWith('/')) return
 
       const proxyUrl = `/api/proxy-image?url=${encodeURIComponent(resolvedUrl)}`
       try {
-        const { dataUrl, format } = await this.fetchImageAsDataUrl(proxyUrl)
-        this.brandLogoDataUrl = dataUrl
-        this.brandLogoFormat = format
+        await tryLoadBrand(proxyUrl)
       } catch {
         // Si falla, seguimos sin logo de marca
       }
@@ -146,6 +202,36 @@ export class InspectionGSHPDFGenerator {
   async download(inspection: InspectionGSH, filename?: string): Promise<void> {
     const fname = filename || `Inspeccion_GSH_${inspection.property_code}_${new Date(inspection.inspection_date).toISOString().split('T')[0]}.pdf`
     await this.generate(inspection)
+    const isApp = typeof navigator !== 'undefined' && navigator.userAgent.includes('ZIIIHoSApp')
+    if (isApp && typeof window !== 'undefined') {
+      // Android WebView: upload once, then either hand the short URL to native
+      // code or fall back to a normal attachment URL for older builds.
+      try {
+        const blob = this.doc.output('blob')
+        const fd = new FormData()
+        fd.append('file', blob, fname)
+        fd.append('filename', fname)
+
+        const res = await fetch('/api/pdf/temp-download', { method: 'POST', body: fd })
+        if (!res.ok) throw new Error(`upload failed: ${res.status}`)
+
+        const json = await res.json()
+        if (!json?.id) throw new Error('no id returned')
+
+        const downloadUrl = `${window.location.origin}/api/pdf/temp-download?id=${encodeURIComponent(String(json.id))}`
+        const nativeDownloadMode = (window as any).__ziiiNativeDownloadMode
+        const nativeBridge = (window as any).ReactNativeWebView
+
+        if (nativeDownloadMode === 'url' && typeof nativeBridge?.postMessage === 'function') {
+          nativeBridge.postMessage(JSON.stringify({ type: 'downloadPDFUrl', url: downloadUrl, filename: fname }))
+        } else {
+          window.location.href = downloadUrl
+        }
+        return
+      } catch {
+        // Fall back below to the browser save flow if the Android path fails.
+      }
+    }
     this.doc.save(fname)
   }
 
@@ -154,12 +240,21 @@ export class InspectionGSHPDFGenerator {
     const logoY = this.currentY
     const logoSize = 22
 
-    // Logo de marca (derecha) (solo aplica a ciertos hoteles)
-    const brandLogoX = this.pageWidth - this.margin - logoSize
-    const brandLogoY = logoY
+    // Logo de marca (derecha) — respeta aspecto original dentro de un box
+    const brandBoxW = 32
+    const brandBoxH = logoSize
+    let brandW = brandBoxW
+    let brandH = brandBoxH
+    if (this.brandLogoNatWidth > 0 && this.brandLogoNatHeight > 0) {
+      const scale = Math.min(brandBoxW / this.brandLogoNatWidth, brandBoxH / this.brandLogoNatHeight)
+      brandW = this.brandLogoNatWidth * scale
+      brandH = this.brandLogoNatHeight * scale
+    }
+    const brandLogoX = this.pageWidth - this.margin - brandW
+    const brandLogoY = logoY + (logoSize - brandH) / 2
 
     const textLeftX = logoX + logoSize + 5
-    const textRightX = brandLogoX - 4
+    const textRightX = (this.pageWidth - this.margin - brandBoxW) - 4
     const maxTextWidth = Math.max(10, textRightX - textLeftX)
 
     const ellipsizeToWidth = (text: string, maxWidth: number): string => {
@@ -206,7 +301,7 @@ export class InspectionGSHPDFGenerator {
     // Logo de marca (derecha)
     if (this.brandLogoDataUrl) {
       try {
-        this.doc.addImage(this.brandLogoDataUrl, this.brandLogoFormat || 'PNG', brandLogoX, brandLogoY, logoSize, logoSize)
+        this.doc.addImage(this.brandLogoDataUrl, this.brandLogoFormat || 'PNG', brandLogoX, brandLogoY, brandW, brandH)
       } catch {
         // silencioso
       }
@@ -525,9 +620,10 @@ export class InspectionGSHPDFGenerator {
     const cached = this.evidenceImageCache.get(url)
     if (cached) return cached
     try {
-      const img = await this.fetchImageAsDataUrl(url)
-      this.evidenceImageCache.set(url, img)
-      return img
+      const { dataUrl } = await this.fetchImageAsDataUrl(url)
+      const compressed = await this.compressImage(dataUrl, 150, 0.80, true)
+      this.evidenceImageCache.set(url, compressed)
+      return compressed
     } catch {
       return null
     }

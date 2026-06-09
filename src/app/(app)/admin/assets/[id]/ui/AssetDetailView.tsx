@@ -10,11 +10,14 @@ import autoTable from 'jspdf-autotable'
 import AssetEditForm from './AssetEditForm'
 import DisposalRequestModal from './DisposalRequestModal'
 import { formatAssetType, getAssetTypeValue } from '@/lib/assets/format'
+import { loadOptimizedPdfImage } from '@/lib/pdf/image-utils'
+import { normalizeSupabaseStorageUrl } from '@/lib/storage/public-url'
 import {
   getAssetFieldsForType,
   getAssetTypesByCategory,
-  isITAsset,
 } from '@/lib/assets/asset-fields'
+import { FIELD_LABELS, formatHistoryValue } from '@/lib/assets/format-history'
+import { downloadPdfBlob } from '@/lib/mobile/pdf-download'
 
 type Location = {
   id: string
@@ -116,7 +119,7 @@ export default function AssetDetailView({
 }) {
   const router = useRouter()
   const [isEditing, setIsEditing] = useState(false)
-  const [isDeleting, setIsDeleting] = useState(false)
+  const [isDeleting] = useState(false)
   const [isChangingStatus, setIsChangingStatus] = useState(false)
   const [showDisposalModal, setShowDisposalModal] = useState(false)
   const [qrImageUrl, setQrImageUrl] = useState<string | null>(null)
@@ -127,51 +130,18 @@ export default function AssetDetailView({
 
   const isReadOnly = userRole === 'agent_l1' || userRole === 'agent_l2'
   const hasPendingDisposal = !!pendingDisposalRequest
+  const assetImageUrl = normalizeSupabaseStorageUrl(asset.image_url)
 
-  const handleDelete = async () => {
-    if (isReadOnly) {
-      alert('No tienes permiso para eliminar activos. Contacta con un supervisor.')
-      return
+  const formatDisplayHistoryValue = (value: string | null, fieldName: string) => {
+    if (fieldName === 'image_url') {
+      return formatHistoryValue(value, fieldName, locations)
     }
 
-    if (!confirm('¿Estás seguro de que deseas dar de baja este activo? Esta acción se puede revertir desde el panel de administración.')) {
-      return
+    if (!value || value === 'null') {
+      return '(vacío)'
     }
 
-    setIsDeleting(true)
-    const supabase = createSupabaseBrowserClient()
-
-    const { data: { user } } = await supabase.auth.getUser()
-
-    const { error } = await supabase
-      .from('assets')
-      .update({
-        deleted_at: new Date().toISOString(),
-        deleted_by: user?.id || null
-      })
-      .eq('id', asset.id)
-
-    if (error) {
-      console.error('Error deleting asset:', error)
-      alert('Error al dar de baja el activo')
-      setIsDeleting(false)
-      return
-    }
-
-    await supabase.from('audit_log').insert({
-      entity_type: 'asset',
-      entity_id: asset.id,
-      action: 'DELETE',
-      actor_id: user?.id,
-      metadata: {
-        asset_tag: asset.asset_tag,
-        asset_type: asset.asset_type,
-        previous_status: asset.status,
-      },
-    })
-
-    router.push('/admin/assets')
-    router.refresh()
+    return formatHistoryValue(value, fieldName, locations)
   }
 
   const handleQuickStatusChange = async (newStatus: string) => {
@@ -300,19 +270,6 @@ export default function AssetDetailView({
         : ''
       const assetUrl = baseUrl ? `${baseUrl}/admin/assets/${asset.id}` : `/admin/assets/${asset.id}`
 
-      const formatDate = (date: string | null | undefined) => {
-        if (!date) return 'N/A'
-        const d = new Date(date)
-        if (Number.isNaN(d.getTime())) return 'N/A'
-        return d.toLocaleString('es-ES', {
-          day: '2-digit',
-          month: '2-digit',
-          year: 'numeric',
-          hour: '2-digit',
-          minute: '2-digit',
-        })
-      }
-
       const formatDateShort = (date: string | null | undefined) => {
         if (!date) return '—'
         const d = new Date(date)
@@ -355,18 +312,35 @@ export default function AssetDetailView({
           type: 'image/png',
         }))
 
-      const doc = new jsPDF({ unit: 'mm', format: 'a4' })
+      let logoImage: { dataUrl: string; format: 'PNG' | 'JPEG' } | null = null
+      try {
+        logoImage = await loadOptimizedPdfImage('/logos/ziii-logo.png', {
+          maxDim: 220,
+          quality: 0.85,
+        })
+      } catch (error) {
+        console.error('Error loading optimized logo:', error)
+      }
+
+      const doc = new jsPDF({ unit: 'mm', format: 'a4', compress: true })
 
       const drawHeader = (subtitle: string) => {
         doc.setFillColor(15, 23, 42) // slate-900
         doc.rect(0, 0, 210, 24, 'F')
+        if (logoImage) {
+          try {
+            doc.addImage(logoImage.dataUrl, logoImage.format, 8, 2, 20, 20)
+          } catch (error) {
+            console.error('Error adding logo to PDF:', error)
+          }
+        }
         doc.setTextColor(255, 255, 255)
         doc.setFont('helvetica', 'bold')
         doc.setFontSize(16)
-        doc.text('ZIII HoS', 15, 15)
+        doc.text('ZIII HoS', 32, 15)
         doc.setFont('helvetica', 'normal')
         doc.setFontSize(9)
-        doc.text(subtitle, 15, 20)
+        doc.text(subtitle, 32, 20)
         doc.text(`Generado: ${new Date().toLocaleString('es-ES')}`, 195, 20, { align: 'right' })
       }
 
@@ -567,12 +541,13 @@ export default function AssetDetailView({
 
         const historyBody = historySorted.map(h => {
           const who = h.changed_by_name || h.changed_by_email || 'Sistema'
-          const field = (h.field_name || '').replace(/_/g, ' ')
+          const fieldName = h.field_name || ''
+          const field = FIELD_LABELS[fieldName] || fieldName.replace(/_/g, ' ')
           return [
             formatDateShort(h.changed_at),
             compact(field, 22),
-            compact(h.old_value, 36),
-            compact(h.new_value, 36),
+            compact(formatDisplayHistoryValue(h.old_value, fieldName), 36),
+            compact(formatDisplayHistoryValue(h.new_value, fieldName), 36),
             compact(who, 22),
           ]
         })
@@ -608,7 +583,8 @@ export default function AssetDetailView({
         doc.text(`Página ${i} de ${pages}`, 195, 292, { align: 'right' })
       }
 
-      doc.save(`Activo_${asset.asset_tag}_${new Date().toISOString().split('T')[0]}.pdf`)
+      const fileName = `Activo_${asset.asset_tag}_${new Date().toISOString().split('T')[0]}.pdf`
+      await downloadPdfBlob(doc.output('blob'), fileName)
     } catch (error) {
       console.error('Error generating PDF:', error)
       alert('Error al descargar el PDF. Por favor, intenta nuevamente.')
@@ -775,7 +751,7 @@ export default function AssetDetailView({
       )}
 
       {/* Imagen del activo y QR */}
-      {(asset.image_url || qrImageUrl || isGeneratingQr || qrError) && (
+      {(assetImageUrl || qrImageUrl || isGeneratingQr || qrError) && (
         <div className="card shadow-sm border border-slate-200">
           <div className="card-body p-4">
             <div className="flex items-center gap-2 mb-4">
@@ -787,11 +763,11 @@ export default function AssetDetailView({
             
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               {/* Imagen del activo */}
-              {asset.image_url && (
+              {assetImageUrl && (
                 <div className="flex flex-col">
                   <div className="bg-gray-50 rounded-lg border-2 border-gray-200 p-4 flex items-center justify-center" style={{ minHeight: '320px' }}>
                     <a
-                      href={asset.image_url}
+                      href={assetImageUrl}
                       target="_blank"
                       rel="noreferrer"
                       className="w-full flex items-center justify-center"
@@ -800,7 +776,7 @@ export default function AssetDetailView({
                     >
                       {/* eslint-disable-next-line @next/next/no-img-element */}
                       <img
-                        src={asset.image_url}
+                        src={assetImageUrl}
                         alt={`Imagen de ${asset.asset_tag}`}
                         className="max-w-full max-h-80 object-contain rounded cursor-zoom-in"
                       />
@@ -1285,34 +1261,6 @@ export default function AssetDetailView({
 
             <div className="space-y-2 max-h-96 overflow-y-auto">
               {assetHistory.map((change) => {
-                const fieldLabels: Record<string, string> = {
-                  status: 'Estado',
-                  asset_type: 'Tipo',
-                  brand: 'Marca',
-                  model: 'Modelo',
-                  serial_number: 'Número de Serie',
-                  processor: 'Procesador',
-                  ram_gb: 'Memoria RAM',
-                  storage_gb: 'Almacenamiento',
-                  os: 'Sistema Operativo',
-                  location_id: 'Sede',
-                  assigned_to: 'Responsable',
-                  department: 'Departamento',
-                  created: 'Creación',
-                  deleted: 'Eliminación',
-                  image_url: 'Imagen',
-                }
-
-                // Función para formatear valores de imagen
-                const formatImageValue = (value: string | null): string => {
-                  if (!value) return '(vacío)'
-                  if (value === 'Sin imagen') return 'Sin imagen'
-                  if (value === 'Imagen eliminada') return 'Imagen eliminada'
-                  // Si es una URL, mostrar texto amigable
-                  if (value.startsWith('http')) return 'Imagen agregada'
-                  return value
-                }
-
                 // Determinar si es un campo de imagen
                 const isImageField = change.field_name === 'image_url'
 
@@ -1334,24 +1282,28 @@ export default function AssetDetailView({
                             isImageField ? 'bg-purple-200 text-purple-800' :
                             'bg-blue-200 text-blue-800'
                           }`}>
-                            {fieldLabels[change.field_name] || change.field_name}
+                            {FIELD_LABELS[change.field_name] || change.field_name}
                           </span>
                           {change.change_type === 'UPDATE' && (
                             <span className="text-xs text-gray-600">
                               <span className="text-gray-400">
-                                {isImageField ? formatImageValue(change.old_value) : (change.old_value || '(vacío)')}
+                                {formatDisplayHistoryValue(change.old_value, change.field_name)}
                               </span>
                               {' → '}
                               <span className="font-semibold text-gray-900">
-                                {isImageField ? formatImageValue(change.new_value) : (change.new_value || '(vacío)')}
+                                {formatDisplayHistoryValue(change.new_value, change.field_name)}
                               </span>
                             </span>
                           )}
                           {change.change_type === 'CREATE' && (
-                            <span className="text-xs text-green-700 font-medium">{change.new_value}</span>
+                            <span className="text-xs text-green-700 font-medium">
+                              {formatDisplayHistoryValue(change.new_value, change.field_name)}
+                            </span>
                           )}
                           {change.change_type === 'DELETE' && (
-                            <span className="text-xs text-red-700 font-medium">{change.new_value}</span>
+                            <span className="text-xs text-red-700 font-medium">
+                              {formatDisplayHistoryValue(change.new_value, change.field_name)}
+                            </span>
                           )}
                         </div>
                         <div className="text-xs text-gray-600">

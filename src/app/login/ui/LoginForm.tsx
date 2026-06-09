@@ -4,7 +4,9 @@ import { useEffect, useMemo, useState } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase/browser'
 
-export default function LoginForm() {
+const REMEMBERED_EMAIL_KEY = 'ziii:last-login-email'
+
+export default function LoginForm({ isMobile = false }: { isMobile?: boolean }) {
   const router = useRouter()
   const searchParams = useSearchParams()
   const supabase = useMemo(() => createSupabaseBrowserClient(), [])
@@ -15,6 +17,26 @@ export default function LoginForm() {
   const [mode, setMode] = useState<'login' | 'forgot'>('login')
   const [sent, setSent] = useState(false)
   const [recoveryTried, setRecoveryTried] = useState(false)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+
+    const rememberedEmail = window.localStorage.getItem(REMEMBERED_EMAIL_KEY)?.trim() ?? ''
+    if (rememberedEmail) {
+      setEmail(rememberedEmail)
+    }
+  }, [])
+
+  function rememberEmail(value: string) {
+    if (typeof window === 'undefined') return
+
+    const trimmed = value.trim()
+    if (trimmed) {
+      window.localStorage.setItem(REMEMBERED_EMAIL_KEY, trimmed)
+    } else {
+      window.localStorage.removeItem(REMEMBERED_EMAIL_KEY)
+    }
+  }
 
   // Session recovery flow: if middleware sent us here due to an "expired" cookie,
   // attempt a refresh in the browser WITHOUT clearing cookies.
@@ -36,10 +58,16 @@ export default function LoginForm() {
         if (error) throw error
 
         if (data?.session && !cancelled) {
-          router.replace('/hub')
-          router.refresh()
+          const isApp = typeof navigator !== 'undefined' && navigator.userAgent.includes('ZIIIHoSApp')
+          if (isApp) {
+            // Android WebView: wait 500ms for cookie store to sync before navigating
+            setTimeout(() => { window.location.href = '/hub' }, 500)
+          } else {
+            router.replace('/hub')
+            router.refresh()
+          }
         }
-      } catch (e: any) {
+      } catch {
         if (!cancelled) {
           setError(
             '⚠️ No se pudo recuperar la sesión automáticamente. Intenta iniciar sesión de nuevo o abre /login?clear=1 para limpiar cookies.'
@@ -60,7 +88,9 @@ export default function LoginForm() {
     setError(null)
     setBusy(true)
 
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
+    const trimmedEmail = email.trim()
+
+    const { error } = await supabase.auth.signInWithPassword({ email: trimmedEmail, password })
     setBusy(false)
     if (error) {
       // Record failed login attempt (best-effort)
@@ -69,7 +99,7 @@ export default function LoginForm() {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            email: email.trim(),
+            email: trimmedEmail,
             success: false,
             error: error.code || error.message,
             userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
@@ -106,7 +136,7 @@ export default function LoginForm() {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          email: email.trim(),
+          email: trimmedEmail,
           success: true,
           userAgent: typeof navigator !== 'undefined' ? navigator.userAgent : undefined,
         }),
@@ -115,9 +145,17 @@ export default function LoginForm() {
       // ignore
     }
 
+    rememberEmail(trimmedEmail)
+
     // Go straight into the app to avoid extra redirects.
-    router.replace('/hub')
-    router.refresh()
+    const isApp = typeof navigator !== 'undefined' && navigator.userAgent.includes('ZIIIHoSApp')
+    if (isApp) {
+      // Android WebView: wait 500ms for cookie store to sync before navigating
+      setTimeout(() => { window.location.href = '/hub' }, 500)
+    } else {
+      router.replace('/hub')
+      router.refresh()
+    }
   }
 
   async function onForgot(e: React.FormEvent) {
@@ -130,6 +168,8 @@ export default function LoginForm() {
       setError('Captura tu correo.')
       return
     }
+
+    rememberEmail(trimmed)
 
     setBusy(true)
     try {
@@ -153,12 +193,32 @@ export default function LoginForm() {
     setSent(true)
   }
 
+  const showInactivityBanner = searchParams.get('reason') === 'inactivity'
+
+  const labelCls = isMobile
+    ? 'block text-sm font-medium text-slate-300 mb-2'
+    : 'block text-sm font-medium text-slate-700 mb-2'
+  const inputCls = isMobile
+    ? 'w-full px-4 py-3.5 rounded-xl border border-slate-700/60 bg-slate-800/60 text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-cyan-500/30 focus:border-cyan-500/60 transition-all duration-200 backdrop-blur-sm'
+    : 'w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all duration-200'
+
   return (
     <form onSubmit={mode === 'login' ? onSubmit : onForgot} className="space-y-5">
+      {showInactivityBanner && (
+        <div className={isMobile
+          ? 'rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-sm text-amber-300 flex items-start gap-2'
+          : 'rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-700 flex items-start gap-2'
+        }>
+          <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+          </svg>
+          <span>Tu sesión se cerró por inactividad. Por favor inicia sesión nuevamente.</span>
+        </div>
+      )}
       <div>
-        <label className="block text-sm font-medium text-slate-700 mb-2">Correo</label>
+        <label className={labelCls}>Correo</label>
         <input
-          className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all duration-200"
+          className={inputCls}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           type="email"
@@ -166,13 +226,16 @@ export default function LoginForm() {
           autoComplete="email"
           required
         />
+        <p className={isMobile ? 'mt-2 text-xs text-slate-400' : 'mt-2 text-xs text-slate-500'}>
+          Este dispositivo recordará el último correo usado.
+        </p>
       </div>
 
       {mode === 'login' ? (
         <div>
-          <label className="block text-sm font-medium text-slate-700 mb-2">Contraseña</label>
+          <label className={labelCls}>Contraseña</label>
           <input
-            className="w-full px-4 py-3 rounded-xl border border-slate-200 bg-white text-slate-900 placeholder-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all duration-200"
+            className={inputCls}
             value={password}
             onChange={(e) => setPassword(e.target.value)}
             type="password"
@@ -184,8 +247,11 @@ export default function LoginForm() {
       ) : null}
 
       {error ? (
-        <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-start gap-2">
-          <svg className="w-5 h-5 text-red-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+        <div className={isMobile
+          ? 'rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-300 flex items-start gap-2'
+          : 'rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700 flex items-start gap-2'
+        }>
+          <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM8.707 7.293a1 1 0 00-1.414 1.414L8.586 10l-1.293 1.293a1 1 0 101.414 1.414L10 11.414l1.293 1.293a1 1 0 001.414-1.414L11.414 10l1.293-1.293a1 1 0 00-1.414-1.414L10 8.586 8.707 7.293z" clipRule="evenodd" />
           </svg>
           <span>{error}</span>
@@ -193,8 +259,11 @@ export default function LoginForm() {
       ) : null}
 
       {mode === 'forgot' && sent ? (
-        <div className="rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 flex items-start gap-2">
-          <svg className="w-5 h-5 text-emerald-500 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
+        <div className={isMobile
+          ? 'rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-3 text-sm text-emerald-300 flex items-start gap-2'
+          : 'rounded-xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-emerald-700 flex items-start gap-2'
+        }>
+          <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">
             <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
           </svg>
           <span>Solicitud recibida. Un administrador te enviará una contraseña temporal.</span>
@@ -206,8 +275,8 @@ export default function LoginForm() {
         disabled={busy}
         className={`w-full flex items-center justify-center gap-2 px-4 py-3.5 rounded-xl font-semibold text-white transition-all duration-200 ${
           busy
-            ? 'bg-blue-400 cursor-not-allowed'
-            : 'bg-blue-600 hover:bg-blue-500'
+            ? (isMobile ? 'bg-cyan-700 cursor-not-allowed' : 'bg-blue-400 cursor-not-allowed')
+            : (isMobile ? 'bg-gradient-to-r from-cyan-600 to-blue-600 hover:from-cyan-500 hover:to-blue-500 shadow-lg shadow-cyan-900/30' : 'bg-blue-600 hover:bg-blue-500')
         }`}
       >
         {busy && (
@@ -227,7 +296,10 @@ export default function LoginForm() {
         {mode === 'login' ? (
           <button
             type="button"
-            className="text-sm text-slate-600 hover:text-blue-600 transition-colors"
+            className={isMobile
+              ? 'text-sm text-slate-400 hover:text-cyan-400 transition-colors'
+              : 'text-sm text-slate-600 hover:text-blue-600 transition-colors'
+            }
             onClick={() => { setError(null); setSent(false); setMode('forgot') }}
             disabled={busy}
           >
@@ -236,7 +308,10 @@ export default function LoginForm() {
         ) : (
           <button
             type="button"
-            className="text-sm text-slate-600 hover:text-blue-600 transition-colors flex items-center gap-1 mx-auto"
+            className={isMobile
+              ? 'text-sm text-slate-400 hover:text-cyan-400 transition-colors flex items-center gap-1 mx-auto'
+              : 'text-sm text-slate-600 hover:text-blue-600 transition-colors flex items-center gap-1 mx-auto'
+            }
             onClick={() => { setError(null); setSent(false); setMode('login') }}
             disabled={busy}
           >
@@ -248,7 +323,10 @@ export default function LoginForm() {
         )}
       </div>
 
-      <div className="text-xs text-slate-400 text-center pt-2">
+      <div className={isMobile
+        ? 'text-xs text-slate-500 text-center pt-2'
+        : 'text-xs text-slate-400 text-center pt-2'
+      }>
         {mode === 'login'
           ? '¿No tienes cuenta? Solicita acceso al administrador del sistema.'
           : 'El administrador será notificado y te asignará credenciales.'}

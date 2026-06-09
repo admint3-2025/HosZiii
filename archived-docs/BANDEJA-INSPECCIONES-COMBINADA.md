@@ -7,7 +7,7 @@
 
 Las inspecciones GSH no aparecían en la bandeja general de inspecciones para administradores corporativos. La bandeja solo consultaba `InspectionsRRHHService`, por lo que solo mostraba inspecciones RRHH.
 
-**Usuario afectado:** jmosorioe@gmail.com (corporate_admin)  
+**Usuario afectado:** usuario@ejemplo.com (corporate_admin)
 **Comportamiento esperado:** Ver RRHH + GSH en bandeja general
 
 ---
@@ -175,7 +175,7 @@ WHERE tablename LIKE 'inspections_gsh%';
 
 ## Testing Recomendado
 
-1. **Admin corporativo (jmosorioe@gmail.com):**
+1. **Admin corporativo (usuario@ejemplo.com):**
    - Ver bandeja general → Debe mostrar RRHH + GSH
    - Filtrar por propiedad → Ver solo inspecciones de esa propiedad
    - Click en inspección GSH → Debe abrir `/inspections/gsh/{id}`

@@ -5,6 +5,7 @@ import { StatusBadge, PriorityBadge, LevelBadge } from '@/lib/ui/badges'
 import { getCategoryPathLabel } from '@/lib/categories/path'
 import { formatTicketCode } from '@/lib/tickets/code'
 import Link from 'next/link'
+import PdfDownloadButton from '@/components/PdfDownloadButton'
 
 export default async function AllTicketsReportPage({
   searchParams,
@@ -478,9 +479,9 @@ export default async function AllTicketsReportPage({
               <a className="btn btn-secondary" href={exportCsvHref}>
                 Descargar CSV
               </a>
-              <a className="btn btn-primary" href={exportPdfHref}>
+              <PdfDownloadButton className="btn btn-primary" href={exportPdfHref} filename="reporte-tickets.pdf">
                 Descargar PDF
-              </a>
+              </PdfDownloadButton>
             </div>
           </div>
         </div>

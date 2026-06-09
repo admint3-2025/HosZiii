@@ -44,7 +44,7 @@ export default function DisposalRequestModal({ assetId, assetTag, isOpen, onClos
       } else {
         setError(result.error || 'Error al crear la solicitud')
       }
-    } catch (err) {
+    } catch {
       setError('Error inesperado. Intente nuevamente.')
     } finally {
       setIsSubmitting(false)

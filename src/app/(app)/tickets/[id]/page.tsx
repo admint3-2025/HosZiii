@@ -176,7 +176,7 @@ export default async function TicketDetailPage({
   )
 
   return (
-    <main className="p-6 space-y-4">
+    <main className="min-h-full bg-slate-50/60 p-4 md:p-6 lg:p-8">
       <TicketDetail
         ticket={{
           ...ticket,

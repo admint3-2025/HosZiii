@@ -50,6 +50,14 @@ function isValidRole(role: unknown): role is Role {
   )
 }
 
+function getErrorMessage(error: unknown): string {
+  if (typeof error === 'string') return error
+  if (error && typeof error === 'object' && 'message' in error) {
+    return String((error as { message?: unknown }).message ?? 'Unknown error')
+  }
+  return 'Unknown error'
+}
+
 export async function PATCH(
   request: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -238,6 +246,10 @@ export async function DELETE(
 
   if (!user) return new Response('Unauthorized', { status: 401 })
 
+  if (id === user.id) {
+    return new Response('No puedes hacer hard reset de tu propio usuario desde el panel.', { status: 400 })
+  }
+
   const { data: profile } = await supabase.from('profiles').select('role').eq('id', user.id).single()
   const isAdminLike = profile?.role === 'admin'
   if (!isAdminLike) return new Response('Forbidden', { status: 403 })
@@ -245,7 +257,8 @@ export async function DELETE(
   const admin = createSupabaseAdminClient()
 
   // Verificar que el usuario a eliminar existe
-  const { data: targetUser, error: getUserError } = await admin.auth.admin.getUserById(id)
+  const { data: targetUserData, error: getUserError } = await admin.auth.admin.getUserById(id)
+  const targetUser = targetUserData?.user
   if (getUserError || !targetUser) {
     return new Response('Usuario no encontrado', { status: 404 })
   }
@@ -263,7 +276,7 @@ export async function DELETE(
   const adminCount = (adminProfiles ?? []).length
   const { data: targetProfile } = await admin
     .from('profiles')
-    .select('role')
+    .select('role, full_name')
     .eq('id', id)
     .single()
 
@@ -273,28 +286,21 @@ export async function DELETE(
     return new Response('No se puede eliminar el único usuario administrador del sistema', { status: 400 })
   }
 
-  // Primero desactivamos el usuario en profiles
-  await admin.from('profiles').update({ active: false }).eq('id', id)
-
-  // Soft delete keeps records around in Auth for traceability
-  const { error } = await admin.auth.admin.deleteUser(id, true)
-  if (error) {
-    return new Response(
-      `Error al eliminar usuario: ${error.message}. Intenta primero desactivar el usuario.`, 
-      { status: 400 }
-    )
-  }
-
-  await admin.from('audit_log').insert({
-    entity_type: 'user',
-    entity_id: id,
-    action: 'DELETE',
-    actor_id: user.id,
-    metadata: {
-      soft_delete: true,
-      target_email: targetUser.user.email,
-    },
+  const { error: rpcError } = await supabase.rpc('admin_hard_reset_user', {
+    p_actor_id: user.id,
+    p_target_id: id,
   })
 
-  return new Response('OK')
+  if (rpcError) {
+    const message = getErrorMessage(rpcError)
+    if (message.toLowerCase().includes('admin_hard_reset_user')) {
+      return new Response(
+        'La funcion SQL admin_hard_reset_user no existe todavia en Supabase. Aplica la migracion nueva y vuelve a intentar.',
+        { status: 500 },
+      )
+    }
+    return new Response(`Error al hacer hard reset del usuario: ${message}`, { status: 400 })
+  }
+
+  return new Response('Hard reset completado')
 }

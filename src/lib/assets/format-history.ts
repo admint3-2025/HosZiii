@@ -20,6 +20,18 @@ export type AssignedUser = {
   location_name: string | null
 }
 
+export function formatImageHistoryValue(value: string | null): string {
+  if (!value || value === 'null' || value === 'EMPTY' || value === 'Sin imagen') {
+    return 'Sin imagen'
+  }
+
+  if (value === 'Imagen eliminada') {
+    return 'Imagen eliminada'
+  }
+
+  return 'Imagen agregada'
+}
+
 /**
  * Formatea un valor del historial de cambios
  * @param value - Valor a formatear (puede ser UUID, código, etc.)
@@ -36,19 +48,15 @@ export function formatHistoryValue(
   users?: UserOption[],
   assignedUser?: AssignedUser | null
 ): string {
-  if (!value) return 'Sin asignar'
-  
+  if (fieldName === 'image_url') return formatImageHistoryValue(value)
+
+  if (!value || value === 'null') return 'Sin asignar'
+
   // Casos especiales
   if (value === 'EMPTY') return 'Sin asignar'
   if (value === 'Sin imagen') return 'Sin imagen'
   if (value === 'Imagen eliminada') return 'Imagen eliminada'
-  
-  // Campo de imagen
-  if (fieldName === 'image_url') {
-    if (value.startsWith('http')) return 'Imagen agregada'
-    return value
-  }
-  
+
   // Campo de sede (location_id) - mostrar solo código
   if (fieldName === 'location_id' && locations) {
     const location = locations.find(loc => loc.id === value)
@@ -57,7 +65,7 @@ export function formatHistoryValue(
     const locationByCode = locations.find(loc => loc.code === value)
     if (locationByCode) return locationByCode.code
   }
-  
+
   // Campo de responsable (assigned_to) - buscar el nombre
   if (fieldName === 'assigned_to') {
     if (users) {
@@ -70,7 +78,7 @@ export function formatHistoryValue(
     }
     return 'Usuario'
   }
-  
+
   return value
 }
 

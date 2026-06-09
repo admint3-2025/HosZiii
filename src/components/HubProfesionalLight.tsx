@@ -1,4 +1,4 @@
-'use client';
+﻿'use client';
 
 import React, { useState, useEffect } from 'react';
 import { 
@@ -177,7 +177,7 @@ const HubProfesionalLight = () => {
         <div className="h-20 flex items-center px-6 border-b border-gray-200 bg-gradient-to-b from-gray-50 to-white">
           <div className="flex items-center gap-4 overflow-hidden">
             <img 
-              src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png"
+              src="https://ziii.com.mx/logos/1ZIIIlogo.png"
               alt="ZIII HoS"
               className={`object-contain flex-shrink-0 transition-all duration-300 ${sidebarOpen ? 'w-12 h-12' : 'w-10 h-10'}`}
             />

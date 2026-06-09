@@ -257,6 +257,30 @@ export async function rejectKBArticle(
 }
 
 /**
+ * Helper: enriquecer artículos con el full_name del creador desde profiles
+ * (la FK created_by apunta a auth.users, no a profiles, por lo que no se puede hacer join directo con el hint)
+ */
+async function enrichWithCreator(supabase: any, articles: KBArticle[]) {
+  const ids = [...new Set(articles.map((a) => a.created_by).filter(Boolean))]
+  if (ids.length === 0) return articles
+
+  const { data: profiles } = await supabase
+    .from('profiles')
+    .select('id, full_name')
+    .in('id', ids)
+
+  const profileMap: Record<string, string> = {}
+  for (const p of profiles || []) {
+    profileMap[p.id] = p.full_name || ''
+  }
+
+  return articles.map((a) => ({
+    ...a,
+    creator: { full_name: profileMap[a.created_by] || '' },
+  }))
+}
+
+/**
  * Obtener artículos pendientes de revisión
  */
 export async function getPendingKBArticles(): Promise<{
@@ -272,18 +296,17 @@ export async function getPendingKBArticles(): Promise<{
     
     const { data, error } = await supabase
       .from('knowledge_base_articles')
-      .select(`
-        *,
-        creator:profiles!knowledge_base_articles_created_by_fkey(full_name),
-        source_ticket:tickets!knowledge_base_articles_source_ticket_id_fkey(ticket_number, title)
-      `)
+      .select('*, source_ticket:tickets(ticket_number, title)')
       .eq('status', 'pending')
       .is('deleted_at', null)
       .order('created_at', { ascending: false })
     
     if (error) throw error
+
+    // Enriquecer con nombre del creador
+    const articles = await enrichWithCreator(supabase, data || [])
     
-    return { success: true, articles: data || [] }
+    return { success: true, articles }
   } catch (error) {
     console.error('Error getting pending KB articles:', error)
     return { success: false, error: 'Error al obtener artículos pendientes' }
@@ -306,18 +329,17 @@ export async function getApprovedKBArticles(): Promise<{
     
     const { data, error } = await supabase
       .from('knowledge_base_articles')
-      .select(`
-        *,
-        creator:profiles!knowledge_base_articles_created_by_fkey(full_name),
-        source_ticket:tickets!knowledge_base_articles_source_ticket_id_fkey(ticket_number, title)
-      `)
+      .select('*, source_ticket:tickets(ticket_number, title)')
       .eq('status', 'approved')
       .is('deleted_at', null)
       .order('relevance_score', { ascending: false })
     
     if (error) throw error
+
+    // Enriquecer con nombre del creador
+    const articles = await enrichWithCreator(supabase, data || [])
     
-    return { success: true, articles: data || [] }
+    return { success: true, articles }
   } catch (error) {
     console.error('Error getting approved KB articles:', error)
     return { success: false, error: 'Error al obtener artículos aprobados' }
@@ -368,5 +390,123 @@ export async function createKBArticle(data: {
   } catch (error) {
     console.error('Error creating KB article:', error)
     return { success: false, error: 'Error al crear artículo' }
+  }
+}
+
+/**
+ * Actualizar artículo existente (admin/supervisor)
+ */
+export async function updateKBArticle(
+  articleId: string,
+  data: {
+    title?: string
+    summary?: string
+    solution?: string
+    category_level1?: string
+    category_level2?: string | null
+    category_level3?: string | null
+    tags?: string[]
+  }
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('No authenticated')
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+    if (!profile || !['admin', 'supervisor'].includes(profile.role)) {
+      throw new Error('Sin permisos')
+    }
+
+    const { error } = await supabase
+      .from('knowledge_base_articles')
+      .update({ ...data, updated_at: new Date().toISOString() })
+      .eq('id', articleId)
+
+    if (error) throw error
+
+    revalidatePath('/knowledge-base')
+    revalidatePath('/admin/knowledge-base')
+    return { success: true }
+  } catch (error) {
+    console.error('Error updating KB article:', error)
+    return { success: false, error: 'Error al actualizar artículo' }
+  }
+}
+
+/**
+ * Eliminar artículo - soft delete (admin)
+ */
+export async function deleteKBArticle(
+  articleId: string
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('No authenticated')
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+    if (!profile || profile.role !== 'admin') {
+      throw new Error('Sin permisos - solo admin puede eliminar')
+    }
+
+    const { error } = await supabase
+      .from('knowledge_base_articles')
+      .update({ deleted_at: new Date().toISOString(), deleted_by: user.id })
+      .eq('id', articleId)
+
+    if (error) throw error
+
+    revalidatePath('/knowledge-base')
+    revalidatePath('/admin/knowledge-base')
+    return { success: true }
+  } catch (error) {
+    console.error('Error deleting KB article:', error)
+    return { success: false, error: 'Error al eliminar artículo' }
+  }
+}
+
+/**
+ * Ajustar score manualmente (admin/supervisor)
+ */
+export async function setKBArticleScore(
+  articleId: string,
+  score: number
+): Promise<{ success: boolean; error?: string }> {
+  try {
+    const supabase = await createSupabaseServerClient()
+    const { data: { user } } = await supabase.auth.getUser()
+    if (!user) throw new Error('No authenticated')
+
+    const { data: profile } = await supabase
+      .from('profiles')
+      .select('role')
+      .eq('id', user.id)
+      .single()
+    if (!profile || !['admin', 'supervisor'].includes(profile.role)) {
+      throw new Error('Sin permisos')
+    }
+
+    const { error } = await supabase
+      .from('knowledge_base_articles')
+      .update({ relevance_score: score })
+      .eq('id', articleId)
+
+    if (error) throw error
+
+    revalidatePath('/knowledge-base')
+    revalidatePath('/admin/knowledge-base')
+    return { success: true }
+  } catch (error) {
+    console.error('Error setting KB score:', error)
+    return { success: false, error: 'Error al ajustar score' }
   }
 }

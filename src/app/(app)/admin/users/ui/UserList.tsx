@@ -15,7 +15,7 @@ type Role =
   | 'auditor'
   | 'admin'
 
-type HubModuleId = 'it-helpdesk' | 'mantenimiento' | 'corporativo' | 'academia' | 'politicas' | 'ama-de-llaves' | 'administracion' | 'planificacion'
+type HubModuleId = 'it-helpdesk' | 'mantenimiento' | 'corporativo' | 'inspecciones' | 'academia' | 'politicas' | 'ama-de-llaves' | 'administracion' | 'planificacion'
 type ModuleAccess = 'user' | 'supervisor'
 type HubModules = Record<HubModuleId, ModuleAccess | false>
 
@@ -23,6 +23,7 @@ const DEFAULT_HUB_MODULES: HubModules = {
   'it-helpdesk': 'user',
   mantenimiento: 'user',
   corporativo: false,
+  inspecciones: false,
   academia: 'user',
   politicas: 'user',
   'ama-de-llaves': false,
@@ -215,6 +216,7 @@ export default function UserList() {
       setEditHubModules({
         'it-helpdesk': normalize(hm['it-helpdesk']),
         mantenimiento: normalize(hm['mantenimiento']),
+        inspecciones: normalize(hm['inspecciones']),
         corporativo: normalize(hm['corporativo']),
         academia: normalize(hm['academia']),
         politicas: normalize(hm['politicas']),
@@ -353,7 +355,8 @@ export default function UserList() {
   }
 
   async function deleteUser(u: UserRow) {
-    if (!confirm(`¿Eliminar usuario ${u.email ?? u.id}? (Soft delete en Auth)`)) return
+    if (!confirm(`¿Hard reset de ${u.email ?? u.id}? Esto elimina el acceso de Supabase Auth de forma permanente.`)) return
+    if (!confirm('Se reasignarán o limpiarán referencias históricas para conservar trazabilidad mínima. Esta acción es irreversible.')) return
 
     setError(null)
     setBusy(true)
@@ -873,7 +876,7 @@ export default function UserList() {
                                   deleteUser(u)
                                 }}
                               >
-                                Eliminar usuario
+                                Hard reset usuario
                               </button>
                             </div>
                             <div className="flex gap-2">
@@ -924,6 +927,7 @@ export default function UserList() {
                   { id: 'it-helpdesk', label: 'IT - HELPDESK' },
                   { id: 'mantenimiento', label: 'MANTENIMIENTO' },
                   { id: 'corporativo', label: 'CORPORATIVO' },
+                  { id: 'inspecciones', label: 'INSPECCIONES' },
                   { id: 'academia', label: 'ACADEMIA' },
                   { id: 'politicas', label: 'POLÍTICAS' },
                   { id: 'ama-de-llaves', label: 'AMA DE LLAVES' },

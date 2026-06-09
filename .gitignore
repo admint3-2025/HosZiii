@@ -2,12 +2,32 @@ node_modules/
 .next/
 dist/
 .vercel/
+.private-local/
 
 .tmp/
 
 .env
 .env.local
 .env.*.local
+.env.example
+
+# Local-only operational SQL
+docs-archived/DISABLE-RLS-COMPLETELY.sql
+docs-archived/FIX-ADMIN-ACCESS-NOW.sql
+docs-archived/FIX-ADMIN-COMPLETE.sql
+supabase/HARD-RESET-PRODUCCION.sql
+supabase/cleanup-and-recreate-maintenance.sql
+supabase/cleanup-assets-SAFE.sql
+supabase/cleanup-assets-and-history.sql
+supabase/disable-rls-temporary.sql
+supabase/disable-rls-tickets-maintenance.sql
+supabase/fix-tickets-maintenance-rls-NUCLEAR.sql
+supabase/reinicio-activos-it-mantenimiento.sql
+supabase/reinicio-db-mantenimiento.sql
+supabase/reinicio-inspecciones-rrhh.sql
+supabase/reset-asset-changes-TOTAL.sql
+supabase/reset-assets-production.sql
+supabase/reset-planificacion-total.sql
 
 npm-debug.log*
 yarn-debug.log*

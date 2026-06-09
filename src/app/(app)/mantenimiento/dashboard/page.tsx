@@ -67,7 +67,7 @@ export default async function MaintenanceDashboardPage() {
     applyFilter(supabase.from('tickets_maintenance').select('id', { count: 'exact', head: true }).is('deleted_at', null).in('status', [...OPEN_STATUSES])),
     applyFilter(supabase.from('tickets_maintenance').select('id', { count: 'exact', head: true }).is('deleted_at', null).in('status', ['CLOSED'])),
     applyFilter(supabase.from('tickets_maintenance').select('id', { count: 'exact', head: true }).is('deleted_at', null).eq('support_level', 2)),
-    applyFilter(supabase.from('tickets_maintenance').select('id', { count: 'exact', head: true }).is('deleted_at', null).not('assigned_agent_id', 'is', null)),
+    applyFilter(supabase.from('tickets_maintenance').select('id', { count: 'exact', head: true }).is('deleted_at', null).or('assigned_agent_id.not.is.null,status.eq.ASSIGNED')),
     applyFilter(supabase.from('tickets_maintenance').select('id', { count: 'exact', head: true }).is('deleted_at', null)),
   ])
 

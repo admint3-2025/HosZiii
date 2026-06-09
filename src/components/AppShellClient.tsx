@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import Image from 'next/image'
@@ -261,17 +261,18 @@ export default function AppShellClient({
 
   // Determinar el módulo actual según la ruta
   const moduleContext = useMemo(() => {
+    if (pathname.startsWith('/admin/knowledge-base')) return 'helpdesk'
     if (pathname.startsWith('/admin')) return 'admin'
     if (pathname.startsWith('/politicas')) return 'politicas'
     if (pathname.startsWith('/planificacion')) return 'planificacion'
+    if (pathname.startsWith('/corporativo/inspecciones')) return 'inspecciones'
     if (pathname.startsWith('/corporativo')) return 'corporativo'
-    if (pathname.startsWith('/inspections')) return 'corporativo' // Inspecciones RRHH
+    if (pathname.startsWith('/inspections')) return 'inspecciones'
     if (pathname.startsWith('/academia')) return 'academia'
     // Reportes: mantener en `Administración` para que el sidebar no cambie
     // al entrar a reportes específicos (IT/Mantenimiento). El centro
     // de reportes debe permanecer bajo el contexto de admin visual.
-    if (pathname.startsWith('/reports')) return 'admin'
-    if (pathname.startsWith('/audit')) return 'admin'
+    if (pathname.startsWith('/reports') || pathname.startsWith('/audit')) return 'admin'
     if (
       pathname.startsWith('/dashboard') ||
       pathname.startsWith('/tickets') ||
@@ -302,6 +303,7 @@ export default function AppShellClient({
 
   const itAccess = moduleAccess('it-helpdesk')
   const mntAccess = moduleAccess('mantenimiento')
+  const inspAccess = moduleAccess('inspecciones')
   
   // Atajos de compatibilidad con código existente
   const canManageIT = itAccess === 'supervisor'
@@ -334,9 +336,11 @@ export default function AppShellClient({
     ...(canManageITAsSupervisor
       ? ([{ id: 'hd_assets', label: 'Activos IT', icon: 'Assets', href: '/assets' }] as MenuSection['items'])
       : []),
-    // KB: supervisores IT
+    // KB: supervisores ven la vista admin; usuarios regulares ven la vista pública
     ...(canManageIT
       ? ([{ id: 'hd_knowledge', label: 'Base de Conocimientos', icon: 'Book', href: '/admin/knowledge-base' }] as MenuSection['items'])
+      : itAccess
+      ? ([{ id: 'hd_knowledge_public', label: 'Base de Conocimientos', icon: 'Book', href: '/knowledge-base' }] as MenuSection['items'])
       : []),
   ]
 
@@ -389,10 +393,21 @@ export default function AppShellClient({
         items: [
           { id: 'corp_home', label: 'Dashboard', icon: 'Dashboard', href: '/corporativo/dashboard' },
           { id: 'corp_planeacion', label: 'Planificacion Anual', icon: 'Calendar', href: '/planificacion' },
-          { id: 'corp_inspecciones', label: 'Inspecciones', icon: 'ShieldCheck', href: '/corporativo/inspecciones' },
-          { id: 'corp_inbox', label: 'Bandeja Inspecciones', icon: 'BarChart', href: '/inspections/inbox' },
           { id: 'corp_academia', label: 'Admin Academia', icon: 'GraduationCap', href: '/corporativo/academia/admin' },
           { id: 'corp_politicas', label: 'Admin Políticas', icon: 'Book', href: '/corporativo/politicas/admin' },
+        ],
+      },
+    ],
+    inspecciones: [
+      {
+        group: 'Inspecciones',
+        items: [
+          ...(inspAccess
+            ? ([{ id: 'insp_home', label: 'Inspecciones', icon: 'ShieldCheck', href: '/corporativo/inspecciones' }] as MenuSection['items'])
+            : []),
+          ...(inspAccess === 'supervisor'
+            ? ([{ id: 'insp_inbox', label: 'Bandeja Inspecciones', icon: 'BarChart', href: '/inspections/inbox' }] as MenuSection['items'])
+            : []),
         ],
       },
     ],
@@ -440,6 +455,7 @@ export default function AppShellClient({
     'ama-de-llaves': [],
     helpdesk: [],
     corporativo: [],
+    inspecciones: [],
     ops: [],
     planificacion: [],
     politicas: [],
@@ -604,7 +620,7 @@ export default function AppShellClient({
           <div className="flex items-center gap-3 text-white font-bold tracking-tight overflow-hidden">
             <div className="bg-white rounded-xl shadow-lg shadow-indigo-500/20 flex items-center justify-center p-1 flex-shrink-0">
               <Image
-                src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png"
+                src="https://ziii.com.mx/logos/1ZIIIlogo.png"
                 alt="ZIII Logo"
                 width={40}
                 height={40}
@@ -830,7 +846,7 @@ export default function AppShellClient({
             <div className="lg:hidden flex items-center gap-2 flex-shrink-0">
               <div className="bg-white/10 backdrop-blur-sm rounded-lg shadow-lg p-0.5 sm:p-1 border border-white/20">
                 <Image
-                  src="https://systemach-sas.com/logo_ziii/ZIII%20logo.png"
+                  src="https://ziii.com.mx/logos/1ZIIIlogo.png"
                   alt="ZIII Logo"
                   width={28}
                   height={28}
